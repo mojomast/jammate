@@ -114,7 +114,12 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     const float outGain = juce::Decibels::decibelsToGain (pOutputGain->load());
     const bool ampOn = pAmpOn->load() > 0.5f;
 
-    // Cadeia mono: o canal 0 é a fonte (guitarra); o resultado é duplicado.
+    // Cadeia mono: somar as entradas no canal 0 — a guitarra pode estar em
+    // qualquer entrada da interface (ex.: instrumento na entrada 2). Para
+    // fonte única a soma é transparente.
+    for (int ch = 1; ch < numIn; ++ch)
+        buffer.addFrom (0, 0, buffer, ch, 0, n);
+
     buffer.applyGain (0, 0, n, inGain);
     inputPeak.store (buffer.getMagnitude (0, 0, n));
 
