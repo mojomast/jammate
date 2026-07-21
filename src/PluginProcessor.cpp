@@ -1,11 +1,19 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <NAM/get_dsp.h>
+
 GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
+    // Smoke test da Fase 1: prova que o NAM Core compila e linka (a chamada é
+    // externa, então não pode ser eliminada pelo compilador mesmo em Release).
+    // Chamada fora da thread de áudio; o carregamento real de modelos é a Fase 2.
+    [[maybe_unused]] const auto namSupport =
+        nam::is_version_supported (nam::LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
+    jassert (namSupport == nam::Supported::YES);
 }
 
 void GuitarRigNAMProcessor::prepareToPlay (double, int)

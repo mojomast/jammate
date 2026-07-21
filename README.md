@@ -2,7 +2,7 @@
 
 Amp sim pessoal de guitarra (Standalone + VST3) baseado em [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) e JUCE 8.
 
-**Estado atual: Fase 0** — plugin passthrough (o sinal entra e sai limpo). O NAM Core está clonado e pinado (v0.5.4), mas ainda não integrado ao build.
+**Estado atual: Fase 1** — o NeuralAmpModelerCore (v0.5.4) compila e linka no plugin como static lib (`nam_core`, C++20, com fast-path A2 e `NAM_SAMPLE_FLOAT`), verificado por um smoke test no construtor do processor. O áudio ainda é passthrough; carregamento de modelos `.nam` e DSP real são a Fase 2.
 
 ## Requisitos
 

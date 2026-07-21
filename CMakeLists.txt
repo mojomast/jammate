@@ -5,9 +5,51 @@ project(GuitarRigNAM VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# NOTA: third_party/NeuralAmpModelerCore é apenas clonado/pinado nesta fase.
-# A integração de build do NAM Core é a Fase 1 — não adicionar aqui ainda.
 add_subdirectory(third_party/JUCE)
+
+# --- NeuralAmpModelerCore (Fase 1: integração de build) -----------------------
+# O CMakeLists do Core é voltado às ferramentas/testes dele e não é consumível
+# via add_subdirectory; compilamos os fontes diretamente numa static lib,
+# como faz o NeuralAmpModelerPlugin oficial. Lista de fontes pinada ao v0.5.4.
+set(NAM_CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/NeuralAmpModelerCore")
+
+add_library(nam_core STATIC
+    ${NAM_CORE_DIR}/NAM/activations.cpp
+    ${NAM_CORE_DIR}/NAM/container.cpp
+    ${NAM_CORE_DIR}/NAM/conv1d.cpp
+    ${NAM_CORE_DIR}/NAM/convnet.cpp
+    ${NAM_CORE_DIR}/NAM/dsp.cpp
+    ${NAM_CORE_DIR}/NAM/get_dsp.cpp
+    ${NAM_CORE_DIR}/NAM/linear.cpp
+    ${NAM_CORE_DIR}/NAM/lstm.cpp
+    ${NAM_CORE_DIR}/NAM/ring_buffer.cpp
+    ${NAM_CORE_DIR}/NAM/util.cpp
+    ${NAM_CORE_DIR}/NAM/wavenet/a2_fast.cpp
+    ${NAM_CORE_DIR}/NAM/wavenet/model.cpp
+    ${NAM_CORE_DIR}/NAM/wavenet/slimmable.cpp)
+
+# O Core exige C++20 (upstream: target_compile_features cxx_std_20).
+target_compile_features(nam_core PRIVATE cxx_std_20)
+
+# SYSTEM: suprime warnings dos headers de terceiros nos TUs do plugin
+# (os warning flags recomendados do JUCE não valem para código que não é nosso).
+target_include_directories(nam_core SYSTEM
+    PUBLIC
+        ${NAM_CORE_DIR}
+        ${NAM_CORE_DIR}/Dependencies/eigen
+        ${NAM_CORE_DIR}/Dependencies/nlohmann)
+
+target_compile_definitions(nam_core
+    PUBLIC
+        # float (não double) — precisa ser idêntico na lib e em quem inclui
+        # os headers do NAM, pois muda a assinatura de DSP::process.
+        NAM_SAMPLE_FLOAT
+        # Fast-path otimizado para modelos A2 (padrão do upstream).
+        NAM_ENABLE_A2_FAST
+    PRIVATE
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN)
+# -----------------------------------------------------------------------------
 
 juce_add_plugin(GuitarRigNAM
     COMPANY_NAME "Rapha"
@@ -52,6 +94,7 @@ endif()
 
 target_link_libraries(GuitarRigNAM
     PRIVATE
+        nam_core
         juce::juce_audio_utils
         juce::juce_audio_devices
         juce::juce_audio_processors
