@@ -1,0 +1,6 @@
+build/
+out/
+.vs/
+*.user
+CMakeUserPresets.json
+third_party/asiosdk/
