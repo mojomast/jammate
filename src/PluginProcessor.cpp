@@ -1,62 +1,258 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <NAM/dsp.h>
 #include <NAM/get_dsp.h>
+
+#include <filesystem>
+
+namespace
+{
+constexpr auto* kParamInputGain = "inputGain";
+constexpr auto* kParamOutputGain = "outputGain";
+constexpr auto* kParamAmpOn = "ampOn";
+constexpr auto* kStateModelPath = "modelPath";
+} // namespace
+
+juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::createParameterLayout()
+{
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { kParamInputGain, 1 }, "Input Gain",
+        juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("dB")));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { kParamOutputGain, 1 }, "Output Level",
+        juce::NormalisableRange<float> (-40.0f, 12.0f, 0.1f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("dB")));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { kParamAmpOn, 1 }, "Amp On", true));
+
+    return layout;
+}
 
 GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
-                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+      apvts (*this, nullptr, "GuitarRigNAM", createParameterLayout())
 {
-    // Smoke test da Fase 1: prova que o NAM Core compila e linka (a chamada é
-    // externa, então não pode ser eliminada pelo compilador mesmo em Release).
-    // Chamada fora da thread de áudio; o carregamento real de modelos é a Fase 2.
-    [[maybe_unused]] const auto namSupport =
-        nam::is_version_supported (nam::LATEST_FULLY_SUPPORTED_NAM_FILE_VERSION);
-    jassert (namSupport == nam::Supported::YES);
+    pInputGain = apvts.getRawParameterValue (kParamInputGain);
+    pOutputGain = apvts.getRawParameterValue (kParamOutputGain);
+    pAmpOn = apvts.getRawParameterValue (kParamAmpOn);
 }
 
-void GuitarRigNAMProcessor::prepareToPlay (double, int)
+GuitarRigNAMProcessor::~GuitarRigNAMProcessor()
 {
-    // Nada a preparar na Fase 0 (passthrough).
+    loaderPool.removeAllJobs (true, 5000);
+    delete pendingModel.exchange (nullptr);
+    delete retiredModel.exchange (nullptr);
+}
+
+void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{
+    hostSampleRate.store (sampleRate);
+    preparedBlockSize.store (samplesPerBlock);
+    monoScratch.setSize (1, samplesPerBlock);
+
+    // prepareToPlay não é concorrente com processBlock, então é seguro tocar
+    // no modelo ativo aqui. Reset() faz prewarm — caro, mas permitido fora do
+    // caminho real-time.
+    if (activeModel != nullptr)
+        activeModel->Reset (sampleRate, samplesPerBlock);
+
+    // Um modelo já publicado mas ainda não consumido foi preparado com o SR
+    // antigo; o loader não toca mais nele depois de publicar, então podemos
+    // prepará-lo de novo aqui.
+    if (auto* p = pendingModel.load())
+        p->Reset (sampleRate, samplesPerBlock);
 }
 
 void GuitarRigNAMProcessor::releaseResources()
 {
+    // Fora do caminho real-time: bom momento para coletar um modelo aposentado.
+    delete retiredModel.exchange (nullptr);
 }
 
 bool GuitarRigNAMProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-    const auto& in  = layouts.getMainInputChannelSet();
+    const auto& in = layouts.getMainInputChannelSet();
     const auto& out = layouts.getMainOutputChannelSet();
 
-    // Aceitos: mono->mono, stereo->stereo, mono->stereo.
-    if (in == juce::AudioChannelSet::mono()   && out == juce::AudioChannelSet::mono())   return true;
+    if (in == juce::AudioChannelSet::mono() && out == juce::AudioChannelSet::mono()) return true;
     if (in == juce::AudioChannelSet::stereo() && out == juce::AudioChannelSet::stereo()) return true;
-    if (in == juce::AudioChannelSet::mono()   && out == juce::AudioChannelSet::stereo()) return true;
+    if (in == juce::AudioChannelSet::mono() && out == juce::AudioChannelSet::stereo()) return true;
 
     return false;
 }
 
-// REGRA INEGOCIÁVEL (vale para todo o projeto, desta fase em diante):
-// dentro de processBlock é PROIBIDO alocar memória, usar locks, fazer I/O,
-// logar ou chamar rede. Este callback roda na thread de áudio em tempo real;
-// qualquer operação de duração não determinística causa glitches/dropouts.
+// REGRA INEGOCIÁVEL: dentro de processBlock é PROIBIDO alocar memória, usar
+// locks, fazer I/O, logar ou chamar rede. A troca de modelo abaixo usa apenas
+// atomics; delete acontece nas outras threads.
 void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
 
-    const int numIn  = getTotalNumInputChannels();
+    const int n = buffer.getNumSamples();
+    const int numIn = getTotalNumInputChannels();
     const int numOut = getTotalNumOutputChannels();
 
-    // Passthrough: os canais de entrada já estão no buffer compartilhado.
-    // Caso mono->stereo: duplicar o canal 0 no canal 1.
-    if (numIn == 1 && numOut >= 2)
-        buffer.copyFrom (1, 0, buffer, 0, 0, buffer.getNumSamples());
+    // Consumir modelo recém-carregado, aposentando o anterior. Só há um
+    // pendente por vez (o loader garante que retiredModel está vazio antes
+    // de publicar), então o store abaixo nunca sobrescreve um aposentado.
+    if (auto* p = pendingModel.exchange (nullptr))
+    {
+        retiredModel.store (activeModel.release());
+        activeModel.reset (p);
+        modelIsActive.store (true);
+    }
 
-    // Limpar canais de saída excedentes que não receberam sinal.
+    const float inGain = juce::Decibels::decibelsToGain (pInputGain->load());
+    const float outGain = juce::Decibels::decibelsToGain (pOutputGain->load());
+    const bool ampOn = pAmpOn->load() > 0.5f;
+
+    // Cadeia mono: o canal 0 é a fonte (guitarra); o resultado é duplicado.
+    buffer.applyGain (0, 0, n, inGain);
+    inputPeak.store (buffer.getMagnitude (0, 0, n));
+
+    if (activeModel != nullptr && ampOn)
+    {
+        float* io = buffer.getWritePointer (0);
+        float* scratch = monoScratch.getWritePointer (0);
+        const int maxChunk = monoScratch.getNumSamples();
+
+        // O host pode, raramente, mandar blocos maiores que o preparado;
+        // processar em pedaços mantém o contrato do Reset(maxBufferSize).
+        for (int pos = 0; pos < n; pos += maxChunk)
+        {
+            const int len = juce::jmin (maxChunk, n - pos);
+            float* in = io + pos;
+            activeModel->process (&in, &scratch, len);
+            juce::FloatVectorOperations::copy (io + pos, scratch, len);
+        }
+    }
+
+    buffer.applyGain (0, 0, n, outGain);
+
+    if (numOut >= 2)
+        buffer.copyFrom (1, 0, buffer, 0, 0, n);
+
+    outputPeak.store (buffer.getMagnitude (0, 0, n));
+
     for (int ch = juce::jmax (numIn, 2); ch < numOut; ++ch)
-        buffer.clear (ch, 0, buffer.getNumSamples());
+        buffer.clear (ch, 0, n);
+}
+
+//==============================================================================
+void GuitarRigNAMProcessor::loadModelAsync (const juce::File& file)
+{
+    loading.store (true);
+
+    loaderPool.addJob ([this, file]
+    {
+        std::unique_ptr<nam::DSP> model;
+        juce::String error;
+
+        try
+        {
+            const auto path = std::filesystem::u8path (file.getFullPathName().toRawUTF8());
+            model = nam::get_dsp (path);
+        }
+        catch (const std::exception& e)
+        {
+            error = juce::String::fromUTF8 (e.what());
+        }
+        catch (...)
+        {
+            error = "Falha desconhecida ao carregar o modelo";
+        }
+
+        if (model != nullptr && (model->NumInputChannels() != 1 || model->NumOutputChannels() != 1))
+        {
+            error = "Somente captures mono (1 in / 1 out) sao suportados";
+            model = nullptr;
+        }
+
+        if (model == nullptr)
+        {
+            const juce::ScopedLock sl (modelInfoLock);
+            loadError = error.isNotEmpty() ? error : "Arquivo .nam invalido";
+            loading.store (false);
+            return;
+        }
+
+        // Prepara (incl. prewarm) ANTES de publicar — a thread de áudio recebe
+        // o modelo pronto para uso.
+        model->Reset (hostSampleRate.load(), preparedBlockSize.load());
+
+        {
+            const juce::ScopedLock sl (modelInfoLock);
+            modelName = file.getFileNameWithoutExtension();
+            modelPath = file.getFullPathName();
+            modelExpectedSampleRate = model->GetExpectedSampleRate();
+            loadError.clear();
+        }
+
+        // Coletar um aposentado antigo garante a invariante de "no máximo um
+        // aposentado por vez" antes de publicar o novo modelo.
+        delete retiredModel.exchange (nullptr);
+        delete pendingModel.exchange (model.release()); // descarta pendente não consumido
+
+        loading.store (false);
+    });
+}
+
+juce::String GuitarRigNAMProcessor::getModelName() const
+{
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelName;
+}
+
+juce::String GuitarRigNAMProcessor::getModelPath() const
+{
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelPath;
+}
+
+juce::String GuitarRigNAMProcessor::getLoadError() const
+{
+    const juce::ScopedLock sl (modelInfoLock);
+    return loadError;
+}
+
+double GuitarRigNAMProcessor::getModelExpectedSampleRate() const
+{
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelExpectedSampleRate;
+}
+
+//==============================================================================
+void GuitarRigNAMProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+    auto state = apvts.copyState();
+    state.setProperty (kStateModelPath, getModelPath(), nullptr);
+
+    if (auto xml = state.createXml())
+        copyXmlToBinary (*xml, destData);
+}
+
+void GuitarRigNAMProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    if (auto xml = getXmlFromBinary (data, sizeInBytes))
+    {
+        auto state = juce::ValueTree::fromXml (*xml);
+        if (! state.isValid())
+            return;
+
+        apvts.replaceState (state);
+
+        const juce::File modelFile (state.getProperty (kStateModelPath, "").toString());
+        if (modelFile.existsAsFile())
+            loadModelAsync (modelFile);
+    }
 }
 
 juce::AudioProcessorEditor* GuitarRigNAMProcessor::createEditor()
@@ -64,17 +260,6 @@ juce::AudioProcessorEditor* GuitarRigNAMProcessor::createEditor()
     return new GuitarRigNAMEditor (*this);
 }
 
-void GuitarRigNAMProcessor::getStateInformation (juce::MemoryBlock&)
-{
-    // Sem estado na Fase 0.
-}
-
-void GuitarRigNAMProcessor::setStateInformation (const void*, int)
-{
-    // Sem estado na Fase 0.
-}
-
-// Fábrica exigida pelos wrappers de plugin do JUCE.
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new GuitarRigNAMProcessor();

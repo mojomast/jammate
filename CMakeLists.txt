@@ -67,6 +67,10 @@ target_sources(GuitarRigNAM
         src/PluginProcessor.cpp
         src/PluginEditor.cpp)
 
+# Fontes usam literais UTF-8; sem /utf-8 o MSVC assume codepage 1252 e
+# corrompe os acentos na UI.
+target_compile_options(GuitarRigNAM PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
+
 target_compile_definitions(GuitarRigNAM
     PUBLIC
         JUCE_WASAPI=1
@@ -94,7 +98,11 @@ endif()
 
 target_link_libraries(GuitarRigNAM
     PRIVATE
-        nam_core
+        # WHOLE_ARCHIVE é obrigatório: as arquiteturas do NAM se registram via
+        # inicializadores estáticos (ConfigParserHelper) em objetos que nada
+        # referencia — sem isso o linker os descarta e get_dsp() falha com
+        # "No config parser registered for architecture".
+        "$<LINK_LIBRARY:WHOLE_ARCHIVE,nam_core>"
         juce::juce_audio_utils
         juce::juce_audio_devices
         juce::juce_audio_processors

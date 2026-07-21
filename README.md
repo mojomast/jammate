@@ -2,7 +2,16 @@
 
 Amp sim pessoal de guitarra (Standalone + VST3) baseado em [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) e JUCE 8.
 
-**Estado atual: Fase 1** — o NeuralAmpModelerCore (v0.5.4) compila e linka no plugin como static lib (`nam_core`, C++20, com fast-path A2 e `NAM_SAMPLE_FLOAT`), verificado por um smoke test no construtor do processor. O áudio ainda é passthrough; carregamento de modelos `.nam` e DSP real são a Fase 2.
+**Estado atual: Fase 2** — o plugin carrega captures `.nam` (WaveNet/A2, LSTM, ConvNet) e processa o áudio de verdade:
+
+- Botão **CARREGAR CAPTURE NAM** no cartão do amp abre um seletor de `.nam`; o carregamento (incl. prewarm) roda numa thread de fundo e o modelo é trocado na thread de áudio sem glitch (troca lock-free por atomics; nunca há alocação/`delete` no `processBlock`).
+- Cadeia mono: canal 0 → input gain → NAM → output level → duplicado para stereo.
+- Knobs **GAIN** (entrada, ±24 dB) e **LEVEL** (saída, −40..+12 dB), LED de bypass do amp, medidores IN/OUT, barra de status com sample rate/buffer.
+- O caminho do capture e os parâmetros são salvos no estado do plugin (o capture recarrega ao reabrir).
+- UI conforme o design do projeto (claude.ai/design), canvas lógico 1100×700 escalado — janela redimensionável com aspecto travado.
+- Sem resampling ainda: se o capture espera 48 kHz, rode a interface em 48 kHz (a barra de status avisa). Tone Store, afinador e cadeia de pedais/efeitos são fases futuras.
+
+Modelos de exemplo para teste: `third_party/NeuralAmpModelerCore/example_models/*.nam`.
 
 ## Requisitos
 
