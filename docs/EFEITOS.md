@@ -1,6 +1,6 @@
 # 🎛️ Efeitos — fontes e referências
 
-Cada efeito do GuitarRig NAM tem três "camadas" de origem, documentadas aqui para
+Cada efeito do PedalForge NAM tem três "camadas" de origem, documentadas aqui para
 nunca perder a rastreabilidade:
 
 1. **Inspiração clássica** — o pedal/equipamento cujo caráter a variação persegue;

@@ -16,7 +16,7 @@ botão que alterna **INSTALAR ⇄ DESINSTALAR**:
   **sem precisar de administrador**)
 - **Desinstalar**: solta o plugin dos slots da cadeia, espera o módulo
   descarregar e apaga exatamente os bundles registrados no manifesto
-  (`Documentos\GuitarRig NAM\plugins.json`); plugins instalados na pasta do
+  (`Documentos\PedalForge NAM\plugins.json`); plugins instalados na pasta do
   sistema (pelo script/admin) aparecem como instalados mas só podem ser
   removidos com admin
 
@@ -35,6 +35,26 @@ oficial no GitHub** de cada projeto quando não.
 | **Dragonfly Reverb** | 3.2.10 | Hall, Room, Plate e Early Reflections — reverbs muito acima do interno | GPLv3 | [github.com/michaelwillis/dragonfly-reverb](https://github.com/michaelwillis/dragonfly-reverb) |
 | **Airwindows Consolidated** | 2026-07-19 | ~400 efeitos num só plugin com browser (tape, console, saturação…) | MIT | [github.com/baconpaul/airwin2rack](https://github.com/baconpaul/airwin2rack) |
 | **Zam Plugins** | 4.5 | ZamTube, ZamComp(X2), ZamEQ2, ZaMaximX2, ZamGate… | GPLv2+ | [github.com/zamaudio/zam-plugins](https://github.com/zamaudio/zam-plugins) |
+
+## Pedais open source no catálogo embutido (aba Plugins)
+
+Além das coleções acima, o catálogo do app inclui estes pedais (todos GPLv3,
+grátis, com permissão de download):
+
+| Plugin | Tipo | Instalação |
+|---|---|---|
+| **AIDA-X** 1.1.0 | player neural (pedais/amps) | zip — direto pelo app, sem admin |
+| **Fire** 1.5.0 | distorção multibanda | zip — direto pelo app |
+| **Wolf Shaper** 1.0.2 | waveshaper | zip — direto pelo app |
+| **PeakEater** 0.8.2 | clipper | zip — direto pelo app |
+| **BYOD** 1.3.0 | pedalboard modular (Chowdsp) | o app baixa e abre o instalador oficial |
+| **ChowCentaur** 1.4.0 | Klon Centaur neural | instalador oficial |
+| **ChowTapeModel** 2.11.4 | fita analógica | instalador oficial |
+| **ChowPhaser** 1.1.1 | phaser | instalador oficial |
+| **TS-M1N3** 1.2.0 | Tube Screamer neural (GuitarML) | instalador oficial |
+| **Proteus** 1.2 | player neural (GuitarML) | instalador oficial |
+| **Valentine** 1.0.1 | compressor | instalador oficial |
+| **Schrammel OJD** · **Temper** · **Swanky Amp** | overdrive · saturação · amp | site oficial (sem release direto) |
 
 ### Instalação manual (sem binário Windows no GitHub)
 

@@ -53,7 +53,7 @@ target_compile_definitions(nam_core
 
 juce_add_plugin(GuitarRigNAM
     COMPANY_NAME "Rapha"
-    PRODUCT_NAME "GuitarRig NAM"
+    PRODUCT_NAME "PedalForge NAM"
     PLUGIN_MANUFACTURER_CODE Raph
     PLUGIN_CODE Grnm
     FORMATS Standalone VST3

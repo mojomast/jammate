@@ -1,4 +1,4 @@
-# 🎸 GuitarRig NAM
+# 🎸 PedalForge NAM
 
 **Amp sim pessoal para guitarra** — Standalone + VST3, baseado em [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) (captures neurais de amplificadores reais) e JUCE 8, com loja integrada ao [TONE3000](https://www.tone3000.com).
 
@@ -58,7 +58,7 @@ cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
 
-Artefatos em `build\GuitarRigNAM_artefacts\Release\` (`Standalone\GuitarRig NAM.exe` e `VST3\GuitarRig NAM.vst3`).
+Artefatos em `build\GuitarRigNAM_artefacts\Release\` (`Standalone\PedalForge NAM.exe` e `VST3\PedalForge NAM.vst3`).
 
 ### ASIO (recomendado)
 
@@ -76,10 +76,10 @@ A API exige uma chave própria (grátis):
 
 1. Crie conta em [tone3000.com](https://www.tone3000.com) → Settings → API Keys
 2. Registre o redirect `http://localhost:53682/callback`
-3. Cole a chave (`t3k_pub_…`) em `Documentos\GuitarRig NAM\tone3000.json` (o app cria o template)
+3. Cole a chave (`t3k_pub_…`) em `Documentos\PedalForge NAM\tone3000.json` (o app cria o template)
 4. No app: Tone Store → **Conectar TONE3000**
 
-> ⚠️ **Segurança**: `tone3000.json` guarda sua chave e o refresh token da sua conta. Ele vive em `Documentos\GuitarRig NAM\` — **fora deste repositório** — e nunca deve ser commitado em lugar nenhum.
+> ⚠️ **Segurança**: `tone3000.json` guarda sua chave e o refresh token da sua conta. Ele vive em `Documentos\PedalForge NAM\` — **fora deste repositório** — e nunca deve ser commitado em lugar nenhum.
 
 ## 📁 Estrutura
 
@@ -93,7 +93,7 @@ third_party/JUCE            submódulo pinado em 8.0.15 (necessário p/ build)
 third_party/NeuralAmpModelerCore  submódulo pinado em v0.5.4, suporte A2 (necessário p/ build)
 ```
 
-Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `IRs/`, `Presets/`, `tone3000.json`.
+Dados do usuário (fora do repo): `Documentos\PedalForge NAM\` — `Captures/`, `IRs/`, `Presets/`, `tone3000.json`.
 
 ## 🗺️ Roadmap
 
@@ -119,7 +119,7 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 
 **Fase 9 — efeitos P3 (concluída):**
 - [x] Cartão **Pitch**: octaver granular de 2 cabeças (Oitava ↓/↑, Quinta, Detune) com MIX/LEVEL — validado headless (440 Hz → 220/660/880 Hz)
-- [x] Cartão **Looper**: até 60 s, REC → fecha e toca → overdub, PLAY/STOP, LIMPAR e **export WAV** (`Documentos\GuitarRig NAM\Loops`)
+- [x] Cartão **Looper**: até 60 s, REC → fecha e toca → overdub, PLAY/STOP, LIMPAR e **export WAV** (`Documentos\PedalForge NAM\Loops`)
 - [x] Cartão **Limiter** brickwall no fim da cadeia com barra de gain reduction + aviso **CLIP** no medidor OUT
 
 ![Efeitos P3](docs/screenshots/efeitos-p3.png)
@@ -162,8 +162,14 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 - [x] **Medidores com peak-hold** + microinterações (hover nos `+`/`✕`, cursor de mãozinha)
 - [x] **Drag-and-drop de arquivos**: arraste `.nam` no amp, IR no cab e `.vst3` no slot externo (com realce do alvo)
 - [x] **Afinador com MUTE** (silencia a saída enquanto afina) · delay/reverb estéreo (desde a fase 7)
-- [x] **Favoritos ★ no TONE3000** (persistidos + filtro "Só ★") · **A/B de rigs** (compara dois ajustes completos) · **Gravador rápido** (WAV 24-bit da saída em `Documentos\GuitarRig NAM\Gravações`)
+- [x] **Favoritos ★ no TONE3000** (persistidos + filtro "Só ★") · **A/B de rigs** (compara dois ajustes completos) · **Gravador rápido** (WAV 24-bit da saída em `Documentos\PedalForge NAM\Gravações`)
 - [x] Correções de UX: relayout imediato ao remover/adicionar cards (sem alvos defasados sob o mouse), relayout adiado durante arrasto de knob
+
+**Fases 16–17 — plugins VST3 externos (concluídas):**
+- [x] **Até 8 slots** de plugin VST3 na cadeia (na prática o limite é a CPU); menu CARREGAR por categoria
+- [x] Catálogo **embutido** com 18 plugins open source/freeware (Dragonfly, Airwindows, Zam, BYOD, ChowDSP, GuitarML, AIDA-X…): aba **Plugins** no Tone Store com toggle INSTALAR ⇄ DESINSTALAR, progresso e versões pinadas; instalação sem admin (pasta VST3 do usuário) ou via instalador oficial
+- [x] `plugins/` no repo: script alternativo + cópia offline (32 MB) com licenças
+- [x] **Renomeado para PedalForge NAM** (evita confusão com o Guitar Rig da NI); dados antigos migram sozinhos
 
 **Próximos:**
 - [ ] Ideias futuras: minimapa da cadeia, MIDI learn, snapshot de cena por música

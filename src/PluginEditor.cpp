@@ -500,7 +500,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         setupLooperButton (looperClearButton, 3, "Apaga o loop");
         looperClearButton.setButtonText ("LIMPAR");
         setupLooperButton (looperExportButton, 0,
-                           "Salva o loop em WAV (Documentos\\GuitarRig NAM\\Loops)");
+                           "Salva o loop em WAV (Documentos\\PedalForge NAM\\Loops)");
         looperExportButton.setButtonText ("WAV");
         looperExportButton.onClick = [this]
         {
@@ -864,9 +864,11 @@ void ChainView::refreshDynamicText()
     // cards desligados: esmaece knobs/botões (o LED fica aceso p/ religar)
     {
         static const char* dimIds[] = { "gate", "comp", "od", "preeq", "eq", "mod", "delay",
-                                        "reverb", "pitch", "looper", "limiter", "ext", "wah",
-                                        "harm", "octaver", "ringmod", "bitcrush", "slowgear",
-                                        "exciter", "deesser", "tape", "console" };
+                                        "reverb", "pitch", "looper", "limiter", "ext", "ext2",
+                                        "ext3", "ext4", "ext5", "ext6", "ext7", "ext8",
+                                        "wah", "harm", "octaver", "ringmod", "bitcrush",
+                                        "slowgear", "exciter", "deesser", "tape", "console",
+                                        "analyzer" };
         const auto chain = processor.getChainOrder();
         for (auto* id : dimIds)
         {
@@ -896,8 +898,28 @@ void ChainView::refreshDynamicText()
 //==============================================================================
 // Gaveta de efeitos: mapeamentos por id (componentes, param On, nome)
 
+int ChainView::extSlotForId (const juce::String& id)
+{
+    if (id == "ext")
+        return 0;
+    if (id.startsWith ("ext"))
+    {
+        const auto rest = id.substring (3);
+        if (rest.isNotEmpty() && rest.containsOnly ("0123456789")) // exclui "exciter"
+        {
+            const int n = rest.getIntValue();
+            if (n >= 2 && n <= GuitarRigNAMProcessor::maxExtSlots)
+                return n - 1;
+        }
+    }
+    return -1;
+}
+
 juce::Array<juce::Component*> ChainView::componentsForFx (const juce::String& id)
 {
+    if (const int s = extSlotForId (id); s >= 0)
+        return { &extLed[s], extMixKnob[s].get(), &extLoadButton[s], &extUiButton[s],
+                 &extRemoveButton[s] };
     // convenção: o LED é sempre o primeiro (fica fora do esmaecimento)
     if (id == "gate")   return { &gateLed, gateThreshKnob.get(), gateHoldKnob.get(), gateReleaseKnob.get() };
     if (id == "comp")   return { &compLed, compSustainKnob.get(), compAttackKnob.get(), compBlendKnob.get(),
@@ -914,9 +936,6 @@ juce::Array<juce::Component*> ChainView::componentsForFx (const juce::String& id
     if (id == "looper") return { &looperLed, looperLevelKnob.get(), &looperRecButton, &looperPlayButton,
                                  &looperClearButton, &looperExportButton };
     if (id == "limiter") return { &limLed, limCeilKnob.get(), limRelKnob.get() };
-    if (id == "ext")    return { &extLed[0], extMixKnob[0].get(), &extLoadButton[0], &extUiButton[0], &extRemoveButton[0] };
-    if (id == "ext2")   return { &extLed[1], extMixKnob[1].get(), &extLoadButton[1], &extUiButton[1], &extRemoveButton[1] };
-    if (id == "ext3")   return { &extLed[2], extMixKnob[2].get(), &extLoadButton[2], &extUiButton[2], &extRemoveButton[2] };
     if (id == "wah")    return { &wahLed, wahFreqKnob.get(), wahRangeKnob.get(), wahResKnob.get(), &wahModeButton };
     if (id == "harm")   return { &harmLed, harmMixKnob.get(), harmLevelKnob.get(), &harmKeyButton,
                                  &harmScaleButton, &harmIntervalButton };
@@ -932,8 +951,10 @@ juce::Array<juce::Component*> ChainView::componentsForFx (const juce::String& id
     return {};
 }
 
-const char* ChainView::onParamIdForFx (const juce::String& id) const
+juce::String ChainView::onParamIdForFx (const juce::String& id) const
 {
+    if (const int s = extSlotForId (id); s >= 0)
+        return (s == 0 ? juce::String ("ext") : "ext" + juce::String (s + 1)) + "On";
     if (id == "gate") return "gateOn";
     if (id == "comp") return "compOn";
     if (id == "od") return "odOn";
@@ -945,9 +966,6 @@ const char* ChainView::onParamIdForFx (const juce::String& id) const
     if (id == "pitch") return "pitchOn";
     if (id == "looper") return "looperOn";
     if (id == "limiter") return "limOn";
-    if (id == "ext") return "extOn";
-    if (id == "ext2") return "ext2On";
-    if (id == "ext3") return "ext3On";
     if (id == "wah") return "wahOn";
     if (id == "harm") return "harmOn";
     if (id == "octaver") return "octOn";
@@ -959,11 +977,13 @@ const char* ChainView::onParamIdForFx (const juce::String& id) const
     if (id == "tape") return "tapeOn";
     if (id == "console") return "cnsOn";
     if (id == "analyzer") return "anOn";
-    return nullptr;
+    return {};
 }
 
 juce::String ChainView::fxDisplayName (const juce::String& id)
 {
+    if (const int s = extSlotForId (id); s >= 0)
+        return "Plugin VST3 " + juce::String (s + 1);
     if (id == "gate") return "Noise Gate";
     if (id == "comp") return "Compressor";
     if (id == "od") return "Drive";
@@ -975,9 +995,6 @@ juce::String ChainView::fxDisplayName (const juce::String& id)
     if (id == "pitch") return "Pitch";
     if (id == "looper") return "Looper";
     if (id == "limiter") return "Limiter";
-    if (id == "ext") return "Plugin VST3 1";
-    if (id == "ext2") return "Plugin VST3 2";
-    if (id == "ext3") return "Plugin VST3 3";
     if (id == "wah") return "Wah";
     if (id == "harm") return "Harmonizer";
     if (id == "octaver") return "Octaver";
@@ -1019,7 +1036,8 @@ void ChainView::showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea)
         { "Pitch",                 { "pitch", "harm" } },
         { "Modula\xc3\xa7\xc3\xa3o & Cor", { "mod", "exciter", "deesser", "tape", "console" } },
         { "Amb\xc3\xaancia",       { "delay", "reverb" } },
-        { "Extras",                { "ext", "ext2", "ext3", "looper", "analyzer" } },
+        { "Extras",                { "ext", "ext2", "ext3", "ext4", "ext5", "ext6",
+                                     "ext7", "ext8", "looper", "analyzer" } },
     };
 
     const auto order = processor.getChainOrder();
@@ -1362,7 +1380,7 @@ void ChainView::mouseUp (const juce::MouseEvent&)
 int ChainView::effectCardWidth (const juce::String& id) const
 {
     if (id == "eq" || id == "preeq" || id == "looper" || id == "harm" || id == "analyzer"
-        || id == "ext" || id == "ext2" || id == "ext3")
+        || extSlotForId (id) >= 0)
         return 176;
     return 132;
 }
@@ -1380,9 +1398,7 @@ juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
     if (id == "pitch") return pitchB;
     if (id == "looper") return looperB;
     if (id == "limiter") return limB;
-    if (id == "ext") return extB[0];
-    if (id == "ext2") return extB[1];
-    if (id == "ext3") return extB[2];
+    if (const int s = extSlotForId (id); s >= 0) return extB[s];
     if (id == "wah") return wahB;
     if (id == "harm") return harmB;
     if (id == "octaver") return octB;
@@ -1414,7 +1430,8 @@ void ChainView::resized()
     // cadeia; os presentes reaparecem ao serem posicionados abaixo
     static const char* allFxIds[] = { "gate", "comp", "od", "preeq", "eq", "mod", "delay",
                                       "reverb", "pitch", "looper", "limiter", "ext", "ext2",
-                                      "ext3", "wah", "harm", "octaver", "ringmod", "bitcrush",
+                                      "ext3", "ext4", "ext5", "ext6", "ext7", "ext8",
+                                      "wah", "harm", "octaver", "ringmod", "bitcrush",
                                       "slowgear", "exciter", "deesser", "tape", "console",
                                       "analyzer" };
     const auto chain = processor.getChainOrder();
@@ -1425,7 +1442,8 @@ void ChainView::resized()
             c->setVisible (present);
     }
     gateB = odB = eqB = delayB = revB = compB = preEqB = pitchB = looperB = limB = {};
-    extB[0] = extB[1] = extB[2] = {};
+    for (auto& b : extB)
+        b = {};
     wahB = harmB = octB = rmB = bcB = sgB = excB = dsB = tapeB = cnsB = anB = {};
 
     // posiciona os cartões seguindo a ordem dinâmica da cadeia
@@ -1477,9 +1495,7 @@ void ChainView::resized()
             else if (id == "pitch") pitchB = box;
             else if (id == "looper") looperB = box;
             else if (id == "limiter") limB = box;
-            else if (id == "ext") extB[0] = box;
-            else if (id == "ext2") extB[1] = box;
-            else if (id == "ext3") extB[2] = box;
+            else if (const int es = extSlotForId (id); es >= 0) extB[es] = box;
             else if (id == "wah") wahB = box;
             else if (id == "harm") harmB = box;
             else if (id == "octaver") octB = box;
@@ -2435,34 +2451,7 @@ void ChainView::paint (juce::Graphics& g)
         g.drawRoundedRectangle (ghost, 16.0f, 1.5f);
         g.setFont (ui::uiFont (13.0f, true));
         g.setColour (ui::textBright);
-        juce::String title = draggingId == "gate" ? juce::String ("Noise Gate")
-                             : draggingId == "od" ? juce::String ("Overdrive")
-                             : draggingId == "eq" ? juce::String ("EQ")
-                             : draggingId == "delay" ? juce::String ("Delay")
-                             : draggingId == "comp" ? juce::String ("Compressor")
-                             : draggingId == "pitch" ? juce::String ("Pitch")
-                             : draggingId == "looper" ? juce::String ("Looper")
-                             : draggingId == "limiter" ? juce::String ("Limiter")
-                             : draggingId == "ext" ? juce::String ("Plugin VST3 1")
-                             : draggingId == "ext2" ? juce::String ("Plugin VST3 2")
-                             : draggingId == "ext3" ? juce::String ("Plugin VST3 3")
-                             : draggingId == "wah" ? juce::String ("Wah")
-                             : draggingId == "harm" ? juce::String ("Harmonizer")
-                             : draggingId == "octaver" ? juce::String ("Octaver")
-                             : draggingId == "ringmod" ? juce::String ("Ring Mod")
-                             : draggingId == "bitcrush" ? juce::String ("Bitcrusher")
-                             : draggingId == "slowgear" ? juce::String ("Slow Gear")
-                             : draggingId == "exciter" ? juce::String ("Exciter")
-                             : draggingId == "deesser" ? juce::String ("De-esser")
-                             : draggingId == "tape" ? juce::String ("Tape")
-                             : draggingId == "console" ? juce::String ("Console")
-                             : draggingId == "analyzer" ? juce::String ("Analisador")
-                             : draggingId == "mod"
-                                   ? juce::String (juce::CharPointer_UTF8 ("Modula\xc3\xa7\xc3\xa3o"))
-                             : draggingId == "preeq"
-                                   ? juce::String (juce::CharPointer_UTF8 ("Pr\xc3\xa9-EQ"))
-                                   : juce::String ("Reverb");
-        g.drawText (title, ghost.reduced (12.0f).removeFromTop (30.0f),
+        g.drawText (fxDisplayName (draggingId), ghost.reduced (12.0f).removeFromTop (30.0f),
                     juce::Justification::centredLeft);
     }
 }
@@ -2574,10 +2563,10 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (muteChip);
 
-    // GRAVADOR rápido: WAV da saída em Documentos\GuitarRig NAM\Gravações
+    // GRAVADOR rápido: WAV da saída em Documentos\PedalForge NAM\Gravações
     recChip.getProperties().set ("chip", true);
     recChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Grava a sa\xc3\xad""da em WAV (Documentos\\GuitarRig NAM\\Grava\xc3\xa7\xc3\xb5""es)")));
+        "Grava a sa\xc3\xad""da em WAV (Documentos\\PedalForge NAM\\Grava\xc3\xa7\xc3\xb5""es)")));
     recChip.setMouseClickGrabsKeyboardFocus (false);
     recChip.onClick = [this]
     {
@@ -2780,7 +2769,7 @@ void RigContent::paint (juce::Graphics& g)
 
         g.setFont (ui::uiFont (16.0f, true));
         g.setColour (ui::textBright);
-        g.drawText ("GuitarRig", 56, 17, 90, 26, juce::Justification::centredLeft);
+        g.drawText ("PedalForge", 56, 17, 110, 26, juce::Justification::centredLeft);
 
         auto badge = juce::Rectangle<float> (146.0f, 22.0f, 40.0f, 17.0f);
         g.setColour (ui::accent.withAlpha (0.35f));

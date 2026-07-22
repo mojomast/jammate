@@ -53,7 +53,7 @@ juce::String Tone3000Client::redirectUri()
 juce::File Tone3000Client::dataDir()
 {
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("GuitarRig NAM");
+                   .getChildFile ("PedalForge NAM");
     dir.createDirectory();
     return dir;
 }
@@ -213,7 +213,7 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
                 "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
                 "<html><body style=\"background:#141517;color:#e5e6e8;font-family:sans-serif;"
                 "display:flex;align-items:center;justify-content:center;height:100vh\">"
-                "<h2>Autorizado &mdash; volte ao GuitarRig NAM.</h2></body></html>";
+                "<h2>Autorizado &mdash; volte ao PedalForge NAM.</h2></body></html>";
             conn->write (reply.toRawUTF8(), (int) reply.getNumBytesAsUTF8());
             conn->close();
             request = thisRequest;

@@ -27,6 +27,31 @@ inline constexpr double PI = 3.14159265358979323846;
 
 namespace
 {
+// Migração do rename "GuitarRig NAM" -> "PedalForge NAM": roda na carga do
+// módulo (antes do standalone ler o settings) e move a pasta de dados do
+// usuário e o arquivo de settings antigos, se os novos ainda não existirem.
+bool migrateOldAppData()
+{
+    const auto docs = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+    const auto oldDocs = docs.getChildFile ("GuitarRig NAM");
+    const auto newDocs = docs.getChildFile ("PedalForge NAM");
+    if (oldDocs.isDirectory() && ! newDocs.exists())
+        oldDocs.moveFileTo (newDocs);
+
+    const auto appData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
+    const auto oldSettings = appData.getChildFile ("GuitarRig NAM")
+                                 .getChildFile ("GuitarRig NAM.settings");
+    const auto newSettingsDir = appData.getChildFile ("PedalForge NAM");
+    const auto newSettings = newSettingsDir.getChildFile ("PedalForge NAM.settings");
+    if (oldSettings.existsAsFile() && ! newSettings.existsAsFile())
+    {
+        newSettingsDir.createDirectory();
+        oldSettings.copyFileTo (newSettings);
+    }
+    return true;
+}
+const bool dataMigrated = migrateOldAppData();
+
 constexpr auto* kParamInputGain = "inputGain";
 constexpr auto* kParamOutputGain = "outputGain";
 constexpr auto* kParamAmpOn = "ampOn";
@@ -465,7 +490,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::ParameterID { "anOn", 1 }, "Analyzer On", true));
 
     // slots de plugin VST3 externo (slot 1 mantém os ids legados)
-    for (int s = 0; s < 3; ++s)
+    for (int s = 0; s < 8; ++s)
     {
         const auto prefix = s == 0 ? juce::String ("ext") : "ext" + juce::String (s + 1);
         const auto label = s == 0 ? juce::String ("Ext Plugin ")
@@ -1036,6 +1061,11 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
                 case ChainFx::extPlugin:  processExtFx (0, io, n); break;
                 case ChainFx::extPlugin2: processExtFx (1, io, n); break;
                 case ChainFx::extPlugin3: processExtFx (2, io, n); break;
+                case ChainFx::extPlugin4: processExtFx (3, io, n); break;
+                case ChainFx::extPlugin5: processExtFx (4, io, n); break;
+                case ChainFx::extPlugin6: processExtFx (5, io, n); break;
+                case ChainFx::extPlugin7: processExtFx (6, io, n); break;
+                case ChainFx::extPlugin8: processExtFx (7, io, n); break;
                 case ChainFx::wah:      processWahFx (io, n); break;
                 case ChainFx::harm:     processHarmFx (io, n); break;
                 case ChainFx::octaver:  processOctaverFx (io, n); break;
@@ -2112,7 +2142,7 @@ juce::File GuitarRigNAMProcessor::startRecording()
         return {};
 
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("GuitarRig NAM")
+                   .getChildFile ("PedalForge NAM")
                    .getChildFile (juce::String (juce::CharPointer_UTF8 ("Grava\xc3\xa7\xc3\xb5""es")));
     dir.createDirectory();
     const auto stamp = juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H.%M.%S");
@@ -2313,7 +2343,7 @@ juce::File GuitarRigNAMProcessor::exportLoopToWav() const
     copy.copyFrom (0, 0, loopBuf, 0, 0, len);
 
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("GuitarRig NAM")
+                   .getChildFile ("PedalForge NAM")
                    .getChildFile ("Loops");
     dir.createDirectory();
     const auto stamp = juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H.%M.%S");
@@ -2470,6 +2500,11 @@ juce::String GuitarRigNAMProcessor::fxToString (ChainFx fx)
         case ChainFx::analyzer: return "analyzer";
         case ChainFx::extPlugin2: return "ext2";
         case ChainFx::extPlugin3: return "ext3";
+        case ChainFx::extPlugin4: return "ext4";
+        case ChainFx::extPlugin5: return "ext5";
+        case ChainFx::extPlugin6: return "ext6";
+        case ChainFx::extPlugin7: return "ext7";
+        case ChainFx::extPlugin8: return "ext8";
     }
     return "amp";
 }
@@ -2504,7 +2539,10 @@ int GuitarRigNAMProcessor::canonicalRank (int fx)
                                      ChainFx::eq, ChainFx::exciter, ChainFx::deesser,
                                      ChainFx::mod, ChainFx::tape, ChainFx::delay,
                                      ChainFx::reverb, ChainFx::extPlugin, ChainFx::extPlugin2,
-                                     ChainFx::extPlugin3, ChainFx::console,
+                                     ChainFx::extPlugin3, ChainFx::extPlugin4,
+                                     ChainFx::extPlugin5, ChainFx::extPlugin6,
+                                     ChainFx::extPlugin7, ChainFx::extPlugin8,
+                                     ChainFx::console,
                                      ChainFx::analyzer, ChainFx::limiter, ChainFx::looper };
     for (int i = 0; i < (int) std::size (canon); ++i)
         if ((int) canon[i] == fx)
@@ -2964,7 +3002,7 @@ void GuitarRigNAMProcessor::setStateInformation (const void* data, int sizeInByt
 juce::File GuitarRigNAMProcessor::getPresetsDirectory() const
 {
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("GuitarRig NAM")
+                   .getChildFile ("PedalForge NAM")
                    .getChildFile ("Presets");
     dir.createDirectory();
     return dir;

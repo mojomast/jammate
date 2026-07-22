@@ -153,8 +153,10 @@ private:
     /// "+" nos conectores entre cards: {hotspot, índice de inserção}
     std::vector<std::pair<juce::Rectangle<int>, int>> insertSpots() const;
     juce::Array<juce::Component*> componentsForFx (const juce::String& id);
-    const char* onParamIdForFx (const juce::String& id) const;
+    juce::String onParamIdForFx (const juce::String& id) const;
     static juce::String fxDisplayName (const juce::String& id);
+    /// "ext"->0, "ext2".."ext8"->1..7; -1 para qualquer outro id.
+    static int extSlotForId (const juce::String& id);
     static juce::Rectangle<int> removeHotspot (juce::Rectangle<int> cardBox)
     {
         return { cardBox.getRight() - 12 - 18 - 6 - 14, cardBox.getY() + 12, 14, 14 };

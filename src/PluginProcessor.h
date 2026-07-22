@@ -138,9 +138,10 @@ public:
                                pitch, looper, limiter, extPlugin,
                                wah, harm, octaver, ringmod, bitcrush, slowgear,
                                exciter, deesser, tape, console, analyzer,
-                               extPlugin2, extPlugin3 };
-    static constexpr int numChainFx = 26;
-    static constexpr int chainMaxSlots = 32; // expansível para efeitos futuros
+                               extPlugin2, extPlugin3, extPlugin4, extPlugin5,
+                               extPlugin6, extPlugin7, extPlugin8 };
+    static constexpr int numChainFx = 31;
+    static constexpr int chainMaxSlots = 48; // expansível para efeitos futuros
 
     /// Ordem atual como ids ("gate", "od", "amp", "eq", "delay", "reverb").
     juce::StringArray getChainOrder() const;
@@ -166,7 +167,7 @@ public:
     void requestLooperCommand (int cmd) noexcept { looperCmd.store (cmd); }
     double getLooperSeconds() const noexcept;
     double getLooperPosSeconds() const noexcept;
-    /// Grava o loop atual em WAV (Documentos\GuitarRig NAM\Loops). Message
+    /// Grava o loop atual em WAV (Documentos\PedalForge NAM\Loops). Message
     /// thread; retorna o arquivo criado ou {} se não há loop.
     juce::File exportLoopToWav() const;
 
@@ -178,7 +179,8 @@ public:
     // gestão acontece na message thread; a troca da instância no áudio usa o
     // mesmo protocolo pending/retired dos modelos NAM.
 
-    static constexpr int maxExtSlots = 3;
+    // 8 slots em série — na prática o limite vira a CPU, não o número
+    static constexpr int maxExtSlots = 8;
 
     /// Carrega um .vst3 do disco (message thread). stateToRestore opcional
     /// aplica o estado salvo do plugin após a instanciação.

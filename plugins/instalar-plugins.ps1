@@ -1,5 +1,5 @@
 # =============================================================================
-# GuitarRig NAM — instalador dos plugins VST3 recomendados
+# PedalForge NAM — instalador dos plugins VST3 recomendados
 #
 # Uso:  clique-direito > "Executar com o PowerShell"  (pede admin sozinho)
 #       ou:  powershell -ExecutionPolicy Bypass -File instalar-plugins.ps1
@@ -103,6 +103,6 @@ Write-Host "================ RESUMO ================" -ForegroundColor Yellow
 $resumo | ForEach-Object { Write-Host $_ }
 Write-Host ""
 Write-Host "LSP Plugins nao tem binario Windows no GitHub - baixe em https://lsp-plug.in" -ForegroundColor Yellow
-Write-Host "Pronto! Os plugins aparecem no menu CARREGAR VST3 do GuitarRig NAM." -ForegroundColor Green
+Write-Host "Pronto! Os plugins aparecem no menu CARREGAR VST3 do PedalForge NAM." -ForegroundColor Green
 Write-Host ""
 Read-Host "Enter para fechar"

@@ -1,4 +1,4 @@
-# Contribuindo com o GuitarRig NAM
+# Contribuindo com o PedalForge NAM
 
 Obrigado pelo interesse! Este guia cobre o essencial para compilar, mudar e enviar melhorias.
 
@@ -16,7 +16,7 @@ cmake --build build --config Release
 ```
 
 - ASIO é opcional (ver README). O Standalone roda com WASAPI sem nada extra.
-- Rode o Standalone: `build\GuitarRigNAM_artefacts\Release\Standalone\GuitarRig NAM.exe`
+- Rode o Standalone: `build\GuitarRigNAM_artefacts\Release\Standalone\PedalForge NAM.exe`
 
 ## 🗂️ Mapa do código
 
@@ -33,7 +33,7 @@ cmake --build build --config Release
 1. **Real-time safety é inegociável**: dentro de `processBlock` (e de qualquer função chamada por ele) é **proibido** alocar memória, usar locks, fazer I/O, logar ou usar rede. Troca de dados com outras threads = atomics ou mecanismos RT-safe (veja o protocolo pending/retired de troca de modelos).
 2. **Strings com acento**: `juce::String("texto")` interpreta `char*` como **Latin-1**. Todo literal com acento/símbolo deve usar `juce::String (juce::CharPointer_UTF8 ("..."))` ou `juce::String::fromUTF8`. O target compila com `/utf-8`.
 3. **MSVC + lambdas**: `this` em init-capture de lambda aninhada resolve errado no MSVC — use `auto* self = this;` antes. `Component::SafePointer` precisa do argumento de template explícito.
-4. **Segredos**: `tone3000.json` (chave/token do usuário) vive em `Documentos\GuitarRig NAM\` e **jamais** entra no repositório. Nunca commite chaves, tokens ou senhas.
+4. **Segredos**: `tone3000.json` (chave/token do usuário) vive em `Documentos\PedalForge NAM\` e **jamais** entra no repositório. Nunca commite chaves, tokens ou senhas.
 5. **Estilo**: siga o código ao redor (estilo JUCE: 4 espaços, chaves de Allman, `camelCase`). Comentários em PT-BR explicando o *porquê*, não o *o quê*.
 
 ## ✅ Antes de abrir um Pull Request

@@ -797,7 +797,7 @@ juce::String StoreOverlay::formatCount (juce::int64 n) const
 void StoreOverlay::loadFavorites()
 {
     const auto file = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                          .getChildFile ("GuitarRig NAM")
+                          .getChildFile ("PedalForge NAM")
                           .getChildFile ("favoritos.json");
     favIds.clear();
     const auto parsed = juce::JSON::parse (file.loadFileAsString());
@@ -815,7 +815,7 @@ void StoreOverlay::saveFavorites() const
     obj->setProperty ("ids", arr);
 
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("GuitarRig NAM");
+                   .getChildFile ("PedalForge NAM");
     dir.createDirectory();
     dir.getChildFile ("favoritos.json")
         .replaceWithText (juce::JSON::toString (juce::var (obj), true));
@@ -1325,7 +1325,7 @@ void StoreOverlay::paint (juce::Graphics& g)
         g.drawText (juce::CharPointer_UTF8 (
                         "Cat\xc3\xa1logo embutido \xc2\xb7 instala sem administrador em "
                         "%LOCALAPPDATA%\\Programs\\Common\\VST3 \xc2\xb7 "
-                        "registro em Documentos\\GuitarRig NAM\\plugins.json"),
+                        "registro em Documentos\\PedalForge NAM\\plugins.json"),
                     22, 74, W - 44, 28, juce::Justification::centredLeft);
     }
 

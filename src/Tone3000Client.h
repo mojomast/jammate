@@ -12,7 +12,7 @@
 //
 // - Toda a API exige Bearer token obtido via OAuth 2.0 + PKCE; o client_id é a
 //   chave publishable (t3k_pub_...) que o usuário cria em Settings -> API Keys
-//   e configura em Documentos/GuitarRig NAM/tone3000.json, junto com o
+//   e configura em Documentos/PedalForge NAM/tone3000.json, junto com o
 //   redirect http://localhost:53682/callback registrado na mesma tela.
 // - Rede roda num ThreadPool próprio; os callbacks são entregues na message
 //   thread via MessageManager::callAsync.

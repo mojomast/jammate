@@ -128,7 +128,7 @@ private:
     juce::OwnedArray<juce::TextButton> tagChips;   // multi-toggle; entram na query
     juce::TextButton a2Chip { juce::String (juce::CharPointer_UTF8 ("S\xc3\xb3 A2")) };
     bool a2Only = false;
-    // favoritos (★): ids persistidos em Documentos\GuitarRig NAM\favoritos.json
+    // favoritos (★): ids persistidos em Documentos\PedalForge NAM\favoritos.json
     juce::TextButton favChip { juce::String (juce::CharPointer_UTF8 ("S\xc3\xb3 \xe2\x98\x85")) };
     bool favOnly = false;
     juce::StringArray favIds;

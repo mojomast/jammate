@@ -32,7 +32,7 @@ juce::File systemVst3Dir(); // C:\Program Files\Common Files\VST3
 juce::File userVst3Dir();   // %LOCALAPPDATA%\Programs\Common\VST3
 
 bool isInstalled (const Entry&);
-/// Versão registrada no manifesto (Documentos\GuitarRig NAM\plugins.json);
+/// Versão registrada no manifesto (Documentos\PedalForge NAM\plugins.json);
 /// "" se o plugin não foi instalado pelo app.
 juce::String installedVersion (const Entry&);
 /// Bundles gravados no manifesto para este plugin (o que o app instalou).
