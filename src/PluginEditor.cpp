@@ -2916,12 +2916,7 @@ void RigContent::paint (juce::Graphics& g)
 
             const auto err = processor.getLoadError();
             juce::Colour c = ui::textFaint;
-            if (pluginInstallMsg.isNotEmpty())
-            {
-                status = pluginInstallMsg; // download/instalação de plugin
-                c = pluginInstallMsg.startsWith ("Erro") ? ui::red : ui::accent;
-            }
-            else if (err.isNotEmpty())
+            if (err.isNotEmpty())
             {
                 status = "Erro: " + err;
                 c = ui::red;
@@ -3096,10 +3091,6 @@ void RigContent::timerCallback()
     applyEcoSwitchIfNeeded();
     if (ecoNoticeTicks > 0)
         --ecoNoticeTicks;
-
-    // mensagem de instalação de plugin: transiente só depois de concluída
-    if (pluginMsgTicks > 0 && --pluginMsgTicks == 0)
-        pluginInstallMsg.clear();
 
     if (++tunerTick % 3 == 0 && (isTunerOn() || perfMode))
         analyseTuner();
@@ -3349,36 +3340,9 @@ void RigContent::chooseExtPluginFile (int slot)
                               found[i].getFullPathName() == current);
     }
 
-    // catálogo embutido: instalar direto pelo app o que ainda falta
-    // (baixa do release oficial e instala no VST3 do usuário, sem admin)
-    {
-        bool header = false;
-        const auto& cat = plugcat::entries();
-        for (int i = 0; i < (int) cat.size(); ++i)
-        {
-            if (plugcat::isInstalled (cat[(size_t) i]))
-                continue;
-            if (! header)
-            {
-                menu.addSectionHeader (juce::String (juce::CharPointer_UTF8 (
-                    "Instalar recomendados")));
-                header = true;
-            }
-            const auto& e = cat[(size_t) i];
-            if (juce::String (e.url).isNotEmpty())
-                menu.addItem (9100 + i,
-                              juce::String (juce::CharPointer_UTF8 ("\xe2\xac\x87 "))
-                                  + e.name + " " + e.version + " (" + juce::String (e.sizeMB)
-                                  + " MB, " + e.license + ")");
-            else
-                menu.addItem (9100 + i,
-                              juce::String (e.name)
-                                  + juce::String (juce::CharPointer_UTF8 (
-                                      " \xe2\x80\x94 baixar no site\xe2\x80\xa6")));
-        }
-    }
-
     menu.addSeparator();
+    menu.addItem (9100, juce::String (juce::CharPointer_UTF8 (
+                      "Gerenciar plugins (instalar/desinstalar)\xe2\x80\xa6")));
     menu.addItem (9000, juce::String (juce::CharPointer_UTF8 ("Procurar arquivo\xe2\x80\xa6")));
 
     menu.showMenuAsync (juce::PopupMenu::Options(),
@@ -3394,37 +3358,10 @@ void RigContent::chooseExtPluginFile (int slot)
                 return;
             }
 
-            // instalar do catálogo embutido
-            if (result >= 9100 && result < 9100 + (int) plugcat::entries().size())
+            // gerenciador de plugins (aba Plugins do store)
+            if (result == 9100)
             {
-                const auto& e = plugcat::entries()[(size_t) (result - 9100)];
-                if (juce::String (e.url).isEmpty())
-                {
-                    juce::URL (e.homepage).launchInDefaultBrowser();
-                    return;
-                }
-                self->pluginInstallMsg = juce::String (juce::CharPointer_UTF8 ("Baixando "))
-                                         + e.name + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\xa6"));
-                self->pluginMsgTicks = 0; // fica até terminar
-                plugcat::installAsync (
-                    e,
-                    [safe, name = juce::String (e.name)] (int pct)
-                    {
-                        if (safe != nullptr)
-                            safe->pluginInstallMsg =
-                                juce::String (juce::CharPointer_UTF8 ("Baixando "))
-                                + name + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\xa6 "))
-                                + juce::String (pct) + "%";
-                    },
-                    [safe] (bool ok, juce::String msg)
-                    {
-                        if (safe == nullptr)
-                            return;
-                        safe->pluginInstallMsg = (ok ? juce::String (juce::CharPointer_UTF8 ("\xe2\x9c\x93 "))
-                                                     : juce::String ("Erro: "))
-                                                 + msg;
-                        safe->pluginMsgTicks = 150; // ~5 s e some
-                    });
+                self->storeOverlay->openOnPlugins();
                 return;
             }
 

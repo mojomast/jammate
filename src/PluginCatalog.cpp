@@ -56,17 +56,93 @@ static juce::File manifestFile()
 juce::String installedVersion (const Entry& e)
 {
     const auto parsed = juce::JSON::parse (manifestFile().loadFileAsString());
-    return parsed.getProperty (e.id, "").toString();
+    const auto v = parsed.getProperty (e.id, "");
+    if (v.isObject())
+        return v.getProperty ("version", "").toString();
+    return v.toString(); // formato antigo: só a versão
 }
 
-static void writeManifest (const Entry& e)
+juce::StringArray installedBundles (const Entry& e)
+{
+    juce::StringArray out;
+    const auto parsed = juce::JSON::parse (manifestFile().loadFileAsString());
+    const auto v = parsed.getProperty (e.id, "");
+    if (auto* arr = v.getProperty ("bundles", juce::var()).getArray())
+        for (const auto& b : *arr)
+            out.add (b.toString());
+    return out;
+}
+
+static void writeManifest (const Entry& e, const juce::StringArray& bundles)
 {
     auto parsed = juce::JSON::parse (manifestFile().loadFileAsString());
-    auto* obj = parsed.getDynamicObject();
-    juce::var root = obj != nullptr ? parsed : juce::var (new juce::DynamicObject());
-    root.getDynamicObject()->setProperty (e.id, juce::String (e.version));
+    juce::var root = parsed.getDynamicObject() != nullptr
+                         ? parsed
+                         : juce::var (new juce::DynamicObject());
+
+    auto* item = new juce::DynamicObject();
+    item->setProperty ("version", juce::String (e.version));
+    juce::Array<juce::var> arr;
+    for (const auto& b : bundles)
+        arr.add (b);
+    item->setProperty ("bundles", arr);
+
+    root.getDynamicObject()->setProperty (e.id, juce::var (item));
     manifestFile().getParentDirectory().createDirectory();
     manifestFile().replaceWithText (juce::JSON::toString (root, true));
+}
+
+bool canUninstall (const Entry& e)
+{
+    // só desinstalamos o que está na pasta do usuário (sistema exige admin)
+    auto bundles = installedBundles (e);
+    if (bundles.isEmpty())
+        bundles.add (e.checkBundle);
+    for (const auto& b : bundles)
+        if (userVst3Dir().getChildFile (b).exists())
+            return true;
+    return false;
+}
+
+bool uninstall (const Entry& e, juce::String& error)
+{
+    auto bundles = installedBundles (e);
+    if (bundles.isEmpty())
+        bundles.add (e.checkBundle);
+
+    bool anyDeleted = false, anyFailed = false;
+    for (const auto& b : bundles)
+    {
+        auto f = userVst3Dir().getChildFile (b);
+        if (! f.exists())
+            continue;
+        if (f.deleteRecursively())
+            anyDeleted = true;
+        else
+            anyFailed = true; // em uso? (módulo ainda carregado)
+    }
+
+    if (anyFailed)
+    {
+        error = juce::String (juce::CharPointer_UTF8 (
+            "Arquivo em uso \xe2\x80\x94 remova o plugin dos slots e tente de novo"));
+        return false;
+    }
+    if (! anyDeleted)
+    {
+        error = juce::String (juce::CharPointer_UTF8 (
+            "Instalado na pasta do sistema \xe2\x80\x94 remova pelo instalador/admin"));
+        return false;
+    }
+
+    // limpa o manifesto
+    auto parsed = juce::JSON::parse (manifestFile().loadFileAsString());
+    if (auto* obj = parsed.getDynamicObject())
+    {
+        obj->removeProperty (e.id);
+        manifestFile().replaceWithText (juce::JSON::toString (parsed, true));
+    }
+    return true;
 }
 
 void installAsync (const Entry& entry,
@@ -137,6 +213,7 @@ void installAsync (const Entry& entry,
         const auto dest = userVst3Dir();
         dest.createDirectory();
         int extracted = 0;
+        juce::StringArray bundles; // nomes de topo, para o manifesto/desinstalar
 
         for (int i = 0; i < zip.getNumEntries(); ++i)
         {
@@ -155,6 +232,8 @@ void installAsync (const Entry& entry,
                 }
             if (bundleIdx < 0)
                 continue;
+
+            bundles.addIfNotAlreadyThere (parts[bundleIdx]);
 
             juce::File target = dest;
             for (int p = bundleIdx; p < parts.size(); ++p)
@@ -181,7 +260,7 @@ void installAsync (const Entry& entry,
             return;
         }
 
-        writeManifest (entry);
+        writeManifest (entry, bundles);
         finish (true, juce::String (entry.name) + " " + entry.version + " instalado");
     });
 }

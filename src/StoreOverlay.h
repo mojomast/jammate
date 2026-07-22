@@ -72,6 +72,7 @@ public:
 
     void open();
     void openOnLibrary();   // usado pelo flag de dev GUITARRIG_OPEN_STORE
+    void openOnPlugins();   // gerenciador de plugins VST3 (catálogo embutido)
 
     bool keyPressed (const juce::KeyPress&) override;
 
@@ -79,7 +80,7 @@ public:
     void resized() override;
 
 private:
-    enum class Tab { explore, library };
+    enum class Tab { explore, library, plugins };
 
     void timerCallback() override;
     /// Sincroniza os status dos cartões com o que está carregado no rig.
@@ -116,7 +117,8 @@ private:
 
     // header
     juce::TextButton closeButton { "X" };
-    juce::TextButton exploreTab { "Explorar" }, libraryTab { "Minha biblioteca" };
+    juce::TextButton exploreTab { "Explorar" }, libraryTab { "Minha biblioteca" },
+        pluginsTab { "Plugins" };
     juce::TextEditor searchBox;
     juce::TextButton connectButton { "Conectar TONE3000" };
     juce::TextButton userChip;
@@ -145,6 +147,10 @@ private:
     juce::Component gridContent;
     juce::OwnedArray<ToneCardComponent> cards;
     juce::TextButton loadMoreButton { "Carregar mais" };
+
+    // aba Plugins: gerenciador do catálogo embutido (instalar/desinstalar)
+    juce::OwnedArray<juce::Component> pluginRows;
+    void refreshPluginsTab();
 
     // Cache de variações por tone (1 chamada de API por tone por sessão).
     std::map<int, std::vector<Tone3000Client::Model>> modelsCache;

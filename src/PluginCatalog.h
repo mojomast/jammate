@@ -35,6 +35,13 @@ bool isInstalled (const Entry&);
 /// Versão registrada no manifesto (Documentos\GuitarRig NAM\plugins.json);
 /// "" se o plugin não foi instalado pelo app.
 juce::String installedVersion (const Entry&);
+/// Bundles gravados no manifesto para este plugin (o que o app instalou).
+juce::StringArray installedBundles (const Entry&);
+/// true se dá para desinstalar pelo app (arquivos na pasta VST3 do usuário).
+bool canUninstall (const Entry&);
+/// Apaga os bundles do plugin da pasta VST3 do usuário e limpa o manifesto.
+/// Síncrono (message thread). ATENÇÃO: descarregue dos slots antes.
+bool uninstall (const Entry&, juce::String& error);
 
 /// Baixa o zip oficial e extrai os bundles .vst3 no userVst3Dir().
 /// Callbacks chegam na message thread; onProgress recebe 0..100.

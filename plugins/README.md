@@ -4,15 +4,21 @@ Pacote de efeitos open source prontos para os **slots Plugin VST3 1–3** da
 cadeia. Depois de instalados, eles aparecem automaticamente no menu
 **CARREGAR VST3**, organizados por categoria.
 
-## Instalar — pelo próprio app (recomendado)
+## Instalar/desinstalar — pelo próprio app (recomendado)
 
-O catálogo é **embutido no programa** (`src/PluginCatalog.cpp`): abra o menu
-**CARREGAR VST3** de um card Plugin VST3 → seção **"Instalar recomendados"**
-→ clique no plugin. O app baixa do release oficial e instala em
-`%LOCALAPPDATA%\Programs\Common\VST3` (pasta VST3 de usuário da spec —
-**sem precisar de administrador**), com progresso na barra inferior. O que
-foi instalado fica registrado em `Documentos\GuitarRig NAM\plugins.json`
-(id + versão).
+O catálogo é **embutido no programa** (`src/PluginCatalog.cpp`) e tem um
+gerenciador próprio: **Tone Store → aba "Plugins"** (ou menu CARREGAR VST3 →
+"Gerenciar plugins…"). Cada plugin tem status (● instalado + versão) e um
+botão que alterna **INSTALAR ⇄ DESINSTALAR**:
+
+- **Instalar**: baixa do release oficial com progresso e extrai em
+  `%LOCALAPPDATA%\Programs\Common\VST3` (pasta VST3 de usuário da spec —
+  **sem precisar de administrador**)
+- **Desinstalar**: solta o plugin dos slots da cadeia, espera o módulo
+  descarregar e apaga exatamente os bundles registrados no manifesto
+  (`Documentos\GuitarRig NAM\plugins.json`); plugins instalados na pasta do
+  sistema (pelo script/admin) aparecem como instalados mas só podem ser
+  removidos com admin
 
 ## Instalar — pelo script (alternativa offline/sistema)
 

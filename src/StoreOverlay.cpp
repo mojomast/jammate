@@ -1,5 +1,6 @@
 #include "StoreOverlay.h"
 
+#include "PluginCatalog.h"
 #include "PluginProcessor.h"
 
 namespace
@@ -296,6 +297,192 @@ void ToneCardComponent::paint (juce::Graphics& g)
 }
 
 //==============================================================================
+// Linha do gerenciador de plugins (aba Plugins): status + toggle
+// INSTALAR/DESINSTALAR com progresso, alimentada pelo catálogo embutido.
+class PluginCatalogRow : public juce::Component
+{
+public:
+    PluginCatalogRow (const plugcat::Entry& e, GuitarRigNAMProcessor& proc)
+        : entry (e), processor (proc)
+    {
+        actionButton.getProperties().set ("outlineAccent", true);
+        actionButton.setMouseClickGrabsKeyboardFocus (false);
+        actionButton.onClick = [this] { act(); };
+        addAndMakeVisible (actionButton);
+        refresh();
+    }
+
+    void refresh()
+    {
+        installed = plugcat::isInstalled (entry);
+        const bool manual = juce::String (entry.url).isEmpty();
+
+        if (busy)
+        {
+            actionButton.setButtonText (uninstalling
+                                            ? juce::String (juce::CharPointer_UTF8 ("Removendo\xe2\x80\xa6"))
+                                            : juce::String (juce::CharPointer_UTF8 ("Baixando\xe2\x80\xa6 "))
+                                                  + juce::String (pct) + "%");
+            actionButton.setEnabled (false);
+        }
+        else if (manual)
+        {
+            actionButton.setButtonText (installed ? "SITE" : "BAIXAR NO SITE");
+            actionButton.setEnabled (true);
+            actionButton.setTooltip ("Abre a p\xc3\xa1gina oficial no navegador");
+        }
+        else if (installed)
+        {
+            const bool possible = plugcat::canUninstall (entry);
+            actionButton.setButtonText ("DESINSTALAR");
+            actionButton.setEnabled (possible);
+            actionButton.setTooltip (possible
+                ? juce::String ("Remove os arquivos do plugin")
+                : juce::String (juce::CharPointer_UTF8 (
+                      "Instalado na pasta do sistema \xe2\x80\x94 remova com o instalador/admin")));
+        }
+        else
+        {
+            actionButton.setButtonText ("INSTALAR");
+            actionButton.setEnabled (true);
+            actionButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
+                "Baixa do release oficial e instala sem administrador")));
+        }
+        repaint();
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat();
+        g.setColour (juce::Colour (0xff222529));
+        g.fillRoundedRectangle (b, 10.0f);
+        g.setColour (juce::Colour (0xff303338));
+        g.drawRoundedRectangle (b.reduced (0.5f), 10.0f, 1.0f);
+
+        // status dot
+        g.setColour (installed ? ui::green : ui::textMuted);
+        g.fillEllipse (18.0f, b.getCentreY() - 4.0f, 8.0f, 8.0f);
+
+        g.setFont (ui::uiFont (14.0f, true));
+        g.setColour (ui::textBright);
+        g.drawText (entry.name, 38, 10, getWidth() - 240, 20, juce::Justification::centredLeft);
+
+        const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
+        juce::String info = juce::String (juce::CharPointer_UTF8 (entry.category))
+                            + dot + entry.license;
+        if (juce::String (entry.version).isNotEmpty())
+            info += dot + "v" + entry.version;
+        if (entry.sizeMB > 0)
+            info += dot + juce::String (entry.sizeMB) + " MB";
+        if (installed)
+        {
+            const auto instVer = plugcat::installedVersion (entry);
+            info += dot + (instVer.isNotEmpty()
+                               ? "instalado (v" + instVer + ")"
+                               : juce::String ("instalado"));
+        }
+        g.setFont (ui::monoFont (9.5f));
+        g.setColour (ui::textFaint);
+        g.drawText (info, 38, 32, getWidth() - 240, 16, juce::Justification::centredLeft);
+
+        if (lastError.isNotEmpty())
+        {
+            g.setColour (ui::red);
+            g.setFont (ui::monoFont (9.0f));
+            g.drawText (lastError, 38, getHeight() - 16, getWidth() - 240, 12,
+                        juce::Justification::centredLeft);
+        }
+    }
+
+    void resized() override
+    {
+        actionButton.setBounds (getWidth() - 12 - 170, (getHeight() - 32) / 2, 170, 32);
+    }
+
+private:
+    void act()
+    {
+        if (busy)
+            return;
+        lastError.clear();
+
+        if (juce::String (entry.url).isEmpty())
+        {
+            juce::URL (entry.homepage).launchInDefaultBrowser();
+            return;
+        }
+
+        if (! installed)
+        {
+            busy = true;
+            uninstalling = false;
+            pct = 0;
+            refresh();
+            plugcat::installAsync (
+                entry,
+                [safe = juce::Component::SafePointer<PluginCatalogRow> (this)] (int p)
+                {
+                    if (safe != nullptr)
+                    {
+                        safe->pct = p;
+                        safe->refresh();
+                    }
+                },
+                [safe = juce::Component::SafePointer<PluginCatalogRow> (this)]
+                (bool ok, juce::String msg)
+                {
+                    if (safe == nullptr)
+                        return;
+                    safe->busy = false;
+                    if (! ok)
+                        safe->lastError = msg;
+                    safe->refresh();
+                });
+            return;
+        }
+
+        // DESINSTALAR: solta os slots que usam este plugin, espera o módulo
+        // descarregar e apaga os arquivos
+        auto bundles = plugcat::installedBundles (entry);
+        if (bundles.isEmpty())
+            bundles.add (entry.checkBundle);
+        for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+        {
+            const auto path = processor.getExternalPluginPath (s);
+            for (const auto& bn : bundles)
+                if (path.isNotEmpty() && path.containsIgnoreCase (bn))
+                    processor.clearExternalPlugin (s);
+        }
+
+        busy = true;
+        uninstalling = true;
+        refresh();
+        juce::Timer::callAfterDelay (800,
+            [safe = juce::Component::SafePointer<PluginCatalogRow> (this)]
+            {
+                if (safe == nullptr)
+                    return;
+                safe->processor.collectExternalRetired(); // garante unload
+                juce::String err;
+                if (! plugcat::uninstall (safe->entry, err))
+                    safe->lastError = err;
+                safe->busy = false;
+                safe->uninstalling = false;
+                safe->refresh();
+            });
+    }
+
+    plugcat::Entry entry;
+    GuitarRigNAMProcessor& processor;
+    juce::TextButton actionButton;
+    bool installed = false, busy = false, uninstalling = false;
+    int pct = 0;
+    juce::String lastError;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginCatalogRow)
+};
+
+//==============================================================================
 StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     : processor (p)
 {
@@ -304,10 +491,13 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
 
     exploreTab.getProperties().set ("tab", true);
     libraryTab.getProperties().set ("tab", true);
+    pluginsTab.getProperties().set ("tab", true);
     exploreTab.onClick = [this] { setTab (Tab::explore); };
     libraryTab.onClick = [this] { setTab (Tab::library); };
+    pluginsTab.onClick = [this] { setTab (Tab::plugins); };
     addAndMakeVisible (exploreTab);
     addAndMakeVisible (libraryTab);
+    addAndMakeVisible (pluginsTab);
 
     searchBox.setTextToShowWhenEmpty (juce::String (juce::CharPointer_UTF8 (
                                           "Buscar amps, pedais, criadores\xe2\x80\xa6")),
@@ -520,24 +710,71 @@ void StoreOverlay::openOnLibrary()
     setTab (Tab::library);
 }
 
+void StoreOverlay::openOnPlugins()
+{
+    open();
+    setTab (Tab::plugins);
+}
+
 void StoreOverlay::setTab (Tab newTab)
 {
     tab = newTab;
     exploreTab.getProperties().set ("tabActive", tab == Tab::explore);
     libraryTab.getProperties().set ("tabActive", tab == Tab::library);
+    pluginsTab.getProperties().set ("tabActive", tab == Tab::plugins);
     exploreTab.repaint();
     libraryTab.repaint();
+    pluginsTab.repaint();
 
-    if (tab == Tab::library)
-        refreshLibrary();
-    else if (client.isConnected())
-        doSearch (1);
-    else
+    // busca/filtros só fazem sentido nas abas do TONE3000
+    const bool toneTabs = tab != Tab::plugins;
+    searchBox.setVisible (toneTabs);
+    for (auto* chip : gearChips)
+        chip->setVisible (toneTabs);
+    for (auto* chip : tagChips)
+        chip->setVisible (toneTabs);
+    a2Chip.setVisible (toneTabs);
+    favChip.setVisible (toneTabs);
+    sortCombo.setVisible (toneTabs);
+
+    if (tab == Tab::plugins)
     {
         cards.clear();
-        layoutCards();
+        loadMoreButton.setVisible (false);
+        refreshPluginsTab();
+    }
+    else
+    {
+        pluginRows.clear();
+        if (tab == Tab::library)
+            refreshLibrary();
+        else if (client.isConnected())
+            doSearch (1);
+        else
+        {
+            cards.clear();
+            layoutCards();
+        }
     }
     repaint();
+}
+
+void StoreOverlay::refreshPluginsTab()
+{
+    pluginRows.clear();
+    const int rowW = 4 * (252 + 16) - 16; // mesma largura útil do grid
+    int y = 0;
+
+    for (const auto& e : plugcat::entries())
+    {
+        auto* row = pluginRows.add (new PluginCatalogRow (e, processor));
+        gridContent.addAndMakeVisible (row);
+        row->setBounds (0, y, rowW, 62);
+        y += 62 + 10;
+    }
+
+    gridContent.setSize (rowW, juce::jmax (y, 1));
+    viewport.setViewPosition (0, 0);
 }
 
 void StoreOverlay::updateHeaderState()
@@ -1001,6 +1238,7 @@ void StoreOverlay::resized()
 
     exploreTab.setBounds (208, 20, 76, 30);
     libraryTab.setBounds (296, 20, 130, 30);
+    pluginsTab.setBounds (434, 20, 74, 30);
 
     const int chipRightEdge = W - 22 - 34 - 14;
     userChip.setBounds (chipRightEdge - 130, 15, 130, 34);
@@ -1065,17 +1303,30 @@ void StoreOverlay::paint (juce::Graphics& g)
     g.setColour (juce::Colour (0xff24262a));
     g.fillRect (0, 64, W, 1);
 
-    // ---- rótulos dos filtros
-    g.setFont (ui::monoFont (9.0f));
-    g.setColour (ui::textMuted);
-    g.drawText ("TIPO", 22, 74, 40, 28, juce::Justification::centredLeft);
-    if (! tagChips.isEmpty())
+    // ---- rótulos dos filtros (só nas abas do TONE3000)
+    if (tab != Tab::plugins)
     {
-        const int divX = tagChips.getFirst()->getX() - 48;
-        g.setColour (juce::Colours::white.withAlpha (0.1f));
-        g.fillRect (divX + 4, 78, 1, 20);
+        g.setFont (ui::monoFont (9.0f));
         g.setColour (ui::textMuted);
-        g.drawText ("TAGS", divX + 12, 74, 36, 28, juce::Justification::centredLeft);
+        g.drawText ("TIPO", 22, 74, 40, 28, juce::Justification::centredLeft);
+        if (! tagChips.isEmpty())
+        {
+            const int divX = tagChips.getFirst()->getX() - 48;
+            g.setColour (juce::Colours::white.withAlpha (0.1f));
+            g.fillRect (divX + 4, 78, 1, 20);
+            g.setColour (ui::textMuted);
+            g.drawText ("TAGS", divX + 12, 74, 36, 28, juce::Justification::centredLeft);
+        }
+    }
+    else
+    {
+        g.setFont (ui::monoFont (9.5f));
+        g.setColour (ui::textFaint);
+        g.drawText (juce::CharPointer_UTF8 (
+                        "Cat\xc3\xa1logo embutido \xc2\xb7 instala sem administrador em "
+                        "%LOCALAPPDATA%\\Programs\\Common\\VST3 \xc2\xb7 "
+                        "registro em Documentos\\GuitarRig NAM\\plugins.json"),
+                    22, 74, W - 44, 28, juce::Justification::centredLeft);
     }
 
     g.setColour (juce::Colour (0xff1e2023));
