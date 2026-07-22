@@ -2,7 +2,14 @@
 
 Amp sim pessoal de guitarra (Standalone + VST3) baseado em [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) e JUCE 8.
 
-**Estado atual: Fase 2** — o plugin carrega captures `.nam` (WaveNet/A2, LSTM, ConvNet) e processa o áudio de verdade:
+**Estado atual: Fase 3** — cadeia completa de amp sim:
+
+- **Resampler automático** (Lanczos, via `ResamplingContainer` do AudioDSPTools): captures rodam no sample rate que esperam, em qualquer sample rate da interface (~0,6 ms de latência extra quando ativo, reportada ao host e exibida na barra de status).
+- **Noise Gate** (pré-amp): THRESH (−90..−20 dB) e RELEASE (10..500 ms), expander 10:1.
+- **Cab IR**: carrega WAV/AIFF/FLAC via `juce::dsp::Convolution` (troca RT-safe, IR resampleado automaticamente), knob LEVEL. Um IR de teste transparente é criado em `Documentos\GuitarRig NAM\IRs\`.
+- **Presets**: XML em `Documentos\GuitarRig NAM\Presets\` — salvar (SALVAR), navegar (◂ ▸), escolher pelo menu do pill central. O preset inclui parâmetros + caminhos do capture e do IR.
+
+Base da Fase 2:
 
 - Botão **CARREGAR CAPTURE NAM** no cartão do amp abre um seletor de `.nam`; o carregamento (incl. prewarm) roda numa thread de fundo e o modelo é trocado na thread de áudio sem glitch (troca lock-free por atomics; nunca há alocação/`delete` no `processBlock`).
 - Cadeia mono: canal 0 → input gain → NAM → output level → duplicado para stereo.

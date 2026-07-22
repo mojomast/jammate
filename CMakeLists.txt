@@ -72,6 +72,10 @@ target_sources(GuitarRigNAM
 target_compile_options(GuitarRigNAM PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
 
 target_compile_definitions(GuitarRigNAM
+    PRIVATE
+        # Sem isso, as macros min/max do windows.h quebram os headers do
+        # AudioDSPTools (ex.: std::max no LanczosResampler.h).
+        NOMINMAX
     PUBLIC
         JUCE_WASAPI=1
         JUCE_DIRECTSOUND=1

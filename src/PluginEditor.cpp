@@ -58,7 +58,7 @@ void LedButton::paintButton (juce::Graphics& g, bool, bool)
     }
     else
     {
-        g.setColour (juce::Colour (0xff4a3a26));
+        g.setColour (juce::Colour (0xff3a3d43));
         g.fillEllipse (c.x - 5.5f, c.y - 5.5f, 11.0f, 11.0f);
         g.setColour (juce::Colours::black.withAlpha (0.5f));
         g.drawEllipse (c.x - 5.0f, c.y - 5.0f, 10.0f, 10.0f, 1.5f);
@@ -100,6 +100,27 @@ void LevelMeter::paint (juce::Graphics& g)
 }
 
 //==============================================================================
+void PillButton::paintButton (juce::Graphics& g, bool isHighlighted, bool)
+{
+    auto b = getLocalBounds().toFloat().reduced (0.5f);
+    g.setColour (ui::panel);
+    g.fillRoundedRectangle (b, 8.0f);
+    g.setColour (isHighlighted ? juce::Colour (0xff4a4d54) : ui::panelBorder);
+    g.drawRoundedRectangle (b, 8.0f, 1.0f);
+
+    g.setColour (dotLit ? ui::accent : ui::textMuted);
+    g.fillEllipse (b.getX() + 12.0f, b.getCentreY() - 3.0f, 6.0f, 6.0f);
+
+    g.setFont (ui::uiFont (13.0f, true));
+    g.setColour (ui::text);
+    g.drawText (getButtonText(), getLocalBounds().reduced (26, 0), juce::Justification::centred);
+
+    g.setFont (ui::uiFont (10.0f));
+    g.setColour (ui::textMuted);
+    g.drawText ("v", getLocalBounds().removeFromRight (20), juce::Justification::centredLeft);
+}
+
+//==============================================================================
 RigContent::RigContent (GuitarRigNAMProcessor& p)
     : processor (p)
 {
@@ -121,18 +142,49 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     storeButton.setTooltip (juce::CharPointer_UTF8 ("Tone Store \xe2\x80\x94 fase futura"));
     addAndMakeVisible (storeButton);
 
+    // presets
+    prevButton.onClick = [this] { processor.loadAdjacentPreset (-1); };
+    nextButton.onClick = [this] { processor.loadAdjacentPreset (1); };
+    saveButton.onClick = [this] { savePresetDialog(); };
+    presetPill.onClick = [this] { showPresetMenu(); };
+    addAndMakeVisible (prevButton);
+    addAndMakeVisible (nextButton);
+    addAndMakeVisible (saveButton);
+    addAndMakeVisible (presetPill);
+
+    // amp
     ampLedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processor.apvts, "ampOn", ampLed);
     addAndMakeVisible (ampLed);
-
     loadButton.onClick = [this] { chooseModelFile(); };
     addAndMakeVisible (loadButton);
 
+    // gate
+    gateLedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        processor.apvts, "gateOn", gateLed);
+    addAndMakeVisible (gateLed);
+
+    // cab
+    cabLedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        processor.apvts, "cabOn", cabLed);
+    addAndMakeVisible (cabLed);
+    irButton.onClick = [this] { chooseIrFile(); };
+    addAndMakeVisible (irButton);
+
+    // knobs
     auto formatDb = [] (float v) { return juce::String (v, 1) + " dB"; };
+    auto formatDbInt = [] (float v) { return juce::String ((int) v) + " dB"; };
+    auto formatMs = [] (float v) { return juce::String ((int) v) + " ms"; };
+
     inputKnob = std::make_unique<KnobComponent> (processor.apvts, "inputGain", "GAIN", formatDb);
     outputKnob = std::make_unique<KnobComponent> (processor.apvts, "outputGain", "LEVEL", formatDb);
-    addAndMakeVisible (*inputKnob);
-    addAndMakeVisible (*outputKnob);
+    gateThreshKnob = std::make_unique<KnobComponent> (processor.apvts, "gateThresh", "THRESH", formatDbInt);
+    gateReleaseKnob = std::make_unique<KnobComponent> (processor.apvts, "gateRelease", "RELEASE", formatMs);
+    cabLevelKnob = std::make_unique<KnobComponent> (processor.apvts, "cabLevel", "LEVEL", formatDb);
+
+    for (auto* k : { inputKnob.get(), outputKnob.get(), gateThreshKnob.get(),
+                     gateReleaseKnob.get(), cabLevelKnob.get() })
+        addAndMakeVisible (*k);
 
     setSize (designWidth, designHeight);
     startTimerHz (30);
@@ -155,6 +207,20 @@ void RigContent::resized()
     inMeter.setBounds (metersX + 30, 17, 74, 6);
     outMeter.setBounds (metersX + 30, 33, 74, 6);
 
+    // grupo de preset centrado: ◂ pill ▸ SALVAR
+    {
+        const int pillW = 230, navW = 30, saveW = 70, gap = 6;
+        const int groupW = navW + gap + pillW + gap + navW + 8 + saveW;
+        int x = (W - groupW) / 2;
+        prevButton.setBounds (x, 13, navW, 32);
+        x += navW + gap;
+        presetPill.setBounds (x, 13, pillW, 32);
+        x += pillW + gap;
+        nextButton.setBounds (x, 13, navW, 32);
+        x += navW + 8;
+        saveButton.setBounds (x, 13, saveW, 32);
+    }
+
     // ---- cadeia de sinal
     const int ioW = 84, ioH = 326, slotW = 150, slotH = 326, ampW = 258, ampH = 356, connW = 34;
     const int rowW = ioW * 2 + slotW * 2 + ampW + connW * 4;
@@ -164,11 +230,11 @@ void RigContent::resized()
     int x = x0;
     inputCardBounds = { x, chainCentreY - ioH / 2, ioW, ioH };
     x += ioW + connW;
-    preSlotBounds = { x, chainCentreY - slotH / 2, slotW, slotH };
+    gateCardBounds = { x, chainCentreY - slotH / 2, slotW, slotH };
     x += slotW + connW;
     ampCardBounds = { x, chainCentreY - ampH / 2, ampW, ampH };
     x += ampW + connW;
-    postSlotBounds = { x, chainCentreY - slotH / 2, slotW, slotH };
+    cabCardBounds = { x, chainCentreY - slotH / 2, slotW, slotH };
     x += slotW + connW;
     outputCardBounds = { x, chainCentreY - ioH / 2, ioW, ioH };
 
@@ -179,7 +245,24 @@ void RigContent::resized()
 
     ampLed.setBounds (ampCardBounds.getRight() - 17 - 18, ampCardBounds.getY() + 15, 18, 18);
     loadButton.setBounds (ampCardBounds.getX() + 17, ampCardBounds.getBottom() - 15 - 30,
-                          ampW - 34, 30);
+                          ampCardBounds.getWidth() - 34, 30);
+
+    // gate: dois knobs lado a lado
+    gateLed.setBounds (gateCardBounds.getRight() - 12 - 18, gateCardBounds.getY() + 10, 18, 18);
+    {
+        const int kw = 48, gap = 18;
+        const int kx = gateCardBounds.getCentreX() - kw - gap / 2;
+        const int ky = gateCardBounds.getCentreY() - 55;
+        gateThreshKnob->setBounds (kx, ky, kw, kw + 26);
+        gateReleaseKnob->setBounds (kx + kw + gap, ky, kw, kw + 26);
+    }
+
+    // cab: knob central + botão embaixo
+    cabLed.setBounds (cabCardBounds.getRight() - 12 - 18, cabCardBounds.getY() + 10, 18, 18);
+    cabLevelKnob->setBounds (cabCardBounds.getCentreX() - 24,
+                             cabCardBounds.getCentreY() - 55, 48, 48 + 26);
+    irButton.setBounds (cabCardBounds.getX() + 12, cabCardBounds.getBottom() - 12 - 28,
+                        cabCardBounds.getWidth() - 24, 28);
 }
 
 void RigContent::paint (juce::Graphics& g)
@@ -222,34 +305,12 @@ void RigContent::paint (juce::Graphics& g)
         g.setColour (ui::accent);
         g.drawText ("NAM", badge, juce::Justification::centred);
 
-        // pill central: modelo/preset atual
-        {
-            const int pillW = 260;
-            auto pill = juce::Rectangle<float> ((float) ((W - pillW) / 2), 13.0f, (float) pillW, 32.0f);
-            g.setColour (ui::panel);
-            g.fillRoundedRectangle (pill, 8.0f);
-            g.setColour (ui::panelBorder);
-            g.drawRoundedRectangle (pill, 8.0f, 1.0f);
-
-            const auto name = processor.isLoadingModel()
-                                  ? juce::String (juce::CharPointer_UTF8 ("Carregando modelo\xe2\x80\xa6"))
-                                  : (processor.getModelName().isNotEmpty()
-                                         ? processor.getModelName()
-                                         : juce::String ("Nenhum capture carregado"));
-            g.setColour (processor.hasModelLoaded() ? ui::accent : ui::textMuted);
-            g.fillEllipse (pill.getX() + 12.0f, pill.getCentreY() - 3.0f, 6.0f, 6.0f);
-            g.setFont (ui::uiFont (13.0f, true));
-            g.setColour (ui::text);
-            g.drawText (name, pill.reduced (26, 0), juce::Justification::centred);
-        }
-
         // labels IN/OUT dos medidores
         g.setFont (ui::monoFont (8.0f));
         g.setColour (ui::textFaint);
         g.drawText ("IN", inMeter.getX() - 26, inMeter.getY() - 4, 22, 12, juce::Justification::centredRight);
         g.drawText ("OUT", outMeter.getX() - 26, outMeter.getY() - 4, 22, 12, juce::Justification::centredRight);
 
-        // divisor
         g.setColour (ui::panelBorder);
         g.fillRect (audioButton.getX() - 14, 16, 1, 26);
     }
@@ -280,10 +341,10 @@ void RigContent::paint (juce::Graphics& g)
                              juce::Colour (0xff43464c), (xa + xb) / 2.0f, 0.0f, false });
         g.fillRoundedRectangle (xa + 7.0f, y - 1.5f, xb - xa - 14.0f, 3.0f, 1.5f);
     };
-    drawConnector (inputCardBounds, preSlotBounds);
-    drawConnector (preSlotBounds, ampCardBounds);
-    drawConnector (ampCardBounds, postSlotBounds);
-    drawConnector (postSlotBounds, outputCardBounds);
+    drawConnector (inputCardBounds, gateCardBounds);
+    drawConnector (gateCardBounds, ampCardBounds);
+    drawConnector (ampCardBounds, cabCardBounds);
+    drawConnector (cabCardBounds, outputCardBounds);
 
     // ---- cartões IO (Input / Output)
     auto drawIoCard = [&] (juce::Rectangle<int> bounds, const juce::String& name,
@@ -300,14 +361,12 @@ void RigContent::paint (juce::Graphics& g)
         g.setColour (juce::Colour (0xff8a8d93));
         g.drawText (name, bounds.withTrimmedTop (16).withHeight (12), juce::Justification::centred);
 
-        // jack
         const float jackY = b.getY() + 62.0f;
         g.setColour (juce::Colours::black);
         g.fillEllipse (b.getCentreX() - 18.0f, jackY, 36.0f, 36.0f);
         g.setColour (juce::Colour (0xff3a3d43));
         g.drawEllipse (b.getCentreX() - 18.0f, jackY, 36.0f, 36.0f, 3.0f);
 
-        // LED + label embaixo
         g.setColour (ui::green);
         g.fillEllipse (b.getCentreX() - 22.0f, b.getBottom() - 26.0f, 6.0f, 6.0f);
         g.setFont (ui::monoFont (8.0f));
@@ -319,42 +378,36 @@ void RigContent::paint (juce::Graphics& g)
     drawIoCard (inputCardBounds, "INPUT", "IN");
     drawIoCard (outputCardBounds, "OUTPUT", "OUT");
 
-    // ---- slots vazios (fases futuras)
-    auto drawEmptySlot = [&] (juce::Rectangle<int> bounds, const juce::String& name)
+    // ---- cartões de pedal (gate / cab)
+    auto drawPedalCard = [&] (juce::Rectangle<int> bounds, const juce::String& name,
+                              const juce::String& modelLine)
     {
         auto b = bounds.toFloat();
-        g.setColour (juce::Colour (0xff191b1e).withAlpha (0.6f));
+        g.setGradientFill ({ ui::cardTop, 0.0f, b.getY(), ui::cardBottom, 0.0f, b.getBottom(), false });
         g.fillRoundedRectangle (b, 14.0f);
+        g.setColour (ui::cardBorder);
+        g.drawRoundedRectangle (b, 14.0f, 1.0f);
 
-        juce::Path dash;
-        dash.addRoundedRectangle (b.reduced (0.75f), 14.0f);
-        const float dashes[] = { 5.0f, 5.0f };
-        juce::PathStrokeType stroke (1.5f);
-        juce::Path dashed;
-        stroke.createDashedStroke (dashed, dash, dashes, 2);
-        g.setColour (juce::Colour (0xff3d4046).withAlpha (0.8f));
-        g.fillPath (dashed);
+        g.setFont (ui::uiFont (11.5f, true));
+        g.setColour (ui::text);
+        g.drawText (name, bounds.getX() + 12, bounds.getY() + 12, bounds.getWidth() - 46, 14,
+                    juce::Justification::centredLeft);
 
-        g.setColour (juce::Colour (0xff4a4d54).withAlpha (0.7f));
-        g.drawEllipse (b.getCentreX() - 23.0f, b.getCentreY() - 58.0f, 46.0f, 46.0f, 1.5f);
-        g.setFont (ui::uiFont (24.0f));
-        g.setColour (ui::textMuted.withAlpha (0.7f));
-        g.drawText ("+", juce::Rectangle<float> (b.getCentreX() - 23.0f, b.getCentreY() - 58.0f,
-                                                 46.0f, 46.0f), juce::Justification::centred);
+        // linha de modelo acima da base
+        g.setFont (ui::monoFont (9.5f));
+        g.setColour (juce::Colour (0xffb6b9be));
+        g.drawFittedText (modelLine, bounds.getX() + 12, bounds.getBottom() - 78,
+                          bounds.getWidth() - 24, 26, juce::Justification::centredLeft, 2);
 
-        g.setFont (ui::uiFont (12.0f, true));
-        g.setColour (juce::Colour (0xffb8bbc0).withAlpha (0.65f));
-        g.drawText (name, bounds.withY (bounds.getCentreY() + 2).withHeight (18),
-                    juce::Justification::centred);
-        g.setFont (ui::monoFont (8.5f));
-        g.setColour (ui::textMuted.withAlpha (0.65f));
-        g.drawText ("EM BREVE", bounds.withY (bounds.getCentreY() + 24).withHeight (14),
-                    juce::Justification::centred);
-        g.drawText ("FASE FUTURA", bounds.withY (bounds.getCentreY() + 38).withHeight (14),
-                    juce::Justification::centred);
+        g.setColour (juce::Colour (0xff303338));
+        g.fillRect (bounds.getX() + 12, bounds.getBottom() - 86, bounds.getWidth() - 24, 1);
     };
-    drawEmptySlot (preSlotBounds, "Pedais");
-    drawEmptySlot (postSlotBounds, "Efeitos");
+
+    drawPedalCard (gateCardBounds, "Noise Gate", "Downward expander 10:1");
+
+    const auto irName = processor.getIrName();
+    drawPedalCard (cabCardBounds, "Cab IR",
+                   irName.isNotEmpty() ? irName : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem IR \xe2\x80\x94")));
 
     // ---- cartão do amp
     {
@@ -372,26 +425,32 @@ void RigContent::paint (juce::Graphics& g)
                     juce::Justification::centredLeft);
         g.setFont (ui::monoFont (8.0f));
         g.setColour (juce::Colour (0xffc99a55));
-        g.drawText (juce::CharPointer_UTF8 ("AMPLIFICADOR \xc2\xb7 NAM"), ampCardBounds.getX() + 17, ampCardBounds.getY() + 31, 160, 11,
+        g.drawText (juce::CharPointer_UTF8 ("AMPLIFICADOR \xc2\xb7 NAM"),
+                    ampCardBounds.getX() + 17, ampCardBounds.getY() + 31, 160, 11,
                     juce::Justification::centredLeft);
 
-        // nome do modelo
         const auto modelName = processor.getModelName();
         g.setFont (ui::uiFont (17.0f, true));
         g.setColour (modelName.isNotEmpty() ? ui::accentLight : juce::Colour (0xff8a7358));
         g.drawText (modelName.isNotEmpty() ? modelName
-                                       : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem capture \xe2\x80\x94")),
+                                           : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem capture \xe2\x80\x94")),
                     ampCardBounds.getX() + 17, ampCardBounds.getY() + 52, ampCardBounds.getWidth() - 34, 22,
                     juce::Justification::centredLeft);
 
-        // linha de info do modelo
+        const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
         juce::String info;
         const double modelSr = processor.getModelExpectedSampleRate();
         if (modelName.isNotEmpty())
-            info = (modelSr > 0 ? juce::String (modelSr / 1000.0, 1) + " kHz · " : juce::String())
-                   + "mono · NAM v0.5";
+        {
+            info = (modelSr > 0 ? juce::String (modelSr / 1000.0, 1) + " kHz" + dot : juce::String())
+                   + "mono" + dot + "NAM v0.5";
+            if (processor.isResampling())
+                info += dot + "resample";
+        }
         else
+        {
             info = "carregue um arquivo .nam";
+        }
         g.setFont (ui::monoFont (9.0f));
         g.setColour (juce::Colour (0xffa98d63));
         g.drawText (info, ampCardBounds.getX() + 17, ampCardBounds.getY() + 76,
@@ -423,16 +482,20 @@ void RigContent::paint (juce::Graphics& g)
 
         const double sr = processor.getSampleRate();
         const int bs = processor.getBlockSize();
+        const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
         juce::String status;
         if (sr > 0)
-            status << juce::String (sr / 1000.0, 1) << " kHz · " << bs << " samples · "
-                   << juce::String (bs / sr * 1000.0, 2) << " ms/bloco";
+        {
+            status = juce::String (sr / 1000.0, 1) + " kHz" + dot + juce::String (bs) + " samples"
+                     + dot + juce::String (bs / sr * 1000.0, 2) + " ms/bloco";
+            if (const int lat = processor.getLatencySamples(); lat > 0)
+                status += dot + "+" + juce::String (lat / sr * 1000.0, 2) + " ms resample";
+        }
 
         g.setFont (ui::monoFont (9.5f));
         g.setColour (juce::Colour (0xff8a8d93));
-        g.drawText (status, 22, H - 40, 400, 40, juce::Justification::centredLeft);
+        g.drawText (status, 22, H - 40, 460, 40, juce::Justification::centredLeft);
 
-        // aviso de sample rate / erro de carregamento
         juce::String warn;
         juce::Colour warnColour = ui::yellow;
         const auto err = processor.getLoadError();
@@ -442,11 +505,12 @@ void RigContent::paint (juce::Graphics& g)
             warn = "Erro: " + err;
             warnColour = ui::red;
         }
-        else if (processor.hasModelLoaded() && modelSr > 0 && sr > 0
-                 && std::abs (modelSr - sr) > 1.0)
+        else if (processor.isResampling() && modelSr > 0 && sr > 0)
         {
-            warn = juce::String ("Capture espera ") + juce::String (modelSr / 1000.0, 1)
-                   + juce::String (juce::CharPointer_UTF8 (" kHz \xe2\x80\x94 rode a interface nesse sample rate"));
+            warn = "resampleando " + juce::String (sr / 1000.0, 1)
+                   + juce::String::fromUTF8 (" \xe2\x86\x92 ")
+                   + juce::String (modelSr / 1000.0, 1) + " kHz";
+            warnColour = ui::textFaint;
         }
         g.setFont (ui::monoFont (9.5f, true));
         g.setColour (warnColour);
@@ -458,7 +522,6 @@ void RigContent::timerCallback()
 {
     auto toDb = [] (float linear) { return juce::Decibels::gainToDecibels (linear, -80.0f); };
 
-    // pico com decaimento
     inMeterDb = juce::jmax (toDb (processor.inputPeak.load()), inMeterDb - 2.2f);
     outMeterDb = juce::jmax (toDb (processor.outputPeak.load()), outMeterDb - 2.2f);
     inMeter.setLevel (inMeterDb);
@@ -466,8 +529,15 @@ void RigContent::timerCallback()
 
     loadButton.setButtonText (processor.hasModelLoaded() ? "TROCAR CAPTURE NAM"
                                                          : "CARREGAR CAPTURE NAM");
+    irButton.setButtonText (processor.hasIrLoaded() ? "TROCAR IR" : "CARREGAR IR");
 
-    // textos dinâmicos (pill, amp, status) vivem no paint
+    const auto presetName = processor.getCurrentPresetName();
+    presetPill.setButtonText (processor.isLoadingModel()
+                                  ? juce::String (juce::CharPointer_UTF8 ("Carregando\xe2\x80\xa6"))
+                                  : (presetName.isNotEmpty() ? presetName
+                                                             : juce::String ("(sem preset)")));
+    presetPill.dotLit = processor.hasModelLoaded();
+
     repaint();
 }
 
@@ -479,7 +549,6 @@ void RigContent::chooseModelFile()
 
     fileChooser = std::make_unique<juce::FileChooser> ("Escolher capture NAM (.nam)",
                                                        initialDir, "*.nam");
-
     fileChooser->launchAsync (juce::FileBrowserComponent::openMode
                                   | juce::FileBrowserComponent::canSelectFiles,
                               [this] (const juce::FileChooser& fc)
@@ -488,6 +557,66 @@ void RigContent::chooseModelFile()
                                   if (file.existsAsFile())
                                       processor.loadModelAsync (file);
                               });
+}
+
+void RigContent::chooseIrFile()
+{
+    auto initialDir = juce::File (processor.getIrPath()).getParentDirectory();
+    if (! initialDir.isDirectory())
+        initialDir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+
+    fileChooser = std::make_unique<juce::FileChooser> ("Escolher impulse response (wav/aiff/flac)",
+                                                       initialDir, "*.wav;*.aif;*.aiff;*.flac");
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode
+                                  | juce::FileBrowserComponent::canSelectFiles,
+                              [this] (const juce::FileChooser& fc)
+                              {
+                                  const auto file = fc.getResult();
+                                  if (file.existsAsFile())
+                                      processor.loadIrAsync (file);
+                              });
+}
+
+void RigContent::savePresetDialog()
+{
+    const auto name = processor.getCurrentPresetName();
+    auto initialFile = processor.getPresetsDirectory()
+                           .getChildFile ((name.isNotEmpty() ? name : "Meu preset") + ".xml");
+
+    fileChooser = std::make_unique<juce::FileChooser> ("Salvar preset", initialFile, "*.xml");
+    fileChooser->launchAsync (juce::FileBrowserComponent::saveMode
+                                  | juce::FileBrowserComponent::warnAboutOverwriting,
+                              [this] (const juce::FileChooser& fc)
+                              {
+                                  auto file = fc.getResult();
+                                  if (file == juce::File())
+                                      return;
+                                  processor.savePreset (file.withFileExtension ("xml"));
+                              });
+}
+
+void RigContent::showPresetMenu()
+{
+    const auto files = processor.getPresetFiles();
+    if (files.isEmpty())
+        return;
+
+    juce::PopupMenu menu;
+    menu.setLookAndFeel (&lookAndFeel);
+    const auto current = processor.getCurrentPresetName();
+
+    for (int i = 0; i < files.size(); ++i)
+    {
+        const auto name = files.getReference (i).getFileNameWithoutExtension();
+        menu.addItem (i + 1, name, true, name == current);
+    }
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&presetPill),
+                        [this, files] (int result)
+                        {
+                            if (result > 0 && result <= files.size())
+                                processor.loadPreset (files.getReference (result - 1));
+                        });
 }
 
 //==============================================================================
@@ -503,7 +632,6 @@ GuitarRigNAMEditor::GuitarRigNAMEditor (GuitarRigNAMProcessor& p)
     setResizeLimits (RigContent::designWidth / 2, RigContent::designHeight / 2,
                      RigContent::designWidth * 2, RigContent::designHeight * 2);
 
-    // Tamanho inicial: o design inteiro visível, reduzido se a tela for menor.
     double scale = 1.0;
     if (auto* display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
     {

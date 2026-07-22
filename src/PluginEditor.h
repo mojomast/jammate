@@ -47,6 +47,17 @@ private:
 };
 
 //==============================================================================
+// Pill do preset no top bar (dot + texto centrado), clicável.
+class PillButton : public juce::Button
+{
+public:
+    PillButton() : juce::Button ("preset") {}
+    void paintButton (juce::Graphics&, bool, bool) override;
+
+    bool dotLit = false;
+};
+
+//==============================================================================
 // Todo o conteúdo da UI num canvas lógico fixo de 1100×700 (o design é
 // pixel-perfect nesse tamanho); o editor escala este componente via transform
 // para caber em qualquer tela/tamanho de janela.
@@ -66,10 +77,13 @@ public:
 private:
     void timerCallback() override;
     void chooseModelFile();
+    void chooseIrFile();
+    void savePresetDialog();
+    void showPresetMenu();
 
     // geometria dos cartões da cadeia (usada em paint e resized)
     juce::Rectangle<int> inputCardBounds, ampCardBounds, outputCardBounds;
-    juce::Rectangle<int> preSlotBounds, postSlotBounds;
+    juce::Rectangle<int> gateCardBounds, cabCardBounds;
 
     GuitarRigNAMProcessor& processor;
     RigLookAndFeel lookAndFeel;
@@ -78,14 +92,27 @@ private:
     LevelMeter inMeter, outMeter;
     juce::TextButton audioButton { juce::String (juce::CharPointer_UTF8 ("\xc3\x81udio")) };
     juce::TextButton storeButton { "Tone Store" };
+    juce::TextButton prevButton { "<" }, nextButton { ">" };
+    juce::TextButton saveButton { "SALVAR" };
+    PillButton presetPill;
 
     // amp
     LedButton ampLed;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ampLedAttachment;
     juce::TextButton loadButton { "CARREGAR CAPTURE NAM" };
 
+    // gate
+    LedButton gateLed;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> gateLedAttachment;
+
+    // cab
+    LedButton cabLed;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> cabLedAttachment;
+    juce::TextButton irButton { "CARREGAR IR" };
+
     // knobs
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
+    std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob, cabLevelKnob;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 
