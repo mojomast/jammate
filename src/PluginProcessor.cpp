@@ -268,6 +268,27 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
     layout.add (std::make_unique<FloatParam> (
         juce::ParameterID { kParamCabAir, 1 }, "Cab Air", zeroTen, 0.0f));
 
+    // cabs paralelos (1..3), com blend/low cut/high cut/phase POR slot
+    layout.add (std::make_unique<juce::AudioParameterInt> (
+        juce::ParameterID { "cabCount", 1 }, "Cab Count", 1, maxCabSlots, 1));
+    for (int s = 0; s < maxCabSlots; ++s)
+    {
+        const auto n = juce::String (s + 1);
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { "cab" + n + "Blend", 1 }, "Cab " + n + " Blend",
+            juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 100.0f, pct));
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { "cab" + n + "LowCut", 1 }, "Cab " + n + " Low Cut",
+            juce::NormalisableRange<float> (20.0f, 300.0f, 1.0f, 0.5f), 20.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("Hz")));
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { "cab" + n + "HighCut", 1 }, "Cab " + n + " High Cut",
+            juce::NormalisableRange<float> (2000.0f, 20000.0f, 10.0f, 0.5f), 20000.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("Hz")));
+        layout.add (std::make_unique<BoolParam> (
+            juce::ParameterID { "cab" + n + "Phase", 1 }, "Cab " + n + " Phase", false));
+    }
+
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { kParamOdOn, 1 }, "OD On", false));
     layout.add (std::make_unique<FloatParam> (
@@ -334,6 +355,15 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pCabOn = apvts.getRawParameterValue (kParamCabOn);
     pCabLevel = apvts.getRawParameterValue (kParamCabLevel);
     pCabAir = apvts.getRawParameterValue (kParamCabAir);
+    pCabCount = apvts.getRawParameterValue ("cabCount");
+    for (int s = 0; s < maxCabSlots; ++s)
+    {
+        const auto n = juce::String (s + 1);
+        pCabBlend[s] = apvts.getRawParameterValue ("cab" + n + "Blend");
+        pCabLowCut[s] = apvts.getRawParameterValue ("cab" + n + "LowCut");
+        pCabHighCut[s] = apvts.getRawParameterValue ("cab" + n + "HighCut");
+        pCabPhase[s] = apvts.getRawParameterValue ("cab" + n + "Phase");
+    }
     pOdOn = apvts.getRawParameterValue (kParamOdOn);
     pOdDrive = apvts.getRawParameterValue (kParamOdDrive);
     pOdTone = apvts.getRawParameterValue (kParamOdTone);
@@ -398,7 +428,18 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
 
     juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) samplesPerBlock, 1 };
     noiseGate.prepare (spec);
-    convolution.prepare (spec);
+    for (auto& conv : convolutions)
+        conv.prepare (spec);
+
+    cabDryBuf.setSize (1, samplesPerBlock);
+    cabAccBuf.setSize (1, samplesPerBlock);
+    cabSlotBuf.setSize (1, samplesPerBlock);
+    for (int s = 0; s < maxCabSlots; ++s)
+    {
+        cabLcCached[s] = -1.0f;
+        cabLc[s].reset();
+        cabHc[s].reset();
+    }
 
     // Força o recálculo dos filtros no novo sample rate e zera os estados.
     tsCachedBass = -1.0f;
@@ -562,18 +603,50 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         buffer.applyGain (0, 0, n, juce::Decibels::decibelsToGain (pAmpMaster->load()));
     }
 
-    // ---- cab IR (convolução; troca de IR é RT-safe dentro do Convolution)
-    if (cabOn)
+    // ---- cabs em paralelo (até 3 IRs -> mixer de blend por slot)
+    if (cabOn && n <= cabDryBuf.getNumSamples())
     {
-        if (irIsLoaded.load() && convolution.getCurrentIRSize() > 0)
+        const int count = juce::jlimit (1, (int) maxCabSlots, (int) pCabCount->load());
+
+        juce::FloatVectorOperations::copy (cabDryBuf.getWritePointer (0), io, n);
+        cabAccBuf.clear (0, 0, n);
+
+        for (int s = 0; s < count; ++s)
         {
-            juce::dsp::AudioBlock<float> block (&io, 1, (size_t) n);
-            juce::dsp::ProcessContextReplacing<float> ctx (block);
-            convolution.process (ctx);
-            buffer.applyGain (0, 0, n, cabGain);
+            float* slot = cabSlotBuf.getWritePointer (0);
+            juce::FloatVectorOperations::copy (slot, cabDryBuf.getReadPointer (0), n);
+
+            if (irLoadedFlags[s].load() && convolutions[s].getCurrentIRSize() > 0)
+            {
+                juce::dsp::AudioBlock<float> block (&slot, 1, (size_t) n);
+                juce::dsp::ProcessContextReplacing<float> ctx (block);
+                convolutions[s].process (ctx);
+            }
+
+            updateCabSlotFilters (s);
+            const bool lcOn = pCabLowCut[s]->load() > 22.0f;
+            const bool hcOn = pCabHighCut[s]->load() < 19000.0f;
+            if (lcOn || hcOn)
+                for (int i = 0; i < n; ++i)
+                {
+                    float v = slot[i];
+                    if (lcOn) v = cabLc[s].process (v);
+                    if (hcOn) v = cabHc[s].process (v);
+                    slot[i] = v;
+                }
+
+            // blend por slot (+ inversão de fase)
+            const float g = (pCabBlend[s]->load() / 100.0f)
+                            * (pCabPhase[s]->load() > 0.5f ? -1.0f : 1.0f);
+            if (g != 0.0f)
+                juce::FloatVectorOperations::addWithMultiply (
+                    cabAccBuf.getWritePointer (0), slot, g, n);
         }
 
-        // AIR: shelf de agudos pós-IR
+        juce::FloatVectorOperations::copy (io, cabAccBuf.getReadPointer (0), n);
+        buffer.applyGain (0, 0, n, cabGain); // trim legado (sem knob na UI)
+
+        // AIR: shelf de agudos pós-mix
         if (pCabAir->load() > 0.05f)
         {
             updateAirIfNeeded();
@@ -757,35 +830,76 @@ double GuitarRigNAMProcessor::getModelExpectedSampleRate() const
 }
 
 //==============================================================================
-void GuitarRigNAMProcessor::loadIrAsync (const juce::File& file)
+void GuitarRigNAMProcessor::loadIrAsync (int slot, const juce::File& file)
 {
-    if (! file.existsAsFile())
+    if (slot < 0 || slot >= maxCabSlots || ! file.existsAsFile())
         return;
 
     // O Convolution carrega em background e troca RT-safe internamente.
-    convolution.loadImpulseResponse (file,
-                                     juce::dsp::Convolution::Stereo::no,
-                                     juce::dsp::Convolution::Trim::yes,
-                                     0,
-                                     juce::dsp::Convolution::Normalise::yes);
+    convolutions[slot].loadImpulseResponse (file,
+                                            juce::dsp::Convolution::Stereo::no,
+                                            juce::dsp::Convolution::Trim::yes,
+                                            0,
+                                            juce::dsp::Convolution::Normalise::yes);
     {
         const juce::ScopedLock sl (modelInfoLock);
-        irName = file.getFileNameWithoutExtension();
-        irPath = file.getFullPathName();
+        irNames[slot] = file.getFileNameWithoutExtension();
+        irPaths[slot] = file.getFullPathName();
     }
-    irIsLoaded.store (true);
+    irLoadedFlags[slot].store (true);
 }
 
-juce::String GuitarRigNAMProcessor::getIrName() const
+juce::String GuitarRigNAMProcessor::getIrName (int slot) const
 {
+    if (slot < 0 || slot >= maxCabSlots)
+        return {};
     const juce::ScopedLock sl (modelInfoLock);
-    return irName;
+    return irNames[slot];
 }
 
-juce::String GuitarRigNAMProcessor::getIrPath() const
+juce::String GuitarRigNAMProcessor::getIrPath (int slot) const
 {
+    if (slot < 0 || slot >= maxCabSlots)
+        return {};
     const juce::ScopedLock sl (modelInfoLock);
-    return irPath;
+    return irPaths[slot];
+}
+
+int GuitarRigNAMProcessor::getCabCount() const
+{
+    return juce::jlimit (1, (int) maxCabSlots, (int) pCabCount->load());
+}
+
+int GuitarRigNAMProcessor::firstFreeIrSlot() const
+{
+    const int count = getCabCount();
+    for (int s = 0; s < count; ++s)
+        if (! irLoadedFlags[s].load())
+            return s;
+    return -1;
+}
+
+bool GuitarRigNAMProcessor::isIrFileLoaded (const juce::String& fullPath) const
+{
+    const int count = getCabCount();
+    const juce::ScopedLock sl (modelInfoLock);
+    for (int s = 0; s < count; ++s)
+        if (irPaths[s] == fullPath)
+            return true;
+    return false;
+}
+
+void GuitarRigNAMProcessor::updateCabSlotFilters (int slot)
+{
+    const float lc = pCabLowCut[slot]->load();
+    const float hc = pCabHighCut[slot]->load();
+    if (lc == cabLcCached[slot] && hc == cabHcCached[slot])
+        return;
+    cabLcCached[slot] = lc;
+    cabHcCached[slot] = hc;
+    const double sr = hostSampleRate.load();
+    cabLc[slot].setHighPass (sr, lc, 0.707);
+    cabHc[slot].setLowPass (sr, hc, 0.707);
 }
 
 //==============================================================================
@@ -793,7 +907,8 @@ juce::ValueTree GuitarRigNAMProcessor::captureState()
 {
     auto state = apvts.copyState();
     state.setProperty (kStateModelPath, getModelPath(), nullptr);
-    state.setProperty (kStateIrPath, getIrPath(), nullptr);
+    for (int s = 0; s < maxCabSlots; ++s)
+        state.setProperty ("irPath" + juce::String (s + 1), getIrPath (s), nullptr);
     state.setProperty (kStatePresetName, getCurrentPresetName(), nullptr);
     return state;
 }
@@ -809,9 +924,16 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
     if (modelFile.existsAsFile())
         loadModelAsync (modelFile);
 
-    const juce::File irFile (state.getProperty (kStateIrPath, "").toString());
-    if (irFile.existsAsFile())
-        loadIrAsync (irFile);
+    for (int s = 0; s < maxCabSlots; ++s)
+    {
+        // "irPath" sem número = formato antigo (slot único) -> slot 1
+        const auto key = s == 0 && ! state.hasProperty ("irPath1")
+                             ? juce::String (kStateIrPath)
+                             : "irPath" + juce::String (s + 1);
+        const juce::File irFile (state.getProperty (key, "").toString());
+        if (irFile.existsAsFile())
+            loadIrAsync (s, irFile);
+    }
 
     setCurrentPresetName (state.getProperty (kStatePresetName, "").toString());
 }

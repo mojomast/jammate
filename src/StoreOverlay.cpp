@@ -431,7 +431,7 @@ void StoreOverlay::timerCallback()
 void StoreOverlay::updateRigStatuses()
 {
     const auto modelPath = processor.getModelPath();
-    const auto irPath = processor.getIrPath();
+    // IRs: qualquer slot ativo conta como "no rig"
 
     for (auto* card : cards)
     {
@@ -442,8 +442,7 @@ void StoreOverlay::updateRigStatuses()
         if (file == juce::File())
             continue;
 
-        const bool inRig = file.getFullPathName() == modelPath
-                           || file.getFullPathName() == irPath;
+        const bool inRig = file.getFullPathName() == modelPath || processor.isIrFileLoaded (file.getFullPathName());
         const auto wanted = inRig ? ToneCardComponent::Status::inRig
                                   : ToneCardComponent::Status::add;
         if (card->getStatus() != wanted)
@@ -646,7 +645,7 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
         // garante o sidecar de imagem mesmo sem re-download
         client.saveImageSidecar (card.getInfo().imageUrl, local);
         if (kind == "ir")
-            processor.loadIrAsync (local);
+            processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), local);
         else
             processor.loadModelAsync (local);
         return;
@@ -681,7 +680,7 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
             // Foto do tone vira sidecar do arquivo (cartões do rig mostram).
             client.saveImageSidecar (safe->getInfo().imageUrl, file);
             if (safe->getInfo().formatBadge == "IR")
-                processor.loadIrAsync (file);
+                processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), file);
             else
                 processor.loadModelAsync (file);
         });
@@ -752,7 +751,7 @@ void StoreOverlay::refreshLibrary()
             {
                 const auto& ci = c.getInfo();
                 if (ci.gear == "ir")
-                    processor.loadIrAsync (ci.localFile);
+                    processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), ci.localFile);
                 else
                     processor.loadModelAsync (ci.localFile);
                 // Deferido: refreshLibrary() destrói o cartão que originou o
@@ -782,7 +781,7 @@ void StoreOverlay::refreshLibrary()
         addLocal (f, "amp", "NAM", processor.getModelPath());
     for (const auto& f : Tone3000Client::irsDir().findChildFiles (juce::File::findFiles, false,
                                                                   "*.wav;*.aif;*.aiff;*.flac"))
-        addLocal (f, "ir", "IR", processor.getIrPath());
+        addLocal (f, "ir", "IR", processor.isIrFileLoaded (f.getFullPathName()) ? f.getFullPathName() : juce::String());
 
     layoutCards();
     resized();

@@ -88,7 +88,7 @@ class ChainView : public juce::Component
 {
 public:
     ChainView (GuitarRigNAMProcessor&, std::function<void()> onLoadModel,
-               std::function<void()> onLoadIr);
+               std::function<void (int)> onLoadIr);
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -98,6 +98,12 @@ public:
     void refreshDynamicText();
 
     static constexpr int chainHeight = 580;
+
+private:
+    int cabCardWidth() const;
+    void updateLayout();
+
+public:
 
 private:
     void drawPedalFrame (juce::Graphics&, juce::Rectangle<int>, const juce::String& title,
@@ -116,15 +122,23 @@ private:
     std::unique_ptr<KnobComponent> odDriveKnob, odToneKnob, odLevelKnob;
     std::unique_ptr<KnobComponent> ampGainKnob, ampBassKnob, ampMidKnob,
         ampTrebleKnob, ampPresKnob, ampMasterKnob;
-    std::unique_ptr<KnobComponent> cabLevelKnob, cabAirKnob;
+    // cabs paralelos: controles por slot + add/remove; AIR global
+    std::unique_ptr<KnobComponent> cabAirKnob;
+    std::unique_ptr<KnobComponent> cabBlendKnob[GuitarRigNAMProcessor::maxCabSlots];
+    std::unique_ptr<KnobComponent> cabLcKnob[GuitarRigNAMProcessor::maxCabSlots];
+    std::unique_ptr<KnobComponent> cabHcKnob[GuitarRigNAMProcessor::maxCabSlots];
+    juce::TextButton cabPhaseChips[GuitarRigNAMProcessor::maxCabSlots];
+    juce::TextButton cabIrButtons[GuitarRigNAMProcessor::maxCabSlots];
+    juce::TextButton cabAddButton { "+" }, cabRemoveButton { "-" };
+    int lastCabCount = 0;
     std::unique_ptr<KnobComponent> eqLowKnob, eqMidKnob, eqHighKnob;
     std::unique_ptr<KnobComponent> delayTimeKnob, delayFbKnob, delayMixKnob;
     std::unique_ptr<KnobComponent> revDecayKnob, revMixKnob, revPreKnob;
     juce::TextButton loadButton { "TROCAR CAPTURE NAM" };
-    juce::TextButton irButton { "TROCAR IR" };
 
     using Attachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     std::unique_ptr<Attachment> gateAtt, odAtt, ampAtt, cabAtt, eqAtt, delayAtt, revAtt;
+    std::unique_ptr<Attachment> cabPhaseAtt[GuitarRigNAMProcessor::maxCabSlots];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChainView)
 };
@@ -151,7 +165,7 @@ private:
     void analyseTuner();
     void refreshSidecarImages();
     void chooseModelFile();
-    void chooseIrFile();
+    void chooseIrFile (int slot);
     void saveCurrentPreset();
     void beginPresetNameEdit();
     void showPresetMenu();

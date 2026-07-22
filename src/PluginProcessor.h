@@ -63,12 +63,22 @@ public:
     bool isResampling() const noexcept { return resamplingActive.load(); }
 
     //==========================================================================
-    // Cab IR (message thread)
+    // Cab IR — até 3 slots em paralelo (message thread)
 
-    void loadIrAsync (const juce::File& file);
-    juce::String getIrName() const;
-    juce::String getIrPath() const;
-    bool hasIrLoaded() const noexcept { return irIsLoaded.load(); }
+    static constexpr int maxCabSlots = 3;
+
+    void loadIrAsync (int slot, const juce::File& file);
+    juce::String getIrName (int slot) const;
+    juce::String getIrPath (int slot) const;
+    bool hasIrLoaded (int slot) const noexcept
+    {
+        return slot >= 0 && slot < maxCabSlots && irLoadedFlags[slot].load();
+    }
+    /// Primeiro slot vazio dentro do count atual; -1 se todos ocupados.
+    int firstFreeIrSlot() const;
+    /// true se o arquivo está carregado em QUALQUER slot ativo.
+    bool isIrFileLoaded (const juce::String& fullPath) const;
+    int getCabCount() const;
 
     //==========================================================================
     // Presets (message thread)
@@ -160,8 +170,13 @@ private:
     juce::AudioBuffer<float> monoScratch;
 
     juce::dsp::NoiseGate<float> noiseGate;
-    juce::dsp::Convolution convolution;
-    std::atomic<bool> irIsLoaded { false };
+
+    // cabs paralelos (filtros por slot ficam junto dos outros biquads, abaixo)
+    juce::dsp::Convolution convolutions[maxCabSlots];
+    std::atomic<bool> irLoadedFlags[maxCabSlots] {};
+    juce::String irNames[maxCabSlots], irPaths[maxCabSlots]; // sob modelInfoLock
+    juce::AudioBuffer<float> cabDryBuf, cabAccBuf, cabSlotBuf;
+    void updateCabSlotFilters (int slot);
 
     std::atomic<float>* pInputGain = nullptr;
     std::atomic<float>* pOutputGain = nullptr;
@@ -176,8 +191,13 @@ private:
     std::atomic<float>* pGateThresh = nullptr;
     std::atomic<float>* pGateRelease = nullptr;
     std::atomic<float>* pCabOn = nullptr;
-    std::atomic<float>* pCabLevel = nullptr;
+    std::atomic<float>* pCabLevel = nullptr;   // legado (sem knob) — trim pós-mix
     std::atomic<float>* pCabAir = nullptr;
+    std::atomic<float>* pCabCount = nullptr;
+    std::atomic<float>* pCabBlend[maxCabSlots] = {};
+    std::atomic<float>* pCabLowCut[maxCabSlots] = {};
+    std::atomic<float>* pCabHighCut[maxCabSlots] = {};
+    std::atomic<float>* pCabPhase[maxCabSlots] = {};
     std::atomic<float>* pOdOn = nullptr;
     std::atomic<float>* pOdDrive = nullptr;
     std::atomic<float>* pOdTone = nullptr;
@@ -234,9 +254,14 @@ private:
     Biquad eqLowF, eqMidF, eqHighF;
     float eqCachedLow = -99.0f, eqCachedMid = -99.0f, eqCachedHigh = -99.0f;
 
-    // AIR do cab (high shelf pós-IR)
+    // AIR do cab (high shelf pós-mix)
     Biquad airF;
     float airCached = -1.0f;
+
+    // low/high cut por slot de cab
+    Biquad cabLc[maxCabSlots], cabHc[maxCabSlots];
+    float cabLcCached[maxCabSlots] = { -1.0f, -1.0f, -1.0f };
+    float cabHcCached[maxCabSlots] = { -1.0f, -1.0f, -1.0f };
 
     // Delay / Reverb (pós-cadeia)
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 * 2 };

@@ -93,7 +93,7 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 ## 🗺️ Roadmap
 
 **Em andamento (Fase 6):**
-- [ ] Cabs paralelos: 1–3 slots de IR com blend, low/high cut e phase por cab
+- [x] Cabs paralelos: 1–3 slots de IR com blend, low/high cut e phase por cab + AIR global
 - [ ] Cadeia com slots genéricos reordenáveis por drag-and-drop (amp+cab fixos como âncora)
 - [ ] Efeitos P1: compressor de pedal (presets Clean/Country/Lead), gate com hold+histerese, pré-EQ antes do NAM
 - [ ] Aviso no medidor quando a CPU passar de 90%

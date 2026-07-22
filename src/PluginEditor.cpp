@@ -254,7 +254,7 @@ void PillButton::paintButton (juce::Graphics& g, bool isHighlighted, bool)
 
 //==============================================================================
 ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadModel,
-                      std::function<void()> onLoadIr)
+                      std::function<void (int)> onLoadIr)
     : processor (p)
 {
     auto& apvts = processor.apvts;
@@ -285,8 +285,55 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     makeKnob (ampTrebleKnob, "ampTreble", "TREBLE", formatTen);
     makeKnob (ampPresKnob, "ampPresence", "PRES", formatTen);
     makeKnob (ampMasterKnob, "ampMaster", "MASTER", formatDb);
-    makeKnob (cabLevelKnob, "cabLevel", "LEVEL", formatDb);
     makeKnob (cabAirKnob, "cabAir", "AIR", formatTen);
+
+    auto formatHz = [] (float v)
+    {
+        return v >= 1000.0f ? juce::String (v / 1000.0f, 1) + "k" : juce::String ((int) v);
+    };
+    for (int s = 0; s < GuitarRigNAMProcessor::maxCabSlots; ++s)
+    {
+        const auto n = juce::String (s + 1);
+        makeKnob (cabBlendKnob[s], ("cab" + n + "Blend").toRawUTF8(), "BLEND", formatPct);
+        makeKnob (cabLcKnob[s], ("cab" + n + "LowCut").toRawUTF8(), "LO CUT", formatHz);
+        makeKnob (cabHcKnob[s], ("cab" + n + "HighCut").toRawUTF8(), "HI CUT", formatHz);
+
+        cabPhaseChips[s].setButtonText (juce::String (juce::CharPointer_UTF8 ("\xc3\x98")));
+        cabPhaseChips[s].getProperties().set ("chip", true);
+        cabPhaseChips[s].setClickingTogglesState (true);
+        cabPhaseChips[s].setTooltip (juce::String (juce::CharPointer_UTF8 (
+            "Inverte a fase deste cab (evita cancelamento em paralelo)")));
+        cabPhaseChips[s].setMouseClickGrabsKeyboardFocus (false);
+        cabPhaseAtt[s] = std::make_unique<Attachment> (apvts, "cab" + n + "Phase",
+                                                       cabPhaseChips[s]);
+        addChildComponent (cabPhaseChips[s]);
+
+        cabIrButtons[s].setButtonText ("TROCAR");
+        cabIrButtons[s].setTooltip ("Escolher o IR deste cab");
+        cabIrButtons[s].setMouseClickGrabsKeyboardFocus (false);
+        cabIrButtons[s].onClick = [onLoadIr, s] { onLoadIr (s); };
+        addChildComponent (cabIrButtons[s]);
+    }
+
+    cabAddButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Adicionar um cab em paralelo (at\xc3\xa9 3)")));
+    cabRemoveButton.setTooltip (juce::String (juce::CharPointer_UTF8 ("Remover o \xc3\xbaltimo cab")));
+    for (auto* b : { &cabAddButton, &cabRemoveButton })
+        b->setMouseClickGrabsKeyboardFocus (false);
+    auto changeCount = [this] (int delta)
+    {
+        if (auto* param = processor.apvts.getParameter ("cabCount"))
+        {
+            const int c = juce::jlimit (1, (int) GuitarRigNAMProcessor::maxCabSlots,
+                                        processor.getCabCount() + delta);
+            param->setValueNotifyingHost (param->getNormalisableRange()
+                                              .convertTo0to1 ((float) c));
+        }
+    };
+    cabAddButton.onClick = [changeCount] { changeCount (1); };
+    cabRemoveButton.onClick = [changeCount] { changeCount (-1); };
+    addAndMakeVisible (cabAddButton);
+    addAndMakeVisible (cabRemoveButton);
     makeKnob (eqLowKnob, "eqLow", "LOW", formatDbInt);
     makeKnob (eqMidKnob, "eqMid", "MID", formatDbInt);
     makeKnob (eqHighKnob, "eqHigh", "HIGH", formatDbInt);
@@ -315,13 +362,9 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     makeLed (revLed, "revOn", revAtt);
 
     loadButton.onClick = std::move (onLoadModel);
-    irButton.onClick = std::move (onLoadIr);
     loadButton.setTooltip ("Escolher um arquivo .nam do disco");
-    irButton.setTooltip ("Escolher um impulse response (wav/aiff/flac)");
     loadButton.setMouseClickGrabsKeyboardFocus (false);
-    irButton.setMouseClickGrabsKeyboardFocus (false);
     addAndMakeVisible (loadButton);
-    addAndMakeVisible (irButton);
 
     // tooltips dos knobs
     auto tip = [] (std::unique_ptr<KnobComponent>& k, const char* utf8)
@@ -339,8 +382,13 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     tip (ampTrebleKnob, "Agudos (1.8 kHz)");
     tip (ampPresKnob, "Presen\xc3\xa7""a (4.5 kHz)");
     tip (ampMasterKnob, "Volume da se\xc3\xa7\xc3\xa3o do amp");
-    tip (cabLevelKnob, "Volume do cabinete");
-    tip (cabAirKnob, "Ar/brilho p\xc3\xb3s-IR (shelf 8 kHz)");
+    tip (cabAirKnob, "Ar/brilho p\xc3\xb3s-mix dos cabs (shelf 8 kHz)");
+    for (int s = 0; s < GuitarRigNAMProcessor::maxCabSlots; ++s)
+    {
+        tip (cabBlendKnob[s], "Quanto deste cab entra na mistura");
+        tip (cabLcKnob[s], "Corta graves deste cab (20 Hz = desligado)");
+        tip (cabHcKnob[s], "Corta agudos deste cab (20 kHz = desligado)");
+    }
     tip (eqLowKnob, "Graves p\xc3\xb3s-cab (120 Hz)");
     tip (eqMidKnob, "M\xc3\xa9""dios p\xc3\xb3s-cab (800 Hz)");
     tip (eqHighKnob, "Agudos p\xc3\xb3s-cab (4 kHz)");
@@ -351,8 +399,19 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     tip (revMixKnob, "Mistura do reverb no sinal");
     tip (revPreKnob, "Atraso antes do reverb come\xc3\xa7""ar");
 
-    // largura total fixa da cadeia (métricas do design + conectores de 30 px)
-    const int total = 26 + 90 + 30 + 132 + 30 + 132 + 30 + 266 + 30 + 132 + 30
+    updateLayout();
+}
+
+// largura do cartão de cabs: coluna do AIR (44) + 124 por slot ativo
+int ChainView::cabCardWidth() const
+{
+    return 12 + 44 + processor.getCabCount() * 124 + 8;
+}
+
+void ChainView::updateLayout()
+{
+    // métricas do design + conectores de 30 px; o cartão de cabs é dinâmico
+    const int total = 26 + 90 + 30 + 132 + 30 + 132 + 30 + 266 + 30 + cabCardWidth() + 30
                       + 176 + 30 + 132 + 30 + 132 + 30 + 90 + 26;
     setSize (total, chainHeight);
 }
@@ -375,7 +434,13 @@ void ChainView::refreshDynamicText()
 {
     loadButton.setButtonText (processor.hasModelLoaded() ? "TROCAR CAPTURE NAM"
                                                          : "CARREGAR CAPTURE NAM");
-    irButton.setButtonText (processor.hasIrLoaded() ? "TROCAR IR" : "CARREGAR IR");
+
+    // número de cabs mudou -> relayout da cadeia inteira
+    if (processor.getCabCount() != lastCabCount)
+    {
+        lastCabCount = processor.getCabCount();
+        updateLayout();
+    }
     repaint();
 }
 
@@ -393,8 +458,9 @@ void ChainView::resized()
     x += 132 + 30;
     ampB = { x, cardY (360), 266, 360 };
     x += 266 + 30;
-    cabB = { x, cardY (330), 132, 330 };
-    x += 132 + 30;
+    const int cabW = cabCardWidth();
+    cabB = { x, cardY (330), cabW, 330 };
+    x += cabW + 30;
     eqB = { x, cardY (330), 176, 330 };
     x += 176 + 30;
     delayB = { x, cardY (330), 132, 330 };
@@ -449,15 +515,37 @@ void ChainView::resized()
         loadButton.setBounds (ampB.getX() + 18, ampB.getBottom() - 15 - 32, 266 - 36, 32);
     }
 
-    // ---- cab (foto opcional)
+    // ---- cabs paralelos: coluna do AIR + uma faixa por slot ativo
     {
-        cabLed.setBounds (cabB.getRight() - 12 - 18, cabB.getY() + 10, 18, 18);
-        const bool photo = cabImage.isValid();
-        const int kw = 46, kh = kw + 26;
-        const int ky = cabB.getY() + (photo ? 96 : 64);
-        cabLevelKnob->setBounds (cabB.getCentreX() - kw - 5, ky, kw, kh);
-        cabAirKnob->setBounds (cabB.getCentreX() + 5, ky, kw, kh);
-        irButton.setBounds (cabB.getX() + 12, cabB.getBottom() - 12 - 28, 132 - 24, 28);
+        const int count = processor.getCabCount();
+        cabLed.setBounds (cabB.getRight() - 10 - 18, cabB.getY() + 10, 18, 18);
+        cabRemoveButton.setBounds (cabB.getRight() - 10 - 18 - 6 - 22, cabB.getY() + 8, 22, 22);
+        cabAddButton.setBounds (cabRemoveButton.getX() - 4 - 22, cabB.getY() + 8, 22, 22);
+        cabAddButton.setEnabled (count < GuitarRigNAMProcessor::maxCabSlots);
+        cabRemoveButton.setEnabled (count > 1);
+
+        // coluna esquerda: AIR global
+        cabAirKnob->setBounds (cabB.getX() + 10, cabB.getCentreY() - 20, 40, 40 + 26);
+
+        for (int s = 0; s < GuitarRigNAMProcessor::maxCabSlots; ++s)
+        {
+            const bool active = s < count;
+            const int sx = cabB.getX() + 12 + 44 + s * 124;
+
+            cabBlendKnob[s]->setVisible (active);
+            cabLcKnob[s]->setVisible (active);
+            cabHcKnob[s]->setVisible (active);
+            cabPhaseChips[s].setVisible (active);
+            cabIrButtons[s].setVisible (active);
+            if (! active)
+                continue;
+
+            cabPhaseChips[s].setBounds (sx + 124 - 34, cabB.getY() + 36, 26, 20);
+            cabBlendKnob[s]->setBounds (sx + (124 - 44) / 2, cabB.getY() + 96, 44, 44 + 26);
+            cabLcKnob[s]->setBounds (sx + 14, cabB.getY() + 176, 40, 40 + 26);
+            cabHcKnob[s]->setBounds (sx + 68, cabB.getY() + 176, 40, 40 + 26);
+            cabIrButtons[s].setBounds (sx + 8, cabB.getBottom() - 12 - 24, 124 - 16, 24);
+        }
     }
 
     // ---- EQ
@@ -588,14 +676,50 @@ void ChainView::paint (juce::Graphics& g)
     drawPedalFrame (g, delayB, "Delay", juce::String (juce::CharPointer_UTF8 ("Digital \xc2\xb7 mono")));
     drawPedalFrame (g, revB, "Reverb", juce::String (juce::CharPointer_UTF8 ("Hall \xc2\xb7 predelay")));
 
-    // ---- cab
+    // ---- cabs paralelos
     {
-        const auto irName = processor.getIrName();
-        drawPedalFrame (g, cabB, "Cab IR",
-                        irName.isNotEmpty() ? irName
-                                            : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem IR \xe2\x80\x94")));
-        if (cabImage.isValid())
-            drawPhoto (g, cabImage, { cabB.getX() + 12, cabB.getY() + 36, 132 - 24, 48 });
+        const int count = processor.getCabCount();
+        drawPedalFrame (g, cabB, count > 1 ? "Cabs (paralelo)" : "Cab IR", {});
+
+        // rótulo da coluna AIR
+        g.setFont (ui::monoFont (8.0f));
+        g.setColour (ui::textFaint);
+        g.drawText ("GLOBAL", cabB.getX() + 6, cabB.getCentreY() - 38, 52, 12,
+                    juce::Justification::centred);
+
+        for (int s = 0; s < count; ++s)
+        {
+            const int sx = cabB.getX() + 12 + 44 + s * 124;
+
+            // separador entre faixas
+            if (s > 0)
+            {
+                g.setColour (juce::Colours::white.withAlpha (0.06f));
+                g.fillRect (sx - 2, cabB.getY() + 34, 1, cabB.getHeight() - 48);
+            }
+
+            g.setFont (ui::monoFont (8.5f, true));
+            g.setColour (ui::accent.withAlpha (0.85f));
+            g.drawText ("CAB " + juce::String (s + 1), sx + 4, cabB.getY() + 38, 60, 12,
+                        juce::Justification::centredLeft);
+
+            // foto (só com 1 cab, para não apertar) ou nome do IR
+            const auto irName = processor.getIrName (s);
+            if (count == 1 && cabImage.isValid())
+            {
+                drawPhoto (g, cabImage, { sx + 4, cabB.getY() + 54, 116, 40 });
+            }
+            else
+            {
+                g.setFont (ui::monoFont (8.5f));
+                g.setColour (juce::Colour (0xffb4bbc4));
+                g.drawFittedText (irName.isNotEmpty()
+                                      ? irName
+                                      : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem IR \xe2\x80\x94")),
+                                  sx + 4, cabB.getY() + 54, 116, 34,
+                                  juce::Justification::topLeft, 3);
+            }
+        }
     }
 
     // ---- EQ (com barras vivas refletindo LOW/MID/HIGH)
@@ -798,7 +922,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 
     chainView = std::make_unique<ChainView> (processor,
                                              [this] { chooseModelFile(); },
-                                             [this] { chooseIrFile(); });
+                                             [this] (int slot) { chooseIrFile (slot); });
     chainViewport.setViewedComponent (chainView.get(), false);
     chainViewport.setScrollBarsShown (false, true);
     chainViewport.setScrollBarThickness (9);
@@ -1152,7 +1276,7 @@ void RigContent::refreshSidecarImages()
 
     refresh (processor.getModelPath(), loadedModelPath, ampImageLoaded,
              [this] (juce::Image img) { chainView->setAmpImage (std::move (img)); });
-    refresh (processor.getIrPath(), loadedIrPath, cabImageLoaded,
+    refresh (processor.getIrPath (0), loadedIrPath, cabImageLoaded,
              [this] (juce::Image img) { chainView->setCabImage (std::move (img)); });
 }
 
@@ -1174,21 +1298,22 @@ void RigContent::chooseModelFile()
                               });
 }
 
-void RigContent::chooseIrFile()
+void RigContent::chooseIrFile (int slot)
 {
-    auto initialDir = juce::File (processor.getIrPath()).getParentDirectory();
+    auto initialDir = juce::File (processor.getIrPath (slot)).getParentDirectory();
     if (! initialDir.isDirectory())
         initialDir = Tone3000Client::irsDir();
 
-    fileChooser = std::make_unique<juce::FileChooser> ("Escolher impulse response (wav/aiff/flac)",
-                                                       initialDir, "*.wav;*.aif;*.aiff;*.flac");
+    fileChooser = std::make_unique<juce::FileChooser> (
+        "Escolher impulse response para o CAB " + juce::String (slot + 1),
+        initialDir, "*.wav;*.aif;*.aiff;*.flac");
     fileChooser->launchAsync (juce::FileBrowserComponent::openMode
                                   | juce::FileBrowserComponent::canSelectFiles,
-                              [this] (const juce::FileChooser& fc)
+                              [this, slot] (const juce::FileChooser& fc)
                               {
                                   const auto file = fc.getResult();
                                   if (file.existsAsFile())
-                                      processor.loadIrAsync (file);
+                                      processor.loadIrAsync (slot, file);
                               });
 }
 

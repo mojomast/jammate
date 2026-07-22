@@ -153,7 +153,7 @@ public:
         if (props["chip"])
         {
             const float r = bounds.getHeight() / 2.0f;
-            if (props["chipActive"])
+            if ((bool) props["chipActive"] || button.getToggleState())
             {
                 g.setColour (ui::accent);
                 g.fillRoundedRectangle (bounds, r);
@@ -226,7 +226,8 @@ public:
         if (props["tab"])
             c = props["tabActive"] ? ui::textBright : ui::textFaint;
         else if (props["chip"])
-            c = props["chipActive"] ? ui::accentTextDark : juce::Colour (0xffb4bbc4);
+            c = ((bool) props["chipActive"] || button.getToggleState())
+                    ? ui::accentTextDark : juce::Colour (0xffb4bbc4);
         else if (props["outlineAccent"])
             c = (isHighlighted || isDown) ? ui::accentTextDark : ui::accent;
         else if (props["accent"])
