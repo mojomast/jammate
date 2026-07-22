@@ -89,6 +89,13 @@ void ToneCardComponent::setImage (juce::Image newImage)
     repaint();
 }
 
+void ToneCardComponent::setLocalFile (const juce::File& file)
+{
+    info.localFile = file;
+    info.offline = true;
+    repaint();
+}
+
 void ToneCardComponent::resized()
 {
     addButton.setBounds (getLocalBounds().reduced (12).removeFromBottom (34));
@@ -373,6 +380,43 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
 
 StoreOverlay::~StoreOverlay() = default;
 
+void StoreOverlay::visibilityChanged()
+{
+    // Status dos cartões só precisa acompanhar o rig com o store aberto.
+    if (isVisible())
+        startTimerHz (2);
+    else
+        stopTimer();
+}
+
+void StoreOverlay::timerCallback()
+{
+    updateRigStatuses();
+}
+
+void StoreOverlay::updateRigStatuses()
+{
+    const auto modelPath = processor.getModelPath();
+    const auto irPath = processor.getIrPath();
+
+    for (auto* card : cards)
+    {
+        if (card->getStatus() == ToneCardComponent::Status::downloading)
+            continue;
+
+        const auto file = card->getInfo().localFile;
+        if (file == juce::File())
+            continue;
+
+        const bool inRig = file.getFullPathName() == modelPath
+                           || file.getFullPathName() == irPath;
+        const auto wanted = inRig ? ToneCardComponent::Status::inRig
+                                  : ToneCardComponent::Status::add;
+        if (card->getStatus() != wanted)
+            card->setStatus (wanted);
+    }
+}
+
 void StoreOverlay::open()
 {
     client.reloadConfig();
@@ -470,6 +514,9 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
                         repaint();
                         return;
                     }
+                    // Otimista: o timer de status corrige se o load falhar ou
+                    // se outro item entrar no rig depois.
+                    safe->setLocalFile (file);
                     safe->setStatus (ToneCardComponent::Status::inRig);
                     if (safe->getInfo().formatBadge == "IR")
                         processor.loadIrAsync (file);
@@ -503,6 +550,11 @@ void StoreOverlay::doSearch (int page)
                 return;
             auto* self = safe.getComponent();
             self->searching = false;
+
+            // Resultado chegou depois de trocar para a biblioteca — descarta
+            // (senão sobrescreve os cartões locais).
+            if (self->tab != Tab::explore)
+                return;
 
             if (result.error.isNotEmpty())
             {

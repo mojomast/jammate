@@ -31,6 +31,9 @@ public:
     void setStatus (Status s);
     void setProgress (int pct);
     void setImage (juce::Image);
+    /// Associa o arquivo baixado ao cartão (habilita o badge offline e o
+    /// acompanhamento de status pelo overlay).
+    void setLocalFile (const juce::File&);
     Status getStatus() const { return status; }
     const Info& getInfo() const { return info; }
 
@@ -49,11 +52,14 @@ private:
 
 //==============================================================================
 // Overlay do Tone Store (TONE3000) conforme GuitarRig.dc.html.
-class StoreOverlay : public juce::Component
+class StoreOverlay : public juce::Component,
+                     private juce::Timer
 {
 public:
     explicit StoreOverlay (GuitarRigNAMProcessor&);
     ~StoreOverlay() override;
+
+    void visibilityChanged() override;
 
     void open();
     void openOnLibrary();   // usado pelo flag de dev GUITARRIG_OPEN_STORE
@@ -64,6 +70,9 @@ public:
 private:
     enum class Tab { explore, library };
 
+    void timerCallback() override;
+    /// Sincroniza os status dos cartões com o que está carregado no rig.
+    void updateRigStatuses();
     void setTab (Tab);
     void doSearch (int page);
     void refreshLibrary();
