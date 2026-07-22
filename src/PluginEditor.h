@@ -157,6 +157,13 @@ private:
     std::unique_ptr<KnobComponent> delayTimeKnob, delayFbKnob, delayMixKnob;
     std::unique_ptr<KnobComponent> revDecayKnob, revMixKnob, revPreKnob;
     juce::TextButton loadButton { "TROCAR CAPTURE NAM" };
+    juce::TextButton ecoChip { "ECO" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ecoAtt;
+
+    // cache do badge V1/V2 dos IRs (lido do sidecar .meta)
+    juce::String cabArchCache[GuitarRigNAMProcessor::maxCabSlots];
+    juce::String cabArchPathSeen[GuitarRigNAMProcessor::maxCabSlots];
+    juce::String archBadgeForIr (int slot);
 
     using Attachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     std::unique_ptr<Attachment> gateAtt, odAtt, ampAtt, cabAtt, eqAtt, delayAtt, revAtt;
@@ -219,6 +226,13 @@ private:
     // afinador
     juce::TextButton tunerToggle { "AFINADOR" };
     bool isTunerOn() const;
+
+    // auto-ECO (troca para o capture leve quando a CPU estoura)
+    juce::TextButton autoEcoChip { "AUTO-ECO" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoEcoAtt;
+    int cpuHighTicks = 0;
+    int ecoNoticeTicks = 0;
+    void applyEcoSwitchIfNeeded();
     double tunerFreq = -1.0;
     double tunerCents = 0.0;
     juce::String tunerNote;

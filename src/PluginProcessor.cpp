@@ -227,6 +227,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::NormalisableRange<float> (-40.0f, 12.0f, 0.1f), 0.0f, dB));
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { kParamAmpOn, 1 }, "Amp On", true));
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "ampEco", 1 }, "Amp Eco", false));
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "autoEco", 1 }, "Auto Eco", true));
 
     // Painel do amp: GAIN empurra o sinal para dentro do capture (como o
     // gain do amp real); tone stack + presence pós-modelo; MASTER na saída
@@ -343,6 +347,8 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pInputGain = apvts.getRawParameterValue (kParamInputGain);
     pOutputGain = apvts.getRawParameterValue (kParamOutputGain);
     pAmpOn = apvts.getRawParameterValue (kParamAmpOn);
+    pAmpEco = apvts.getRawParameterValue ("ampEco");
+    pAutoEco = apvts.getRawParameterValue ("autoEco");
     pAmpGain = apvts.getRawParameterValue (kParamAmpGain);
     pAmpBass = apvts.getRawParameterValue (kParamAmpBass);
     pAmpMid = apvts.getRawParameterValue (kParamAmpMid);
@@ -886,11 +892,32 @@ void GuitarRigNAMProcessor::loadModelAsync (const juce::File& file)
             return;
         }
 
+        // Arquitetura (badge V1/V2): sidecar .meta do TONE3000 tem prioridade;
+        // sem ele, lemos o campo "architecture" do próprio .nam.
+        juce::String archLabel;
+        {
+            const auto meta = juce::JSON::parse (
+                juce::File (file.getFullPathName() + ".meta").loadFileAsString());
+            const auto metaArch = meta.getProperty ("arch", "").toString();
+            if (metaArch == "2")
+                archLabel = "V2";
+            else if (metaArch == "1")
+                archLabel = "V1";
+            else
+            {
+                const auto namJson = juce::JSON::parse (file.loadFileAsString());
+                const auto arch = namJson.getProperty ("architecture", "").toString();
+                if (arch.isNotEmpty())
+                    archLabel = arch.containsIgnoreCase ("slimmable") ? "V2" : "V1";
+            }
+        }
+
         {
             const juce::ScopedLock sl (modelInfoLock);
             modelName = file.getFileNameWithoutExtension();
             modelPath = file.getFullPathName();
             modelExpectedSampleRate = lm->modelSampleRate;
+            modelArchLabel = archLabel;
             loadError.clear();
         }
 
@@ -906,6 +933,36 @@ void GuitarRigNAMProcessor::loadModelAsync (const juce::File& file)
 
         loading.store (false);
     });
+}
+
+void GuitarRigNAMProcessor::setModelPair (const juce::File& normal, const juce::File& eco)
+{
+    {
+        const juce::ScopedLock sl (modelInfoLock);
+        modelPathStd = normal.getFullPathName();
+        modelPathEco = eco.existsAsFile() ? eco.getFullPathName() : juce::String();
+    }
+
+    const bool wantEco = pAmpEco->load() > 0.5f && eco.existsAsFile();
+    loadModelAsync (wantEco ? eco : normal);
+}
+
+juce::String GuitarRigNAMProcessor::getModelPathNormal() const
+{
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelPathStd;
+}
+
+juce::String GuitarRigNAMProcessor::getModelPathEco() const
+{
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelPathEco;
+}
+
+juce::String GuitarRigNAMProcessor::getModelArchLabel() const
+{
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelArchLabel;
 }
 
 juce::String GuitarRigNAMProcessor::getModelName() const
@@ -1010,6 +1067,8 @@ juce::ValueTree GuitarRigNAMProcessor::captureState()
 {
     auto state = apvts.copyState();
     state.setProperty (kStateModelPath, getModelPath(), nullptr);
+    state.setProperty ("modelPathStd", getModelPathNormal(), nullptr);
+    state.setProperty ("modelPathEco", getModelPathEco(), nullptr);
     for (int s = 0; s < maxCabSlots; ++s)
         state.setProperty ("irPath" + juce::String (s + 1), getIrPath (s), nullptr);
     state.setProperty ("chainOrder", getChainOrder().joinIntoString (","), nullptr);
@@ -1024,7 +1083,16 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
 
     apvts.replaceState (state);
 
+    // par ECO: formato novo tem modelPathStd/Eco; legado só modelPath
     const juce::File modelFile (state.getProperty (kStateModelPath, "").toString());
+    const juce::File stdFile (state.getProperty ("modelPathStd",
+                                                 modelFile.getFullPathName()).toString());
+    const juce::File ecoFile (state.getProperty ("modelPathEco", "").toString());
+    {
+        const juce::ScopedLock sl (modelInfoLock);
+        modelPathStd = stdFile.existsAsFile() ? stdFile.getFullPathName() : juce::String();
+        modelPathEco = ecoFile.existsAsFile() ? ecoFile.getFullPathName() : juce::String();
+    }
     if (modelFile.existsAsFile())
         loadModelAsync (modelFile);
 

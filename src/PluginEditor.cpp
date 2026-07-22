@@ -366,6 +366,16 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     loadButton.setMouseClickGrabsKeyboardFocus (false);
     addAndMakeVisible (loadButton);
 
+    // chip ECO: alterna para a versão leve do capture (quando existe)
+    ecoChip.getProperties().set ("chip", true);
+    ecoChip.setClickingTogglesState (true);
+    ecoChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Usa a vers\xc3\xa3o leve do capture (menos CPU). Baixada junto quando o tone oferece.")));
+    ecoChip.setMouseClickGrabsKeyboardFocus (false);
+    ecoAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        apvts, "ampEco", ecoChip);
+    addAndMakeVisible (ecoChip);
+
     // tooltips dos knobs
     auto tip = [] (std::unique_ptr<KnobComponent>& k, const char* utf8)
     { k->setKnobTooltip (juce::String (juce::CharPointer_UTF8 (utf8))); };
@@ -430,10 +440,29 @@ void ChainView::setCabImage (juce::Image img)
     repaint();
 }
 
+juce::String ChainView::archBadgeForIr (int slot)
+{
+    const auto path = processor.getIrPath (slot);
+    if (path != cabArchPathSeen[slot])
+    {
+        cabArchPathSeen[slot] = path;
+        cabArchCache[slot].clear();
+        if (path.isNotEmpty())
+        {
+            const auto meta = juce::JSON::parse (juce::File (path + ".meta").loadFileAsString());
+            const auto arch = meta.getProperty ("arch", "").toString();
+            if (arch == "2") cabArchCache[slot] = "V2";
+            else if (arch == "1") cabArchCache[slot] = "V1";
+        }
+    }
+    return cabArchCache[slot];
+}
+
 void ChainView::refreshDynamicText()
 {
     loadButton.setButtonText (processor.hasModelLoaded() ? "TROCAR CAPTURE NAM"
                                                          : "CARREGAR CAPTURE NAM");
+    ecoChip.setEnabled (processor.hasEcoVariant());
 
     // número de cabs ou ordem da cadeia mudou -> relayout
     const auto orderNow = processor.getChainOrder().joinIntoString (",");
@@ -604,6 +633,7 @@ void ChainView::resized()
     // ---- amp (foto opcional entre o cabeçalho e os knobs)
     {
         ampLed.setBounds (ampB.getRight() - 18 - 18, ampB.getY() + 19, 18, 18);
+        ecoChip.setBounds (ampB.getRight() - 18 - 18 - 8 - 52, ampB.getY() + 17, 52, 22);
         const bool photo = ampImage.isValid();
         const int kw = 42, kh = kw + 26, gapX = 26, gapY = 4;
         const int gx = ampB.getX() + (266 - (3 * kw + 2 * gapX)) / 2;
@@ -816,6 +846,17 @@ void ChainView::paint (juce::Graphics& g)
             g.drawText ("CAB " + juce::String (s + 1), sx + 4, cabB.getY() + 38, 60, 12,
                         juce::Justification::centredLeft);
 
+            // badge V1/V2 do IR (quando o TONE3000 informa via .meta)
+            if (const auto irArch = archBadgeForIr (s); irArch.isNotEmpty())
+            {
+                auto badge = juce::Rectangle<float> ((float) sx + 48.0f,
+                                                     (float) cabB.getY() + 36.0f, 26.0f, 15.0f);
+                g.setColour (ui::accent.withAlpha (irArch == "V2" ? 0.9f : 0.45f));
+                g.drawRoundedRectangle (badge, 4.0f, 1.0f);
+                g.setFont (ui::monoFont (8.0f, true));
+                g.drawText (irArch, badge, juce::Justification::centred);
+            }
+
             // foto (só com 1 cab, para não apertar) ou nome do IR
             const auto irName = processor.getIrName (s);
             if (count == 1 && cabImage.isValid())
@@ -897,10 +938,23 @@ void ChainView::paint (juce::Graphics& g)
         const auto modelName = processor.getModelName();
         g.setFont (ui::uiFont (18.0f, true));
         g.setColour (modelName.isNotEmpty() ? ui::textBright : ui::textMuted);
+        // -40 reserva o canto direito para o badge V1/V2
         g.drawText (modelName.isNotEmpty() ? modelName
                                            : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem capture \xe2\x80\x94")),
-                    ampB.getX() + 18, ampB.getY() + 54, ampB.getWidth() - 36, 22,
+                    ampB.getX() + 18, ampB.getY() + 54, ampB.getWidth() - 36 - 40, 22,
                     juce::Justification::centredLeft);
+
+        // badge V1/V2 da arquitetura do capture
+        const auto archLabel = processor.getModelArchLabel();
+        if (archLabel.isNotEmpty() && modelName.isNotEmpty())
+        {
+            auto badge = juce::Rectangle<float> ((float) ampB.getRight() - 18.0f - 30.0f,
+                                                 (float) ampB.getY() + 52.0f, 30.0f, 18.0f);
+            g.setColour (ui::accent.withAlpha (archLabel == "V2" ? 0.9f : 0.45f));
+            g.drawRoundedRectangle (badge, 5.0f, 1.0f);
+            g.setFont (ui::monoFont (9.0f, true));
+            g.drawText (archLabel, badge, juce::Justification::centred);
+        }
 
         const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
         juce::String info;
@@ -1070,6 +1124,17 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (tunerToggle);
 
+    // AUTO-ECO: troca para o capture leve sozinho quando a CPU passa de 90%
+    autoEcoChip.getProperties().set ("chip", true);
+    autoEcoChip.setClickingTogglesState (true);
+    autoEcoChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Com CPU acima de 90%%, troca automaticamente para a vers\xc3\xa3o leve "
+        "do capture (quando dispon\xc3\xadvel)")));
+    autoEcoChip.setMouseClickGrabsKeyboardFocus (false);
+    autoEcoAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        processor.apvts, "autoEco", autoEcoChip);
+    addAndMakeVisible (autoEcoChip);
+
     chainView = std::make_unique<ChainView> (processor,
                                              [this] { chooseModelFile(); },
                                              [this] (int slot) { chooseIrFile (slot); });
@@ -1135,6 +1200,7 @@ void RigContent::resized()
     // ---- cadeia (rolável) e afinador
     chainViewport.setBounds (0, 60, W, getHeight() - 60 - 60);
     tunerToggle.setBounds (22, getHeight() - 60 + 16, 92, 28);
+    autoEcoChip.setBounds (122, getHeight() - 60 + 16, 92, 28);
 }
 
 bool RigContent::isTunerOn() const
@@ -1306,6 +1372,12 @@ void RigContent::paint (juce::Graphics& g)
                 status = "Erro: " + err;
                 c = ui::red;
             }
+            else if (ecoNoticeTicks > 0)
+            {
+                status = juce::String (juce::CharPointer_UTF8 (
+                    "ECO autom\xc3\xa1tico ativado (CPU alta)"));
+                c = ui::accent;
+            }
             g.setFont (ui::monoFont (9.5f));
             g.setColour (c);
             g.drawText (status, W - 22 - 360, barY, 360, 60, juce::Justification::centredRight);
@@ -1357,6 +1429,10 @@ void RigContent::timerCallback()
     chainView->refreshDynamicText();
     refreshSidecarImages();
 
+    applyEcoSwitchIfNeeded();
+    if (ecoNoticeTicks > 0)
+        --ecoNoticeTicks;
+
     if (++tunerTick % 3 == 0 && isTunerOn())
         analyseTuner();
 
@@ -1369,6 +1445,40 @@ void RigContent::timerCallback()
 
     repaint (0, 0, getWidth(), 60);
     repaint (0, getHeight() - 60, getWidth(), 60);
+}
+
+void RigContent::applyEcoSwitchIfNeeded()
+{
+    auto& apvts = processor.apvts;
+    const bool eco = apvts.getRawParameterValue ("ampEco")->load() > 0.5f;
+    const bool autoEco = apvts.getRawParameterValue ("autoEco")->load() > 0.5f;
+
+    // auto-ECO: CPU acima de 90% por ~2 s liga o modo leve (nunca desliga
+    // sozinho, para não ficar alternando o timbre)
+    if (autoEco && ! eco && processor.hasEcoVariant()
+        && processor.cpuLoad.load() >= 0.9f)
+    {
+        if (++cpuHighTicks >= 60)
+        {
+            cpuHighTicks = 0;
+            if (auto* p = apvts.getParameter ("ampEco"))
+                p->setValueNotifyingHost (1.0f);
+            ecoNoticeTicks = 120; // aviso por ~4 s na barra inferior
+        }
+    }
+    else
+    {
+        cpuHighTicks = 0;
+    }
+
+    // mantém o arquivo carregado coerente com o modo (chip, preset ou auto)
+    const bool ecoNow = apvts.getRawParameterValue ("ampEco")->load() > 0.5f;
+    const auto target = ecoNow && processor.hasEcoVariant()
+                            ? processor.getModelPathEco()
+                            : processor.getModelPathNormal();
+    if (target.isNotEmpty() && ! processor.isLoadingModel()
+        && target != processor.getModelPath())
+        processor.loadModelAsync (juce::File (target));
 }
 
 void RigContent::analyseTuner()
@@ -1453,7 +1563,7 @@ void RigContent::chooseModelFile()
                               {
                                   const auto file = fc.getResult();
                                   if (file.existsAsFile())
-                                      processor.loadModelAsync (file);
+                                      processor.setModelPair (file, {}); // arquivo local: sem par eco
                               });
 }
 

@@ -63,6 +63,19 @@ public:
     bool isResampling() const noexcept { return resamplingActive.load(); }
 
     //==========================================================================
+    // ECO: par de arquivos do mesmo capture (normal + versão mais leve).
+    // O chip ECO/auto-ECO troca qual dos dois está carregado.
+
+    /// Define o par normal/eco (eco pode ser vazio) e carrega o apropriado
+    /// conforme o parâmetro ampEco atual.
+    void setModelPair (const juce::File& normal, const juce::File& eco);
+    juce::String getModelPathNormal() const;
+    juce::String getModelPathEco() const;
+    bool hasEcoVariant() const { return getModelPathEco().isNotEmpty(); }
+    /// "V1", "V2" ou "" (arquitetura do capture carregado).
+    juce::String getModelArchLabel() const;
+
+    //==========================================================================
     // Cab IR — até 3 slots em paralelo (message thread)
 
     static constexpr int maxCabSlots = 3;
@@ -179,6 +192,8 @@ private:
 
     mutable juce::CriticalSection modelInfoLock;
     juce::String modelName, modelPath, loadError;        // sob modelInfoLock
+    juce::String modelPathStd, modelPathEco;             // par ECO, sob modelInfoLock
+    juce::String modelArchLabel;                         // "V1"/"V2", sob modelInfoLock
     juce::String irName, irPath;                         // sob modelInfoLock
     juce::String currentPresetName;                      // sob modelInfoLock
     double modelExpectedSampleRate = -1.0;               // sob modelInfoLock
@@ -210,6 +225,8 @@ private:
     std::atomic<float>* pInputGain = nullptr;
     std::atomic<float>* pOutputGain = nullptr;
     std::atomic<float>* pAmpOn = nullptr;
+    std::atomic<float>* pAmpEco = nullptr;
+    std::atomic<float>* pAutoEco = nullptr;
     std::atomic<float>* pAmpGain = nullptr;
     std::atomic<float>* pAmpBass = nullptr;
     std::atomic<float>* pAmpMid = nullptr;

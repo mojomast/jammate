@@ -625,6 +625,74 @@ void StoreOverlay::showModelChoices (ToneCardComponent& card,
         });
 }
 
+int StoreOverlay::sizeRank (const juce::String& s)
+{
+    if (s == "standard") return 0;
+    if (s == "lite") return 1;
+    if (s == "feather") return 2;
+    if (s == "nano") return 3;
+    return 0;
+}
+
+void StoreOverlay::writeModelMeta (const juce::File& file, const Tone3000Client::Model& m)
+{
+    auto* obj = new juce::DynamicObject();
+    obj->setProperty ("arch", m.arch);
+    obj->setProperty ("size", m.size);
+    obj->setProperty ("name", m.name);
+    juce::File (file.getFullPathName() + ".meta")
+        .replaceWithText (juce::JSON::toString (juce::var (obj), true));
+}
+
+void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
+                                     const Tone3000Client::Model& chosen,
+                                     const juce::String& baseName)
+{
+    writeModelMeta (mainFile, chosen);
+
+    // par ECO: mesma variação (nome), tamanho mais leve mais próximo
+    const Tone3000Client::Model* partner = nullptr;
+    if (const auto it = modelsCache.find (toneId); it != modelsCache.end())
+    {
+        const int myRank = sizeRank (chosen.size);
+        int bestRank = 99;
+        for (const auto& m : it->second)
+            if (m.name == chosen.name && sizeRank (m.size) > myRank
+                && sizeRank (m.size) < bestRank)
+            {
+                bestRank = sizeRank (m.size);
+                partner = &m;
+            }
+    }
+
+    if (partner == nullptr)
+    {
+        processor.setModelPair (mainFile, {});
+        return;
+    }
+
+    const auto ecoBase = baseName + " (eco)";
+    const auto ecoLocal = Tone3000Client::localFileForModel (*partner, "nam", ecoBase);
+    if (ecoLocal.existsAsFile())
+    {
+        processor.setModelPair (mainFile, ecoLocal);
+        return;
+    }
+
+    // baixa o par em silêncio; enquanto isso o principal já toca
+    // (captura o processor por ponteiro — ele sobrevive ao editor/overlay)
+    processor.setModelPair (mainFile, {});
+    const auto partnerCopy = *partner;
+    client.downloadModel (partnerCopy, "nam", ecoBase, [] (int) {},
+        [proc = &processor, mainFile, partnerCopy] (juce::File ecoFile, juce::String error)
+        {
+            if (error.isNotEmpty() || ! ecoFile.existsAsFile())
+                return; // sem par eco — chip fica desabilitado
+            writeModelMeta (ecoFile, partnerCopy);
+            proc->setModelPair (mainFile, ecoFile);
+        });
+}
+
 void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client::Model& model)
 {
     // Roteia por FORMATO (não por gear): existem tones com gear "cab"
@@ -642,12 +710,17 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
     {
         card.setLocalFile (local);
         card.setStatus (ToneCardComponent::Status::inRig);
-        // garante o sidecar de imagem mesmo sem re-download
+        // garante os sidecars mesmo sem re-download
         client.saveImageSidecar (card.getInfo().imageUrl, local);
         if (kind == "ir")
+        {
+            writeModelMeta (local, model);
             processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), local);
+        }
         else
-            processor.loadModelAsync (local);
+        {
+            finalizeNamModel (local, card.getInfo().toneId, model, baseName);
+        }
         return;
     }
 
@@ -660,7 +733,7 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
             if (safe != nullptr)
                 safe->setProgress (pct);
         },
-        [this, safe = juce::Component::SafePointer<ToneCardComponent> (&card)]
+        [this, model, baseName, safe = juce::Component::SafePointer<ToneCardComponent> (&card)]
         (juce::File file, juce::String error)
         {
             if (safe == nullptr)
@@ -680,9 +753,14 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
             // Foto do tone vira sidecar do arquivo (cartões do rig mostram).
             client.saveImageSidecar (safe->getInfo().imageUrl, file);
             if (safe->getInfo().formatBadge == "IR")
+            {
+                writeModelMeta (file, model);
                 processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), file);
+            }
             else
-                processor.loadModelAsync (file);
+            {
+                finalizeNamModel (file, safe->getInfo().toneId, model, baseName);
+            }
         });
 }
 

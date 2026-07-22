@@ -82,6 +82,12 @@ private:
     void startAddFlow (ToneCardComponent&);
     void showModelChoices (ToneCardComponent&, const std::vector<Tone3000Client::Model>&);
     void startDownload (ToneCardComponent&, const Tone3000Client::Model&);
+    /// Pós-download de um capture: grava .meta, resolve o par ECO (variação
+    /// mais leve com o mesmo nome) e entrega o par ao processor.
+    void finalizeNamModel (const juce::File& mainFile, int toneId,
+                           const Tone3000Client::Model& chosen, const juce::String& baseName);
+    static void writeModelMeta (const juce::File&, const Tone3000Client::Model&);
+    static int sizeRank (const juce::String&);
     void setTab (Tab);
     void doSearch (int page);
     void refreshLibrary();
