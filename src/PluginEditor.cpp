@@ -2,6 +2,60 @@
 
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
 
+namespace
+{
+// ---------- afinador: detecção de pitch (NSDF/MPM simplificado) ----------
+double detectPitchHz (const float* x, int n, double sr)
+{
+    double energy = 0.0;
+    for (int i = 0; i < n; ++i)
+        energy += (double) x[i] * x[i];
+    if (energy / n < 1.0e-5) // silêncio
+        return -1.0;
+
+    const int minLag = juce::jmax (2, (int) (sr / 500.0)); // até 500 Hz
+    const int maxLag = juce::jmin (n / 2, (int) (sr / 55.0)); // desde 55 Hz
+    if (maxLag <= minLag + 2)
+        return -1.0;
+
+    std::vector<double> nsdf ((size_t) maxLag + 1, 0.0);
+    for (int lag = minLag; lag <= maxLag; ++lag)
+    {
+        double ac = 0.0, norm = 0.0;
+        const int m = n - maxLag; // janela fixa para todos os lags
+        for (int i = 0; i < m; ++i)
+        {
+            ac += (double) x[i] * x[i + lag];
+            norm += (double) x[i] * x[i] + (double) x[i + lag] * x[i + lag];
+        }
+        nsdf[(size_t) lag] = norm > 0.0 ? 2.0 * ac / norm : 0.0;
+    }
+
+    double maxV = 0.0;
+    for (int lag = minLag; lag <= maxLag; ++lag)
+        maxV = juce::jmax (maxV, nsdf[(size_t) lag]);
+    if (maxV < 0.6)
+        return -1.0;
+
+    const double thr = 0.9 * maxV;
+    for (int lag = minLag + 1; lag < maxLag; ++lag)
+    {
+        const double v = nsdf[(size_t) lag];
+        if (v >= thr && v >= nsdf[(size_t) lag - 1] && v >= nsdf[(size_t) lag + 1])
+        {
+            const double denom = 2.0 * (2.0 * v - nsdf[(size_t) lag - 1] - nsdf[(size_t) lag + 1]);
+            const double d = denom != 0.0 ? (nsdf[(size_t) lag + 1] - nsdf[(size_t) lag - 1]) / denom : 0.0;
+            return sr / ((double) lag + d);
+        }
+    }
+    return -1.0;
+}
+
+const char* kNoteNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+const double kStringFreqs[] = { 82.407, 110.0, 146.83, 196.0, 246.94, 329.63 };
+const char* kStringNames[] = { "E", "A", "D", "G", "B", "e" };
+} // namespace
+
 //==============================================================================
 KnobComponent::KnobComponent (juce::AudioProcessorValueTreeState& apvts,
                               const juce::String& paramId, const juce::String& labelText,
@@ -14,16 +68,24 @@ KnobComponent::KnobComponent (juce::AudioProcessorValueTreeState& apvts,
     slider.setRotaryParameters (juce::MathConstants<float>::pi * 1.25f,
                                 juce::MathConstants<float>::pi * 2.75f, true);
     slider.onValueChange = [this] { updateValueText(); };
+
+    // trava (detent) no valor default do parâmetro
+    if (auto* param = apvts.getParameter (paramId))
+    {
+        const auto& range = param->getNormalisableRange();
+        slider.snapTarget = range.convertFrom0to1 (param->getDefaultValue());
+        slider.snapRadius = (range.end - range.start) * 0.04;
+    }
     addAndMakeVisible (slider);
 
     nameLabel.setText (labelText, juce::dontSendNotification);
-    nameLabel.setFont (ui::monoFont (9.0f));
+    nameLabel.setFont (ui::monoFont (8.0f));
     nameLabel.setColour (juce::Label::textColourId, ui::textFaint);
     nameLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (nameLabel);
 
-    valueLabel.setFont (ui::monoFont (11.0f, true));
-    valueLabel.setColour (juce::Label::textColourId, juce::Colour (0xffd3d5d8));
+    valueLabel.setFont (ui::monoFont (10.5f, true));
+    valueLabel.setColour (juce::Label::textColourId, juce::Colour (0xffe8ecf1));
     valueLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (valueLabel);
 
@@ -58,7 +120,7 @@ void LedButton::paintButton (juce::Graphics& g, bool, bool)
     }
     else
     {
-        g.setColour (juce::Colour (0xff3a3d43));
+        g.setColour (juce::Colour (0xff2c323a));
         g.fillEllipse (c.x - 5.5f, c.y - 5.5f, 11.0f, 11.0f);
         g.setColour (juce::Colours::black.withAlpha (0.5f));
         g.drawEllipse (c.x - 5.0f, c.y - 5.0f, 10.0f, 10.0f, 1.5f);
@@ -68,9 +130,23 @@ void LedButton::paintButton (juce::Graphics& g, bool, bool)
 //==============================================================================
 void LevelMeter::setLevel (float newLevelDb)
 {
-    if (std::abs (newLevelDb - levelDb) > 0.1f)
+    solid = false;
+    const float f = juce::jlimit (0.0f, 1.0f, (newLevelDb + 60.0f) / 60.0f);
+    if (std::abs (f - fraction) > 0.004f)
     {
-        levelDb = newLevelDb;
+        fraction = f;
+        repaint();
+    }
+}
+
+void LevelMeter::setFraction (float f, juce::Colour c)
+{
+    solid = true;
+    solidColour = c;
+    f = juce::jlimit (0.0f, 1.0f, f);
+    if (std::abs (f - fraction) > 0.004f)
+    {
+        fraction = f;
         repaint();
     }
 }
@@ -79,23 +155,30 @@ void LevelMeter::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat();
     g.setColour (ui::meterBg);
-    g.fillRoundedRectangle (b, 3.0f);
-    g.setColour (ui::bgBorder);
-    g.drawRoundedRectangle (b, 3.0f, 1.0f);
+    g.fillRoundedRectangle (b, 4.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.06f));
+    g.drawRoundedRectangle (b, 4.0f, 1.0f);
 
-    const float frac = juce::jlimit (0.0f, 1.0f, (levelDb + 60.0f) / 60.0f);
-    if (frac <= 0.001f)
+    if (fraction <= 0.003f)
         return;
 
     auto inner = b.reduced (1.0f);
+
+    if (solid)
+    {
+        g.setColour (solidColour);
+        g.fillRoundedRectangle (inner.withWidth (inner.getWidth() * fraction), 3.0f);
+        return;
+    }
+
     juce::ColourGradient grad (ui::green, inner.getX(), 0.0f, ui::red, inner.getRight(), 0.0f, false);
-    grad.addColour (0.62, ui::green);
-    grad.addColour (0.84, ui::yellow);
+    grad.addColour (0.60, ui::green);
+    grad.addColour (0.82, ui::yellow);
 
     g.saveState();
-    g.reduceClipRegion (inner.withWidth (inner.getWidth() * frac).toNearestInt());
+    g.reduceClipRegion (inner.withWidth (inner.getWidth() * fraction).toNearestInt());
     g.setGradientFill (grad);
-    g.fillRoundedRectangle (inner, 2.0f);
+    g.fillRoundedRectangle (inner, 3.0f);
     g.restoreState();
 }
 
@@ -103,21 +186,436 @@ void LevelMeter::paint (juce::Graphics& g)
 void PillButton::paintButton (juce::Graphics& g, bool isHighlighted, bool)
 {
     auto b = getLocalBounds().toFloat().reduced (0.5f);
-    g.setColour (ui::panel);
-    g.fillRoundedRectangle (b, 8.0f);
-    g.setColour (isHighlighted ? juce::Colour (0xff4a4d54) : ui::panelBorder);
-    g.drawRoundedRectangle (b, 8.0f, 1.0f);
+    g.setColour (ui::glass());
+    g.fillRoundedRectangle (b, 9.0f);
+    g.setColour (isHighlighted ? ui::borderHover() : juce::Colours::white.withAlpha (0.08f));
+    g.drawRoundedRectangle (b, 9.0f, 1.0f);
 
     g.setColour (dotLit ? ui::accent : ui::textMuted);
-    g.fillEllipse (b.getX() + 12.0f, b.getCentreY() - 3.0f, 6.0f, 6.0f);
+    g.fillEllipse (b.getX() + 13.0f, b.getCentreY() - 3.0f, 6.0f, 6.0f);
 
     g.setFont (ui::uiFont (13.0f, true));
     g.setColour (ui::text);
     g.drawText (getButtonText(), getLocalBounds().reduced (26, 0), juce::Justification::centred);
 
-    g.setFont (ui::uiFont (10.0f));
+    g.setFont (ui::uiFont (9.0f));
     g.setColour (ui::textMuted);
     g.drawText ("v", getLocalBounds().removeFromRight (20), juce::Justification::centredLeft);
+}
+
+//==============================================================================
+ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadModel,
+                      std::function<void()> onLoadIr)
+    : processor (p)
+{
+    auto& apvts = processor.apvts;
+
+    auto formatDb = [] (float v) { return juce::String (v, 1) + " dB"; };
+    auto formatDbInt = [] (float v) { return juce::String ((int) v) + " dB"; };
+    auto formatMs = [] (float v) { return juce::String ((int) v) + " ms"; };
+    auto formatTen = [] (float v) { return juce::String (v, 1); };
+    auto formatPct = [] (float v) { return juce::String ((int) v) + "%"; };
+
+    auto makeKnob = [&] (std::unique_ptr<KnobComponent>& dest, const char* id,
+                         const char* label, std::function<juce::String (float)> fmt)
+    {
+        dest = std::make_unique<KnobComponent> (apvts, id, label, std::move (fmt));
+        addAndMakeVisible (*dest);
+    };
+
+    makeKnob (inputKnob, "inputGain", "GAIN", formatDb);
+    makeKnob (outputKnob, "outputGain", "LEVEL", formatDb);
+    makeKnob (gateThreshKnob, "gateThresh", "THRESH", formatDbInt);
+    makeKnob (gateReleaseKnob, "gateRelease", "RELEASE", formatMs);
+    makeKnob (odDriveKnob, "odDrive", "DRIVE", formatTen);
+    makeKnob (odToneKnob, "odTone", "TONE", formatTen);
+    makeKnob (odLevelKnob, "odLevel", "LEVEL", formatTen);
+    makeKnob (ampGainKnob, "ampGain", "GAIN", formatDb);
+    makeKnob (ampBassKnob, "ampBass", "BASS", formatTen);
+    makeKnob (ampMidKnob, "ampMid", "MID", formatTen);
+    makeKnob (ampTrebleKnob, "ampTreble", "TREBLE", formatTen);
+    makeKnob (ampPresKnob, "ampPresence", "PRES", formatTen);
+    makeKnob (ampMasterKnob, "ampMaster", "MASTER", formatDb);
+    makeKnob (cabLevelKnob, "cabLevel", "LEVEL", formatDb);
+    makeKnob (cabAirKnob, "cabAir", "AIR", formatTen);
+    makeKnob (eqLowKnob, "eqLow", "LOW", formatDbInt);
+    makeKnob (eqMidKnob, "eqMid", "MID", formatDbInt);
+    makeKnob (eqHighKnob, "eqHigh", "HIGH", formatDbInt);
+    makeKnob (delayTimeKnob, "delayTime", "TIME", formatMs);
+    makeKnob (delayFbKnob, "delayFb", "FB", formatPct);
+    makeKnob (delayMixKnob, "delayMix", "MIX", formatPct);
+    makeKnob (revDecayKnob, "revDecay", "DECAY", formatTen);
+    makeKnob (revMixKnob, "revMix", "MIX", formatPct);
+    makeKnob (revPreKnob, "revPre", "PRE", formatMs);
+
+    auto makeLed = [&] (LedButton& led, const char* id, std::unique_ptr<Attachment>& att)
+    {
+        att = std::make_unique<Attachment> (apvts, id, led);
+        addAndMakeVisible (led);
+    };
+    makeLed (gateLed, "gateOn", gateAtt);
+    makeLed (odLed, "odOn", odAtt);
+    makeLed (ampLed, "ampOn", ampAtt);
+    makeLed (cabLed, "cabOn", cabAtt);
+    makeLed (eqLed, "eqOn", eqAtt);
+    makeLed (delayLed, "delayOn", delayAtt);
+    makeLed (revLed, "revOn", revAtt);
+
+    loadButton.onClick = std::move (onLoadModel);
+    irButton.onClick = std::move (onLoadIr);
+    addAndMakeVisible (loadButton);
+    addAndMakeVisible (irButton);
+
+    // largura total fixa da cadeia (métricas do design + conectores de 30 px)
+    const int total = 26 + 90 + 30 + 132 + 30 + 132 + 30 + 266 + 30 + 132 + 30
+                      + 176 + 30 + 132 + 30 + 132 + 30 + 90 + 26;
+    setSize (total, chainHeight);
+}
+
+void ChainView::setAmpImage (juce::Image img)
+{
+    ampImage = std::move (img);
+    resized();
+    repaint();
+}
+
+void ChainView::setCabImage (juce::Image img)
+{
+    cabImage = std::move (img);
+    resized();
+    repaint();
+}
+
+void ChainView::refreshDynamicText()
+{
+    loadButton.setButtonText (processor.hasModelLoaded() ? "TROCAR CAPTURE NAM"
+                                                         : "CARREGAR CAPTURE NAM");
+    irButton.setButtonText (processor.hasIrLoaded() ? "TROCAR IR" : "CARREGAR IR");
+    repaint();
+}
+
+void ChainView::resized()
+{
+    const int H = chainHeight;
+    auto cardY = [H] (int cardH) { return (H - cardH) / 2; };
+
+    int x = 26;
+    ioInB = { x, cardY (330), 90, 330 };
+    x += 90 + 30;
+    gateB = { x, cardY (330), 132, 330 };
+    x += 132 + 30;
+    odB = { x, cardY (330), 132, 330 };
+    x += 132 + 30;
+    ampB = { x, cardY (360), 266, 360 };
+    x += 266 + 30;
+    cabB = { x, cardY (330), 132, 330 };
+    x += 132 + 30;
+    eqB = { x, cardY (330), 176, 330 };
+    x += 176 + 30;
+    delayB = { x, cardY (330), 132, 330 };
+    x += 132 + 30;
+    revB = { x, cardY (330), 132, 330 };
+    x += 132 + 30;
+    ioOutB = { x, cardY (330), 90, 330 };
+
+    // ---- IO
+    inputKnob->setBounds (ioInB.getX() + (90 - 50) / 2, ioInB.getCentreY() - 34, 50, 50 + 26);
+    outputKnob->setBounds (ioOutB.getX() + (90 - 50) / 2, ioOutB.getCentreY() - 34, 50, 50 + 26);
+
+    // ---- pedal genérico: knobs em wrap de 2 colunas (46 px)
+    auto layoutPedal = [] (juce::Rectangle<int> b, LedButton& led,
+                           std::initializer_list<KnobComponent*> knobs)
+    {
+        led.setBounds (b.getRight() - 12 - 18, b.getY() + 10, 18, 18);
+        const int kw = 46, kh = kw + 26, gapX = 11, gapY = 12;
+        const int n = (int) knobs.size();
+        const int rows = (n + 1) / 2;
+        const int blockH = rows * kh + (rows - 1) * gapY;
+        int i = 0;
+        for (auto* k : knobs)
+        {
+            const int row = i / 2;
+            const int inRow = juce::jmin (2, n - row * 2);
+            const int rowW = inRow * kw + (inRow - 1) * gapX;
+            const int rx = b.getCentreX() - rowW / 2 + (i % 2) * (kw + gapX);
+            const int ry = b.getY() + 52 + (b.getHeight() - 52 - 88 - blockH) / 2 + row * (kh + gapY);
+            k->setBounds (rx, ry, kw, kh);
+            ++i;
+        }
+    };
+
+    layoutPedal (gateB, gateLed, { gateThreshKnob.get(), gateReleaseKnob.get() });
+    layoutPedal (odB, odLed, { odDriveKnob.get(), odToneKnob.get(), odLevelKnob.get() });
+    layoutPedal (delayB, delayLed, { delayTimeKnob.get(), delayFbKnob.get(), delayMixKnob.get() });
+    layoutPedal (revB, revLed, { revDecayKnob.get(), revMixKnob.get(), revPreKnob.get() });
+
+    // ---- amp (foto opcional entre o cabeçalho e os knobs)
+    {
+        ampLed.setBounds (ampB.getRight() - 18 - 18, ampB.getY() + 19, 18, 18);
+        const bool photo = ampImage.isValid();
+        const int kw = 42, kh = kw + 26, gapX = 26, gapY = 4;
+        const int gx = ampB.getX() + (266 - (3 * kw + 2 * gapX)) / 2;
+        const int gy = ampB.getY() + (photo ? 152 : 118);
+        KnobComponent* grid[6] = { ampGainKnob.get(), ampBassKnob.get(), ampMidKnob.get(),
+                                   ampTrebleKnob.get(), ampPresKnob.get(), ampMasterKnob.get() };
+        for (int i = 0; i < 6; ++i)
+            grid[i]->setBounds (gx + (i % 3) * (kw + gapX), gy + (i / 3) * (kh + gapY), kw, kh);
+
+        loadButton.setBounds (ampB.getX() + 18, ampB.getBottom() - 15 - 32, 266 - 36, 32);
+    }
+
+    // ---- cab (foto opcional)
+    {
+        cabLed.setBounds (cabB.getRight() - 12 - 18, cabB.getY() + 10, 18, 18);
+        const bool photo = cabImage.isValid();
+        const int kw = 46, kh = kw + 26;
+        const int ky = cabB.getY() + (photo ? 96 : 64);
+        cabLevelKnob->setBounds (cabB.getCentreX() - kw - 5, ky, kw, kh);
+        cabAirKnob->setBounds (cabB.getCentreX() + 5, ky, kw, kh);
+        irButton.setBounds (cabB.getX() + 12, cabB.getBottom() - 12 - 28, 132 - 24, 28);
+    }
+
+    // ---- EQ
+    {
+        eqLed.setBounds (eqB.getRight() - 13 - 18, eqB.getY() + 10, 18, 18);
+        const int kw = 44, kh = kw + 26, gap = 13;
+        const int gx = eqB.getCentreX() - (3 * kw + 2 * gap) / 2;
+        const int ky = eqB.getY() + 130;
+        eqLowKnob->setBounds (gx, ky, kw, kh);
+        eqMidKnob->setBounds (gx + kw + gap, ky, kw, kh);
+        eqHighKnob->setBounds (gx + 2 * (kw + gap), ky, kw, kh);
+    }
+}
+
+void ChainView::drawPedalFrame (juce::Graphics& g, juce::Rectangle<int> b,
+                                const juce::String& title, const juce::String& footer)
+{
+    auto bf = b.toFloat();
+    g.setGradientFill ({ ui::cardTop, 0.0f, bf.getY(), ui::cardBottom, 0.0f, bf.getBottom(), false });
+    g.fillRoundedRectangle (bf, 16.0f);
+    g.setColour (ui::border());
+    g.drawRoundedRectangle (bf.reduced (0.5f), 16.0f, 1.0f);
+
+    g.setFont (ui::uiFont (12.0f, true));
+    g.setColour (ui::text);
+    g.drawText (title, b.getX() + 12, b.getY() + 12, b.getWidth() - 46, 15,
+                juce::Justification::centredLeft);
+
+    if (footer.isNotEmpty())
+    {
+        g.setColour (juce::Colours::white.withAlpha (0.07f));
+        g.fillRect (b.getX() + 12, b.getBottom() - 74, b.getWidth() - 24, 1);
+        g.setFont (ui::monoFont (9.0f));
+        g.setColour (juce::Colour (0xffb4bbc4));
+        g.drawFittedText (footer, b.getX() + 12, b.getBottom() - 64, b.getWidth() - 24, 24,
+                          juce::Justification::centredLeft, 2);
+    }
+}
+
+void ChainView::drawPhoto (juce::Graphics& g, const juce::Image& img, juce::Rectangle<int> spot)
+{
+    if (! img.isValid())
+        return;
+
+    g.saveState();
+    juce::Path clip;
+    clip.addRoundedRectangle (spot.toFloat(), 8.0f);
+    g.reduceClipRegion (clip);
+    const float scale = juce::jmax ((float) spot.getWidth() / img.getWidth(),
+                                    (float) spot.getHeight() / img.getHeight());
+    const float dw = img.getWidth() * scale, dh = img.getHeight() * scale;
+    g.drawImage (img, juce::Rectangle<float> (spot.getX() + (spot.getWidth() - dw) / 2.0f,
+                                              spot.getY() + (spot.getHeight() - dh) / 2.0f, dw, dh),
+                 juce::RectanglePlacement::stretchToFit);
+    g.restoreState();
+    g.setColour (juce::Colours::white.withAlpha (0.1f));
+    g.drawRoundedRectangle (spot.toFloat(), 8.0f, 1.0f);
+}
+
+void ChainView::paint (juce::Graphics& g)
+{
+    // fundo listrado sutil
+    g.setColour (juce::Colours::white.withAlpha (0.018f));
+    for (int gx = 0; gx < getWidth(); gx += 44)
+        g.fillRect (gx, 0, 1, getHeight());
+
+    g.setFont (ui::monoFont (9.0f));
+    g.setColour (juce::Colour (0xff525b66));
+    g.drawText ("SIGNAL FLOW", 24, 14, 200, 12, juce::Justification::centredLeft);
+
+    // ---- conectores direcionais
+    auto connector = [&g] (juce::Rectangle<int> a, juce::Rectangle<int> b)
+    {
+        const float y = (float) a.getCentreY();
+        const float xa = (float) a.getRight() + 3.0f;
+        const float xb = (float) b.getX() - 3.0f;
+        g.setColour (ui::accent);
+        g.fillEllipse (xa, y - 3.5f, 7.0f, 7.0f);
+        g.setGradientFill ({ ui::accent.withAlpha (0.7f), xa, 0.0f,
+                             ui::accent.withAlpha (0.15f), xb, 0.0f, false });
+        g.fillRoundedRectangle (xa + 7.0f, y - 1.0f, xb - xa - 12.0f, 2.0f, 1.0f);
+        g.setColour (ui::accent.withAlpha (0.4f));
+        g.fillEllipse (xb - 5.0f, y - 2.5f, 5.0f, 5.0f);
+    };
+    connector (ioInB, gateB);
+    connector (gateB, odB);
+    connector (odB, ampB);
+    connector (ampB, cabB);
+    connector (cabB, eqB);
+    connector (eqB, delayB);
+    connector (delayB, revB);
+    connector (revB, ioOutB);
+
+    // ---- IO
+    auto drawIo = [&] (juce::Rectangle<int> b, const juce::String& name, const juce::String& lbl)
+    {
+        auto bf = b.toFloat();
+        g.setGradientFill ({ juce::Colour (0xff1e232a), 0.0f, bf.getY(),
+                             juce::Colour (0xff101318), 0.0f, bf.getBottom(), false });
+        g.fillRoundedRectangle (bf, 14.0f);
+        g.setColour (ui::border());
+        g.drawRoundedRectangle (bf.reduced (0.5f), 14.0f, 1.0f);
+
+        g.setFont (ui::monoFont (9.0f));
+        g.setColour (juce::Colour (0xff8a929c));
+        g.drawText (name, b.withTrimmedTop (16).withHeight (12), juce::Justification::centred);
+
+        const float jackY = bf.getY() + 58.0f;
+        g.setColour (juce::Colours::black);
+        g.fillEllipse (bf.getCentreX() - 19.0f, jackY, 38.0f, 38.0f);
+        g.setColour (juce::Colour (0xff363c45));
+        g.drawEllipse (bf.getCentreX() - 19.0f, jackY, 38.0f, 38.0f, 3.0f);
+
+        g.setColour (ui::green);
+        g.fillEllipse (bf.getCentreX() - 22.0f, bf.getBottom() - 26.0f, 6.0f, 6.0f);
+        g.setFont (ui::monoFont (8.0f));
+        g.setColour (juce::Colour (0xff6b747f));
+        g.drawText (lbl, b.withTrimmedLeft (b.getWidth() / 2 - 9)
+                            .withY (b.getBottom() - 30).withHeight (14),
+                    juce::Justification::centredLeft);
+    };
+    drawIo (ioInB, "INPUT", "IN");
+    drawIo (ioOutB, "OUTPUT", "OUT");
+
+    // ---- pedais
+    drawPedalFrame (g, gateB, "Noise Gate", "Downward expander 10:1");
+    drawPedalFrame (g, odB, "Overdrive", juce::String (juce::CharPointer_UTF8 ("Soft-clip \xc2\xb7 HP 120 Hz")));
+    drawPedalFrame (g, delayB, "Delay", juce::String (juce::CharPointer_UTF8 ("Digital \xc2\xb7 mono")));
+    drawPedalFrame (g, revB, "Reverb", juce::String (juce::CharPointer_UTF8 ("Hall \xc2\xb7 predelay")));
+
+    // ---- cab
+    {
+        const auto irName = processor.getIrName();
+        drawPedalFrame (g, cabB, "Cab IR",
+                        irName.isNotEmpty() ? irName
+                                            : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem IR \xe2\x80\x94")));
+        if (cabImage.isValid())
+            drawPhoto (g, cabImage, { cabB.getX() + 12, cabB.getY() + 36, 132 - 24, 48 });
+    }
+
+    // ---- EQ (com barras vivas refletindo LOW/MID/HIGH)
+    {
+        drawPedalFrame (g, eqB, "EQ", juce::String (juce::CharPointer_UTF8 ("3 bandas \xc2\xb7 p\xc3\xb3s-cab")));
+
+        auto viz = juce::Rectangle<float> ((float) eqB.getX() + 13.0f, (float) eqB.getY() + 38.0f,
+                                           (float) eqB.getWidth() - 26.0f, 62.0f);
+        g.setColour (ui::meterBg);
+        g.fillRoundedRectangle (viz, 9.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.06f));
+        g.drawRoundedRectangle (viz, 9.0f, 1.0f);
+
+        const float lo = processor.apvts.getRawParameterValue ("eqLow")->load();
+        const float mi = processor.apvts.getRawParameterValue ("eqMid")->load();
+        const float hi = processor.apvts.getRawParameterValue ("eqHigh")->load();
+        const float gains[7] = { lo, lo, (lo + mi) / 2.0f, mi, (mi + hi) / 2.0f, hi, hi };
+        const float bw = (viz.getWidth() - 2 * 11.0f - 6 * 5.0f) / 7.0f;
+        for (int i = 0; i < 7; ++i)
+        {
+            const float h = juce::jlimit (0.12f, 0.95f, 0.5f + gains[i] / 30.0f)
+                            * (viz.getHeight() - 18.0f);
+            const float bx = viz.getX() + 11.0f + i * (bw + 5.0f);
+            juce::ColourGradient grad (ui::accent, 0.0f, viz.getBottom() - 9.0f - h,
+                                       ui::accent.withAlpha (0.15f), 0.0f, viz.getBottom() - 9.0f, false);
+            g.setGradientFill (grad);
+            g.fillRoundedRectangle (bx, viz.getBottom() - 9.0f - h, bw, h, 2.0f);
+        }
+    }
+
+    // ---- amp
+    {
+        auto bf = ampB.toFloat();
+        g.setGradientFill ({ ui::ampTop, 0.0f, bf.getY(), ui::ampBottom, 0.0f, bf.getBottom(), false });
+        g.fillRoundedRectangle (bf, 18.0f);
+        g.setColour (ui::accent.withAlpha (0.28f));
+        g.drawRoundedRectangle (bf.reduced (0.5f), 18.0f, 1.0f);
+
+        // faixa accent no topo
+        {
+            g.saveState();
+            juce::Path clip;
+            clip.addRoundedRectangle (bf, 18.0f);
+            g.reduceClipRegion (clip);
+            juce::ColourGradient grad (ui::accent.withAlpha (0.0f), bf.getX(), 0.0f,
+                                       ui::accent.withAlpha (0.0f), bf.getRight(), 0.0f, false);
+            grad.addColour (0.5, ui::accent);
+            g.setGradientFill (grad);
+            g.fillRect (bf.getX(), bf.getY(), bf.getWidth(), 4.0f);
+            g.restoreState();
+        }
+
+        g.setFont (ui::uiFont (12.0f, true));
+        g.setColour (ui::textBright);
+        g.drawText ("AMP HEAD", ampB.getX() + 18, ampB.getY() + 19, 170, 14,
+                    juce::Justification::centredLeft);
+        g.setFont (ui::monoFont (8.0f));
+        g.setColour (ui::accent);
+        g.drawText (juce::CharPointer_UTF8 ("AMPLIFIER \xc2\xb7 NAM CAPTURE"),
+                    ampB.getX() + 18, ampB.getY() + 35, 180, 11, juce::Justification::centredLeft);
+
+        const auto modelName = processor.getModelName();
+        g.setFont (ui::uiFont (18.0f, true));
+        g.setColour (modelName.isNotEmpty() ? ui::textBright : ui::textMuted);
+        g.drawText (modelName.isNotEmpty() ? modelName
+                                           : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem capture \xe2\x80\x94")),
+                    ampB.getX() + 18, ampB.getY() + 54, ampB.getWidth() - 36, 22,
+                    juce::Justification::centredLeft);
+
+        const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
+        juce::String info;
+        const double modelSr = processor.getModelExpectedSampleRate();
+        if (modelName.isNotEmpty())
+        {
+            info = (modelSr > 0 ? juce::String (modelSr / 1000.0, 1) + " kHz" + dot : juce::String())
+                   + "mono" + dot + "NAM";
+            if (processor.isResampling())
+                info += dot + "resample";
+        }
+        else
+        {
+            info = "carregue um capture da Tone Store";
+        }
+        g.setFont (ui::monoFont (9.0f));
+        g.setColour (juce::Colour (0xff8a929c));
+        g.drawText (info, ampB.getX() + 18, ampB.getY() + 80, ampB.getWidth() - 36, 12,
+                    juce::Justification::centredLeft);
+
+        if (ampImage.isValid())
+            drawPhoto (g, ampImage, { ampB.getX() + 18, ampB.getY() + 98, ampB.getWidth() - 36, 48 });
+
+        // barra de brilho (valvulado — laranja, como no design)
+        {
+            auto glow = juce::Rectangle<float> (bf.getX() + 22.0f, bf.getBottom() - 66.0f,
+                                                bf.getWidth() - 44.0f, 7.0f);
+            const float alpha = processor.hasModelLoaded()
+                                    && processor.apvts.getRawParameterValue ("ampOn")->load() > 0.5f
+                                ? 0.85f : 0.15f;
+            juce::ColourGradient grad (ui::glowOrange.withAlpha (0.0f), glow.getX(), 0.0f,
+                                       ui::glowOrange.withAlpha (0.0f), glow.getRight(), 0.0f, false);
+            grad.addColour (0.5, ui::glowOrange.withAlpha (alpha));
+            g.setGradientFill (grad);
+            g.fillRoundedRectangle (glow, 5.0f);
+        }
+    }
 }
 
 //==============================================================================
@@ -128,6 +626,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 
     addAndMakeVisible (inMeter);
     addAndMakeVisible (outMeter);
+    addAndMakeVisible (cpuMeter);
 
     audioButton.onClick = []
     {
@@ -141,11 +640,27 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     storeButton.onClick = [this] { storeOverlay->open(); };
     addAndMakeVisible (storeButton);
 
+    prevButton.onClick = [this] { processor.loadAdjacentPreset (-1); };
+    nextButton.onClick = [this] { processor.loadAdjacentPreset (1); };
+    saveButton.onClick = [this] { savePresetDialog(); };
+    presetPill.onClick = [this] { showPresetMenu(); };
+    addAndMakeVisible (prevButton);
+    addAndMakeVisible (nextButton);
+    addAndMakeVisible (saveButton);
+    addAndMakeVisible (presetPill);
+
+    chainView = std::make_unique<ChainView> (processor,
+                                             [this] { chooseModelFile(); },
+                                             [this] { chooseIrFile(); });
+    chainViewport.setViewedComponent (chainView.get(), false);
+    chainViewport.setScrollBarsShown (false, true);
+    chainViewport.setScrollBarThickness (9);
+    addAndMakeVisible (chainViewport);
+
     storeOverlay = std::make_unique<StoreOverlay> (processor);
     addChildComponent (*storeOverlay);
 
-    // Flag de dev: GUITARRIG_OPEN_STORE=explore|library abre o store ao iniciar
-    // (útil para testes automatizados de UI; sem efeito em uso normal).
+    // Flag de dev: GUITARRIG_OPEN_STORE=explore|library abre o store ao iniciar.
     {
         const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_STORE", "");
         if (flag == "library" || flag == "explore")
@@ -158,60 +673,6 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 });
     }
 
-    // presets
-    prevButton.onClick = [this] { processor.loadAdjacentPreset (-1); };
-    nextButton.onClick = [this] { processor.loadAdjacentPreset (1); };
-    saveButton.onClick = [this] { savePresetDialog(); };
-    presetPill.onClick = [this] { showPresetMenu(); };
-    addAndMakeVisible (prevButton);
-    addAndMakeVisible (nextButton);
-    addAndMakeVisible (saveButton);
-    addAndMakeVisible (presetPill);
-
-    // amp
-    ampLedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
-        processor.apvts, "ampOn", ampLed);
-    addAndMakeVisible (ampLed);
-    loadButton.onClick = [this] { chooseModelFile(); };
-    addAndMakeVisible (loadButton);
-
-    // gate
-    gateLedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
-        processor.apvts, "gateOn", gateLed);
-    addAndMakeVisible (gateLed);
-
-    // cab
-    cabLedAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
-        processor.apvts, "cabOn", cabLed);
-    addAndMakeVisible (cabLed);
-    irButton.onClick = [this] { chooseIrFile(); };
-    addAndMakeVisible (irButton);
-
-    // knobs
-    auto formatDb = [] (float v) { return juce::String (v, 1) + " dB"; };
-    auto formatDbInt = [] (float v) { return juce::String ((int) v) + " dB"; };
-    auto formatMs = [] (float v) { return juce::String ((int) v) + " ms"; };
-
-    auto formatTen = [] (float v) { return juce::String (v, 1); };
-
-    inputKnob = std::make_unique<KnobComponent> (processor.apvts, "inputGain", "GAIN", formatDb);
-    outputKnob = std::make_unique<KnobComponent> (processor.apvts, "outputGain", "LEVEL", formatDb);
-    gateThreshKnob = std::make_unique<KnobComponent> (processor.apvts, "gateThresh", "THRESH", formatDbInt);
-    gateReleaseKnob = std::make_unique<KnobComponent> (processor.apvts, "gateRelease", "RELEASE", formatMs);
-    cabLevelKnob = std::make_unique<KnobComponent> (processor.apvts, "cabLevel", "LEVEL", formatDb);
-    ampGainKnob = std::make_unique<KnobComponent> (processor.apvts, "ampGain", "GAIN", formatDb);
-    ampBassKnob = std::make_unique<KnobComponent> (processor.apvts, "ampBass", "BASS", formatTen);
-    ampMidKnob = std::make_unique<KnobComponent> (processor.apvts, "ampMid", "MID", formatTen);
-    ampTrebleKnob = std::make_unique<KnobComponent> (processor.apvts, "ampTreble", "TREBLE", formatTen);
-    ampPresKnob = std::make_unique<KnobComponent> (processor.apvts, "ampPresence", "PRES", formatTen);
-    ampMasterKnob = std::make_unique<KnobComponent> (processor.apvts, "ampMaster", "MASTER", formatDb);
-
-    for (auto* k : { inputKnob.get(), outputKnob.get(), gateThreshKnob.get(),
-                     gateReleaseKnob.get(), cabLevelKnob.get(), ampGainKnob.get(),
-                     ampBassKnob.get(), ampMidKnob.get(), ampTrebleKnob.get(),
-                     ampPresKnob.get(), ampMasterKnob.get() })
-        addAndMakeVisible (*k);
-
     setSize (designWidth, designHeight);
     startTimerHz (30);
 }
@@ -223,337 +684,190 @@ RigContent::~RigContent()
 
 void RigContent::resized()
 {
-    const auto full = getLocalBounds();
-    const int W = full.getWidth();
+    const int W = getWidth();
 
-    storeOverlay->setBounds (full);
+    storeOverlay->setBounds (getLocalBounds());
 
-    // ---- top bar (58 px)
-    audioButton.setBounds (W - 18 - 110 - 8 - 76, 13, 76, 32);
-    storeButton.setBounds (W - 18 - 110, 13, 110, 32);
-    const int metersX = audioButton.getX() - 14 - 1 - 14 - 104;
-    inMeter.setBounds (metersX + 30, 17, 74, 6);
-    outMeter.setBounds (metersX + 30, 33, 74, 6);
+    // ---- top bar (60 px)
+    storeButton.setBounds (W - 18 - 108, 13, 108, 34);
+    audioButton.setBounds (storeButton.getX() - 8 - 82, 13, 82, 34);
+    const int metersRight = audioButton.getX() - 15 - 1 - 15;
+    cpuMeter.setBounds (metersRight - 60, 34, 60, 7);
+    inMeter.setBounds (metersRight - 60 - 14 - 78, 17, 78, 7);
+    outMeter.setBounds (metersRight - 60 - 14 - 78, 32, 78, 7);
 
-    // grupo de preset centrado: ◂ pill ▸ SALVAR
     {
-        const int pillW = 230, navW = 30, saveW = 70, gap = 6;
-        const int groupW = navW + gap + pillW + gap + navW + 8 + saveW;
-        int x = (W - groupW) / 2;
-        prevButton.setBounds (x, 13, navW, 32);
+        const int pillW = 200, navW = 32, saveW = 68, gap = 8;
+        const int groupW = navW + gap + pillW + gap + navW + gap + saveW;
+        // deslocado para a esquerda para não colidir com os medidores
+        int x = juce::jmin ((W - groupW) / 2, inMeter.getX() - 24 - groupW);
+        x = juce::jmax (x, 200);
+        prevButton.setBounds (x, 13, navW, 34);
         x += navW + gap;
-        presetPill.setBounds (x, 13, pillW, 32);
+        presetPill.setBounds (x, 13, pillW, 34);
         x += pillW + gap;
-        nextButton.setBounds (x, 13, navW, 32);
-        x += navW + 8;
-        saveButton.setBounds (x, 13, saveW, 32);
+        nextButton.setBounds (x, 13, navW, 34);
+        x += navW + gap;
+        saveButton.setBounds (x, 13, saveW, 34);
     }
 
-    // ---- cadeia de sinal
-    const int ioW = 84, ioH = 326, slotW = 150, slotH = 326, ampW = 258, ampH = 356, connW = 34;
-    const int rowW = ioW * 2 + slotW * 2 + ampW + connW * 4;
-    const int x0 = (W - rowW) / 2;
-    const int chainCentreY = 58 + (full.getHeight() - 58 - 40) / 2;
-
-    int x = x0;
-    inputCardBounds = { x, chainCentreY - ioH / 2, ioW, ioH };
-    x += ioW + connW;
-    gateCardBounds = { x, chainCentreY - slotH / 2, slotW, slotH };
-    x += slotW + connW;
-    ampCardBounds = { x, chainCentreY - ampH / 2, ampW, ampH };
-    x += ampW + connW;
-    cabCardBounds = { x, chainCentreY - slotH / 2, slotW, slotH };
-    x += slotW + connW;
-    outputCardBounds = { x, chainCentreY - ioH / 2, ioW, ioH };
-
-    inputKnob->setBounds (inputCardBounds.getX() + (ioW - 48) / 2,
-                          inputCardBounds.getCentreY() - 30, 48, 48 + 26);
-    outputKnob->setBounds (outputCardBounds.getX() + (ioW - 48) / 2,
-                           outputCardBounds.getCentreY() - 30, 48, 48 + 26);
-
-    ampLed.setBounds (ampCardBounds.getRight() - 17 - 18, ampCardBounds.getY() + 15, 18, 18);
-    loadButton.setBounds (ampCardBounds.getX() + 17, ampCardBounds.getBottom() - 15 - 30,
-                          ampCardBounds.getWidth() - 34, 30);
-
-    // 6 knobs do amp em grade 3x2: GAIN BASS MID / TREBLE PRES MASTER
-    {
-        const int kw = 42, kh = kw + 26, gapX = 30, gapY = 10;
-        const int gx = ampCardBounds.getX() + (ampCardBounds.getWidth() - (3 * kw + 2 * gapX)) / 2;
-        const int gy = ampCardBounds.getY() + 98;
-        KnobComponent* grid[6] = { ampGainKnob.get(), ampBassKnob.get(), ampMidKnob.get(),
-                                   ampTrebleKnob.get(), ampPresKnob.get(), ampMasterKnob.get() };
-        for (int i = 0; i < 6; ++i)
-            grid[i]->setBounds (gx + (i % 3) * (kw + gapX), gy + (i / 3) * (kh + gapY), kw, kh);
-    }
-
-    // gate: dois knobs lado a lado
-    gateLed.setBounds (gateCardBounds.getRight() - 12 - 18, gateCardBounds.getY() + 10, 18, 18);
-    {
-        const int kw = 48, gap = 18;
-        const int kx = gateCardBounds.getCentreX() - kw - gap / 2;
-        const int ky = gateCardBounds.getCentreY() - 55;
-        gateThreshKnob->setBounds (kx, ky, kw, kw + 26);
-        gateReleaseKnob->setBounds (kx + kw + gap, ky, kw, kw + 26);
-    }
-
-    // cab: knob central + botão embaixo
-    cabLed.setBounds (cabCardBounds.getRight() - 12 - 18, cabCardBounds.getY() + 10, 18, 18);
-    cabLevelKnob->setBounds (cabCardBounds.getCentreX() - 24,
-                             cabCardBounds.getCentreY() - 55, 48, 48 + 26);
-    irButton.setBounds (cabCardBounds.getX() + 12, cabCardBounds.getBottom() - 12 - 28,
-                        cabCardBounds.getWidth() - 24, 28);
+    // ---- cadeia (rolável) e afinador
+    chainViewport.setBounds (0, 60, W, getHeight() - 60 - 60);
 }
 
 void RigContent::paint (juce::Graphics& g)
 {
-    const auto full = getLocalBounds();
-    const int W = full.getWidth(), H = full.getHeight();
+    const int W = getWidth(), H = getHeight();
 
-    g.fillAll (ui::bg);
+    // fundo geral (radial no topo)
+    {
+        juce::ColourGradient grad (ui::bgTop, W * 0.5f, -H * 0.1f, ui::bg, W * 0.5f, H * 0.7f, true);
+        g.setGradientFill (grad);
+        g.fillAll();
+    }
 
     // ---- top bar
     {
-        auto bar = juce::Rectangle<int> (0, 0, W, 58).toFloat();
-        g.setGradientFill ({ ui::topBarTop, 0.0f, 0.0f, ui::topBarBottom, 0.0f, 58.0f, false });
-        g.fillRect (bar);
-        g.setColour (juce::Colour (0xff101215));
-        g.fillRect (0, 57, W, 1);
+        g.setGradientFill ({ ui::barTop, 0.0f, 0.0f, ui::barBottom, 0.0f, 60.0f, false });
+        g.fillRect (0, 0, W, 60);
+        g.setColour (juce::Colours::white.withAlpha (0.06f));
+        g.fillRect (0, 59, W, 1);
 
-        // logo
-        auto logo = juce::Rectangle<float> (18.0f, 16.0f, 26.0f, 26.0f);
+        // logo com glow
+        auto logo = juce::Rectangle<float> (18.0f, 15.0f, 30.0f, 30.0f);
+        g.setColour (ui::accent.withAlpha (0.35f));
+        g.fillRoundedRectangle (logo.expanded (3.0f), 12.0f);
         g.setGradientFill ({ ui::accent, logo.getX(), logo.getY(),
-                             juce::Colour (0xffc96a12), logo.getRight(), logo.getBottom(), false });
-        g.fillRoundedRectangle (logo, 7.0f);
+                             ui::accentDark, logo.getRight(), logo.getBottom(), false });
+        g.fillRoundedRectangle (logo, 9.0f);
         {
             juce::Path diamond;
-            diamond.addRectangle (-4.5f, -4.5f, 9.0f, 9.0f);
+            diamond.addRoundedRectangle (-5.0f, -5.0f, 10.0f, 10.0f, 2.0f);
             diamond.applyTransform (juce::AffineTransform::rotation (juce::MathConstants<float>::pi / 4.0f)
                                         .translated (logo.getCentre()));
-            g.setColour (juce::Colour (0xff161719));
+            g.setColour (ui::bg);
             g.fillPath (diamond);
         }
 
         g.setFont (ui::uiFont (16.0f, true));
         g.setColour (ui::textBright);
-        g.drawText ("GUITARRIG", 52, 16, 110, 26, juce::Justification::centredLeft);
+        g.drawText ("GuitarRig", 56, 17, 90, 26, juce::Justification::centredLeft);
 
-        auto badge = juce::Rectangle<float> (148.0f, 21.0f, 38.0f, 16.0f);
-        g.setColour (ui::accent.withAlpha (0.4f));
-        g.drawRoundedRectangle (badge, 4.0f, 1.0f);
+        auto badge = juce::Rectangle<float> (146.0f, 22.0f, 40.0f, 17.0f);
+        g.setColour (ui::accent.withAlpha (0.35f));
+        g.drawRoundedRectangle (badge, 5.0f, 1.0f);
         g.setFont (ui::monoFont (9.0f, true));
         g.setColour (ui::accent);
         g.drawText ("NAM", badge, juce::Justification::centred);
 
-        // labels IN/OUT dos medidores
+        // labels dos medidores
         g.setFont (ui::monoFont (8.0f));
         g.setColour (ui::textFaint);
-        g.drawText ("IN", inMeter.getX() - 26, inMeter.getY() - 4, 22, 12, juce::Justification::centredRight);
-        g.drawText ("OUT", outMeter.getX() - 26, outMeter.getY() - 4, 22, 12, juce::Justification::centredRight);
+        g.drawText ("IN", inMeter.getX() - 28, inMeter.getY() - 4, 24, 12, juce::Justification::centredRight);
+        g.drawText ("OUT", outMeter.getX() - 28, outMeter.getY() - 4, 24, 12, juce::Justification::centredRight);
+        g.drawText ("CPU " + juce::String ((int) (processor.cpuLoad.load() * 100.0f)) + "%",
+                    cpuMeter.getX(), cpuMeter.getY() - 14, 60, 12, juce::Justification::centredLeft);
 
-        g.setColour (ui::panelBorder);
-        g.fillRect (audioButton.getX() - 14, 16, 1, 26);
+        g.setColour (juce::Colours::white.withAlpha (0.08f));
+        g.fillRect (audioButton.getX() - 15, 16, 1, 28);
     }
 
-    // ---- fundo da cadeia
+    // ---- tuner bar
     {
-        auto chain = juce::Rectangle<int> (0, 58, W, H - 58 - 40);
-        juce::ColourGradient grad (ui::chainTop, W * 0.5f, 58.0f - chain.getHeight() * 0.1f,
-                                   ui::chainBottom, W * 0.5f, (float) chain.getBottom(), true);
-        g.setGradientFill (grad);
-        g.fillRect (chain);
+        const int barY = H - 60;
+        g.setGradientFill ({ ui::barTop, 0.0f, (float) barY, ui::barBottom, 0.0f, (float) H, false });
+        g.fillRect (0, barY, W, 60);
+        g.setColour (juce::Colours::white.withAlpha (0.06f));
+        g.fillRect (0, barY, W, 1);
 
-        g.setFont (ui::monoFont (9.0f));
-        g.setColour (juce::Colour (0xff5a5d63));
-        g.drawText ("SIGNAL CHAIN", 22, 58 + 12, 200, 12, juce::Justification::centredLeft);
-    }
+        const int cy = barY + 30;
 
-    // ---- conectores
-    auto drawConnector = [&g] (juce::Rectangle<int> left, juce::Rectangle<int> right)
-    {
-        const float y = (float) left.getCentreY();
-        const float xa = (float) left.getRight() + 2.0f;
-        const float xb = (float) right.getX() - 2.0f;
-        g.setColour (juce::Colour (0xff43464c));
-        g.fillEllipse (xa, y - 3.5f, 7.0f, 7.0f);
-        g.fillEllipse (xb - 7.0f, y - 3.5f, 7.0f, 7.0f);
-        g.setGradientFill ({ juce::Colour (0xff2b2d31), xa, 0.0f,
-                             juce::Colour (0xff43464c), (xa + xb) / 2.0f, 0.0f, false });
-        g.fillRoundedRectangle (xa + 7.0f, y - 1.5f, xb - xa - 14.0f, 3.0f, 1.5f);
-    };
-    drawConnector (inputCardBounds, gateCardBounds);
-    drawConnector (gateCardBounds, ampCardBounds);
-    drawConnector (ampCardBounds, cabCardBounds);
-    drawConnector (cabCardBounds, outputCardBounds);
-
-    // ---- cartões IO (Input / Output)
-    auto drawIoCard = [&] (juce::Rectangle<int> bounds, const juce::String& name,
-                           const juce::String& ioLabel)
-    {
-        auto b = bounds.toFloat();
-        g.setGradientFill ({ juce::Colour (0xff26282c), 0.0f, b.getY(),
-                             ui::panel, 0.0f, b.getBottom(), false });
-        g.fillRoundedRectangle (b, 12.0f);
-        g.setColour (ui::panelBorder);
-        g.drawRoundedRectangle (b, 12.0f, 1.0f);
-
-        g.setFont (ui::monoFont (9.0f));
-        g.setColour (juce::Colour (0xff8a8d93));
-        g.drawText (name, bounds.withTrimmedTop (16).withHeight (12), juce::Justification::centred);
-
-        const float jackY = b.getY() + 62.0f;
-        g.setColour (juce::Colours::black);
-        g.fillEllipse (b.getCentreX() - 18.0f, jackY, 36.0f, 36.0f);
-        g.setColour (juce::Colour (0xff3a3d43));
-        g.drawEllipse (b.getCentreX() - 18.0f, jackY, 36.0f, 36.0f, 3.0f);
-
-        g.setColour (ui::green);
-        g.fillEllipse (b.getCentreX() - 22.0f, b.getBottom() - 26.0f, 6.0f, 6.0f);
-        g.setFont (ui::monoFont (8.0f));
-        g.setColour (ui::textMuted);
-        g.drawText (ioLabel, bounds.withTrimmedLeft (bounds.getWidth() / 2 - 8)
-                                 .withY (bounds.getBottom() - 30).withHeight (14),
-                    juce::Justification::centredLeft);
-    };
-    drawIoCard (inputCardBounds, "INPUT", "IN");
-    drawIoCard (outputCardBounds, "OUTPUT", "OUT");
-
-    // ---- cartões de pedal (gate / cab)
-    auto drawPedalCard = [&] (juce::Rectangle<int> bounds, const juce::String& name,
-                              const juce::String& modelLine)
-    {
-        auto b = bounds.toFloat();
-        g.setGradientFill ({ ui::cardTop, 0.0f, b.getY(), ui::cardBottom, 0.0f, b.getBottom(), false });
-        g.fillRoundedRectangle (b, 14.0f);
-        g.setColour (ui::cardBorder);
-        g.drawRoundedRectangle (b, 14.0f, 1.0f);
-
-        g.setFont (ui::uiFont (11.5f, true));
-        g.setColour (ui::text);
-        g.drawText (name, bounds.getX() + 12, bounds.getY() + 12, bounds.getWidth() - 46, 14,
-                    juce::Justification::centredLeft);
-
-        // linha de modelo acima da base
-        g.setFont (ui::monoFont (9.5f));
-        g.setColour (juce::Colour (0xffb6b9be));
-        g.drawFittedText (modelLine, bounds.getX() + 12, bounds.getBottom() - 78,
-                          bounds.getWidth() - 24, 26, juce::Justification::centredLeft, 2);
-
-        g.setColour (juce::Colour (0xff303338));
-        g.fillRect (bounds.getX() + 12, bounds.getBottom() - 86, bounds.getWidth() - 24, 1);
-    };
-
-    drawPedalCard (gateCardBounds, "Noise Gate", "Downward expander 10:1");
-
-    const auto irName = processor.getIrName();
-    drawPedalCard (cabCardBounds, "Cab IR",
-                   irName.isNotEmpty() ? irName : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem IR \xe2\x80\x94")));
-
-    // ---- cartão do amp
-    {
-        auto b = ampCardBounds.toFloat();
-        juce::ColourGradient grad (ui::ampTop, 0.0f, b.getY(), ui::ampBottom, 0.0f, b.getBottom(), false);
-        grad.addColour (0.55, ui::ampMid);
-        g.setGradientFill (grad);
-        g.fillRoundedRectangle (b, 14.0f);
-        g.setColour (ui::ampBorder);
-        g.drawRoundedRectangle (b, 14.0f, 1.0f);
-
-        g.setFont (ui::uiFont (12.0f, true));
-        g.setColour (juce::Colour (0xfff2ede6));
-        g.drawText ("AMP HEAD", ampCardBounds.getX() + 17, ampCardBounds.getY() + 15, 160, 14,
-                    juce::Justification::centredLeft);
-        g.setFont (ui::monoFont (8.0f));
-        g.setColour (juce::Colour (0xffc99a55));
-        g.drawText (juce::CharPointer_UTF8 ("AMPLIFICADOR \xc2\xb7 NAM"),
-                    ampCardBounds.getX() + 17, ampCardBounds.getY() + 31, 160, 11,
-                    juce::Justification::centredLeft);
-
-        const auto modelName = processor.getModelName();
-        g.setFont (ui::uiFont (17.0f, true));
-        g.setColour (modelName.isNotEmpty() ? ui::accentLight : juce::Colour (0xff8a7358));
-        g.drawText (modelName.isNotEmpty() ? modelName
-                                           : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem capture \xe2\x80\x94")),
-                    ampCardBounds.getX() + 17, ampCardBounds.getY() + 52, ampCardBounds.getWidth() - 34, 22,
-                    juce::Justification::centredLeft);
-
-        const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
-        juce::String info;
-        const double modelSr = processor.getModelExpectedSampleRate();
-        if (modelName.isNotEmpty())
+        // cordas
+        int sx = 300;
+        for (int i = 0; i < 6; ++i)
         {
-            info = (modelSr > 0 ? juce::String (modelSr / 1000.0, 1) + " kHz" + dot : juce::String())
-                   + "mono" + dot + "NAM v0.5";
-            if (processor.isResampling())
-                info += dot + "resample";
-        }
-        else
-        {
-            info = "carregue um arquivo .nam";
-        }
-        g.setFont (ui::monoFont (9.0f));
-        g.setColour (juce::Colour (0xffa98d63));
-        g.drawText (info, ampCardBounds.getX() + 17, ampCardBounds.getY() + 76,
-                    ampCardBounds.getWidth() - 34, 12, juce::Justification::centredLeft);
-
-        // barra de glow
-        {
-            auto glow = juce::Rectangle<float> (b.getX() + 20.0f, b.getBottom() - 62.0f,
-                                                b.getWidth() - 40.0f, 6.0f);
-            const float alpha = processor.hasModelLoaded()
-                                    && processor.apvts.getRawParameterValue ("ampOn")->load() > 0.5f
-                                ? 0.85f : 0.18f;
-            juce::ColourGradient grad2 (ui::accent.withAlpha (0.0f), glow.getX(), 0.0f,
-                                        ui::accent.withAlpha (0.0f), glow.getRight(), 0.0f, false);
-            grad2.addColour (0.5, ui::accent.withAlpha (alpha));
-            g.setGradientFill (grad2);
-            g.fillRoundedRectangle (glow, 4.0f);
-        }
-    }
-
-    // ---- barra de status inferior
-    {
-        auto bar = juce::Rectangle<int> (0, H - 40, W, 40);
-        g.setGradientFill ({ ui::topBarBottom, 0.0f, (float) bar.getY(),
-                             juce::Colour (0xff1a1c1f), 0.0f, (float) bar.getBottom(), false });
-        g.fillRect (bar);
-        g.setColour (juce::Colour (0xff101215));
-        g.fillRect (0, H - 40, W, 1);
-
-        const double sr = processor.getSampleRate();
-        const int bs = processor.getBlockSize();
-        const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
-        juce::String status;
-        if (sr > 0)
-        {
-            status = juce::String (sr / 1000.0, 1) + " kHz" + dot + juce::String (bs) + " samples"
-                     + dot + juce::String (bs / sr * 1000.0, 2) + " ms/bloco";
-            if (const int lat = processor.getLatencySamples(); lat > 0)
-                status += dot + "+" + juce::String (lat / sr * 1000.0, 2) + " ms resample";
+            auto chip = juce::Rectangle<float> ((float) sx, (float) cy - 12, 24.0f, 24.0f);
+            const bool active = i == tunerStringIndex;
+            g.setColour (active ? ui::accent.withAlpha (0.14f) : ui::glass());
+            g.fillRoundedRectangle (chip, 7.0f);
+            g.setColour (active ? ui::accent : juce::Colours::white.withAlpha (0.09f));
+            g.drawRoundedRectangle (chip, 7.0f, 1.0f);
+            g.setFont (ui::monoFont (10.0f, true));
+            g.setColour (active ? ui::accent : juce::Colour (0xff99a1ab));
+            g.drawText (kStringNames[i], chip, juce::Justification::centred);
+            sx += 30;
         }
 
-        g.setFont (ui::monoFont (9.5f));
-        g.setColour (juce::Colour (0xff8a8d93));
-        g.drawText (status, 22, H - 40, 460, 40, juce::Justification::centredLeft);
+        g.setColour (juce::Colours::white.withAlpha (0.08f));
+        g.fillRect (sx + 8, cy - 14, 1, 28);
 
-        juce::String warn;
-        juce::Colour warnColour = ui::yellow;
-        const auto err = processor.getLoadError();
-        const double modelSr = processor.getModelExpectedSampleRate();
-        if (err.isNotEmpty())
+        // nota + cents
+        const bool hasPitch = tunerFreq > 0.0;
+        g.setFont (ui::uiFont (30.0f, true));
+        g.setColour (hasPitch ? ui::accent : ui::textMuted);
+        g.drawText (hasPitch ? tunerNote : juce::String ("-"), sx + 22, barY + 10, 64, 40,
+                    juce::Justification::centred);
+        if (hasPitch)
         {
-            warn = "Erro: " + err;
-            warnColour = ui::red;
+            g.setFont (ui::monoFont (11.0f));
+            g.setColour (std::abs (tunerCents) < 5.0 ? ui::green : ui::yellow);
+            g.drawText ((tunerCents >= 0 ? "+" : "") + juce::String ((int) tunerCents)
+                            + juce::String (juce::CharPointer_UTF8 ("\xc2\xa2")),
+                        sx + 86, cy - 8, 40, 16, juce::Justification::centredLeft);
         }
-        else if (processor.isResampling() && modelSr > 0 && sr > 0)
+
+        // régua de cents
         {
-            warn = "resampleando " + juce::String (sr / 1000.0, 1)
-                   + juce::String::fromUTF8 (" \xe2\x86\x92 ")
-                   + juce::String (modelSr / 1000.0, 1) + " kHz";
-            warnColour = ui::textFaint;
+            auto meter = juce::Rectangle<float> ((float) sx + 136, (float) barY + 14, 240.0f, 32.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.10f));
+            for (float mx = meter.getX(); mx <= meter.getRight(); mx += 12.0f)
+                g.fillRect (mx, meter.getY() + 6.0f, 1.0f, 20.0f);
+
+            juce::ColourGradient grad (ui::red, meter.getX(), 0.0f, ui::red, meter.getRight(), 0.0f, false);
+            grad.addColour (0.44, ui::green);
+            grad.addColour (0.56, ui::green);
+            g.setGradientFill (grad);
+            g.setOpacity (0.4f);
+            g.fillRect (meter.getX(), meter.getCentreY() - 1.5f, meter.getWidth(), 3.0f);
+            g.setOpacity (1.0f);
+
+            g.setColour (juce::Colours::white.withAlpha (0.35f));
+            g.fillRect (meter.getCentreX() - 1.0f, meter.getY(), 2.0f, meter.getHeight());
+
+            if (hasPitch)
+            {
+                const float nx = meter.getCentreX()
+                                 + (float) juce::jlimit (-50.0, 50.0, tunerCents) / 50.0f
+                                       * (meter.getWidth() / 2.0f - 6.0f);
+                g.setColour (ui::accent.withAlpha (0.4f));
+                g.fillRoundedRectangle (nx - 3.0f, meter.getY() - 2.0f, 6.0f, meter.getHeight() + 4.0f, 3.0f);
+                g.setColour (ui::accent);
+                g.fillRoundedRectangle (nx - 1.5f, meter.getY() - 2.0f, 3.0f, meter.getHeight() + 4.0f, 2.0f);
+            }
         }
-        g.setFont (ui::monoFont (9.5f, true));
-        g.setColour (warnColour);
-        g.drawText (warn, W - 22 - 560, H - 40, 560, 40, juce::Justification::centredRight);
+
+        // status compacto à direita
+        {
+            const double sr = processor.getSampleRate();
+            const int bs = processor.getBlockSize();
+            const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
+
+            juce::String status = "A = 440 Hz";
+            if (sr > 0)
+                status = juce::String (sr / 1000.0, 1) + " kHz" + dot + juce::String (bs) + " smp"
+                         + dot + "A = 440 Hz";
+
+            const auto err = processor.getLoadError();
+            juce::Colour c = ui::textFaint;
+            if (err.isNotEmpty())
+            {
+                status = "Erro: " + err;
+                c = ui::red;
+            }
+            g.setFont (ui::monoFont (9.5f));
+            g.setColour (c);
+            g.drawText (status, W - 22 - 360, barY, 360, 60, juce::Justification::centredRight);
+        }
     }
 }
 
@@ -566,9 +880,8 @@ void RigContent::timerCallback()
     inMeter.setLevel (inMeterDb);
     outMeter.setLevel (outMeterDb);
 
-    loadButton.setButtonText (processor.hasModelLoaded() ? "TROCAR CAPTURE NAM"
-                                                         : "CARREGAR CAPTURE NAM");
-    irButton.setButtonText (processor.hasIrLoaded() ? "TROCAR IR" : "CARREGAR IR");
+    const float cpu = processor.cpuLoad.load();
+    cpuMeter.setFraction (cpu, cpu > 0.8f ? ui::red : cpu > 0.5f ? ui::yellow : ui::accent);
 
     const auto presetName = processor.getCurrentPresetName();
     presetPill.setButtonText (processor.isLoadingModel()
@@ -577,14 +890,87 @@ void RigContent::timerCallback()
                                                              : juce::String ("(sem preset)")));
     presetPill.dotLit = processor.hasModelLoaded();
 
-    repaint();
+    chainView->refreshDynamicText();
+    refreshSidecarImages();
+
+    if (++tunerTick % 3 == 0)
+        analyseTuner();
+
+    repaint (0, 0, getWidth(), 60);
+    repaint (0, getHeight() - 60, getWidth(), 60);
+}
+
+void RigContent::analyseTuner()
+{
+    const double sr = processor.getSampleRate();
+    if (sr <= 0)
+        return;
+
+    constexpr int N = 2048;
+    float buf[N];
+    processor.readTunerBlock (buf, N);
+
+    const double freq = detectPitchHz (buf, N, sr);
+    tunerFreq = freq;
+
+    if (freq > 0.0)
+    {
+        const double midi = 69.0 + 12.0 * std::log2 (freq / 440.0);
+        const int nearest = juce::roundToInt (midi);
+        tunerCents = (midi - nearest) * 100.0;
+        tunerNote = kNoteNames[((nearest % 12) + 12) % 12];
+
+        tunerStringIndex = -1;
+        double bestDiff = 1.0e9;
+        for (int i = 0; i < 6; ++i)
+        {
+            const double diff = std::abs (std::log2 (freq / kStringFreqs[i]));
+            if (diff < bestDiff)
+            {
+                bestDiff = diff;
+                tunerStringIndex = i;
+            }
+        }
+        if (bestDiff > 0.12) // > ~1.4 semitons de qualquer corda
+            tunerStringIndex = -1;
+    }
+    else
+    {
+        tunerNote.clear();
+        tunerStringIndex = -1;
+    }
+}
+
+void RigContent::refreshSidecarImages()
+{
+    const auto modelPath = processor.getModelPath();
+    if (modelPath != loadedModelPath)
+    {
+        loadedModelPath = modelPath;
+        juce::Image img;
+        const juce::File sidecar (modelPath + ".img");
+        if (sidecar.existsAsFile())
+            img = juce::ImageFileFormat::loadFrom (sidecar);
+        chainView->setAmpImage (img);
+    }
+
+    const auto irPath = processor.getIrPath();
+    if (irPath != loadedIrPath)
+    {
+        loadedIrPath = irPath;
+        juce::Image img;
+        const juce::File sidecar (irPath + ".img");
+        if (sidecar.existsAsFile())
+            img = juce::ImageFileFormat::loadFrom (sidecar);
+        chainView->setCabImage (img);
+    }
 }
 
 void RigContent::chooseModelFile()
 {
     auto initialDir = juce::File (processor.getModelPath()).getParentDirectory();
     if (! initialDir.isDirectory())
-        initialDir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+        initialDir = Tone3000Client::capturesDir();
 
     fileChooser = std::make_unique<juce::FileChooser> ("Escolher capture NAM (.nam)",
                                                        initialDir, "*.nam");
@@ -602,7 +988,7 @@ void RigContent::chooseIrFile()
 {
     auto initialDir = juce::File (processor.getIrPath()).getParentDirectory();
     if (! initialDir.isDirectory())
-        initialDir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+        initialDir = Tone3000Client::irsDir();
 
     fileChooser = std::make_unique<juce::FileChooser> ("Escolher impulse response (wav/aiff/flac)",
                                                        initialDir, "*.wav;*.aif;*.aiff;*.flac");

@@ -350,8 +350,8 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     sortCombo.addItem ("Mais recentes", 2);
     sortCombo.addItem ("Mais baixados", 3);
     sortCombo.setSelectedId (1, juce::dontSendNotification);
-    sortCombo.setColour (juce::ComboBox::backgroundColourId, ui::panel);
-    sortCombo.setColour (juce::ComboBox::outlineColourId, ui::panelBorder);
+    sortCombo.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff14171b));
+    sortCombo.setColour (juce::ComboBox::outlineColourId, juce::Colour (0xff23272c));
     sortCombo.setColour (juce::ComboBox::textColourId, ui::text);
     sortCombo.setColour (juce::ComboBox::arrowColourId, ui::textMuted);
     sortCombo.onChange = [this]
@@ -625,6 +625,8 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
             // outro item entrar no rig depois.
             safe->setLocalFile (file);
             safe->setStatus (ToneCardComponent::Status::inRig);
+            // Foto do tone vira sidecar do arquivo (cartões do rig mostram).
+            client.saveImageSidecar (safe->getInfo().imageUrl, file);
             if (safe->getInfo().formatBadge == "IR")
                 processor.loadIrAsync (file);
             else

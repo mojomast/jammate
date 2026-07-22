@@ -2,35 +2,39 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-// Paleta extraída do design GuitarRig.dc.html (claude.ai/design).
+// Paleta do design GuitarRig.dc.html v2 (claude.ai/design) — tema escuro
+// "glassy" com accent ciano.
 namespace ui
 {
-inline const juce::Colour bg { 0xff141517 };
-inline const juce::Colour bgBorder { 0xff2a2c30 };
-inline const juce::Colour topBarTop { 0xff2c2e33 };
-inline const juce::Colour topBarBottom { 0xff232529 };
-inline const juce::Colour chainTop { 0xff212327 };
-inline const juce::Colour chainBottom { 0xff131416 };
-inline const juce::Colour panel { 0xff1b1d20 };
-inline const juce::Colour panelBorder { 0xff34373c };
-inline const juce::Colour cardTop { 0xff2a2c31 };
-inline const juce::Colour cardBottom { 0xff1e2023 };
-inline const juce::Colour cardBorder { 0xff35383d };
-inline const juce::Colour ampTop { 0xff342719 };
-inline const juce::Colour ampMid { 0xff241c14 };
-inline const juce::Colour ampBottom { 0xff1b1611 };
-inline const juce::Colour ampBorder { 0xff5a4326 };
-inline const juce::Colour accent { 0xffff9d2e };
-inline const juce::Colour accentLight { 0xffffb14a };
-inline const juce::Colour text { 0xffe5e6e8 };
-inline const juce::Colour textBright { 0xfff0f1f2 };
-inline const juce::Colour textDim { 0xff9a9da2 };
-inline const juce::Colour textFaint { 0xff7f8288 };
-inline const juce::Colour textMuted { 0xff6f7278 };
-inline const juce::Colour green { 0xff37d67a };
-inline const juce::Colour yellow { 0xffe2b53a };
+inline const juce::Colour bg { 0xff0a0c0f };
+inline const juce::Colour bgTop { 0xff14181d };        // topo do radial da janela
+inline const juce::Colour chainTop { 0xff161b21 };
+inline const juce::Colour chainBottom { 0xff0a0c0f };
+inline const juce::Colour barTop { 0xff1c2127 };       // top bar / tuner bar
+inline const juce::Colour barBottom { 0xff101317 };
+inline const juce::Colour cardTop { 0xff1f242b };
+inline const juce::Colour cardBottom { 0xff111419 };
+inline const juce::Colour ampTop { 0xff222830 };
+inline const juce::Colour ampBottom { 0xff101318 };
+inline const juce::Colour accent { 0xff33c9d6 };
+inline const juce::Colour accentDark { 0xff1c8f9a };
+inline const juce::Colour accentTextDark { 0xff08211f };
+inline const juce::Colour glowOrange { 0xffff963c };   // barra de brilho do amp
+inline const juce::Colour text { 0xffeef2f6 };
+inline const juce::Colour textBright { 0xfff4f7fa };
+inline const juce::Colour textDim { 0xff99a1ab };
+inline const juce::Colour textFaint { 0xff7c8590 };
+inline const juce::Colour textMuted { 0xff616b76 };
+inline const juce::Colour green { 0xff46e0a0 };
+inline const juce::Colour yellow { 0xffe5c24a };
 inline const juce::Colour red { 0xffe0533a };
-inline const juce::Colour meterBg { 0xff111214 };
+inline const juce::Colour meterBg { 0xff0c0e11 };
+
+// bordas/preenchimentos translúcidos do tema glassy
+inline juce::Colour border()      { return juce::Colours::white.withAlpha (0.07f); }
+inline juce::Colour borderHover() { return juce::Colours::white.withAlpha (0.18f); }
+inline juce::Colour glass()       { return juce::Colours::white.withAlpha (0.03f); }
+inline juce::Colour glassHover()  { return juce::Colours::white.withAlpha (0.06f); }
 
 inline juce::Font monoFont (float size, bool bold = false)
 {
@@ -45,18 +49,23 @@ inline juce::Font uiFont (float size, bool bold = false)
 }
 } // namespace ui
 
-// Knob conforme Knob.dc.html: corpo escuro com tampa interna, ponteiro laranja
-// com brilho e ponto luminoso; curso de -135° a +135°.
+// Knob conforme Knob.dc.html v2: arco de valor (gauge) accent de -135° a
+// +135°, tampa metálica interna e ponteiro accent com glow.
 class RigLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     RigLookAndFeel()
     {
-        setColour (juce::TextButton::buttonColourId, ui::panel);
+        setColour (juce::TextButton::buttonColourId, juce::Colour (0xff14171b));
         setColour (juce::TextButton::textColourOffId, ui::text);
-        setColour (juce::ComboBox::outlineColourId, ui::panelBorder);
+        setColour (juce::ComboBox::outlineColourId, juce::Colour (0xff23272c));
         setColour (juce::Label::textColourId, ui::text);
-        setColour (juce::TooltipWindow::backgroundColourId, ui::panel);
+        setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff14181d));
+        setColour (juce::PopupMenu::textColourId, ui::text);
+        setColour (juce::PopupMenu::highlightedBackgroundColourId, ui::accent.withAlpha (0.18f));
+        setColour (juce::PopupMenu::highlightedTextColourId, ui::textBright);
+        setColour (juce::ScrollBar::thumbColourId, juce::Colour (0xff2e343c));
+        setColour (juce::TooltipWindow::backgroundColourId, juce::Colour (0xff14181d));
     }
 
     void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
@@ -67,54 +76,58 @@ public:
         const auto area = juce::Rectangle<float> ((float) x + ((float) width - d) * 0.5f,
                                                   (float) y, d, d);
         const auto centre = area.getCentre();
+        const float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
-        // corpo externo
+        // gauge externo (270°)
         {
-            juce::ColourGradient grad (juce::Colour (0xff3c3f45),
-                                       centre.x, area.getY() + d * 0.28f,
-                                       juce::Colour (0xff1f2124),
-                                       centre.x, area.getBottom(), true);
-            g.setGradientFill (grad);
-            g.fillEllipse (area);
-            g.setColour (juce::Colour (0xff0f1012));
-            g.drawEllipse (area, 1.0f);
+            const float stroke = juce::jmax (2.5f, d * 0.075f);
+            const float r = d / 2.0f - stroke / 2.0f;
+
+            juce::Path track;
+            track.addCentredArc (centre.x, centre.y, r, r, 0.0f,
+                                 rotaryStartAngle, rotaryEndAngle, true);
+            g.setColour (juce::Colours::white.withAlpha (0.09f));
+            g.strokePath (track, juce::PathStrokeType (stroke, juce::PathStrokeType::curved,
+                                                       juce::PathStrokeType::rounded));
+
+            if (sliderPos > 0.001f)
+            {
+                juce::Path value;
+                value.addCentredArc (centre.x, centre.y, r, r, 0.0f,
+                                     rotaryStartAngle, angle, true);
+                g.setColour (ui::accent.withAlpha (0.3f));
+                g.strokePath (value, juce::PathStrokeType (stroke + 3.0f,
+                                                           juce::PathStrokeType::curved,
+                                                           juce::PathStrokeType::rounded));
+                g.setColour (ui::accent);
+                g.strokePath (value, juce::PathStrokeType (stroke, juce::PathStrokeType::curved,
+                                                           juce::PathStrokeType::rounded));
+            }
         }
 
-        // tampa interna (inset 15%)
+        // tampa interna
         {
             const auto inner = area.reduced (d * 0.15f);
-            juce::ColourGradient grad (juce::Colour (0xff4d5158),
-                                       centre.x, inner.getY() + inner.getHeight() * 0.34f,
-                                       juce::Colour (0xff292b30),
+            juce::ColourGradient grad (juce::Colour (0xff3d434c),
+                                       centre.x, inner.getY() + inner.getHeight() * 0.28f,
+                                       juce::Colour (0xff181b20),
                                        centre.x, inner.getBottom(), true);
             g.setGradientFill (grad);
             g.fillEllipse (inner);
-            g.setColour (juce::Colour (0xff15171a));
+            g.setColour (juce::Colour (0xff32383f));
             g.drawEllipse (inner, 1.0f);
         }
 
-        const float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-        const auto transform = juce::AffineTransform::rotation (angle, centre.x, centre.y);
-
         // ponteiro
         {
+            const auto transform = juce::AffineTransform::rotation (angle, centre.x, centre.y);
             juce::Path p;
-            p.addRoundedRectangle (centre.x - 1.5f, area.getY() + d * 0.10f, 3.0f, d * 0.24f, 1.5f);
+            p.addRoundedRectangle (centre.x - 1.5f, area.getY() + d * 0.22f, 3.0f, d * 0.20f, 1.5f);
             p.applyTransform (transform);
-            juce::ColourGradient grad (juce::Colour (0xffffd39a), centre.x, area.getY(),
-                                       ui::accent, centre.x, area.getY() + d * 0.36f, false);
-            g.setGradientFill (grad);
+            g.setColour (ui::accent.withAlpha (0.4f));
+            g.strokePath (p, juce::PathStrokeType (3.0f));
+            g.setColour (ui::accent);
             g.fillPath (p);
-        }
-
-        // ponto luminoso com glow
-        {
-            auto dot = juce::Point<float> (centre.x, area.getY() + d * 0.095f)
-                           .transformedBy (transform);
-            g.setColour (ui::accent.withAlpha (0.35f));
-            g.fillEllipse (dot.x - 6.0f, dot.y - 6.0f, 12.0f, 12.0f);
-            g.setColour (ui::accentLight);
-            g.fillEllipse (dot.x - 3.2f, dot.y - 3.2f, 6.4f, 6.4f);
         }
     }
 
@@ -144,7 +157,9 @@ public:
             }
             else
             {
-                g.setColour (isHighlighted ? juce::Colour (0xff4a4d54) : ui::panelBorder);
+                g.setColour (ui::glass());
+                g.fillRoundedRectangle (bounds, r);
+                g.setColour (isHighlighted ? ui::borderHover() : juce::Colours::white.withAlpha (0.1f));
                 g.drawRoundedRectangle (bounds, r, 1.0f);
             }
             return;
@@ -159,7 +174,9 @@ public:
             }
             else
             {
-                g.setColour (ui::accent);
+                g.setColour (ui::accent.withAlpha (0.08f));
+                g.fillRoundedRectangle (bounds, 8.0f);
+                g.setColour (ui::accent.withAlpha (0.5f));
                 g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
             }
             return;
@@ -169,16 +186,20 @@ public:
         {
             auto c = ui::accent;
             if (isDown) c = c.darker (0.15f);
-            else if (isHighlighted) c = c.brighter (0.08f);
-            g.setColour (button.isEnabled() ? c : c.withAlpha (0.35f));
-            g.fillRoundedRectangle (bounds, 8.0f);
+            else if (isHighlighted) c = c.brighter (0.1f);
+            if (! button.isEnabled()) c = c.withAlpha (0.35f);
+
+            g.setColour (c.withAlpha (0.35f));
+            g.fillRoundedRectangle (bounds.expanded (2.0f), 11.0f); // glow
+            g.setColour (c);
+            g.fillRoundedRectangle (bounds, 9.0f);
         }
         else
         {
-            g.setColour (isDown ? ui::panel.brighter (0.08f) : ui::panel);
-            g.fillRoundedRectangle (bounds, 8.0f);
-            g.setColour (isHighlighted ? juce::Colour (0xff4a4d54) : ui::panelBorder);
-            g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
+            g.setColour (isDown ? ui::glassHover() : ui::glass());
+            g.fillRoundedRectangle (bounds, 9.0f);
+            g.setColour (isHighlighted ? ui::borderHover() : juce::Colours::white.withAlpha (0.08f));
+            g.drawRoundedRectangle (bounds, 9.0f, 1.0f);
         }
     }
 
@@ -188,7 +209,7 @@ public:
         if (props["tab"])
             return ui::uiFont (13.0f, true);
         if (props["chip"])
-            return ui::uiFont (12.0f, true);
+            return ui::uiFont (12.0f);
         return ui::uiFont (props["accent"] ? 13.0f : 12.5f, true);
     }
 
@@ -200,13 +221,13 @@ public:
 
         juce::Colour c;
         if (props["tab"])
-            c = props["tabActive"] ? ui::textBright : juce::Colour (0xff84878d);
+            c = props["tabActive"] ? ui::textBright : ui::textFaint;
         else if (props["chip"])
-            c = props["chipActive"] ? juce::Colour (0xff161719) : juce::Colour (0xffb8bbc0);
+            c = props["chipActive"] ? ui::accentTextDark : juce::Colour (0xffb4bbc4);
         else if (props["outlineAccent"])
-            c = (isHighlighted || isDown) ? juce::Colour (0xff161719) : ui::accent;
+            c = (isHighlighted || isDown) ? ui::accentTextDark : ui::accent;
         else if (props["accent"])
-            c = juce::Colour (0xff161719);
+            c = ui::accentTextDark;
         else
             c = ui::text;
 

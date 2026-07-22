@@ -34,6 +34,23 @@ constexpr auto* kParamAmpMid = "ampMid";
 constexpr auto* kParamAmpTreble = "ampTreble";
 constexpr auto* kParamAmpPresence = "ampPresence";
 constexpr auto* kParamAmpMaster = "ampMaster";
+constexpr auto* kParamOdOn = "odOn";
+constexpr auto* kParamOdDrive = "odDrive";
+constexpr auto* kParamOdTone = "odTone";
+constexpr auto* kParamOdLevel = "odLevel";
+constexpr auto* kParamCabAir = "cabAir";
+constexpr auto* kParamEqOn = "eqOn";
+constexpr auto* kParamEqLow = "eqLow";
+constexpr auto* kParamEqMid = "eqMid";
+constexpr auto* kParamEqHigh = "eqHigh";
+constexpr auto* kParamDelayOn = "delayOn";
+constexpr auto* kParamDelayTime = "delayTime";
+constexpr auto* kParamDelayFb = "delayFb";
+constexpr auto* kParamDelayMix = "delayMix";
+constexpr auto* kParamRevOn = "revOn";
+constexpr auto* kParamRevDecay = "revDecay";
+constexpr auto* kParamRevMix = "revMix";
+constexpr auto* kParamRevPre = "revPre";
 constexpr auto* kParamGateOn = "gateOn";
 constexpr auto* kParamGateThresh = "gateThresh";
 constexpr auto* kParamGateRelease = "gateRelease";
@@ -81,6 +98,34 @@ void GuitarRigNAMProcessor::Biquad::setHighShelf (double sr, double freq, double
     a2 = (float) (((A + 1) - (A - 1) * c - s2a) / a0);
 }
 
+void GuitarRigNAMProcessor::Biquad::setLowPass (double sr, double freq, double q)
+{
+    const double w = juce::MathConstants<double>::twoPi * freq / sr;
+    const double c = std::cos (w), s = std::sin (w);
+    const double alpha = s / (2.0 * q);
+
+    const double a0 = 1 + alpha;
+    b0 = (float) (((1 - c) / 2) / a0);
+    b1 = (float) ((1 - c) / a0);
+    b2 = (float) (((1 - c) / 2) / a0);
+    a1 = (float) (-2 * c / a0);
+    a2 = (float) ((1 - alpha) / a0);
+}
+
+void GuitarRigNAMProcessor::Biquad::setHighPass (double sr, double freq, double q)
+{
+    const double w = juce::MathConstants<double>::twoPi * freq / sr;
+    const double c = std::cos (w), s = std::sin (w);
+    const double alpha = s / (2.0 * q);
+
+    const double a0 = 1 + alpha;
+    b0 = (float) (((1 + c) / 2) / a0);
+    b1 = (float) (-(1 + c) / a0);
+    b2 = (float) (((1 + c) / 2) / a0);
+    a1 = (float) (-2 * c / a0);
+    a2 = (float) ((1 - alpha) / a0);
+}
+
 void GuitarRigNAMProcessor::Biquad::setPeak (double sr, double freq, double dbGain, double q)
 {
     const double A = std::pow (10.0, dbGain / 40.0);
@@ -94,6 +139,51 @@ void GuitarRigNAMProcessor::Biquad::setPeak (double sr, double freq, double dbGa
     b2 = (float) ((1 - alpha * A) / a0);
     a1 = (float) (-2 * c / a0);
     a2 = (float) ((1 - alpha / A) / a0);
+}
+
+void GuitarRigNAMProcessor::updateOdIfNeeded()
+{
+    const float tone = pOdTone->load();
+    if (tone == odCachedTone)
+        return;
+    odCachedTone = tone;
+    // tone 0..10 -> LP de 1 kHz a 8 kHz (exponencial)
+    odToneLp.setLowPass (hostSampleRate.load(), 1000.0 * std::pow (8.0, tone / 10.0), 0.707);
+}
+
+void GuitarRigNAMProcessor::updateEqIfNeeded()
+{
+    const float lo = pEqLow->load(), mi = pEqMid->load(), hi = pEqHigh->load();
+    if (lo == eqCachedLow && mi == eqCachedMid && hi == eqCachedHigh)
+        return;
+    eqCachedLow = lo;
+    eqCachedMid = mi;
+    eqCachedHigh = hi;
+    const double sr = hostSampleRate.load();
+    eqLowF.setLowShelf (sr, 120.0, lo);
+    eqMidF.setPeak (sr, 800.0, mi, 0.8);
+    eqHighF.setHighShelf (sr, 4000.0, hi);
+}
+
+void GuitarRigNAMProcessor::updateAirIfNeeded()
+{
+    const float air = pCabAir->load();
+    if (air == airCached)
+        return;
+    airCached = air;
+    // 0..10 -> shelf de 0 a +9 dB em 8 kHz
+    airF.setHighShelf (hostSampleRate.load(), 8000.0, air * 0.9);
+}
+
+void GuitarRigNAMProcessor::readTunerBlock (float* dest, int numSamples) const
+{
+    const int writePos = tunerWritePos.load();
+    int start = (writePos - numSamples) & (tunerRingSize - 1);
+    for (int i = 0; i < numSamples; ++i)
+    {
+        dest[i] = tunerRing[start];
+        start = (start + 1) & (tunerRingSize - 1);
+    }
 }
 
 void GuitarRigNAMProcessor::updateToneStackIfNeeded()
@@ -172,6 +262,54 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::ParameterID { kParamCabLevel, 1 }, "Cab Level",
         juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f, dB));
 
+    auto zeroTen = juce::NormalisableRange<float> (0.0f, 10.0f, 0.1f);
+    auto pct = juce::AudioParameterFloatAttributes().withLabel ("%");
+
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamCabAir, 1 }, "Cab Air", zeroTen, 0.0f));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { kParamOdOn, 1 }, "OD On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamOdDrive, 1 }, "OD Drive", zeroTen, 5.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamOdTone, 1 }, "OD Tone", zeroTen, 5.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamOdLevel, 1 }, "OD Level", zeroTen, 5.0f));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { kParamEqOn, 1 }, "EQ On", true));
+    auto eqRange = juce::NormalisableRange<float> (-12.0f, 12.0f, 0.5f);
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamEqLow, 1 }, "EQ Low", eqRange, 0.0f, dB));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamEqMid, 1 }, "EQ Mid", eqRange, 0.0f, dB));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamEqHigh, 1 }, "EQ High", eqRange, 0.0f, dB));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { kParamDelayOn, 1 }, "Delay On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamDelayTime, 1 }, "Delay Time",
+        juce::NormalisableRange<float> (60.0f, 1000.0f, 1.0f, 0.5f), 350.0f, ms));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamDelayFb, 1 }, "Delay Feedback",
+        juce::NormalisableRange<float> (0.0f, 90.0f, 1.0f), 35.0f, pct));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamDelayMix, 1 }, "Delay Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 25.0f, pct));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { kParamRevOn, 1 }, "Reverb On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamRevDecay, 1 }, "Reverb Decay", zeroTen, 4.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamRevMix, 1 }, "Reverb Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 25.0f, pct));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamRevPre, 1 }, "Reverb Predelay",
+        juce::NormalisableRange<float> (0.0f, 120.0f, 1.0f), 20.0f, ms));
+
     return layout;
 }
 
@@ -195,6 +333,23 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pGateRelease = apvts.getRawParameterValue (kParamGateRelease);
     pCabOn = apvts.getRawParameterValue (kParamCabOn);
     pCabLevel = apvts.getRawParameterValue (kParamCabLevel);
+    pCabAir = apvts.getRawParameterValue (kParamCabAir);
+    pOdOn = apvts.getRawParameterValue (kParamOdOn);
+    pOdDrive = apvts.getRawParameterValue (kParamOdDrive);
+    pOdTone = apvts.getRawParameterValue (kParamOdTone);
+    pOdLevel = apvts.getRawParameterValue (kParamOdLevel);
+    pEqOn = apvts.getRawParameterValue (kParamEqOn);
+    pEqLow = apvts.getRawParameterValue (kParamEqLow);
+    pEqMid = apvts.getRawParameterValue (kParamEqMid);
+    pEqHigh = apvts.getRawParameterValue (kParamEqHigh);
+    pDelayOn = apvts.getRawParameterValue (kParamDelayOn);
+    pDelayTime = apvts.getRawParameterValue (kParamDelayTime);
+    pDelayFb = apvts.getRawParameterValue (kParamDelayFb);
+    pDelayMix = apvts.getRawParameterValue (kParamDelayMix);
+    pRevOn = apvts.getRawParameterValue (kParamRevOn);
+    pRevDecay = apvts.getRawParameterValue (kParamRevDecay);
+    pRevMix = apvts.getRawParameterValue (kParamRevMix);
+    pRevPre = apvts.getRawParameterValue (kParamRevPre);
 
     noiseGate.setRatio (10.0f);
     noiseGate.setAttack (5.0f);
@@ -245,10 +400,33 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     noiseGate.prepare (spec);
     convolution.prepare (spec);
 
-    // Força o recálculo do tone stack no novo sample rate e zera o estado.
+    // Força o recálculo dos filtros no novo sample rate e zera os estados.
     tsCachedBass = -1.0f;
-    for (auto* f : { &tsBass, &tsMid, &tsTreble, &tsPresence })
+    odCachedTone = -1.0f;
+    eqCachedLow = -99.0f;
+    airCached = -1.0f;
+    revCachedDecay = -1.0f;
+    for (auto* f : { &tsBass, &tsMid, &tsTreble, &tsPresence, &odHp, &odToneLp,
+                     &eqLowF, &eqMidF, &eqHighF, &airF })
         f->reset();
+    odHp.setHighPass (sampleRate, 120.0, 0.707);
+
+    delayLine.prepare (spec);
+    delayLine.setMaximumDelayInSamples ((int) (sampleRate * 1.2) + 1);
+    delaySmoothedSamples.reset (sampleRate, 0.05);
+    delaySmoothedSamples.setCurrentAndTargetValue ((float) (0.35 * sampleRate));
+
+    preDelayLine.prepare (spec);
+    preDelayLine.setMaximumDelayInSamples ((int) (sampleRate * 0.15) + 1);
+
+    reverb.setSampleRate (sampleRate);
+    reverbParams.dryLevel = 0.0f;   // mix manual (com predelay no caminho wet)
+    reverbParams.wetLevel = 1.0f;
+    reverbParams.damping = 0.45f;
+    reverbParams.width = 1.0f;
+    reverb.setParameters (reverbParams);
+
+    wetScratch.setSize (1, samplesPerBlock);
 
     // prepareToPlay não é concorrente com processBlock; pode alocar/tocar nos
     // modelos ativo e pendente (o loader não toca no pendente após publicar).
@@ -286,6 +464,7 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 {
     juce::ScopedNoDenormals noDenormals;
 
+    const auto ticksStart = juce::Time::getHighResolutionTicks();
     const int n = buffer.getNumSamples();
     const int numIn = getTotalNumInputChannels();
     const int numOut = getTotalNumOutputChannels();
@@ -315,6 +494,17 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
     float* io = buffer.getWritePointer (0);
 
+    // ---- tap do afinador (sinal cru pós-ganho, pré-gate)
+    {
+        int w = tunerWritePos.load();
+        for (int i = 0; i < n; ++i)
+        {
+            tunerRing[w] = io[i];
+            w = (w + 1) & (tunerRingSize - 1);
+        }
+        tunerWritePos.store (w);
+    }
+
     // ---- noise gate (antes do amp, como num pedalboard)
     if (gateOn)
     {
@@ -324,6 +514,21 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         juce::dsp::AudioBlock<float> block (&io, 1, (size_t) n);
         juce::dsp::ProcessContextReplacing<float> ctx (block);
         noiseGate.process (ctx);
+    }
+
+    // ---- overdrive (pré-amp): HP 120 Hz -> drive/tanh -> tone LP -> level
+    if (pOdOn->load() > 0.5f)
+    {
+        updateOdIfNeeded();
+        const float driveGain = juce::Decibels::decibelsToGain (pOdDrive->load() * 4.0f);
+        const float levelGain = juce::Decibels::decibelsToGain ((pOdLevel->load() - 5.0f) * 3.0f - 6.0f);
+        for (int i = 0; i < n; ++i)
+        {
+            float v = odHp.process (io[i]);
+            v = std::tanh (v * driveGain);
+            v = odToneLp.process (v);
+            io[i] = v * levelGain;
+        }
     }
 
     // ---- amp NAM (com resampler quando o SR do capture difere do host):
@@ -358,12 +563,78 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     }
 
     // ---- cab IR (convolução; troca de IR é RT-safe dentro do Convolution)
-    if (cabOn && irIsLoaded.load() && convolution.getCurrentIRSize() > 0)
+    if (cabOn)
     {
-        juce::dsp::AudioBlock<float> block (&io, 1, (size_t) n);
-        juce::dsp::ProcessContextReplacing<float> ctx (block);
-        convolution.process (ctx);
-        buffer.applyGain (0, 0, n, cabGain);
+        if (irIsLoaded.load() && convolution.getCurrentIRSize() > 0)
+        {
+            juce::dsp::AudioBlock<float> block (&io, 1, (size_t) n);
+            juce::dsp::ProcessContextReplacing<float> ctx (block);
+            convolution.process (ctx);
+            buffer.applyGain (0, 0, n, cabGain);
+        }
+
+        // AIR: shelf de agudos pós-IR
+        if (pCabAir->load() > 0.05f)
+        {
+            updateAirIfNeeded();
+            for (int i = 0; i < n; ++i)
+                io[i] = airF.process (io[i]);
+        }
+    }
+
+    // ---- EQ pós-cab (LOW/MID/HIGH)
+    if (pEqOn->load() > 0.5f)
+    {
+        updateEqIfNeeded();
+        if (eqCachedLow != 0.0f || eqCachedMid != 0.0f || eqCachedHigh != 0.0f)
+            for (int i = 0; i < n; ++i)
+                io[i] = eqHighF.process (eqMidF.process (eqLowF.process (io[i])));
+    }
+
+    // ---- delay
+    if (pDelayOn->load() > 0.5f)
+    {
+        const double sr = hostSampleRate.load();
+        delaySmoothedSamples.setTargetValue ((float) (pDelayTime->load() / 1000.0 * sr));
+        const float fb = pDelayFb->load() / 100.0f;
+        const float mix = pDelayMix->load() / 100.0f;
+
+        for (int i = 0; i < n; ++i)
+        {
+            delayLine.setDelay (delaySmoothedSamples.getNextValue());
+            const float wet = delayLine.popSample (0);
+            delayLine.pushSample (0, io[i] + wet * fb);
+            io[i] += wet * mix;
+        }
+    }
+
+    // ---- reverb (mix manual, com predelay no caminho wet)
+    if (pRevOn->load() > 0.5f && n <= wetScratch.getNumSamples())
+    {
+        const float decay = pRevDecay->load();
+        if (decay != revCachedDecay)
+        {
+            revCachedDecay = decay;
+            reverbParams.roomSize = 0.2f + decay / 10.0f * 0.75f;
+            reverb.setParameters (reverbParams);
+        }
+
+        const float mix = pRevMix->load() / 100.0f;
+        const int preSamples = juce::jmin (
+            preDelayLine.getMaximumDelayInSamples() - 1,
+            (int) (pRevPre->load() / 1000.0 * hostSampleRate.load()));
+        preDelayLine.setDelay ((float) preSamples);
+
+        float* wet = wetScratch.getWritePointer (0);
+        for (int i = 0; i < n; ++i)
+        {
+            const float d = preDelayLine.popSample (0);
+            preDelayLine.pushSample (0, io[i]);
+            wet[i] = d;
+        }
+        reverb.processMono (wet, n);
+        for (int i = 0; i < n; ++i)
+            io[i] += wet[i] * mix;
     }
 
     buffer.applyGain (0, 0, n, outGain);
@@ -375,6 +646,15 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
     for (int ch = juce::jmax (numIn, 2); ch < numOut; ++ch)
         buffer.clear (ch, 0, n);
+
+    // ---- medidor de CPU (fração do tempo de bloco, suavizado)
+    {
+        const double elapsed = juce::Time::highResolutionTicksToSeconds (
+            juce::Time::getHighResolutionTicks() - ticksStart);
+        const double blockDur = n / juce::jmax (1.0, hostSampleRate.load());
+        const float load = (float) juce::jlimit (0.0, 1.0, elapsed / blockDur);
+        cpuLoad.store (cpuLoad.load() * 0.9f + load * 0.1f);
+    }
 }
 
 //==============================================================================

@@ -85,6 +85,21 @@ public:
 
     std::atomic<float> inputPeak { 0.0f };
     std::atomic<float> outputPeak { 0.0f };
+    /// Fração do tempo de bloco gasta em processBlock (0..1), suavizada.
+    std::atomic<float> cpuLoad { 0.0f };
+
+    //==========================================================================
+    // Afinador: o processBlock grava o sinal de entrada num ring buffer; o
+    // editor lê o trecho mais recente para análise de pitch (corridas de
+    // leitura são benignas — no máximo distorcem uma análise descartável).
+    static constexpr int tunerRingSize = 8192; // potência de 2
+    void readTunerBlock (float* dest, int numSamples) const;
+
+private:
+    float tunerRing[tunerRingSize] = {};
+    std::atomic<int> tunerWritePos { 0 };
+
+public:
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -151,6 +166,23 @@ private:
     std::atomic<float>* pGateRelease = nullptr;
     std::atomic<float>* pCabOn = nullptr;
     std::atomic<float>* pCabLevel = nullptr;
+    std::atomic<float>* pCabAir = nullptr;
+    std::atomic<float>* pOdOn = nullptr;
+    std::atomic<float>* pOdDrive = nullptr;
+    std::atomic<float>* pOdTone = nullptr;
+    std::atomic<float>* pOdLevel = nullptr;
+    std::atomic<float>* pEqOn = nullptr;
+    std::atomic<float>* pEqLow = nullptr;
+    std::atomic<float>* pEqMid = nullptr;
+    std::atomic<float>* pEqHigh = nullptr;
+    std::atomic<float>* pDelayOn = nullptr;
+    std::atomic<float>* pDelayTime = nullptr;
+    std::atomic<float>* pDelayFb = nullptr;
+    std::atomic<float>* pDelayMix = nullptr;
+    std::atomic<float>* pRevOn = nullptr;
+    std::atomic<float>* pRevDecay = nullptr;
+    std::atomic<float>* pRevMix = nullptr;
+    std::atomic<float>* pRevPre = nullptr;
 
     // ---- tone stack do amp (pós-modelo): biquads próprios, sem alocação
     // no caminho de áudio (coeficientes recalculados inline quando os
@@ -160,6 +192,8 @@ private:
         void setLowShelf (double sr, double freq, double dbGain);
         void setPeak (double sr, double freq, double dbGain, double q);
         void setHighShelf (double sr, double freq, double dbGain);
+        void setLowPass (double sr, double freq, double q);
+        void setHighPass (double sr, double freq, double q);
         inline float process (float x) noexcept
         {
             const float y = b0 * x + z1;
@@ -173,10 +207,34 @@ private:
     };
 
     void updateToneStackIfNeeded();
+    void updateOdIfNeeded();
+    void updateEqIfNeeded();
+    void updateAirIfNeeded();
 
     Biquad tsBass, tsMid, tsTreble, tsPresence;
     float tsCachedBass = -1.0f, tsCachedMid = -1.0f,
           tsCachedTreble = -1.0f, tsCachedPresence = -1.0f;
+
+    // Overdrive (pré-amp): HP fixo -> tanh -> tone LP -> level
+    Biquad odHp, odToneLp;
+    float odCachedTone = -1.0f;
+
+    // EQ pós-cab
+    Biquad eqLowF, eqMidF, eqHighF;
+    float eqCachedLow = -99.0f, eqCachedMid = -99.0f, eqCachedHigh = -99.0f;
+
+    // AIR do cab (high shelf pós-IR)
+    Biquad airF;
+    float airCached = -1.0f;
+
+    // Delay / Reverb (pós-cadeia)
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 * 2 };
+    juce::SmoothedValue<float> delaySmoothedSamples;
+    juce::Reverb reverb;
+    juce::Reverb::Parameters reverbParams;
+    float revCachedDecay = -1.0f;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::None> preDelayLine { 96000 / 4 };
+    juce::AudioBuffer<float> wetScratch;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarRigNAMProcessor)
 };

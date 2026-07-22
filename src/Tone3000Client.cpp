@@ -571,6 +571,36 @@ juce::File Tone3000Client::localFileForModel (const Model& model, const juce::St
         sanitizeFilename (model.name.isNotEmpty() ? model.name : storageName) + ext);
 }
 
+void Tone3000Client::saveImageSidecar (const juce::String& imageUrl, const juce::File& besideFile)
+{
+    if (imageUrl.isEmpty() || ! besideFile.existsAsFile())
+        return;
+
+    imagePool.addJob ([imageUrl, besideFile]
+    {
+        auto cacheDir = dataDir().getChildFile (".cache").getChildFile ("images");
+        cacheDir.createDirectory();
+        auto cacheFile = cacheDir.getChildFile (
+            juce::String::toHexString (imageUrl.hashCode64()) + ".img");
+
+        if (! cacheFile.existsAsFile())
+        {
+            juce::URL u (imageUrl);
+            juce::WebInputStream stream (u, false);
+            stream.connect (nullptr);
+            if (stream.getStatusCode() != 200)
+                return;
+            juce::MemoryBlock data;
+            stream.readIntoMemoryBlock (data);
+            if (data.getSize() == 0)
+                return;
+            cacheFile.replaceWithData (data.getData(), data.getSize());
+        }
+
+        cacheFile.copyFileTo (juce::File (besideFile.getFullPathName() + ".img"));
+    });
+}
+
 void Tone3000Client::downloadModel (const Model& model, const juce::String& kind,
                                     std::function<void (int)> progress,
                                     std::function<void (juce::File, juce::String)> done)

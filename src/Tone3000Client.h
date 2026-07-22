@@ -84,6 +84,10 @@ public:
     /// silenciosamente ignorados.
     void fetchImage (const juce::String& url, std::function<void (juce::Image)> done);
 
+    /// Grava a foto do tone ao lado de um arquivo baixado
+    /// (<arquivo>.img) — os cartões do rig usam esse sidecar.
+    void saveImageSidecar (const juce::String& imageUrl, const juce::File& besideFile);
+
     static juce::File dataDir();
     static juce::File capturesDir();
     static juce::File irsDir();
