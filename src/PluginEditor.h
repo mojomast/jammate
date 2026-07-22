@@ -93,6 +93,11 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    // drag-and-drop de reordenação (amp+cabs são âncora fixa)
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
+
     void setAmpImage (juce::Image);
     void setCabImage (juce::Image);
     void refreshDynamicText();
@@ -102,6 +107,23 @@ public:
 private:
     int cabCardWidth() const;
     void updateLayout();
+
+    // entradas da cadeia na ordem visual (efeito ou bloco amp+cabs)
+    struct ChainEntry
+    {
+        juce::String id;             // "gate".."reverb" ou "amp"
+        juce::Rectangle<int> box;    // amp: união amp..cabs
+    };
+    std::vector<ChainEntry> orderedEntries() const;
+    juce::Rectangle<int> boxForFx (const juce::String& id) const;
+    int effectCardWidth (const juce::String& id) const;
+
+    // estado do arrasto
+    juce::String draggingId;
+    int dragGrabDx = 0;
+    float dragMouseX = -1.0f;
+    int dropIndex = -1;
+    juce::String lastOrderSeen;      // relayout quando a ordem muda por preset
 
 public:
 

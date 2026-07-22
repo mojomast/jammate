@@ -91,6 +91,22 @@ public:
     void loadAdjacentPreset (int delta);
     juce::String getCurrentPresetName() const;
 
+    //==========================================================================
+    // Cadeia reordenável: os efeitos podem mudar de posição; o bloco
+    // Amp+Cabs ("amp") é âncora fixa mas efeitos podem ficar antes/depois.
+
+    enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock };
+    static constexpr int chainMaxSlots = 16; // expansível para efeitos futuros
+
+    /// Ordem atual como ids ("gate", "od", "amp", "eq", "delay", "reverb").
+    juce::StringArray getChainOrder() const;
+    /// Aplica nova ordem (message thread). Ids inválidos/faltantes são
+    /// normalizados: cada efeito aparece 1x e "amp" sempre presente.
+    void setChainOrder (const juce::StringArray& ids);
+
+    static juce::String fxToString (ChainFx);
+    static int fxFromString (const juce::String&); // -1 se desconhecido
+
     /// true quando o estado atual difere do último preset salvo/carregado.
     bool isPresetDirty();
     /// Chamado pelo editor a cada tick: consolida a baseline do preset depois
@@ -177,6 +193,19 @@ private:
     juce::String irNames[maxCabSlots], irPaths[maxCabSlots]; // sob modelInfoLock
     juce::AudioBuffer<float> cabDryBuf, cabAccBuf, cabSlotBuf;
     void updateCabSlotFilters (int slot);
+
+    // ordem da cadeia (RT-safe: atomics lidos por entrada no processBlock)
+    std::atomic<int> chainOrder[chainMaxSlots] = {};
+    std::atomic<int> chainLen { 0 };
+    void writeDefaultChain();
+
+    // um módulo por função — chamados na ordem dinâmica pelo processBlock
+    void processGateFx (float* io, int n);
+    void processOdFx (float* io, int n);
+    void processEqFx (float* io, int n);
+    void processDelayFx (float* io, int n);
+    void processReverbFx (float* io, int n);
+    void processAmpAndCabs (juce::AudioBuffer<float>& buffer, float* io, int n);
 
     std::atomic<float>* pInputGain = nullptr;
     std::atomic<float>* pOutputGain = nullptr;

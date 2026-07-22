@@ -435,13 +435,104 @@ void ChainView::refreshDynamicText()
     loadButton.setButtonText (processor.hasModelLoaded() ? "TROCAR CAPTURE NAM"
                                                          : "CARREGAR CAPTURE NAM");
 
-    // número de cabs mudou -> relayout da cadeia inteira
-    if (processor.getCabCount() != lastCabCount)
+    // número de cabs ou ordem da cadeia mudou -> relayout
+    const auto orderNow = processor.getChainOrder().joinIntoString (",");
+    if (processor.getCabCount() != lastCabCount || orderNow != lastOrderSeen)
     {
         lastCabCount = processor.getCabCount();
+        lastOrderSeen = orderNow;
         updateLayout();
+        resized();
     }
     repaint();
+}
+
+//==============================================================================
+// Drag-and-drop de reordenação
+
+void ChainView::mouseDown (const juce::MouseEvent& e)
+{
+    // Cliques em knobs/botões vão para os filhos; aqui só chega o fundo dos
+    // cartões. Amp+cabs são âncora e não podem ser arrastados.
+    draggingId.clear();
+    for (const auto& entry : orderedEntries())
+        if (entry.id != "amp" && entry.box.contains (e.getPosition()))
+        {
+            draggingId = entry.id;
+            dragGrabDx = e.x - entry.box.getX();
+            dragMouseX = (float) e.x;
+            dropIndex = -1;
+            setMouseCursor (juce::MouseCursor::DraggingHandCursor);
+            break;
+        }
+}
+
+void ChainView::mouseDrag (const juce::MouseEvent& e)
+{
+    if (draggingId.isEmpty())
+        return;
+
+    dragMouseX = (float) e.x;
+
+    // índice de inserção: antes da primeira entrada cujo centro está à
+    // direita do mouse
+    const auto entries = orderedEntries();
+    dropIndex = (int) entries.size();
+    for (int i = 0; i < (int) entries.size(); ++i)
+        if (e.x < entries[(size_t) i].box.getCentreX())
+        {
+            dropIndex = i;
+            break;
+        }
+    repaint();
+}
+
+void ChainView::mouseUp (const juce::MouseEvent&)
+{
+    setMouseCursor (juce::MouseCursor::NormalCursor);
+
+    if (draggingId.isNotEmpty() && dropIndex >= 0)
+    {
+        auto order = processor.getChainOrder();
+        const int from = order.indexOf (draggingId);
+        if (from >= 0)
+        {
+            int to = dropIndex;
+            order.remove (from);
+            if (to > from)
+                --to;
+            order.insert (juce::jlimit (0, order.size(), to), draggingId);
+            processor.setChainOrder (order);
+        }
+    }
+
+    draggingId.clear();
+    dropIndex = -1;
+    dragMouseX = -1.0f;
+    repaint();
+}
+
+int ChainView::effectCardWidth (const juce::String& id) const
+{
+    return id == "eq" ? 176 : 132;
+}
+
+juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
+{
+    if (id == "gate") return gateB;
+    if (id == "od") return odB;
+    if (id == "eq") return eqB;
+    if (id == "delay") return delayB;
+    if (id == "reverb") return revB;
+    return ampB.getUnion (cabB); // "amp" = bloco amp+cabs
+}
+
+std::vector<ChainView::ChainEntry> ChainView::orderedEntries() const
+{
+    std::vector<ChainEntry> out;
+    for (const auto& id : processor.getChainOrder())
+        out.push_back ({ id, boxForFx (id) });
+    return out;
 }
 
 void ChainView::resized()
@@ -449,24 +540,34 @@ void ChainView::resized()
     const int H = chainHeight;
     auto cardY = [H] (int cardH) { return (H - cardH) / 2; };
 
+    // posiciona os cartões seguindo a ordem dinâmica da cadeia
     int x = 26;
     ioInB = { x, cardY (330), 90, 330 };
     x += 90 + 30;
-    gateB = { x, cardY (330), 132, 330 };
-    x += 132 + 30;
-    odB = { x, cardY (330), 132, 330 };
-    x += 132 + 30;
-    ampB = { x, cardY (360), 266, 360 };
-    x += 266 + 30;
-    const int cabW = cabCardWidth();
-    cabB = { x, cardY (330), cabW, 330 };
-    x += cabW + 30;
-    eqB = { x, cardY (330), 176, 330 };
-    x += 176 + 30;
-    delayB = { x, cardY (330), 132, 330 };
-    x += 132 + 30;
-    revB = { x, cardY (330), 132, 330 };
-    x += 132 + 30;
+
+    for (const auto& id : processor.getChainOrder())
+    {
+        if (id == "amp")
+        {
+            ampB = { x, cardY (360), 266, 360 };
+            x += 266 + 30;
+            const int cabW = cabCardWidth();
+            cabB = { x, cardY (330), cabW, 330 };
+            x += cabW + 30;
+        }
+        else
+        {
+            const int w = effectCardWidth (id);
+            auto box = juce::Rectangle<int> { x, cardY (330), w, 330 };
+            if (id == "gate") gateB = box;
+            else if (id == "od") odB = box;
+            else if (id == "eq") eqB = box;
+            else if (id == "delay") delayB = box;
+            else if (id == "reverb") revB = box;
+            x += w + 30;
+        }
+    }
+
     ioOutB = { x, cardY (330), 90, 330 };
 
     // ---- IO
@@ -630,14 +731,26 @@ void ChainView::paint (juce::Graphics& g)
         g.setColour (ui::accent.withAlpha (0.4f));
         g.fillEllipse (xb - 5.0f, y - 2.5f, 5.0f, 5.0f);
     };
-    connector (ioInB, gateB);
-    connector (gateB, odB);
-    connector (odB, ampB);
-    connector (ampB, cabB);
-    connector (cabB, eqB);
-    connector (eqB, delayB);
-    connector (delayB, revB);
-    connector (revB, ioOutB);
+    // conectores seguem a ordem dinâmica (amp -> cabs é interno ao bloco)
+    {
+        const auto entries = orderedEntries();
+        juce::Rectangle<int> prev = ioInB;
+        for (const auto& e : entries)
+        {
+            if (e.id == "amp")
+            {
+                connector (prev, ampB);
+                connector (ampB, cabB);
+                prev = cabB;
+            }
+            else
+            {
+                connector (prev, e.box);
+                prev = e.box;
+            }
+        }
+        connector (prev, ioOutB);
+    }
 
     // ---- IO
     auto drawIo = [&] (juce::Rectangle<int> b, const juce::String& name, const juce::String& lbl)
@@ -824,6 +937,43 @@ void ChainView::paint (juce::Graphics& g)
             g.setGradientFill (grad);
             g.fillRoundedRectangle (glow, 5.0f);
         }
+    }
+
+    // ---- feedback do drag-and-drop (fantasma + indicador de inserção)
+    if (draggingId.isNotEmpty())
+    {
+        const auto source = boxForFx (draggingId);
+
+        // origem esmaecida
+        g.setColour (ui::bg.withAlpha (0.55f));
+        g.fillRoundedRectangle (source.toFloat(), 16.0f);
+
+        // linha de inserção
+        const auto entries = orderedEntries();
+        if (dropIndex >= 0)
+        {
+            const float ix = dropIndex < (int) entries.size()
+                                 ? (float) entries[(size_t) dropIndex].box.getX() - 16.0f
+                                 : (float) entries.back().box.getRight() + 16.0f;
+            g.setColour (ui::accent);
+            g.fillRoundedRectangle (ix - 2.0f, (float) source.getY() - 8.0f, 4.0f,
+                                    (float) source.getHeight() + 16.0f, 2.0f);
+        }
+
+        // fantasma do cartão seguindo o mouse
+        auto ghost = source.toFloat().withX (dragMouseX - (float) dragGrabDx);
+        g.setColour (ui::cardTop.withAlpha (0.85f));
+        g.fillRoundedRectangle (ghost, 16.0f);
+        g.setColour (ui::accent.withAlpha (0.8f));
+        g.drawRoundedRectangle (ghost, 16.0f, 1.5f);
+        g.setFont (ui::uiFont (13.0f, true));
+        g.setColour (ui::textBright);
+        juce::String title = draggingId == "gate" ? "Noise Gate"
+                             : draggingId == "od" ? "Overdrive"
+                             : draggingId == "eq" ? "EQ"
+                             : draggingId == "delay" ? "Delay" : "Reverb";
+        g.drawText (title, ghost.reduced (12.0f).removeFromTop (30.0f),
+                    juce::Justification::centredLeft);
     }
 }
 
@@ -1042,8 +1192,17 @@ void RigContent::paint (juce::Graphics& g)
         g.setColour (ui::textFaint);
         g.drawText ("IN", inMeter.getX() - 28, inMeter.getY() - 4, 24, 12, juce::Justification::centredRight);
         g.drawText ("OUT", outMeter.getX() - 28, outMeter.getY() - 4, 24, 12, juce::Justification::centredRight);
-        g.drawText ("CPU " + juce::String ((int) (processor.cpuLoad.load() * 100.0f)) + "%",
-                    cpuMeter.getX(), cpuMeter.getY() - 14, 60, 12, juce::Justification::centredLeft);
+        {
+            const float cpu = processor.cpuLoad.load();
+            const bool overload = cpu >= 0.9f;
+            g.setColour (overload ? ui::red : ui::textFaint);
+            g.setFont (ui::monoFont (8.0f, overload));
+            g.drawText ((overload ? juce::String (juce::CharPointer_UTF8 ("\xe2\x9a\xa0 CPU "))
+                                  : juce::String ("CPU "))
+                            + juce::String ((int) (cpu * 100.0f)) + "%",
+                        cpuMeter.getX() - 14, cpuMeter.getY() - 14, 76, 12,
+                        juce::Justification::centredLeft);
+        }
 
         g.setColour (juce::Colours::white.withAlpha (0.08f));
         g.fillRect (audioButton.getX() - 15, 16, 1, 28);

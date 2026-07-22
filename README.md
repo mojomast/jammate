@@ -94,9 +94,9 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 
 **Em andamento (Fase 6):**
 - [x] Cabs paralelos: 1–3 slots de IR com blend, low/high cut e phase por cab + AIR global
-- [ ] Cadeia com slots genéricos reordenáveis por drag-and-drop (amp+cab fixos como âncora)
+- [x] Cadeia reordenável por **drag-and-drop** (arraste os cartões de efeito; amp+cabs são âncora fixa)
+- [x] Aviso ⚠ no medidor quando a CPU passa de 90%
 - [ ] Efeitos P1: compressor de pedal (presets Clean/Country/Lead), gate com hold+histerese, pré-EQ antes do NAM
-- [ ] Aviso no medidor quando a CPU passar de 90%
 
 **Próximos:**
 - [ ] Efeitos P2: pacote de drives, delay com tap tempo/ping-pong, reverbs Spring/Plate/Room/Hall, modulações
@@ -106,7 +106,15 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 - [ ] Drag-and-drop de arquivos · afinador com mute · delay/reverb estéreo
 - [ ] Favoritos do TONE3000 · A/B de rigs · gravador rápido · modo performance
 
+## 🤝 Contribuindo
+
+Contribuições são bem-vindas! Leia o **[CONTRIBUTING.md](CONTRIBUTING.md)** (build, mapa do código, regras de real-time safety e armadilhas conhecidas do MSVC/JUCE) e use os templates de issue/PR. Itens não marcados do roadmap são um ótimo ponto de partida.
+
+*Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) (Portuguese; feel free to open issues in English).*
+
 ## 📜 Licenças
+
+Este projeto é licenciado sob a **[AGPLv3](LICENSE)** — exigência do uso do JUCE 8 no tier open source. Dependências:
 
 - **JUCE 8** — AGPLv3 (uso pessoal/open-source) · **NAM Core** — MIT · **AudioDSPTools** — Apache-2.0/MIT (ver repositório)
 - **Fontes** — SIL Open Font License (textos em `assets/fonts/`)
