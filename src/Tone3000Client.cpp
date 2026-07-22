@@ -168,32 +168,62 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
             juce::URL (authorizeUrl).launchInDefaultBrowser();
         });
 
-        // Espera o redirect (até 3 minutos).
-        std::unique_ptr<juce::StreamingSocket> conn;
-        for (int i = 0; i < 180 && conn == nullptr; ++i)
+        // Espera o redirect (até 3 minutos). Navegadores abrem conexões
+        // especulativas vazias e pedem /favicon.ico antes do redirect real —
+        // essas são respondidas com 404 e IGNORADAS; só saímos do loop quando
+        // chegar um request com os parâmetros do callback OAuth.
+        juce::String request;
+        const auto deadline = juce::Time::currentTimeMillis() + 180000;
+
+        while (juce::Time::currentTimeMillis() < deadline)
         {
-            if (server.waitUntilReady (true, 1000) == 1)
-                conn.reset (server.waitForNextConnection());
+            if (server.waitUntilReady (true, 1000) != 1)
+                continue;
+
+            std::unique_ptr<juce::StreamingSocket> conn (server.waitForNextConnection());
+            if (conn == nullptr)
+                continue;
+
+            juce::String thisRequest;
+            if (conn->waitUntilReady (true, 3000) == 1)
+            {
+                char buf[8192] = {};
+                const int numRead = conn->read (buf, sizeof (buf) - 1, false);
+                thisRequest = juce::String::fromUTF8 (buf, juce::jmax (0, numRead));
+            }
+
+            const auto line = thisRequest.upToFirstOccurrenceOf ("\r\n", false, false);
+            const bool isCallback = line.startsWith ("GET ")
+                                    && (line.contains ("code=") || line.contains ("error=")
+                                        || line.contains ("state="));
+
+            if (! isCallback)
+            {
+                const juce::String notFound =
+                    "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+                conn->write (notFound.toRawUTF8(), (int) notFound.getNumBytesAsUTF8());
+                conn->close();
+                continue;
+            }
+
+            const juce::String reply =
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
+                "<html><body style=\"background:#141517;color:#e5e6e8;font-family:sans-serif;"
+                "display:flex;align-items:center;justify-content:center;height:100vh\">"
+                "<h2>Autorizado &mdash; volte ao GuitarRig NAM.</h2></body></html>";
+            conn->write (reply.toRawUTF8(), (int) reply.getNumBytesAsUTF8());
+            conn->close();
+            request = thisRequest;
+            break;
         }
 
-        if (conn == nullptr)
+        server.close();
+
+        if (request.isEmpty())
         {
             finish (false, "Tempo esgotado aguardando o login");
             return;
         }
-
-        char buf[8192] = {};
-        const int numRead = conn->read (buf, sizeof (buf) - 1, false);
-        const juce::String request = juce::String::fromUTF8 (buf, juce::jmax (0, numRead));
-
-        const juce::String reply =
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
-            "<html><body style=\"background:#141517;color:#e5e6e8;font-family:sans-serif;"
-            "display:flex;align-items:center;justify-content:center;height:100vh\">"
-            "<h2>Autorizado &mdash; volte ao GuitarRig NAM.</h2></body></html>";
-        conn->write (reply.toRawUTF8(), (int) reply.getNumBytesAsUTF8());
-        conn->close();
-        server.close();
 
         // Extrai os query params da primeira linha: GET /callback?... HTTP/1.1
         const auto firstLine = request.upToFirstOccurrenceOf ("\r\n", false, false);
