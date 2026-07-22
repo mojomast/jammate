@@ -122,9 +122,50 @@ public:
                                const juce::Colour&, bool isHighlighted, bool isDown) override
     {
         auto bounds = button.getLocalBounds().toFloat().reduced (0.5f);
-        const bool accentButton = button.getProperties()["accent"];
+        const auto& props = button.getProperties();
 
-        if (accentButton)
+        if (props["tab"])
+        {
+            if (props["tabActive"])
+            {
+                g.setColour (ui::accent);
+                g.fillRect (bounds.removeFromBottom (2.0f));
+            }
+            return;
+        }
+
+        if (props["chip"])
+        {
+            const float r = bounds.getHeight() / 2.0f;
+            if (props["chipActive"])
+            {
+                g.setColour (ui::accent);
+                g.fillRoundedRectangle (bounds, r);
+            }
+            else
+            {
+                g.setColour (isHighlighted ? juce::Colour (0xff4a4d54) : ui::panelBorder);
+                g.drawRoundedRectangle (bounds, r, 1.0f);
+            }
+            return;
+        }
+
+        if (props["outlineAccent"])
+        {
+            if (isHighlighted || isDown)
+            {
+                g.setColour (ui::accent);
+                g.fillRoundedRectangle (bounds, 8.0f);
+            }
+            else
+            {
+                g.setColour (ui::accent);
+                g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
+            }
+            return;
+        }
+
+        if (props["accent"])
         {
             auto c = ui::accent;
             if (isDown) c = c.darker (0.15f);
@@ -143,15 +184,32 @@ public:
 
     juce::Font getTextButtonFont (juce::TextButton& button, int) override
     {
-        const bool accentButton = button.getProperties()["accent"];
-        return ui::uiFont (accentButton ? 13.0f : 12.5f, true);
+        const auto& props = button.getProperties();
+        if (props["tab"])
+            return ui::uiFont (13.0f, true);
+        if (props["chip"])
+            return ui::uiFont (12.0f, true);
+        return ui::uiFont (props["accent"] ? 13.0f : 12.5f, true);
     }
 
-    void drawButtonText (juce::Graphics& g, juce::TextButton& button, bool, bool) override
+    void drawButtonText (juce::Graphics& g, juce::TextButton& button,
+                         bool isHighlighted, bool isDown) override
     {
-        const bool accentButton = button.getProperties()["accent"];
+        const auto& props = button.getProperties();
         g.setFont (getTextButtonFont (button, button.getHeight()));
-        auto c = accentButton ? juce::Colour (0xff161719) : ui::text;
+
+        juce::Colour c;
+        if (props["tab"])
+            c = props["tabActive"] ? ui::textBright : juce::Colour (0xff84878d);
+        else if (props["chip"])
+            c = props["chipActive"] ? juce::Colour (0xff161719) : juce::Colour (0xffb8bbc0);
+        else if (props["outlineAccent"])
+            c = (isHighlighted || isDown) ? juce::Colour (0xff161719) : ui::accent;
+        else if (props["accent"])
+            c = juce::Colour (0xff161719);
+        else
+            c = ui::text;
+
         if (! button.isEnabled())
             c = c.withAlpha (0.5f);
         g.setColour (c);

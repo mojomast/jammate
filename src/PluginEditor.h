@@ -4,6 +4,7 @@
 
 #include "LookAndFeel.h"
 #include "PluginProcessor.h"
+#include "StoreOverlay.h"
 
 //==============================================================================
 // Knob + label + valor, conforme Knob.dc.html.
@@ -115,6 +116,7 @@ private:
     std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob, cabLevelKnob;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
+    std::unique_ptr<StoreOverlay> storeOverlay;
 
     float inMeterDb = -80.0f, outMeterDb = -80.0f;
 

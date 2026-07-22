@@ -138,9 +138,25 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     audioButton.setVisible (juce::JUCEApplicationBase::isStandaloneApp());
 
     storeButton.getProperties().set ("accent", true);
-    storeButton.setEnabled (false);
-    storeButton.setTooltip (juce::CharPointer_UTF8 ("Tone Store \xe2\x80\x94 fase futura"));
+    storeButton.onClick = [this] { storeOverlay->open(); };
     addAndMakeVisible (storeButton);
+
+    storeOverlay = std::make_unique<StoreOverlay> (processor);
+    addChildComponent (*storeOverlay);
+
+    // Flag de dev: GUITARRIG_OPEN_STORE=explore|library abre o store ao iniciar
+    // (útil para testes automatizados de UI; sem efeito em uso normal).
+    {
+        const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_STORE", "");
+        if (flag == "library" || flag == "explore")
+            juce::MessageManager::callAsync (
+                [safe = juce::Component::SafePointer<RigContent> (this), flag]
+                {
+                    if (safe != nullptr)
+                        flag == "library" ? safe->storeOverlay->openOnLibrary()
+                                          : safe->storeOverlay->open();
+                });
+    }
 
     // presets
     prevButton.onClick = [this] { processor.loadAdjacentPreset (-1); };
@@ -199,6 +215,8 @@ void RigContent::resized()
 {
     const auto full = getLocalBounds();
     const int W = full.getWidth();
+
+    storeOverlay->setBounds (full);
 
     // ---- top bar (58 px)
     audioButton.setBounds (W - 18 - 110 - 8 - 76, 13, 76, 32);

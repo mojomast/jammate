@@ -2,7 +2,15 @@
 
 Amp sim pessoal de guitarra (Standalone + VST3) baseado em [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) e JUCE 8.
 
-**Estado atual: Fase 3** — cadeia completa de amp sim:
+**Estado atual: Fase 4** — Tone Store integrado ao [TONE3000](https://www.tone3000.com):
+
+- Overlay do store (botão **Tone Store**): busca na biblioteca do TONE3000 com filtros de tipo (Amp/Pedal/Full Rig/IR) e ordenação (em alta/recentes/baixados), paginação, download com progresso e carregamento direto no rig. A aba **Minha biblioteca** lista os arquivos locais (`Documentos\GuitarRig NAM\Captures` e `IRs`) e funciona offline.
+- Login OAuth 2.0 + PKCE: o botão Conectar abre o navegador; o app escuta o callback em `http://localhost:53682/callback`. O refresh token fica em `Documentos\GuitarRig NAM\tone3000.json` — a sessão sobrevive entre aberturas.
+- **Configuração necessária (uma vez)**: a API do TONE3000 exige uma chave publishable própria. Crie em tone3000.com → Settings → API Keys, registre o redirect `http://localhost:53682/callback` e cole a chave (`t3k_pub_…`) no campo `publishable_key` de `Documentos\GuitarRig NAM\tone3000.json`. Sem a chave, o store mostra as instruções; a aba Minha biblioteca funciona mesmo sem conta.
+- Downloads preferem modelos A2/standard; apenas formatos suportados (`.nam` e IRs) aparecem na busca.
+- Flag de dev: `GUITARRIG_OPEN_STORE=explore|library` abre o store ao iniciar (testes de UI).
+
+Base da Fase 3:
 
 - **Resampler automático** (Lanczos, via `ResamplingContainer` do AudioDSPTools): captures rodam no sample rate que esperam, em qualquer sample rate da interface (~0,6 ms de latência extra quando ativo, reportada ao host e exibida na barra de status).
 - **Noise Gate** (pré-amp): THRESH (−90..−20 dB) e RELEASE (10..500 ms), expander 10:1.

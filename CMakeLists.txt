@@ -65,7 +65,9 @@ juce_add_plugin(GuitarRigNAM
 target_sources(GuitarRigNAM
     PRIVATE
         src/PluginProcessor.cpp
-        src/PluginEditor.cpp)
+        src/PluginEditor.cpp
+        src/Tone3000Client.cpp
+        src/StoreOverlay.cpp)
 
 # Fontes usam literais UTF-8; sem /utf-8 o MSVC assume codepage 1252 e
 # corrompe os acentos na UI.
@@ -108,6 +110,7 @@ target_link_libraries(GuitarRigNAM
         # "No config parser registered for architecture".
         "$<LINK_LIBRARY:WHOLE_ARCHIVE,nam_core>"
         juce::juce_audio_utils
+        juce::juce_cryptography
         juce::juce_audio_devices
         juce::juce_audio_processors
         juce::juce_dsp
