@@ -140,6 +140,7 @@ private:
 
     juce::Rectangle<int> ioInB, gateB, odB, eqB, delayB, revB, ioOutB;
     juce::Rectangle<int> compB, preEqB, pitchB, looperB, limB, extB;
+    juce::Rectangle<int> wahB, harmB, octB, rmB, bcB, sgB, excB, dsB, tapeB, cnsB;
     // rigs paralelos: um par amp+cab por lane + o card Mixer que soma tudo
     juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs], mixerB;
     juce::Image ampImages[maxRigs], cabImages[maxRigs];
@@ -148,6 +149,7 @@ private:
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
     LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed, compLed, preEqLed,
         pitchLed, looperLed, limLed, extLed;
+    LedButton wahLed, harmLed, octLed, rmLed, bcLed, sgLed, excLed, dsLed, tapeLed, cnsLed;
     std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob, gateHoldKnob;
     std::unique_ptr<KnobComponent> compSustainKnob, compAttackKnob, compBlendKnob, compLevelKnob;
     std::unique_ptr<KnobComponent> preEqLowKnob, preEqMidKnob, preEqHighKnob;
@@ -156,6 +158,7 @@ private:
     // seletores de variação (modelo/marca) nos cartões
     juce::TextButton odTypeButton, compTypeButton, delayTypeButton, revTypeButton,
         modTypeButton, delayDivButton, pitchTypeButton;
+    juce::TextButton wahModeButton, harmKeyButton, harmScaleButton, harmIntervalButton;
     void setupTypeButton (juce::TextButton&, const char* paramId, const juce::String& tooltip);
     void refreshTypeButtons();
 
@@ -194,6 +197,17 @@ private:
     // slot de plugin VST3 externo
     std::unique_ptr<KnobComponent> extMixKnob;
     juce::TextButton extLoadButton, extUiButton, extRemoveButton;
+    // cards P4 (um efeito por card)
+    std::unique_ptr<KnobComponent> wahFreqKnob, wahRangeKnob, wahResKnob;
+    std::unique_ptr<KnobComponent> sgSensKnob, sgRiseKnob;
+    std::unique_ptr<KnobComponent> octSubKnob, octDirectKnob, octToneKnob;
+    std::unique_ptr<KnobComponent> rmFreqKnob, rmMixKnob;
+    std::unique_ptr<KnobComponent> bcBitsKnob, bcRateKnob, bcMixKnob;
+    std::unique_ptr<KnobComponent> harmMixKnob, harmLevelKnob;
+    std::unique_ptr<KnobComponent> excFreqKnob, excAmtKnob;
+    std::unique_ptr<KnobComponent> dsFreqKnob, dsSensKnob, dsAmtKnob;
+    std::unique_ptr<KnobComponent> tapeDriveKnob, tapeBumpKnob, tapeRollKnob;
+    std::unique_ptr<KnobComponent> cnsAmtKnob;
     juce::TextButton ecoChip { "ECO" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ecoAtt;
 
@@ -205,6 +219,8 @@ private:
     using Attachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     std::unique_ptr<Attachment> gateAtt, odAtt, ampAtt, cabAtt, eqAtt, delayAtt, revAtt,
         compAtt, preEqAtt, pitchAtt, looperAtt, limAtt, extAtt;
+    std::unique_ptr<Attachment> wahAtt, harmAtt, octAtt, rmAtt, bcAtt, sgAtt, excAtt,
+        dsAtt, tapeAtt, cnsAtt;
     std::unique_ptr<Attachment> cabPhaseAtt[GuitarRigNAMProcessor::maxCabSlots];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChainView)

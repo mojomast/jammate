@@ -131,13 +131,39 @@ export WAV. Implementação própria (buffer pré-alocado, estados via atomics).
 Motor: `juce::dsp::Limiter` (brickwall). Papel de limiter de saída + medidor de
 gain reduction estudado em `references/lsp-plugins`.
 
+## Cards P4 — um efeito por card, controles próprios
+
+| Card | Inspiração clássica | Fonte de estudo | Implementação |
+|---|---|---|---|
+| **Wah** (Auto/Manual/LFO) | Cry Baby / Mu-Tron envelope filter | `references/guitarix` (GxWahwah) | bandpass RBJ ressonante varrido por envelope, knob ou LFO |
+| **Slow Gear** | BOSS SG-1 (swell de violino) | `references/guitarix` (GxSlowGear) | detector de palhetada + rampa de volume quadrática |
+| **Octaver** | BOSS OC-2 (sub analógica) | `references/GxPlugins.lv2` (GxOctaver) | flip-flop nos cruzamentos de zero × envelope + LP |
+| **Ring Mod** | ring modulators clássicos | `references/airwindows` | portadora senoidal 20–2000 Hz |
+| **Bitcrusher** | lo-fi 8-bit / samplers antigos | `references/airwindows` | sample & hold + quantização 4–16 bits |
+| **Harmonizer** | harmonizers inteligentes (estilo HM-2/Whammy harmony) | `references/rkrlv2` (rakarrack) | autocorrelação em sinal decimado detecta a nota; intervalo diatônico (3ª/5ª/6ª/oitava no tom/escala escolhidos) via shifter granular |
+| **Exciter** | Aphex Aural Exciter | `references/airwindows` (Energy) | harmônicos dos agudos saturados somados de volta |
+| **De-esser** | de-essers/dynamic EQ de estúdio | `references/lsp-plugins` | subtração dinâmica da banda áspera (bandpass + envelope) |
+| **Tape** | Studer/ampex, ToTape | **adaptado do `references/airwindows` ToTape/IronOxide (MIT)** | HP 30 Hz → saturação assimétrica → head bump 90 Hz → rolloff |
+| **Console** | consoles analógicos (glue de buss) | **adaptado do `references/airwindows` Console (MIT)** | waveshape seno sutil |
+
 ## Slot de plugin VST3 externo
 
 Hosting nativo do JUCE (`AudioPluginFormatManager` + `VST3PluginFormat`,
 `JUCE_PLUGINHOST_VST3`). Qualquer efeito VST3 de terceiros entra na cadeia sem
-portar código — inclusive os builds Windows dos projetos de referência
-(Dragonfly Reverb e LSP publicam VST3 oficiais; Airwindows tem o pacote
-consolidado). Dev: `GUITARRIG_EXT_PLUGIN=<caminho>` carrega no slot ao iniciar.
+portar código; o botão CARREGAR abre um menu com os plugins instalados em
+`C:\Program Files\Common Files\VST3` + "Procurar arquivo…".
+Dev: `GUITARRIG_EXT_PLUGIN=<caminho>` carrega no slot ao iniciar.
+
+Plugins **grátis** recomendados para o slot (builds Windows oficiais):
+
+| Plugin | Licença | O que traz |
+|---|---|---|
+| [Dragonfly Reverb](https://michaelwillis.github.io/dragonfly-reverb/) | GPLv3 | os 4 reverbs completos (Hall/Room/Plate/Early) |
+| [LSP Plugins](https://lsp-plug.in/) | LGPLv3 | compressor multibanda, EQ paramétrico 32 bandas, gate sidechain |
+| [Airwindows Consolidated](https://github.com/baconpaul/airwin2rack) | MIT | ~400 efeitos num só VST3 com browser |
+| [Zam Plugins](https://www.zamaudio.com/) | GPLv2+ | ZamTube, ZamComp, ZamEQ |
+| [Ratatouille](https://github.com/brummer10/Ratatouille.lv2) | GPLv3 | loader NAM/RTNeural com blend de 2 modelos |
+| Valhalla Supermassive | grátis (não open) | reverb/delay ambient |
 
 ## Gate / Cab / Resampler (infra)
 

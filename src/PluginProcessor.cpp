@@ -128,6 +128,21 @@ void GuitarRigNAMProcessor::Biquad::setHighPass (double sr, double freq, double 
     a2 = (float) ((1 - alpha) / a0);
 }
 
+void GuitarRigNAMProcessor::Biquad::setBandPass (double sr, double freq, double q)
+{
+    // RBJ bandpass (ganho de pico constante = Q)
+    const double w = juce::MathConstants<double>::twoPi * freq / sr;
+    const double c = std::cos (w), s = std::sin (w);
+    const double alpha = s / (2.0 * q);
+
+    const double a0 = 1 + alpha;
+    b0 = (float) ((q * alpha) / a0);
+    b1 = 0.0f;
+    b2 = (float) ((-q * alpha) / a0);
+    a1 = (float) (-2 * c / a0);
+    a2 = (float) ((1 - alpha) / a0);
+}
+
 void GuitarRigNAMProcessor::Biquad::setPeak (double sr, double freq, double dbGain, double q)
 {
     const double A = std::pow (10.0, dbGain / 40.0);
@@ -330,6 +345,122 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::ParameterID { "looperLevel", 1 }, "Looper Level",
         juce::NormalisableRange<float> (-20.0f, 6.0f, 0.1f), 0.0f, dB));
 
+    // ---- cards P4 (cada efeito com card e controles próprios) ----
+    auto hz = juce::AudioParameterFloatAttributes().withLabel ("Hz");
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "wahOn", 1 }, "Wah On", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "wahMode", 1 }, "Wah Mode",
+        juce::StringArray { "Auto", "Manual", "LFO" }, 0));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "wahFreq", 1 }, "Wah Freq",
+        juce::NormalisableRange<float> (200.0f, 1600.0f, 1.0f, 0.5f), 500.0f, hz));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "wahRange", 1 }, "Wah Range",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 70.0f, pct));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "wahRes", 1 }, "Wah Res", zeroToTen, 6.0f));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "sgOn", 1 }, "Slow Gear On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "sgSens", 1 }, "Slow Gear Sens", zeroToTen, 5.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "sgRise", 1 }, "Slow Gear Rise",
+        juce::NormalisableRange<float> (50.0f, 2000.0f, 1.0f, 0.5f), 400.0f, ms));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "octOn", 1 }, "Octaver On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "octSub", 1 }, "Octaver Sub",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 60.0f, pct));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "octDirect", 1 }, "Octaver Direct",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 100.0f, pct));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "octTone", 1 }, "Octaver Tone",
+        juce::NormalisableRange<float> (200.0f, 2000.0f, 1.0f, 0.5f), 700.0f, hz));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "rmOn", 1 }, "Ring Mod On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "rmFreq", 1 }, "Ring Mod Freq",
+        juce::NormalisableRange<float> (20.0f, 2000.0f, 1.0f, 0.4f), 220.0f, hz));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "rmMix", 1 }, "Ring Mod Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 50.0f, pct));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "bcOn", 1 }, "Bitcrush On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "bcBits", 1 }, "Bitcrush Bits",
+        juce::NormalisableRange<float> (4.0f, 16.0f, 1.0f), 12.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "bcRate", 1 }, "Bitcrush Rate",
+        juce::NormalisableRange<float> (1000.0f, 48000.0f, 10.0f, 0.4f), 48000.0f, hz));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "bcMix", 1 }, "Bitcrush Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 100.0f, pct));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "harmOn", 1 }, "Harmonizer On", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "harmKey", 1 }, "Harmonizer Key",
+        juce::StringArray { "C", "C#", "D", "D#", "E", "F",
+                            "F#", "G", "G#", "A", "A#", "B" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "harmScale", 1 }, "Harmonizer Scale",
+        juce::StringArray { "Maior", "Menor" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "harmInterval", 1 }, "Harmonizer Interval",
+        juce::StringArray { juce::String::fromUTF8 ("3\xc2\xaa"),
+                            juce::String::fromUTF8 ("5\xc2\xaa"),
+                            juce::String::fromUTF8 ("6\xc2\xaa"),
+                            "Oitava" }, 0));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "harmMix", 1 }, "Harmonizer Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 50.0f, pct));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "harmLevel", 1 }, "Harmonizer Level",
+        juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f, dB));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "excOn", 1 }, "Exciter On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "excFreq", 1 }, "Exciter Freq",
+        juce::NormalisableRange<float> (2000.0f, 8000.0f, 10.0f, 0.6f), 3500.0f, hz));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "excAmt", 1 }, "Exciter Amount",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 40.0f, pct));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "dsOn", 1 }, "De-esser On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "dsFreq", 1 }, "De-esser Freq",
+        juce::NormalisableRange<float> (2000.0f, 9000.0f, 10.0f, 0.6f), 5000.0f, hz));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "dsSens", 1 }, "De-esser Sens", zeroToTen, 5.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "dsAmt", 1 }, "De-esser Amount",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 60.0f, pct));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "tapeOn", 1 }, "Tape On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "tapeDrive", 1 }, "Tape Drive", zeroToTen, 4.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "tapeBump", 1 }, "Tape Bump",
+        juce::NormalisableRange<float> (0.0f, 6.0f, 0.1f), 2.0f, dB));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "tapeRoll", 1 }, "Tape Rolloff",
+        juce::NormalisableRange<float> (3000.0f, 16000.0f, 10.0f, 0.5f), 9000.0f, hz));
+
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "cnsOn", 1 }, "Console On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "cnsAmt", 1 }, "Console Glue", zeroToTen, 4.0f));
+
     // slot de plugin VST3 externo
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { "extOn", 1 }, "Ext Plugin On", true));
@@ -507,6 +638,45 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pExtOn = apvts.getRawParameterValue ("extOn");
     pExtMix = apvts.getRawParameterValue ("extMix");
 
+    pWahOn = apvts.getRawParameterValue ("wahOn");
+    pWahMode = apvts.getRawParameterValue ("wahMode");
+    pWahFreq = apvts.getRawParameterValue ("wahFreq");
+    pWahRange = apvts.getRawParameterValue ("wahRange");
+    pWahRes = apvts.getRawParameterValue ("wahRes");
+    pSgOn = apvts.getRawParameterValue ("sgOn");
+    pSgSens = apvts.getRawParameterValue ("sgSens");
+    pSgRise = apvts.getRawParameterValue ("sgRise");
+    pOctOn = apvts.getRawParameterValue ("octOn");
+    pOctSub = apvts.getRawParameterValue ("octSub");
+    pOctDirect = apvts.getRawParameterValue ("octDirect");
+    pOctTone = apvts.getRawParameterValue ("octTone");
+    pRmOn = apvts.getRawParameterValue ("rmOn");
+    pRmFreq = apvts.getRawParameterValue ("rmFreq");
+    pRmMix = apvts.getRawParameterValue ("rmMix");
+    pBcOn = apvts.getRawParameterValue ("bcOn");
+    pBcBits = apvts.getRawParameterValue ("bcBits");
+    pBcRate = apvts.getRawParameterValue ("bcRate");
+    pBcMix = apvts.getRawParameterValue ("bcMix");
+    pHarmOn = apvts.getRawParameterValue ("harmOn");
+    pHarmKey = apvts.getRawParameterValue ("harmKey");
+    pHarmScale = apvts.getRawParameterValue ("harmScale");
+    pHarmInterval = apvts.getRawParameterValue ("harmInterval");
+    pHarmMix = apvts.getRawParameterValue ("harmMix");
+    pHarmLevel = apvts.getRawParameterValue ("harmLevel");
+    pExcOn = apvts.getRawParameterValue ("excOn");
+    pExcFreq = apvts.getRawParameterValue ("excFreq");
+    pExcAmt = apvts.getRawParameterValue ("excAmt");
+    pDsOn = apvts.getRawParameterValue ("dsOn");
+    pDsFreq = apvts.getRawParameterValue ("dsFreq");
+    pDsSens = apvts.getRawParameterValue ("dsSens");
+    pDsAmt = apvts.getRawParameterValue ("dsAmt");
+    pTapeOn = apvts.getRawParameterValue ("tapeOn");
+    pTapeDrive = apvts.getRawParameterValue ("tapeDrive");
+    pTapeBump = apvts.getRawParameterValue ("tapeBump");
+    pTapeRoll = apvts.getRawParameterValue ("tapeRoll");
+    pCnsOn = apvts.getRawParameterValue ("cnsOn");
+    pCnsAmt = apvts.getRawParameterValue ("cnsAmt");
+
     extFormatManager.addFormat (new juce::VST3PluginFormat());
     pPreEqOn = apvts.getRawParameterValue ("preEqOn");
     pPreEqLow = apvts.getRawParameterValue ("preEqLow");
@@ -656,6 +826,39 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     pitchShift.prepare (sampleRate);
     revShimmer.prepare (sampleRate);
     delayDuckEnv = 0.0f;
+
+    // cards P4
+    wahBp.reset();
+    wahEnv = 0.0f;
+    wahLfoPhase = 0.0;
+    wahRecalcCount = 0;
+    sgEnv = sgEnvPrev = 0.0f;
+    sgGain = 1.0f;
+    octFlip = false;
+    octPrev = octEnv = 0.0f;
+    octToneCached = -1.0f;
+    octLp.reset();
+    rmPhase = 0.0;
+    bcHold = 0.0f;
+    bcCount = 0.0f;
+    harmShift.prepare (sampleRate);
+    std::fill (std::begin (harmDecim), std::end (harmDecim), 0.0f);
+    harmDecimPos = 0;
+    harmAccum = 0.0f;
+    harmAccumCount = 0;
+    harmDetectCounter = 0;
+    harmRatioCur = 1.0;
+    excCachedFreq = -1.0f;
+    excHp.reset();
+    dsEnv = 0.0f;
+    dsCachedFreq = -1.0f;
+    dsBp.reset();
+    tapeCachedBump = -99.0f;
+    tapeCachedRoll = -1.0f;
+    tapeBumpF.reset();
+    tapeRollF.reset();
+    tapeHpF.setHighPass (sampleRate, 30.0, 0.707);
+    tapeHpF.reset();
 
     // looper: buffer pré-alocado; loop antigo perde o sentido em outro SR
     loopBuf.setSize (1, (int) (sampleRate * looperMaxSeconds) + 1);
@@ -808,6 +1011,16 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
                 case ChainFx::looper:   processLooperFx (io, n); break;
                 case ChainFx::limiter:  processLimiterFx (io, n); break;
                 case ChainFx::extPlugin: processExtFx (io, n); break;
+                case ChainFx::wah:      processWahFx (io, n); break;
+                case ChainFx::harm:     processHarmFx (io, n); break;
+                case ChainFx::octaver:  processOctaverFx (io, n); break;
+                case ChainFx::ringmod:  processRingModFx (io, n); break;
+                case ChainFx::bitcrush: processBitcrushFx (io, n); break;
+                case ChainFx::slowgear: processSlowGearFx (io, n); break;
+                case ChainFx::exciter:  processExciterFx (io, n); break;
+                case ChainFx::deesser:  processDeesserFx (io, n); break;
+                case ChainFx::tape:     processTapeFx (io, n); break;
+                case ChainFx::console:  processConsoleFx (io, n); break;
             }
         }
     }
@@ -1510,6 +1723,321 @@ void GuitarRigNAMProcessor::processLimiterFx (float* io, int n)
     limGrDb.store (limGrDb.load() * 0.7f + gr * 0.3f);
 }
 
+//==============================================================================
+// Cards P4 — um efeito por card, controles próprios (refs em docs/EFEITOS.md)
+
+void GuitarRigNAMProcessor::processWahFx (float* io, int n)
+{
+    // Wah (estudo: Guitarix GxWahwah): bandpass ressonante varrido por
+    // envelope (Auto), knob (Manual) ou LFO
+    if (pWahOn->load() <= 0.5f)
+        return;
+
+    const int mode = (int) pWahMode->load();
+    const float baseFreq = pWahFreq->load();
+    const float range = pWahRange->load() / 100.0f;
+    const double q = 1.5 + pWahRes->load() * 0.65; // 1.5..8
+    const double sr = hostSampleRate.load();
+    const double lfoInc = juce::MathConstants<double>::twoPi * 2.0 / sr;
+
+    for (int i = 0; i < n; ++i)
+    {
+        const float rect = std::abs (io[i]);
+        wahEnv += (rect > wahEnv ? 0.006f : 0.0006f) * (rect - wahEnv);
+        wahLfoPhase += lfoInc;
+        if (wahLfoPhase > juce::MathConstants<double>::twoPi)
+            wahLfoPhase -= juce::MathConstants<double>::twoPi;
+
+        // recalcular o biquad por amostra é caro — a cada 16 já é suave
+        if (--wahRecalcCount <= 0)
+        {
+            wahRecalcCount = 16;
+            double mod = 0.0;
+            if (mode == 0)      mod = juce::jlimit (0.0f, 1.0f, wahEnv * 8.0f) * range;
+            else if (mode == 2) mod = (std::sin (wahLfoPhase) * 0.5 + 0.5) * range;
+            const double f = juce::jlimit (150.0, 2400.0, baseFreq * (1.0 + mod * 2.5));
+            wahBp.setBandPass (sr, f, q);
+        }
+        io[i] = wahBp.process (io[i]) * 1.6f;
+    }
+}
+
+void GuitarRigNAMProcessor::processSlowGearFx (float* io, int n)
+{
+    // Slow Gear (estilo BOSS SG-1; estudo: Guitarix GxSlowGear): detecta a
+    // palhetada e sobe o volume devagar — swell de "violino"
+    if (pSgOn->load() <= 0.5f)
+    {
+        sgGain = 1.0f;
+        return;
+    }
+
+    const float thresh = juce::Decibels::decibelsToGain (-58.0f + pSgSens->load() * 3.6f);
+    const float step = 1.0f / juce::jmax (1.0f, (float) (pSgRise->load() / 1000.0
+                                                         * hostSampleRate.load()));
+    for (int i = 0; i < n; ++i)
+    {
+        const float rect = std::abs (io[i]);
+        sgEnv += (rect > sgEnv ? 0.01f : 0.0005f) * (rect - sgEnv);
+
+        // ataque novo: envelope cruzou o threshold subindo -> zera e sobe
+        if (sgEnv > thresh && sgEnvPrev <= thresh)
+            sgGain = 0.0f;
+        sgEnvPrev = sgEnv;
+
+        sgGain = juce::jmin (1.0f, sgGain + step);
+        io[i] *= sgGain * sgGain; // curva quadrática soa mais natural
+    }
+}
+
+void GuitarRigNAMProcessor::processOctaverFx (float* io, int n)
+{
+    // Octaver analógico (estilo BOSS OC-2; estudo: GxPlugins GxOctaver):
+    // flip-flop nos cruzamentos de zero gera a sub-oitava, modulada pelo
+    // envelope do sinal e filtrada
+    if (pOctOn->load() <= 0.5f)
+        return;
+
+    const float tone = pOctTone->load();
+    if (tone != octToneCached)
+    {
+        octToneCached = tone;
+        octLp.setLowPass (hostSampleRate.load(), tone, 0.707);
+    }
+
+    const float sub = pOctSub->load() / 100.0f;
+    const float direct = pOctDirect->load() / 100.0f;
+
+    for (int i = 0; i < n; ++i)
+    {
+        const float x = io[i];
+        const float rect = std::abs (x);
+        octEnv += (rect > octEnv ? 0.008f : 0.0008f) * (rect - octEnv);
+
+        if (octPrev <= 0.0f && x > 0.0f) // cruzamento positivo: alterna
+            octFlip = ! octFlip;
+        octPrev = x;
+
+        const float square = (octFlip ? 1.0f : -1.0f) * octEnv * 1.4f;
+        io[i] = x * direct + octLp.process (square) * sub;
+    }
+}
+
+void GuitarRigNAMProcessor::processRingModFx (float* io, int n)
+{
+    // Ring modulator (estudo: airwindows) — portadora senoidal
+    if (pRmOn->load() <= 0.5f)
+        return;
+
+    const double inc = juce::MathConstants<double>::twoPi * pRmFreq->load()
+                       / hostSampleRate.load();
+    const float mix = pRmMix->load() / 100.0f;
+    for (int i = 0; i < n; ++i)
+    {
+        rmPhase += inc;
+        if (rmPhase > juce::MathConstants<double>::twoPi)
+            rmPhase -= juce::MathConstants<double>::twoPi;
+        io[i] = io[i] * (1.0f - mix) + io[i] * (float) std::sin (rmPhase) * mix;
+    }
+}
+
+void GuitarRigNAMProcessor::processBitcrushFx (float* io, int n)
+{
+    // Bitcrusher (estudo: airwindows): sample&hold + quantização de bits
+    if (pBcOn->load() <= 0.5f)
+        return;
+
+    const float factor = (float) (hostSampleRate.load() / juce::jmax (1.0f, pBcRate->load()));
+    const float q = std::pow (2.0f, pBcBits->load() - 1.0f);
+    const float mix = pBcMix->load() / 100.0f;
+
+    for (int i = 0; i < n; ++i)
+    {
+        bcCount += 1.0f;
+        if (bcCount >= factor)
+        {
+            bcCount -= factor;
+            bcHold = std::round (io[i] * q) / q;
+        }
+        io[i] = io[i] * (1.0f - mix) + bcHold * mix;
+    }
+}
+
+void GuitarRigNAMProcessor::processHarmFx (float* io, int n)
+{
+    // Harmonizer diatônico (estudo: rkrlv2/rakarrack): autocorrelação sobre
+    // sinal decimado detecta a nota; o intervalo escolhido é aplicado DENTRO
+    // da escala (3ª vira maior ou menor conforme o grau) via shifter granular
+    if (pHarmOn->load() <= 0.5f)
+        return;
+
+    const double sr = hostSampleRate.load();
+
+    for (int i = 0; i < n; ++i)
+    {
+        // decimação por 8 com média (anti-alias barato) -> ring de 512
+        harmAccum += io[i];
+        if (++harmAccumCount >= 8)
+        {
+            harmDecim[harmDecimPos] = harmAccum / 8.0f;
+            harmDecimPos = (harmDecimPos + 1) & (harmDecimSize - 1);
+            harmAccum = 0.0f;
+            harmAccumCount = 0;
+        }
+    }
+
+    // detecção a cada ~21 ms (1024 amostras a 48 kHz)
+    harmDetectCounter += n;
+    if (harmDetectCounter >= 1024)
+    {
+        harmDetectCounter = 0;
+        const double decSr = sr / 8.0;
+
+        // autocorrelação normalizada nos lags do range da guitarra
+        const int minLag = (int) (decSr / 900.0);  // ~900 Hz
+        const int maxLag = (int) (decSr / 70.0);   // ~70 Hz
+        float bestCorr = 0.0f;
+        int bestLag = 0;
+        float energy = 1.0e-9f;
+        for (int j = 0; j < harmDecimSize; ++j)
+            energy += harmDecim[j] * harmDecim[j];
+
+        for (int lag = minLag; lag <= juce::jmin (maxLag, harmDecimSize / 2); ++lag)
+        {
+            float corr = 0.0f;
+            for (int j = 0; j < harmDecimSize - lag; ++j)
+                corr += harmDecim[j] * harmDecim[j + lag];
+            corr /= energy;
+            if (corr > bestCorr)
+            {
+                bestCorr = corr;
+                bestLag = lag;
+            }
+        }
+
+        if (bestCorr > 0.35f && bestLag > 0)
+        {
+            const double freq = decSr / bestLag;
+            const int midi = juce::roundToInt (69.0 + 12.0 * std::log2 (freq / 440.0));
+
+            // grau na escala escolhida (nota fora da escala: usa o degrau abaixo)
+            static const int majorScale[7] = { 0, 2, 4, 5, 7, 9, 11 };
+            static const int minorScale[7] = { 0, 2, 3, 5, 7, 8, 10 };
+            const int* scale = (int) pHarmScale->load() == 0 ? majorScale : minorScale;
+            const int key = (int) pHarmKey->load();
+            const int chroma = ((midi - key) % 12 + 12) % 12;
+            int degree = 0;
+            for (int d = 6; d >= 0; --d)
+                if (scale[d] <= chroma) { degree = d; break; }
+
+            const int stepsPerInterval[4] = { 2, 4, 5, 7 }; // 3ª, 5ª, 6ª, oitava
+            const int steps = stepsPerInterval[juce::jlimit (0, 3,
+                                                             (int) pHarmInterval->load())];
+            const int targetDegree = degree + steps;
+            const int semis = scale[targetDegree % 7] + 12 * (targetDegree / 7)
+                              - scale[degree];
+            harmRatioCur = std::pow (2.0, semis / 12.0);
+        }
+        // sem pitch confiável: mantém a razão anterior (não "pula")
+    }
+
+    const float mix = pHarmMix->load() / 100.0f;
+    const float level = juce::Decibels::decibelsToGain (pHarmLevel->load());
+    harmShift.process (io, n, harmRatioCur, mix, level);
+}
+
+void GuitarRigNAMProcessor::processExciterFx (float* io, int n)
+{
+    // Exciter (estudo: airwindows Energy): harmônicos dos agudos saturados
+    // somados de volta ao sinal
+    if (pExcOn->load() <= 0.5f)
+        return;
+
+    const float freq = pExcFreq->load();
+    if (freq != excCachedFreq)
+    {
+        excCachedFreq = freq;
+        excHp.setHighPass (hostSampleRate.load(), freq, 0.707);
+    }
+
+    const float amt = pExcAmt->load() / 100.0f * 0.6f;
+    for (int i = 0; i < n; ++i)
+    {
+        const float hi = excHp.process (io[i]);
+        io[i] += std::tanh (hi * 3.0f) * amt;
+    }
+}
+
+void GuitarRigNAMProcessor::processDeesserFx (float* io, int n)
+{
+    // De-esser/tamer de ressonância (estudo: lsp-plugins): a banda áspera é
+    // subtraída dinamicamente quando passa do threshold
+    if (pDsOn->load() <= 0.5f)
+        return;
+
+    const float freq = pDsFreq->load();
+    if (freq != dsCachedFreq)
+    {
+        dsCachedFreq = freq;
+        dsBp.setBandPass (hostSampleRate.load(), freq, 2.0);
+    }
+
+    const float sens = 2.0f + pDsSens->load() * 3.0f;
+    const float amt = pDsAmt->load() / 100.0f;
+    for (int i = 0; i < n; ++i)
+    {
+        const float band = dsBp.process (io[i]);
+        const float rect = std::abs (band);
+        dsEnv += (rect > dsEnv ? 0.01f : 0.001f) * (rect - dsEnv);
+        const float excess = juce::jlimit (0.0f, 1.0f, dsEnv * sens - 0.1f);
+        io[i] -= band * excess * amt;
+    }
+}
+
+void GuitarRigNAMProcessor::processTapeFx (float* io, int n)
+{
+    // Tape (adaptado da ideia do airwindows ToTape/IronOxide, MIT):
+    // HP sub -> saturação assimétrica leve -> head bump -> rolloff de agudos
+    if (pTapeOn->load() <= 0.5f)
+        return;
+
+    const float bump = pTapeBump->load();
+    const float roll = pTapeRoll->load();
+    if (bump != tapeCachedBump || roll != tapeCachedRoll)
+    {
+        tapeCachedBump = bump;
+        tapeCachedRoll = roll;
+        const double sr = hostSampleRate.load();
+        tapeBumpF.setLowShelf (sr, 90.0, bump);
+        tapeRollF.setLowPass (sr, roll, 0.707);
+    }
+
+    const float d = 1.0f + pTapeDrive->load() * 0.6f;
+    const float bias = std::tanh (0.03f * d);
+    const float makeup = 1.0f / (0.4f + 0.6f * std::tanh (d * 0.5f));
+    for (int i = 0; i < n; ++i)
+    {
+        float v = tapeHpF.process (io[i]);
+        v = std::tanh (v * d + 0.03f * d) - bias;
+        v = tapeBumpF.process (v);
+        v = tapeRollF.process (v);
+        io[i] = v * makeup;
+    }
+}
+
+void GuitarRigNAMProcessor::processConsoleFx (float* io, int n)
+{
+    // Console glue (adaptado da ideia do airwindows Console, MIT): waveshape
+    // seno sutil — "cola" o sinal como um buss analógico
+    if (pCnsOn->load() <= 0.5f)
+        return;
+
+    const float a = 0.35f + pCnsAmt->load() * 0.12f; // 0.35..1.55
+    const float inv = 1.0f / a;
+    for (int i = 0; i < n; ++i)
+        io[i] = std::sin (juce::jlimit (-1.5f, 1.5f, io[i] * a)) * inv;
+}
+
 void GuitarRigNAMProcessor::processExtFx (float* io, int n)
 {
     // troca RT-safe da instância hospedada (mesmo protocolo dos modelos NAM)
@@ -1809,6 +2337,16 @@ juce::String GuitarRigNAMProcessor::fxToString (ChainFx fx)
         case ChainFx::looper:   return "looper";
         case ChainFx::limiter:  return "limiter";
         case ChainFx::extPlugin: return "ext";
+        case ChainFx::wah:      return "wah";
+        case ChainFx::harm:     return "harm";
+        case ChainFx::octaver:  return "octaver";
+        case ChainFx::ringmod:  return "ringmod";
+        case ChainFx::bitcrush: return "bitcrush";
+        case ChainFx::slowgear: return "slowgear";
+        case ChainFx::exciter:  return "exciter";
+        case ChainFx::deesser:  return "deesser";
+        case ChainFx::tape:     return "tape";
+        case ChainFx::console:  return "console";
     }
     return "amp";
 }
@@ -1823,9 +2361,12 @@ int GuitarRigNAMProcessor::fxFromString (const juce::String& id)
 
 void GuitarRigNAMProcessor::writeDefaultChain()
 {
-    const ChainFx def[] = { ChainFx::gate, ChainFx::comp, ChainFx::od, ChainFx::pitch,
-                            ChainFx::preEq, ChainFx::ampBlock, ChainFx::eq, ChainFx::mod,
-                            ChainFx::delay, ChainFx::reverb, ChainFx::extPlugin,
+    const ChainFx def[] = { ChainFx::gate, ChainFx::comp, ChainFx::slowgear, ChainFx::wah,
+                            ChainFx::octaver, ChainFx::ringmod, ChainFx::od, ChainFx::pitch,
+                            ChainFx::harm, ChainFx::preEq, ChainFx::ampBlock,
+                            ChainFx::bitcrush, ChainFx::eq, ChainFx::exciter,
+                            ChainFx::deesser, ChainFx::mod, ChainFx::tape, ChainFx::delay,
+                            ChainFx::reverb, ChainFx::extPlugin, ChainFx::console,
                             ChainFx::limiter, ChainFx::looper };
     for (int i = 0; i < (int) std::size (def); ++i)
         chainOrder[i].store ((int) def[i]);
@@ -1898,6 +2439,33 @@ void GuitarRigNAMProcessor::setChainOrder (const juce::StringArray& ids)
     }
     if (! used[(int) ChainFx::looper])
         insertAt ((int) ChainFx::looper, order.size());
+
+    // cards P4: cada um entra na posição musicalmente óbvia
+    auto insertBefore = [&] (ChainFx fx, ChainFx anchor)
+    {
+        if (used[(int) fx]) return;
+        const int idx = order.indexOf ((int) anchor);
+        insertAt ((int) fx, idx >= 0 ? idx : order.size());
+        used[(int) fx] = true;
+    };
+    auto insertAfter = [&] (ChainFx fx, ChainFx anchor)
+    {
+        if (used[(int) fx]) return;
+        const int idx = order.indexOf ((int) anchor);
+        insertAt ((int) fx, idx >= 0 ? idx + 1 : order.size());
+        used[(int) fx] = true;
+    };
+    insertAfter (ChainFx::slowgear, ChainFx::comp);
+    insertAfter (ChainFx::wah, ChainFx::slowgear);
+    insertBefore (ChainFx::octaver, ChainFx::od);
+    insertAfter (ChainFx::ringmod, ChainFx::octaver);
+    insertAfter (ChainFx::harm, ChainFx::pitch);
+    insertAfter (ChainFx::bitcrush, ChainFx::ampBlock);
+    insertAfter (ChainFx::exciter, ChainFx::eq);
+    insertAfter (ChainFx::deesser, ChainFx::exciter);
+    insertBefore (ChainFx::tape, ChainFx::delay);
+    insertAfter (ChainFx::console, ChainFx::extPlugin);
+
     used[(int) ChainFx::ampBlock] = used[(int) ChainFx::comp] = true;
     used[(int) ChainFx::preEq] = used[(int) ChainFx::mod] = true;
     used[(int) ChainFx::pitch] = used[(int) ChainFx::looper] = true;

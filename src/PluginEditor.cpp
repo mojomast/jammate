@@ -362,6 +362,16 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     setupTypeButton (pitchTypeButton, "pitchType",
                      juce::String (juce::CharPointer_UTF8 (
                          "Escolher o intervalo do pitch \xc2\xb7 ref: rkrlv2/rakarrack (docs/EFEITOS.md)")));
+    setupTypeButton (wahModeButton, "wahMode",
+                     juce::String (juce::CharPointer_UTF8 (
+                         "Auto = envelope \xc2\xb7 Manual = knob FREQ \xc2\xb7 LFO = vaiv\xc3\xa9m \xc2\xb7 ref: Guitarix")));
+    setupTypeButton (harmKeyButton, "harmKey",
+                     juce::String (juce::CharPointer_UTF8 ("Tom da m\xc3\xbasica")));
+    setupTypeButton (harmScaleButton, "harmScale",
+                     juce::String (juce::CharPointer_UTF8 ("Escala maior ou menor")));
+    setupTypeButton (harmIntervalButton, "harmInterval",
+                     juce::String (juce::CharPointer_UTF8 (
+                         "Intervalo diat\xc3\xb4nico da segunda voz \xc2\xb7 ref: rkrlv2/rakarrack")));
 
     rigAddButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Adicionar um rig AMP+CAB em paralelo (at\xc3\xa9 3)")));
@@ -398,6 +408,32 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     makeKnob (limCeilKnob, "limCeiling", "CEIL", formatDb);
     makeKnob (limRelKnob, "limRelease", "REL", formatMs);
     makeKnob (extMixKnob, "extMix", "MIX", formatPct);
+
+    // cards P4 — um efeito por card
+    makeKnob (wahFreqKnob, "wahFreq", "FREQ", formatHz);
+    makeKnob (wahRangeKnob, "wahRange", "RANGE", formatPct);
+    makeKnob (wahResKnob, "wahRes", "RES", formatTen);
+    makeKnob (sgSensKnob, "sgSens", "SENS", formatTen);
+    makeKnob (sgRiseKnob, "sgRise", "RISE", formatMs);
+    makeKnob (octSubKnob, "octSub", "SUB", formatPct);
+    makeKnob (octDirectKnob, "octDirect", "DIRECT", formatPct);
+    makeKnob (octToneKnob, "octTone", "TONE", formatHz);
+    makeKnob (rmFreqKnob, "rmFreq", "FREQ", formatHz);
+    makeKnob (rmMixKnob, "rmMix", "MIX", formatPct);
+    makeKnob (bcBitsKnob, "bcBits", "BITS", [] (float v) { return juce::String ((int) v); });
+    makeKnob (bcRateKnob, "bcRate", "RATE", formatHz);
+    makeKnob (bcMixKnob, "bcMix", "MIX", formatPct);
+    makeKnob (harmMixKnob, "harmMix", "MIX", formatPct);
+    makeKnob (harmLevelKnob, "harmLevel", "LEVEL", formatDb);
+    makeKnob (excFreqKnob, "excFreq", "FREQ", formatHz);
+    makeKnob (excAmtKnob, "excAmt", "AMT", formatPct);
+    makeKnob (dsFreqKnob, "dsFreq", "FREQ", formatHz);
+    makeKnob (dsSensKnob, "dsSens", "SENS", formatTen);
+    makeKnob (dsAmtKnob, "dsAmt", "AMT", formatPct);
+    makeKnob (tapeDriveKnob, "tapeDrive", "DRIVE", formatTen);
+    makeKnob (tapeBumpKnob, "tapeBump", "BUMP", formatDb);
+    makeKnob (tapeRollKnob, "tapeRoll", "ROLL", formatHz);
+    makeKnob (cnsAmtKnob, "cnsAmt", "GLUE", formatTen);
 
     // slot de plugin VST3 externo
     extLoadButton.setButtonText ("CARREGAR VST3");
@@ -472,6 +508,16 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         "Liga/desliga a escuta do loop (a grava\xc3\xa7\xc3\xa3o continua)")));
     makeLed (limLed, "limOn", limAtt);
     makeLed (extLed, "extOn", extAtt);
+    makeLed (wahLed, "wahOn", wahAtt);
+    makeLed (harmLed, "harmOn", harmAtt);
+    makeLed (octLed, "octOn", octAtt);
+    makeLed (rmLed, "rmOn", rmAtt);
+    makeLed (bcLed, "bcOn", bcAtt);
+    makeLed (sgLed, "sgOn", sgAtt);
+    makeLed (excLed, "excOn", excAtt);
+    makeLed (dsLed, "dsOn", dsAtt);
+    makeLed (tapeLed, "tapeOn", tapeAtt);
+    makeLed (cnsLed, "cnsOn", cnsAtt);
     modAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         apvts, "modOn", modLed);
     modLed.setTooltip (juce::String (juce::CharPointer_UTF8 ("Liga/desliga o m\xc3\xb3""dulo")));
@@ -581,6 +627,30 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     tip (limCeilKnob, "Teto do limiter \xe2\x80\x94 nada passa deste n\xc3\xadvel");
     tip (limRelKnob, "Tempo de recupera\xc3\xa7\xc3\xa3o ap\xc3\xb3s limitar");
     tip (extMixKnob, "Mistura do plugin hospedado com o sinal seco");
+    tip (wahFreqKnob, "Frequ\xc3\xaancia base do wah (posi\xc3\xa7\xc3\xa3o do pedal no modo Manual)");
+    tip (wahRangeKnob, "Quanto o envelope/LFO varre a partir do FREQ");
+    tip (wahResKnob, "Resson\xc3\xa2ncia do filtro (o \"quack\")");
+    tip (sgSensKnob, "Sensibilidade \xc3\xa0 palhetada (quando o swell recome\xc3\xa7""a)");
+    tip (sgRiseKnob, "Tempo do volume subir ap\xc3\xb3s cada nota");
+    tip (octSubKnob, "Volume da sub-oitava sint\xc3\xa9tica");
+    tip (octDirectKnob, "Volume do sinal direto");
+    tip (octToneKnob, "Abafamento da sub-oitava");
+    tip (rmFreqKnob, "Frequ\xc3\xaancia da portadora (grave = trem\xc3\xa9r; agudo = sinos)");
+    tip (rmMixKnob, "Mistura do efeito");
+    tip (bcBitsKnob, "Resolu\xc3\xa7\xc3\xa3o em bits (menos = mais sujo)");
+    tip (bcRateKnob, "Sample rate reduzido (aliasing lo-fi)");
+    tip (bcMixKnob, "Mistura do efeito");
+    tip (harmMixKnob, "Mistura da segunda voz");
+    tip (harmLevelKnob, "Volume da segunda voz");
+    tip (excFreqKnob, "A partir de onde os harm\xc3\xb4nicos s\xc3\xa3o gerados");
+    tip (excAmtKnob, "Quanto brilho \xc3\xa9 somado de volta");
+    tip (dsFreqKnob, "Centro da banda \xc3\xa1spera a domar");
+    tip (dsSensKnob, "Sensibilidade da detec\xc3\xa7\xc3\xa3o");
+    tip (dsAmtKnob, "Profundidade m\xc3\xa1xima do corte din\xc3\xa2mico");
+    tip (tapeDriveKnob, "Satura\xc3\xa7\xc3\xa3o da fita");
+    tip (tapeBumpKnob, "Head bump: refor\xc3\xa7o de graves em 90 Hz");
+    tip (tapeRollKnob, "Rolloff de agudos da fita");
+    tip (cnsAmtKnob, "Intensidade da \"cola\" (waveshape seno sutil)");
 
     updateLayout();
 }
@@ -667,6 +737,10 @@ void ChainView::refreshTypeButtons()
     update (modTypeButton, "modType");
     update (delayDivButton, "delayDiv");
     update (pitchTypeButton, "pitchType");
+    update (wahModeButton, "wahMode");
+    update (harmKeyButton, "harmKey");
+    update (harmScaleButton, "harmScale");
+    update (harmIntervalButton, "harmInterval");
 }
 
 void ChainView::applyTapTempo()
@@ -823,7 +897,7 @@ void ChainView::mouseUp (const juce::MouseEvent&)
 
 int ChainView::effectCardWidth (const juce::String& id) const
 {
-    if (id == "eq" || id == "preeq" || id == "looper" || id == "ext")
+    if (id == "eq" || id == "preeq" || id == "looper" || id == "ext" || id == "harm")
         return 176;
     return 132;
 }
@@ -842,6 +916,16 @@ juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
     if (id == "looper") return looperB;
     if (id == "limiter") return limB;
     if (id == "ext") return extB;
+    if (id == "wah") return wahB;
+    if (id == "harm") return harmB;
+    if (id == "octaver") return octB;
+    if (id == "ringmod") return rmB;
+    if (id == "bitcrush") return bcB;
+    if (id == "slowgear") return sgB;
+    if (id == "exciter") return excB;
+    if (id == "deesser") return dsB;
+    if (id == "tape") return tapeB;
+    if (id == "console") return cnsB;
     return ampLaneB[0].getUnion (mixerB); // "amp" = bloco rigs+mixer
 }
 
@@ -908,6 +992,16 @@ void ChainView::resized()
             else if (id == "looper") looperB = box;
             else if (id == "limiter") limB = box;
             else if (id == "ext") extB = box;
+            else if (id == "wah") wahB = box;
+            else if (id == "harm") harmB = box;
+            else if (id == "octaver") octB = box;
+            else if (id == "ringmod") rmB = box;
+            else if (id == "bitcrush") bcB = box;
+            else if (id == "slowgear") sgB = box;
+            else if (id == "exciter") excB = box;
+            else if (id == "deesser") dsB = box;
+            else if (id == "tape") tapeB = box;
+            else if (id == "console") cnsB = box;
             x += w + 30;
         }
     }
@@ -950,6 +1044,26 @@ void ChainView::resized()
     layoutPedal (modB, modLed, { modRateKnob.get(), modDepthKnob.get(), modMixKnob.get() });
     layoutPedal (pitchB, pitchLed, { pitchMixKnob.get(), pitchLevelKnob.get() });
     layoutPedal (limB, limLed, { limCeilKnob.get(), limRelKnob.get() });
+    layoutPedal (wahB, wahLed, { wahFreqKnob.get(), wahRangeKnob.get(), wahResKnob.get() });
+    layoutPedal (sgB, sgLed, { sgSensKnob.get(), sgRiseKnob.get() });
+    layoutPedal (octB, octLed, { octSubKnob.get(), octDirectKnob.get(), octToneKnob.get() });
+    layoutPedal (rmB, rmLed, { rmFreqKnob.get(), rmMixKnob.get() });
+    layoutPedal (bcB, bcLed, { bcBitsKnob.get(), bcRateKnob.get(), bcMixKnob.get() });
+    layoutPedal (excB, excLed, { excFreqKnob.get(), excAmtKnob.get() });
+    layoutPedal (dsB, dsLed, { dsFreqKnob.get(), dsSensKnob.get(), dsAmtKnob.get() });
+    layoutPedal (tapeB, tapeLed, { tapeDriveKnob.get(), tapeBumpKnob.get(), tapeRollKnob.get() });
+    layoutPedal (cnsB, cnsLed, { cnsAmtKnob.get() });
+
+    // harmonizer: 3 seletores (TOM/ESCALA/INTERVALO) + MIX/LEVEL
+    {
+        harmLed.setBounds (harmB.getRight() - 12 - 18, harmB.getY() + 10, 18, 18);
+        const int bx = harmB.getX() + 12, bw = harmB.getWidth() - 24;
+        harmKeyButton.setBounds (bx, harmB.getY() + 36, bw / 2 - 3, 24);
+        harmScaleButton.setBounds (bx + bw / 2 + 3, harmB.getY() + 36, bw / 2 - 3, 24);
+        harmIntervalButton.setBounds (bx, harmB.getY() + 66, bw, 24);
+        harmMixKnob->setBounds (harmB.getCentreX() - 52, harmB.getY() + 130, 46, 46 + 26);
+        harmLevelKnob->setBounds (harmB.getCentreX() + 6, harmB.getY() + 130, 46, 46 + 26);
+    }
 
     // slot VST3: MIX + botões CARREGAR/PAINEL/REMOVER empilhados
     {
@@ -1001,6 +1115,7 @@ void ChainView::resized()
     placeTypeButton (revTypeButton, revB);
     placeTypeButton (modTypeButton, modB);
     placeTypeButton (pitchTypeButton, pitchB);
+    placeTypeButton (wahModeButton, wahB);
 
     // pré-EQ: mesmos moldes do EQ
     {
@@ -1304,6 +1419,24 @@ void ChainView::paint (juce::Graphics& g)
     drawPedalFrame (g, compB, "Compressor", " ");
     drawPedalFrame (g, modB, juce::String (juce::CharPointer_UTF8 ("Modula\xc3\xa7\xc3\xa3o")), " ");
     drawPedalFrame (g, pitchB, "Pitch", " ");
+    drawPedalFrame (g, wahB, "Wah", " ");
+    drawPedalFrame (g, sgB, "Slow Gear",
+                    juce::String (juce::CharPointer_UTF8 ("swell autom\xc3\xa1tico")));
+    drawPedalFrame (g, octB, "Octaver",
+                    juce::String (juce::CharPointer_UTF8 ("sub-oitava anal\xc3\xb3gica")));
+    drawPedalFrame (g, rmB, "Ring Mod",
+                    juce::String (juce::CharPointer_UTF8 ("portadora senoidal")));
+    drawPedalFrame (g, bcB, "Bitcrusher",
+                    juce::String (juce::CharPointer_UTF8 ("lo-fi \xc2\xb7 bits + rate")));
+    drawPedalFrame (g, harmB, "Harmonizer", " ");
+    drawPedalFrame (g, excB, "Exciter",
+                    juce::String (juce::CharPointer_UTF8 ("brilho harm\xc3\xb4nico")));
+    drawPedalFrame (g, dsB, "De-esser",
+                    juce::String (juce::CharPointer_UTF8 ("doma a banda \xc3\xa1spera")));
+    drawPedalFrame (g, tapeB, "Tape",
+                    juce::String (juce::CharPointer_UTF8 ("satura\xc3\xa7\xc3\xa3o \xc2\xb7 bump \xc2\xb7 rolloff")));
+    drawPedalFrame (g, cnsB, "Console",
+                    juce::String (juce::CharPointer_UTF8 ("cola de buss anal\xc3\xb3gico")));
 
     // ---- looper (estado + tempo desenhados ao vivo)
     {
@@ -1679,6 +1812,16 @@ void ChainView::paint (juce::Graphics& g)
                              : draggingId == "looper" ? juce::String ("Looper")
                              : draggingId == "limiter" ? juce::String ("Limiter")
                              : draggingId == "ext" ? juce::String ("Plugin VST3")
+                             : draggingId == "wah" ? juce::String ("Wah")
+                             : draggingId == "harm" ? juce::String ("Harmonizer")
+                             : draggingId == "octaver" ? juce::String ("Octaver")
+                             : draggingId == "ringmod" ? juce::String ("Ring Mod")
+                             : draggingId == "bitcrush" ? juce::String ("Bitcrusher")
+                             : draggingId == "slowgear" ? juce::String ("Slow Gear")
+                             : draggingId == "exciter" ? juce::String ("Exciter")
+                             : draggingId == "deesser" ? juce::String ("De-esser")
+                             : draggingId == "tape" ? juce::String ("Tape")
+                             : draggingId == "console" ? juce::String ("Console")
                              : draggingId == "mod"
                                    ? juce::String (juce::CharPointer_UTF8 ("Modula\xc3\xa7\xc3\xa3o"))
                              : draggingId == "preeq"
@@ -2281,23 +2424,59 @@ void RigContent::chooseModelFile (int lane)
 
 void RigContent::chooseExtPluginFile()
 {
-    auto initialDir = juce::File (processor.getExternalPluginPath()).getParentDirectory();
-    if (! initialDir.isDirectory())
-        initialDir = juce::File ("C:\\Program Files\\Common Files\\VST3");
-    if (! initialDir.isDirectory())
-        initialDir = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
+    // menu rápido: lista os .vst3 da pasta padrão do sistema (sem escanear/
+    // instanciar nada — só nomes de arquivo) + opção de procurar no disco
+    const juce::File vst3Dir ("C:\\Program Files\\Common Files\\VST3");
+    juce::Array<juce::File> found;
+    if (vst3Dir.isDirectory())
+        for (const auto& f : vst3Dir.findChildFiles (juce::File::findFilesAndDirectories,
+                                                     false, "*.vst3"))
+            found.add (f);
 
-    fileChooser = std::make_unique<juce::FileChooser> ("Escolher plugin VST3 (.vst3)",
-                                                       initialDir, "*.vst3");
-    fileChooser->launchAsync (juce::FileBrowserComponent::openMode
-                                  | juce::FileBrowserComponent::canSelectFiles
-                                  | juce::FileBrowserComponent::canSelectDirectories,
-                              [this] (const juce::FileChooser& fc)
-                              {
-                                  const auto file = fc.getResult();
-                                  if (file.exists())
-                                      processor.loadExternalPluginAsync (file);
-                              });
+    juce::PopupMenu menu;
+    menu.setLookAndFeel (&lookAndFeel);
+    const auto current = processor.getExternalPluginPath();
+    for (int i = 0; i < found.size(); ++i)
+        menu.addItem (i + 1, found[i].getFileNameWithoutExtension(), true,
+                      found[i].getFullPathName() == current);
+    if (! found.isEmpty())
+        menu.addSeparator();
+    menu.addItem (9000, juce::String (juce::CharPointer_UTF8 ("Procurar arquivo\xe2\x80\xa6")));
+
+    menu.showMenuAsync (juce::PopupMenu::Options(),
+        [safe = juce::Component::SafePointer<RigContent> (this), found] (int result)
+        {
+            if (safe == nullptr || result == 0)
+                return;
+            auto* self = safe.getComponent();
+
+            if (result >= 1 && result <= found.size())
+            {
+                self->processor.loadExternalPluginAsync (found[result - 1]);
+                return;
+            }
+
+            // procurar no disco
+            auto initialDir = juce::File (self->processor.getExternalPluginPath())
+                                  .getParentDirectory();
+            if (! initialDir.isDirectory())
+                initialDir = juce::File ("C:\\Program Files\\Common Files\\VST3");
+            if (! initialDir.isDirectory())
+                initialDir = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
+
+            self->fileChooser = std::make_unique<juce::FileChooser> (
+                "Escolher plugin VST3 (.vst3)", initialDir, "*.vst3");
+            self->fileChooser->launchAsync (
+                juce::FileBrowserComponent::openMode
+                    | juce::FileBrowserComponent::canSelectFiles
+                    | juce::FileBrowserComponent::canSelectDirectories,
+                [safe] (const juce::FileChooser& fc)
+                {
+                    const auto file = fc.getResult();
+                    if (safe != nullptr && file.exists())
+                        safe->processor.loadExternalPluginAsync (file);
+                });
+        });
 }
 
 // Janela flutuante com o painel do plugin hospedado; fecha sozinha antes de

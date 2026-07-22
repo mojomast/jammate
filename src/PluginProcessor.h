@@ -134,9 +134,11 @@ public:
     // Amp+Cabs ("amp") é âncora fixa mas efeitos podem ficar antes/depois.
 
     enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock, comp, preEq, mod,
-                               pitch, looper, limiter, extPlugin };
-    static constexpr int numChainFx = 13;
-    static constexpr int chainMaxSlots = 16; // expansível para efeitos futuros
+                               pitch, looper, limiter, extPlugin,
+                               wah, harm, octaver, ringmod, bitcrush, slowgear,
+                               exciter, deesser, tape, console };
+    static constexpr int numChainFx = 23;
+    static constexpr int chainMaxSlots = 32; // expansível para efeitos futuros
 
     /// Ordem atual como ids ("gate", "od", "amp", "eq", "delay", "reverb").
     juce::StringArray getChainOrder() const;
@@ -298,6 +300,16 @@ private:
     void processLooperFx (float* io, int n);
     void processLimiterFx (float* io, int n);
     void processExtFx (float* io, int n);
+    void processWahFx (float* io, int n);
+    void processHarmFx (float* io, int n);
+    void processOctaverFx (float* io, int n);
+    void processRingModFx (float* io, int n);
+    void processBitcrushFx (float* io, int n);
+    void processSlowGearFx (float* io, int n);
+    void processExciterFx (float* io, int n);
+    void processDeesserFx (float* io, int n);
+    void processTapeFx (float* io, int n);
+    void processConsoleFx (float* io, int n);
 
     // Gate "inteligente": follower de envelope com histerese de 6 dB
     // (abre no threshold, só fecha 6 dB abaixo — preserva o sustain),
@@ -391,6 +403,7 @@ private:
         void setHighShelf (double sr, double freq, double dbGain);
         void setLowPass (double sr, double freq, double q);
         void setHighPass (double sr, double freq, double q);
+        void setBandPass (double sr, double freq, double q);
         inline float process (float x) noexcept
         {
             const float y = b0 * x + z1;
@@ -470,6 +483,92 @@ private:
     // spring reverb: bandpass no caminho wet
     Biquad revSpringHp, revSpringLp;
 
+    // ---- cards P4 (um efeito por card, controles próprios) --------------
+    // Wah (Auto/Manual/LFO): bandpass ressonante varrido
+    Biquad wahBp;
+    float wahEnv = 0.0f;
+    double wahLfoPhase = 0.0;
+    int wahRecalcCount = 0;
+    std::atomic<float>* pWahOn = nullptr;
+    std::atomic<float>* pWahMode = nullptr;
+    std::atomic<float>* pWahFreq = nullptr;
+    std::atomic<float>* pWahRange = nullptr;
+    std::atomic<float>* pWahRes = nullptr;
+
+    // Slow Gear: swell automático (ataque some, volume sobe devagar)
+    float sgEnv = 0.0f, sgGain = 1.0f, sgEnvPrev = 0.0f;
+    std::atomic<float>* pSgOn = nullptr;
+    std::atomic<float>* pSgSens = nullptr;
+    std::atomic<float>* pSgRise = nullptr;
+
+    // Octaver analógico: flip-flop nos cruzamentos de zero + envelope
+    bool octFlip = false;
+    float octPrev = 0.0f, octEnv = 0.0f, octToneCached = -1.0f;
+    Biquad octLp;
+    std::atomic<float>* pOctOn = nullptr;
+    std::atomic<float>* pOctSub = nullptr;
+    std::atomic<float>* pOctDirect = nullptr;
+    std::atomic<float>* pOctTone = nullptr;
+
+    // Ring modulator
+    double rmPhase = 0.0;
+    std::atomic<float>* pRmOn = nullptr;
+    std::atomic<float>* pRmFreq = nullptr;
+    std::atomic<float>* pRmMix = nullptr;
+
+    // Bitcrusher (bits + sample rate reduction)
+    float bcHold = 0.0f;
+    float bcCount = 0.0f;
+    std::atomic<float>* pBcOn = nullptr;
+    std::atomic<float>* pBcBits = nullptr;
+    std::atomic<float>* pBcRate = nullptr;
+    std::atomic<float>* pBcMix = nullptr;
+
+    // Harmonizer diatônico: detecção de pitch (autocorrelação decimada) +
+    // shifter granular com intervalo dentro da escala escolhida
+    // (harmShift declarado adiante, após a definição de PitchShifter)
+    static constexpr int harmDecimSize = 512;
+    float harmDecim[harmDecimSize] = {};
+    int harmDecimPos = 0;
+    float harmAccum = 0.0f;
+    int harmAccumCount = 0;
+    int harmDetectCounter = 0;
+    double harmRatioCur = 1.0;
+    std::atomic<float>* pHarmOn = nullptr;
+    std::atomic<float>* pHarmKey = nullptr;
+    std::atomic<float>* pHarmScale = nullptr;
+    std::atomic<float>* pHarmInterval = nullptr;
+    std::atomic<float>* pHarmMix = nullptr;
+    std::atomic<float>* pHarmLevel = nullptr;
+
+    // Exciter: harmônicos de agudos somados de volta
+    Biquad excHp;
+    float excCachedFreq = -1.0f;
+    std::atomic<float>* pExcOn = nullptr;
+    std::atomic<float>* pExcFreq = nullptr;
+    std::atomic<float>* pExcAmt = nullptr;
+
+    // De-esser/ressonância: corte dinâmico da banda áspera
+    Biquad dsBp;
+    float dsEnv = 0.0f, dsCachedFreq = -1.0f;
+    std::atomic<float>* pDsOn = nullptr;
+    std::atomic<float>* pDsFreq = nullptr;
+    std::atomic<float>* pDsSens = nullptr;
+    std::atomic<float>* pDsAmt = nullptr;
+
+    // Tape: saturação + head bump + rolloff de agudos
+    Biquad tapeBumpF, tapeRollF, tapeHpF;
+    float tapeCachedBump = -99.0f, tapeCachedRoll = -1.0f;
+    std::atomic<float>* pTapeOn = nullptr;
+    std::atomic<float>* pTapeDrive = nullptr;
+    std::atomic<float>* pTapeBump = nullptr;
+    std::atomic<float>* pTapeRoll = nullptr;
+
+    // Console: "cola" sutil (waveshape seno estilo Airwindows Console)
+    std::atomic<float>* pCnsOn = nullptr;
+    std::atomic<float>* pCnsAmt = nullptr;
+    // ---------------------------------------------------------------------
+
     // ---- Pitch (cartão): shifter granular de 2 cabeças com crossfade
     // seno/cosseno (potência constante) sobre um ring buffer fixo.
     struct PitchShifter
@@ -501,6 +600,7 @@ private:
     };
     PitchShifter pitchShift;
     PitchShifter revShimmer; // oitava acima no wet do reverb (tipo Shimmer)
+    PitchShifter harmShift;  // segunda voz do Harmonizer (card P4)
     std::atomic<float>* pPitchOn = nullptr;
     std::atomic<float>* pPitchType = nullptr;   // Oitava ↓ / Oitava ↑ / Quinta / Detune
     std::atomic<float>* pPitchMix = nullptr;

@@ -136,6 +136,13 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 - [x] Caminho **e estado interno** do plugin salvos nos presets (base64), com restauração automática
 - [x] Testado com BIAS FX 2 (processamento + painel)
 
+**Fase 12 — cards P4: 10 efeitos novos, um card por efeito (concluída):**
+- [x] **Wah** (Auto/Manual/LFO) · **Slow Gear** (swell) · **Octaver** analógico · **Ring Mod** · **Bitcrusher** — lado pré-amp
+- [x] **Harmonizer diatônico**: detecta a nota tocada (autocorrelação) e canta a 3ª/5ª/6ª/oitava DENTRO do tom/escala escolhidos
+- [x] **Exciter** · **De-esser** · **Tape** (Airwindows ToTape, MIT) · **Console** glue (Airwindows Console, MIT) — lado pós-amp
+- [x] Cada efeito tem card próprio com controles dedicados (total: 23 cards na cadeia, todos reordenáveis)
+- [x] Slot VST3: botão CARREGAR virou menu com os plugins instalados no sistema + tabela de grátis recomendados em docs/EFEITOS.md
+
 **Próximos:**
 - [ ] Analisador de espectro
 - [ ] Animações e microinterações · medidores com peak-hold/clip
