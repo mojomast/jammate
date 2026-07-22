@@ -461,6 +461,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
     layout.add (std::make_unique<FloatParam> (
         juce::ParameterID { "cnsAmt", 1 }, "Console Glue", zeroToTen, 4.0f));
 
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "anOn", 1 }, "Analyzer On", true));
+
     // slot de plugin VST3 externo
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { "extOn", 1 }, "Ext Plugin On", true));
@@ -676,8 +679,10 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pTapeRoll = apvts.getRawParameterValue ("tapeRoll");
     pCnsOn = apvts.getRawParameterValue ("cnsOn");
     pCnsAmt = apvts.getRawParameterValue ("cnsAmt");
+    pAnOn = apvts.getRawParameterValue ("anOn");
 
     extFormatManager.addFormat (new juce::VST3PluginFormat());
+    recThread.startThread();
     pPreEqOn = apvts.getRawParameterValue ("preEqOn");
     pPreEqLow = apvts.getRawParameterValue ("preEqLow");
     pPreEqMid = apvts.getRawParameterValue ("preEqMid");
@@ -728,6 +733,10 @@ GuitarRigNAMProcessor::~GuitarRigNAMProcessor()
     delete extPending.exchange (nullptr);
     delete extRetired.exchange (nullptr);
     extActive.reset();
+
+    recActive.store (nullptr);
+    recWriter.reset();
+    recThread.stopThread (2000);
 }
 
 void GuitarRigNAMProcessor::prepareLoadedModel (LoadedModel& lm, double hostRate, int blockSize) const
@@ -1021,6 +1030,7 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
                 case ChainFx::deesser:  processDeesserFx (io, n); break;
                 case ChainFx::tape:     processTapeFx (io, n); break;
                 case ChainFx::console:  processConsoleFx (io, n); break;
+                case ChainFx::analyzer: processAnalyzerFx (io, n); break;
             }
         }
     }
@@ -1039,6 +1049,21 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
     for (int ch = juce::jmax (numIn, 2); ch < numOut; ++ch)
         buffer.clear (ch, 0, n);
+
+    // gravador rápido: escreve a saída (o ThreadedWriter faz o disco em
+    // outra thread; write() aqui só copia para o FIFO dele)
+    if (auto* w = recActive.load())
+    {
+        const float* chans[2] = { buffer.getReadPointer (0),
+                                  numOut > 1 ? buffer.getReadPointer (1)
+                                             : buffer.getReadPointer (0) };
+        w->write (chans, n);
+    }
+
+    // mute do afinador: silencia a saída (detecção usa o tap pré-cadeia)
+    if (tunerMute.load())
+        for (int ch = 0; ch < numOut; ++ch)
+            buffer.clear (ch, 0, n);
 
     // ---- medidor de CPU (fração do tempo de bloco, suavizado)
     {
@@ -2038,6 +2063,80 @@ void GuitarRigNAMProcessor::processConsoleFx (float* io, int n)
         io[i] = std::sin (juce::jlimit (-1.5f, 1.5f, io[i] * a)) * inv;
 }
 
+void GuitarRigNAMProcessor::processAnalyzerFx (float* io, int n)
+{
+    // passthrough + tap para o espectro (o editor lê e desenha)
+    if (pAnOn->load() <= 0.5f)
+        return;
+
+    int w = anWritePos.load();
+    for (int i = 0; i < n; ++i)
+    {
+        anRing[w] = io[i];
+        w = (w + 1) & (analyzerRingSize - 1);
+    }
+    anWritePos.store (w);
+}
+
+void GuitarRigNAMProcessor::readAnalyzerBlock (float* dest, int numSamples) const
+{
+    const int writePos = anWritePos.load();
+    int start = (writePos - numSamples) & (analyzerRingSize - 1);
+    for (int i = 0; i < numSamples; ++i)
+    {
+        dest[i] = anRing[start];
+        start = (start + 1) & (analyzerRingSize - 1);
+    }
+}
+
+juce::File GuitarRigNAMProcessor::startRecording()
+{
+    // message thread
+    if (isRecording())
+        return {};
+
+    auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                   .getChildFile ("GuitarRig NAM")
+                   .getChildFile (juce::String (juce::CharPointer_UTF8 ("Grava\xc3\xa7\xc3\xb5""es")));
+    dir.createDirectory();
+    const auto stamp = juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H.%M.%S");
+    auto file = dir.getChildFile ("Take " + stamp + ".wav");
+
+    juce::WavAudioFormat wav;
+    if (auto stream = file.createOutputStream())
+    {
+        if (auto* writer = wav.createWriterFor (stream.get(), hostSampleRate.load(), 2, 24, {}, 0))
+        {
+            stream.release(); // o writer é dono do stream agora
+            recWriter = std::make_unique<juce::AudioFormatWriter::ThreadedWriter> (
+                writer, recThread, 1 << 17);
+            recActive.store (recWriter.get());
+            return file;
+        }
+    }
+    return {};
+}
+
+void GuitarRigNAMProcessor::stopRecording()
+{
+    // message thread: retira do áudio primeiro; deleta com folga (o áudio
+    // pode estar no meio de um write com o ponteiro antigo)
+    recActive.store (nullptr);
+    if (auto* old = recWriter.release())
+        juce::Timer::callAfterDelay (400, [old] { delete old; });
+}
+
+void GuitarRigNAMProcessor::toggleAB()
+{
+    // message thread: salva o estado atual no slot ativo e alterna
+    abSlots[abCurrent] = captureState();
+    abCurrent = 1 - abCurrent;
+    if (abSlots[abCurrent].isValid())
+        applyState (abSlots[abCurrent]);
+    else
+        abSlots[abCurrent] = abSlots[1 - abCurrent].createCopy(); // 1ª vez: B parte de A
+}
+
 void GuitarRigNAMProcessor::processExtFx (float* io, int n)
 {
     // troca RT-safe da instância hospedada (mesmo protocolo dos modelos NAM)
@@ -2347,6 +2446,7 @@ juce::String GuitarRigNAMProcessor::fxToString (ChainFx fx)
         case ChainFx::deesser:  return "deesser";
         case ChainFx::tape:     return "tape";
         case ChainFx::console:  return "console";
+        case ChainFx::analyzer: return "analyzer";
     }
     return "amp";
 }
@@ -2381,7 +2481,7 @@ int GuitarRigNAMProcessor::canonicalRank (int fx)
                                      ChainFx::eq, ChainFx::exciter, ChainFx::deesser,
                                      ChainFx::mod, ChainFx::tape, ChainFx::delay,
                                      ChainFx::reverb, ChainFx::extPlugin, ChainFx::console,
-                                     ChainFx::limiter, ChainFx::looper };
+                                     ChainFx::analyzer, ChainFx::limiter, ChainFx::looper };
     for (int i = 0; i < (int) std::size (canon); ++i)
         if ((int) canon[i] == fx)
             return i;
@@ -2404,6 +2504,16 @@ juce::StringArray GuitarRigNAMProcessor::getChainOrder() const
 
 void GuitarRigNAMProcessor::setChainOrder (const juce::StringArray& ids)
 {
+    // dev: GUITARRIG_DEBUGLOG=<arquivo> registra cada mudança de cadeia
+    {
+        static const auto logPath =
+            juce::SystemStats::getEnvironmentVariable ("GUITARRIG_DEBUGLOG", "");
+        if (logPath.isNotEmpty())
+            juce::File (logPath).appendText (
+                juce::Time::getCurrentTime().formatted ("%H:%M:%S")
+                + " setChainOrder: " + ids.joinIntoString (",") + "\n");
+    }
+
     // A cadeia é PARCIAL: só os efeitos "na pedaleira" — o resto fica na
     // gaveta (não processa, mas mantém os ajustes nos parâmetros).
     // Normaliza: ids conhecidos, cada um no máximo 1x; "amp" sempre presente

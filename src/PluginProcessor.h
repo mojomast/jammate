@@ -1,5 +1,6 @@
 #pragma once
 
+#include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 
@@ -136,8 +137,8 @@ public:
     enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock, comp, preEq, mod,
                                pitch, looper, limiter, extPlugin,
                                wah, harm, octaver, ringmod, bitcrush, slowgear,
-                               exciter, deesser, tape, console };
-    static constexpr int numChainFx = 23;
+                               exciter, deesser, tape, console, analyzer };
+    static constexpr int numChainFx = 24;
     static constexpr int chainMaxSlots = 32; // expansível para efeitos futuros
 
     /// Ordem atual como ids ("gate", "od", "amp", "eq", "delay", "reverb").
@@ -214,9 +215,44 @@ public:
     static constexpr int tunerRingSize = 8192; // potência de 2
     void readTunerBlock (float* dest, int numSamples) const;
 
+    /// Mute do afinador: silencia a SAÍDA (a detecção continua, o tap é
+    /// pré-cadeia). Setado pelo editor quando afinador ligado + chip MUTE.
+    void setTunerMuted (bool m) noexcept { tunerMute.store (m); }
+
+    //==========================================================================
+    // Analisador de espectro: mesmo esquema do afinador — o card grava o
+    // sinal naquele ponto da cadeia; o editor lê e desenha o espectro.
+    static constexpr int analyzerRingSize = 4096; // potência de 2
+    void readAnalyzerBlock (float* dest, int numSamples) const;
+
+    //==========================================================================
+    // Gravador rápido: escreve a SAÍDA em WAV via ThreadedWriter (RT-safe).
+    // (message thread para start/stop)
+    juce::File startRecording();
+    void stopRecording();
+    bool isRecording() const noexcept { return recActive.load() != nullptr; }
+
+    //==========================================================================
+    // A/B: dois snapshots completos do estado; alternar salva o atual no
+    // slot ativo e carrega o outro. (message thread)
+    void toggleAB();
+    int getABIndex() const noexcept { return abCurrent; }
+
 private:
     float tunerRing[tunerRingSize] = {};
     std::atomic<int> tunerWritePos { 0 };
+    std::atomic<bool> tunerMute { false };
+
+    float anRing[analyzerRingSize] = {};
+    std::atomic<int> anWritePos { 0 };
+    std::atomic<float>* pAnOn = nullptr;
+
+    juce::TimeSliceThread recThread { "gravador" };
+    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> recWriter;
+    std::atomic<juce::AudioFormatWriter::ThreadedWriter*> recActive { nullptr };
+
+    juce::ValueTree abSlots[2];
+    int abCurrent = 0;
 
 public:
 
@@ -313,6 +349,7 @@ private:
     void processDeesserFx (float* io, int n);
     void processTapeFx (float* io, int n);
     void processConsoleFx (float* io, int n);
+    void processAnalyzerFx (float* io, int n);
 
     // Gate "inteligente": follower de envelope com histerese de 6 dB
     // (abre no threshold, só fecha 6 dB abaixo — preserva o sustain),

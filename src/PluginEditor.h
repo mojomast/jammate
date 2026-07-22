@@ -58,7 +58,7 @@ public:
 class LevelMeter : public juce::Component
 {
 public:
-    /// modo nível (dB) — fração calculada de -60..0
+    /// modo nível (dB) — fração calculada de -60..0, com peak-hold
     void setLevel (float newLevelDb);
     /// modo fração direta (CPU)
     void setFraction (float f, juce::Colour c);
@@ -68,6 +68,8 @@ private:
     float fraction = 0.0f;
     bool solid = false;
     juce::Colour solidColour;
+    float peakFrac = 0.0f; // marcador de pico (segura ~1.5 s e decai)
+    int peakHoldTicks = 0;
 };
 
 //==============================================================================
@@ -84,7 +86,8 @@ public:
 //==============================================================================
 // A cadeia de sinal rolável: Input → Gate → OD → Amp → Cab → EQ → Delay →
 // Reverb → Output, com cartões nas métricas do design v2.
-class ChainView : public juce::Component
+class ChainView : public juce::Component,
+                  public juce::FileDragAndDropTarget
 {
 public:
     ChainView (GuitarRigNAMProcessor&, std::function<void (int)> onLoadModel,
@@ -100,7 +103,15 @@ public:
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+
+    // drag-and-drop de arquivos: .nam no amp, IR no cab, .vst3 no slot
+    bool isInterestedInFileDrag (const juce::StringArray& files) override;
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
+    void fileDragMove (const juce::StringArray& files, int x, int y) override;
+    void fileDragExit (const juce::StringArray& files) override;
 
     void setAmpImage (int lane, juce::Image);
     void setCabImage (int lane, juce::Image);
@@ -136,6 +147,9 @@ private:
     /// insertIndex >= 0 insere na posição exata; -1 = posição canônica
     void showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea);
     void removeFxFromChain (const juce::String& id);
+    /// Relayout imediato (fora do timer) após mudar a cadeia — o layout
+    /// nunca fica defasado sob o mouse do usuário.
+    void applyChainRelayout();
     /// "+" nos conectores entre cards: {hotspot, índice de inserção}
     std::vector<std::pair<juce::Rectangle<int>, int>> insertSpots() const;
     juce::Array<juce::Component*> componentsForFx (const juce::String& id);
@@ -150,6 +164,19 @@ private:
     bool panning = false;
     juce::Point<int> panStartMouse, panStartView;
 
+    // microinterações: hover nos "+" e "✕"; alvo do drop de arquivo
+    juce::Rectangle<int> hoverHotspot;   // "+"/"✕" sob o mouse
+    juce::Rectangle<int> dropHighlight;  // card alvo do arquivo arrastado
+    /// destino do arquivo em (x,y): {rect do alvo, "nam:lane"/"ir:slot"/"vst3"}
+    std::pair<juce::Rectangle<int>, juce::String> dropTargetAt (const juce::String& file,
+                                                                int x, int y) const;
+
+    // analisador de espectro (card)
+    juce::dsp::FFT anFft { 11 }; // 2048
+    std::array<float, 4096> anFftBuf {};
+    static constexpr int anNumBands = 24;
+    float anBands[anNumBands] = {};
+
 public:
 
 private:
@@ -161,7 +188,7 @@ private:
 
     juce::Rectangle<int> ioInB, gateB, odB, eqB, delayB, revB, ioOutB;
     juce::Rectangle<int> compB, preEqB, pitchB, looperB, limB, extB;
-    juce::Rectangle<int> wahB, harmB, octB, rmB, bcB, sgB, excB, dsB, tapeB, cnsB;
+    juce::Rectangle<int> wahB, harmB, octB, rmB, bcB, sgB, excB, dsB, tapeB, cnsB, anB;
     // rigs paralelos: um par amp+cab por lane + o card Mixer que soma tudo
     juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs], mixerB;
     juce::Image ampImages[maxRigs], cabImages[maxRigs];
@@ -170,7 +197,8 @@ private:
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
     LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed, compLed, preEqLed,
         pitchLed, looperLed, limLed, extLed;
-    LedButton wahLed, harmLed, octLed, rmLed, bcLed, sgLed, excLed, dsLed, tapeLed, cnsLed;
+    LedButton wahLed, harmLed, octLed, rmLed, bcLed, sgLed, excLed, dsLed, tapeLed, cnsLed,
+        anLed;
     std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob, gateHoldKnob;
     std::unique_ptr<KnobComponent> compSustainKnob, compAttackKnob, compBlendKnob, compLevelKnob;
     std::unique_ptr<KnobComponent> preEqLowKnob, preEqMidKnob, preEqHighKnob;
@@ -241,7 +269,7 @@ private:
     std::unique_ptr<Attachment> gateAtt, odAtt, ampAtt, cabAtt, eqAtt, delayAtt, revAtt,
         compAtt, preEqAtt, pitchAtt, looperAtt, limAtt, extAtt;
     std::unique_ptr<Attachment> wahAtt, harmAtt, octAtt, rmAtt, bcAtt, sgAtt, excAtt,
-        dsAtt, tapeAtt, cnsAtt;
+        dsAtt, tapeAtt, cnsAtt, anAtt;
     std::unique_ptr<Attachment> cabPhaseAtt[GuitarRigNAMProcessor::maxCabSlots];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChainView)
@@ -313,6 +341,16 @@ private:
     juce::TextButton perfChip { "PALCO" };
     void setPerfMode (bool shouldBeOn);
     void paintPerformanceView (juce::Graphics&);
+
+    // mute do afinador (silencia a saída enquanto afina)
+    juce::TextButton muteChip { "MUTE" };
+    bool tunerMuteWanted = false;
+
+    // gravador rápido (WAV da saída) + A/B de rigs
+    juce::TextButton recChip { juce::CharPointer_UTF8 ("\xe2\x97\x8f REC") };
+    juce::int64 recStartMs = 0;
+    int recSavedTicks = 0;
+    juce::TextButton abButton { "A" };
 
     // auto-ECO (troca para o capture leve quando a CPU estoura)
     juce::TextButton autoEcoChip { "AUTO-ECO" };

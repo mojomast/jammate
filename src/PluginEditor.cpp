@@ -181,7 +181,24 @@ void LevelMeter::setLevel (float newLevelDb)
 {
     solid = false;
     const float f = juce::jlimit (0.0f, 1.0f, (newLevelDb + 60.0f) / 60.0f);
-    if (std::abs (f - fraction) > 0.004f)
+
+    // peak-hold: segura o marcador ~1.5 s e depois deixa escorregar
+    const float oldPeak = peakFrac;
+    if (f >= peakFrac)
+    {
+        peakFrac = f;
+        peakHoldTicks = 45;
+    }
+    else if (peakHoldTicks > 0)
+    {
+        --peakHoldTicks;
+    }
+    else
+    {
+        peakFrac = juce::jmax (f, peakFrac - 0.012f);
+    }
+
+    if (std::abs (f - fraction) > 0.004f || std::abs (peakFrac - oldPeak) > 0.003f)
     {
         fraction = f;
         repaint();
@@ -229,6 +246,14 @@ void LevelMeter::paint (juce::Graphics& g)
     g.setGradientFill (grad);
     g.fillRoundedRectangle (inner, 3.0f);
     g.restoreState();
+
+    // marcador de peak-hold
+    if (peakFrac > 0.02f)
+    {
+        const float px = inner.getX() + inner.getWidth() * peakFrac;
+        g.setColour (peakFrac >= 0.98f ? ui::red : juce::Colours::white.withAlpha (0.85f));
+        g.fillRect (px - 1.0f, inner.getY(), 2.0f, inner.getHeight());
+    }
 }
 
 //==============================================================================
@@ -518,6 +543,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     makeLed (dsLed, "dsOn", dsAtt);
     makeLed (tapeLed, "tapeOn", tapeAtt);
     makeLed (cnsLed, "cnsOn", cnsAtt);
+    makeLed (anLed, "anOn", anAtt);
     modAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         apvts, "modOn", modLed);
     modLed.setTooltip (juce::String (juce::CharPointer_UTF8 ("Liga/desliga o m\xc3\xb3""dulo")));
@@ -838,14 +864,15 @@ void ChainView::refreshDynamicText()
         }
     }
 
-    // número de rigs ou ordem da cadeia mudou -> relayout
+    // número de rigs ou ordem da cadeia mudou -> relayout. Com o botão do
+    // mouse pressionado, ADIA: reflow sob um arrasto em andamento faz o
+    // slider "pular" (a posição relativa muda sem o mouse se mover) e troca
+    // o alvo sob o cursor. O timer re-tenta a cada tick até soltar.
     const auto orderNow = processor.getChainOrder().joinIntoString (",");
-    if (processor.getRigCount() != lastRigCount || orderNow != lastOrderSeen)
+    if ((processor.getRigCount() != lastRigCount || orderNow != lastOrderSeen)
+        && ! juce::Component::isMouseButtonDownAnywhere())
     {
-        lastRigCount = processor.getRigCount();
-        lastOrderSeen = orderNow;
-        updateLayout();
-        resized();
+        applyChainRelayout();
     }
     repaint();
 }
@@ -883,6 +910,7 @@ juce::Array<juce::Component*> ChainView::componentsForFx (const juce::String& id
     if (id == "deesser") return { &dsLed, dsFreqKnob.get(), dsSensKnob.get(), dsAmtKnob.get() };
     if (id == "tape")   return { &tapeLed, tapeDriveKnob.get(), tapeBumpKnob.get(), tapeRollKnob.get() };
     if (id == "console") return { &cnsLed, cnsAmtKnob.get() };
+    if (id == "analyzer") return { &anLed };
     return {};
 }
 
@@ -910,6 +938,7 @@ const char* ChainView::onParamIdForFx (const juce::String& id) const
     if (id == "deesser") return "dsOn";
     if (id == "tape") return "tapeOn";
     if (id == "console") return "cnsOn";
+    if (id == "analyzer") return "anOn";
     return nullptr;
 }
 
@@ -937,6 +966,7 @@ juce::String ChainView::fxDisplayName (const juce::String& id)
     if (id == "deesser") return "De-esser";
     if (id == "tape") return "Tape";
     if (id == "console") return "Console";
+    if (id == "analyzer") return "Analisador";
     return id;
 }
 
@@ -967,7 +997,7 @@ void ChainView::showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea)
         { "Pitch",                 { "pitch", "harm" } },
         { "Modula\xc3\xa7\xc3\xa3o & Cor", { "mod", "exciter", "deesser", "tape", "console" } },
         { "Amb\xc3\xaancia",       { "delay", "reverb" } },
-        { "Extras",                { "ext", "looper" } },
+        { "Extras",                { "ext", "looper", "analyzer" } },
     };
 
     const auto order = processor.getChainOrder();
@@ -1028,6 +1058,7 @@ void ChainView::showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea)
             }
             order.insert (pos, id);
             safe->processor.setChainOrder (order);
+            safe->applyChainRelayout();
         });
 }
 
@@ -1036,6 +1067,16 @@ void ChainView::removeFxFromChain (const juce::String& id)
     auto order = processor.getChainOrder();
     order.removeString (id);
     processor.setChainOrder (order);
+    applyChainRelayout(); // layout atualiza na hora, não no próximo tick
+}
+
+void ChainView::applyChainRelayout()
+{
+    lastRigCount = processor.getRigCount();
+    lastOrderSeen = processor.getChainOrder().joinIntoString (",");
+    updateLayout();
+    resized();
+    repaint();
 }
 
 //==============================================================================
@@ -1061,18 +1102,13 @@ void ChainView::mouseDown (const juce::MouseEvent& e)
             return;
         }
 
-    // "✕" remove o efeito da cadeia (volta pra gaveta, ajustes preservados)
+    // "✕" remove o efeito da cadeia (volta pra gaveta, ajustes preservados).
+    // Síncrono + relayout imediato: cliques rápidos em sequência nunca caem
+    // num layout defasado (knob/✕ errado deslizando sob o mouse).
     for (const auto& entry : orderedEntries())
         if (entry.id != "amp" && removeHotspot (entry.box).contains (e.getPosition()))
         {
-            const auto id = entry.id;
-            auto* self = this; // MSVC: 'this' em init-capture aninhada resolve errado
-            juce::MessageManager::callAsync (
-                [safe = juce::Component::SafePointer<ChainView> (self), id]
-                {
-                    if (safe != nullptr)
-                        safe->removeFxFromChain (id);
-                });
+            removeFxFromChain (entry.id);
             return;
         }
 
@@ -1130,6 +1166,134 @@ void ChainView::mouseDrag (const juce::MouseEvent& e)
     repaint();
 }
 
+void ChainView::mouseMove (const juce::MouseEvent& e)
+{
+    // microinteração: realça o "+"/"✕" sob o mouse
+    juce::Rectangle<int> hot;
+    for (const auto& [rect, idx] : insertSpots())
+        if (rect.contains (e.getPosition()))
+        {
+            hot = rect;
+            break;
+        }
+    if (hot.isEmpty())
+        for (const auto& entry : orderedEntries())
+            if (entry.id != "amp" && removeHotspot (entry.box).contains (e.getPosition()))
+            {
+                hot = removeHotspot (entry.box);
+                break;
+            }
+    if (hot.isEmpty() && addFxB.contains (e.getPosition()))
+        hot = addFxB;
+
+    if (hot != hoverHotspot)
+    {
+        hoverHotspot = hot;
+        setMouseCursor (hot.isEmpty() ? juce::MouseCursor::NormalCursor
+                                      : juce::MouseCursor::PointingHandCursor);
+        repaint();
+    }
+}
+
+void ChainView::mouseExit (const juce::MouseEvent&)
+{
+    if (! hoverHotspot.isEmpty())
+    {
+        hoverHotspot = {};
+        repaint();
+    }
+}
+
+//==============================================================================
+// Drag-and-drop de arquivos: .nam -> amp, IR -> cab, .vst3 -> slot externo
+
+static bool isNamFile (const juce::String& f) { return f.endsWithIgnoreCase (".nam"); }
+static bool isIrFile (const juce::String& f)
+{
+    return f.endsWithIgnoreCase (".wav") || f.endsWithIgnoreCase (".aif")
+           || f.endsWithIgnoreCase (".aiff") || f.endsWithIgnoreCase (".flac");
+}
+static bool isVst3File (const juce::String& f) { return f.endsWithIgnoreCase (".vst3"); }
+
+bool ChainView::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    for (const auto& f : files)
+        if (isNamFile (f) || isIrFile (f) || isVst3File (f))
+            return true;
+    return false;
+}
+
+std::pair<juce::Rectangle<int>, juce::String> ChainView::dropTargetAt (const juce::String& file,
+                                                                       int x, int y) const
+{
+    const auto pos = juce::Point<int> (x, y);
+    const int count = processor.getRigCount();
+
+    if (isNamFile (file))
+    {
+        for (int r = 0; r < count; ++r)
+            if (ampLaneB[r].contains (pos))
+                return { ampLaneB[r], "nam:" + juce::String (r) };
+        // fora de um amp: primeira lane livre (ou a 1ª)
+        const int lane = juce::jmax (0, processor.firstFreeModelLane());
+        return { ampLaneB[juce::jlimit (0, count - 1, lane)], "nam:" + juce::String (lane) };
+    }
+    if (isIrFile (file))
+    {
+        for (int r = 0; r < count; ++r)
+            if (cabLaneB[r].contains (pos))
+                return { cabLaneB[r], "ir:" + juce::String (r) };
+        const int slot = juce::jmax (0, processor.firstFreeIrSlot());
+        return { cabLaneB[juce::jlimit (0, count - 1, slot)], "ir:" + juce::String (slot) };
+    }
+    if (isVst3File (file))
+    {
+        if (! extB.isEmpty())
+            return { extB, "vst3" };
+        return { {}, "vst3" }; // card na gaveta: carrega mesmo assim
+    }
+    return { {}, {} };
+}
+
+void ChainView::fileDragMove (const juce::StringArray& files, int x, int y)
+{
+    juce::Rectangle<int> target;
+    if (! files.isEmpty())
+        target = dropTargetAt (files[0], x, y).first;
+    if (target != dropHighlight)
+    {
+        dropHighlight = target;
+        repaint();
+    }
+}
+
+void ChainView::fileDragExit (const juce::StringArray&)
+{
+    if (! dropHighlight.isEmpty())
+    {
+        dropHighlight = {};
+        repaint();
+    }
+}
+
+void ChainView::filesDropped (const juce::StringArray& files, int x, int y)
+{
+    dropHighlight = {};
+    for (const auto& f : files)
+    {
+        const auto [rect, action] = dropTargetAt (f, x, y);
+        if (action.startsWith ("nam:"))
+            processor.setModelPair (action.fromFirstOccurrenceOf (":", false, false).getIntValue(),
+                                    juce::File (f), {});
+        else if (action.startsWith ("ir:"))
+            processor.loadIrAsync (action.fromFirstOccurrenceOf (":", false, false).getIntValue(),
+                                   juce::File (f));
+        else if (action == "vst3")
+            processor.loadExternalPluginAsync (juce::File (f));
+    }
+    repaint();
+}
+
 void ChainView::mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails& wheel)
 {
     // roda do mouse rola a cadeia (não há scroll vertical aqui)
@@ -1169,7 +1333,8 @@ void ChainView::mouseUp (const juce::MouseEvent&)
 
 int ChainView::effectCardWidth (const juce::String& id) const
 {
-    if (id == "eq" || id == "preeq" || id == "looper" || id == "ext" || id == "harm")
+    if (id == "eq" || id == "preeq" || id == "looper" || id == "ext" || id == "harm"
+        || id == "analyzer")
         return 176;
     return 132;
 }
@@ -1198,6 +1363,7 @@ juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
     if (id == "deesser") return dsB;
     if (id == "tape") return tapeB;
     if (id == "console") return cnsB;
+    if (id == "analyzer") return anB;
     return ampLaneB[0].getUnion (mixerB); // "amp" = bloco rigs+mixer
 }
 
@@ -1219,7 +1385,7 @@ void ChainView::resized()
     static const char* allFxIds[] = { "gate", "comp", "od", "preeq", "eq", "mod", "delay",
                                       "reverb", "pitch", "looper", "limiter", "ext", "wah",
                                       "harm", "octaver", "ringmod", "bitcrush", "slowgear",
-                                      "exciter", "deesser", "tape", "console" };
+                                      "exciter", "deesser", "tape", "console", "analyzer" };
     const auto chain = processor.getChainOrder();
     for (auto* id : allFxIds)
     {
@@ -1228,7 +1394,7 @@ void ChainView::resized()
             c->setVisible (present);
     }
     gateB = odB = eqB = delayB = revB = compB = preEqB = pitchB = looperB = limB = extB = {};
-    wahB = harmB = octB = rmB = bcB = sgB = excB = dsB = tapeB = cnsB = {};
+    wahB = harmB = octB = rmB = bcB = sgB = excB = dsB = tapeB = cnsB = anB = {};
 
     // posiciona os cartões seguindo a ordem dinâmica da cadeia
     int x = 26;
@@ -1290,6 +1456,7 @@ void ChainView::resized()
             else if (id == "deesser") dsB = box;
             else if (id == "tape") tapeB = box;
             else if (id == "console") cnsB = box;
+            else if (id == "analyzer") anB = box;
             x += w + 30;
         }
     }
@@ -1343,6 +1510,7 @@ void ChainView::resized()
     layoutPedal (dsB, dsLed, { dsFreqKnob.get(), dsSensKnob.get(), dsAmtKnob.get() });
     layoutPedal (tapeB, tapeLed, { tapeDriveKnob.get(), tapeBumpKnob.get(), tapeRollKnob.get() });
     layoutPedal (cnsB, cnsLed, { cnsAmtKnob.get() });
+    anLed.setBounds (anB.getRight() - 12 - 18, anB.getY() + 10, 18, 18);
 
     // harmonizer: 3 seletores (TOM/ESCALA/INTERVALO) + MIX/LEVEL
     {
@@ -1806,6 +1974,60 @@ void ChainView::paint (juce::Graphics& g)
                           juce::Justification::topLeft, 2);
     }
 
+    // ---- analisador de espectro (FFT 2048 ao vivo)
+    if (! anB.isEmpty())
+    {
+        drawPedalFrame (g, anB, "Analisador",
+                        juce::String (juce::CharPointer_UTF8 ("espectro \xc2\xb7 40 Hz\xe2\x80\x93""16 kHz")));
+
+        auto viz = juce::Rectangle<float> ((float) anB.getX() + 13.0f, (float) anB.getY() + 40.0f,
+                                           (float) anB.getWidth() - 26.0f,
+                                           (float) anB.getHeight() - 40.0f - 84.0f);
+        g.setColour (ui::meterBg);
+        g.fillRoundedRectangle (viz, 9.0f);
+
+        if (processor.apvts.getRawParameterValue ("anOn")->load() > 0.5f)
+        {
+            // FFT do trecho mais recente + bandas log com decaimento suave
+            constexpr int fftSize = 2048;
+            static float sample[fftSize];
+            processor.readAnalyzerBlock (sample, fftSize);
+            for (int i = 0; i < fftSize; ++i)
+                anFftBuf[(size_t) i] = sample[i]
+                    * (0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi * i / (fftSize - 1)));
+            std::fill (anFftBuf.begin() + fftSize, anFftBuf.end(), 0.0f);
+            anFft.performFrequencyOnlyForwardTransform (anFftBuf.data());
+
+            const double sr = 48000.0; // exibição; a razão log é o que importa
+            for (int b = 0; b < anNumBands; ++b)
+            {
+                const double f0 = 40.0 * std::pow (400.0, (double) b / anNumBands);
+                const double f1 = 40.0 * std::pow (400.0, (double) (b + 1) / anNumBands);
+                const int k0 = juce::jlimit (1, fftSize / 2 - 1, (int) (f0 * fftSize / sr));
+                const int k1 = juce::jlimit (k0 + 1, fftSize / 2, (int) (f1 * fftSize / sr) + 1);
+                float mag = 0.0f;
+                for (int k = k0; k < k1; ++k)
+                    mag = juce::jmax (mag, anFftBuf[(size_t) k]);
+                const float db = juce::Decibels::gainToDecibels (mag / (fftSize * 0.25f), -80.0f);
+                const float norm = juce::jlimit (0.0f, 1.0f, (db + 70.0f) / 70.0f);
+                anBands[b] = norm > anBands[b] ? norm : anBands[b] * 0.85f; // decai suave
+            }
+
+            const float bw = (viz.getWidth() - 12.0f) / anNumBands;
+            for (int b = 0; b < anNumBands; ++b)
+            {
+                const float hgt = juce::jmax (2.0f, anBands[b] * (viz.getHeight() - 12.0f));
+                const float bx = viz.getX() + 6.0f + b * bw;
+                juce::ColourGradient grad (ui::accent, 0.0f, viz.getBottom() - 6.0f - hgt,
+                                           ui::accent.withAlpha (0.15f), 0.0f,
+                                           viz.getBottom() - 6.0f, false);
+                g.setGradientFill (grad);
+                g.fillRoundedRectangle (bx + 1.0f, viz.getBottom() - 6.0f - hgt,
+                                        bw - 2.0f, hgt, 2.0f);
+            }
+        }
+    }
+
     // ---- limiter (com barrinha de gain reduction)
     if (! limB.isEmpty())
     {
@@ -2086,34 +2308,48 @@ void ChainView::paint (juce::Graphics& g)
         }
     }
 
-    // ---- "✕" de remover (volta o efeito pra gaveta)
+    // ---- "✕" de remover (volta o efeito pra gaveta; realça no hover)
     for (const auto& entry : orderedEntries())
     {
         if (entry.id == "amp" || entry.box.isEmpty())
             continue;
-        const auto h = removeHotspot (entry.box).toFloat();
-        g.setColour (ui::textFaint.withAlpha (0.55f));
-        g.drawLine (h.getX() + 4.0f, h.getY() + 4.0f, h.getRight() - 4.0f, h.getBottom() - 4.0f, 1.4f);
-        g.drawLine (h.getRight() - 4.0f, h.getY() + 4.0f, h.getX() + 4.0f, h.getBottom() - 4.0f, 1.4f);
+        const auto hi = removeHotspot (entry.box);
+        const bool hov = hi == hoverHotspot;
+        const auto h = hi.toFloat();
+        g.setColour (hov ? ui::red.withAlpha (0.95f) : ui::textFaint.withAlpha (0.55f));
+        g.drawLine (h.getX() + 4.0f, h.getY() + 4.0f, h.getRight() - 4.0f, h.getBottom() - 4.0f,
+                    hov ? 1.8f : 1.4f);
+        g.drawLine (h.getRight() - 4.0f, h.getY() + 4.0f, h.getX() + 4.0f, h.getBottom() - 4.0f,
+                    hov ? 1.8f : 1.4f);
     }
 
-    // ---- "+" nos conectores (inserir efeito naquela posição)
+    // ---- "+" nos conectores (inserir efeito naquela posição; realça no hover)
     for (const auto& [rect, idx] : insertSpots())
     {
-        auto rf = rect.toFloat().reduced (2.0f);
+        const bool hov = rect == hoverHotspot;
+        auto rf = rect.toFloat().reduced (hov ? 0.0f : 2.0f);
         g.setColour (ui::cardTop);
         g.fillEllipse (rf);
-        g.setColour (ui::accent.withAlpha (0.4f));
-        g.drawEllipse (rf, 1.2f);
-        g.setColour (ui::accent.withAlpha (0.85f));
-        g.setFont (ui::uiFont (14.0f, true));
+        g.setColour (ui::accent.withAlpha (hov ? 0.95f : 0.4f));
+        g.drawEllipse (rf, hov ? 1.6f : 1.2f);
+        g.setColour (ui::accent.withAlpha (hov ? 1.0f : 0.85f));
+        g.setFont (ui::uiFont (hov ? 16.0f : 14.0f, true));
         g.drawText ("+", rect, juce::Justification::centred);
+    }
+
+    // alvo do drop de arquivo (capture/IR/vst3 arrastado do Explorer)
+    if (! dropHighlight.isEmpty())
+    {
+        g.setColour (ui::accent.withAlpha (0.9f));
+        g.drawRoundedRectangle (dropHighlight.toFloat().reduced (1.5f), 16.0f, 2.5f);
+        g.setColour (ui::accent.withAlpha (0.12f));
+        g.fillRoundedRectangle (dropHighlight.toFloat(), 16.0f);
     }
 
     // ---- botão "+ EFEITO" (gaveta)
     {
         auto bf = addFxB.toFloat();
-        g.setColour (ui::accent.withAlpha (0.35f));
+        g.setColour (ui::accent.withAlpha (addFxB == hoverHotspot ? 0.8f : 0.35f));
         const float dash[] = { 5.0f, 4.0f };
         juce::Path outline;
         outline.addRoundedRectangle (bf.reduced (1.0f), 14.0f);
@@ -2179,6 +2415,7 @@ void ChainView::paint (juce::Graphics& g)
                              : draggingId == "deesser" ? juce::String ("De-esser")
                              : draggingId == "tape" ? juce::String ("Tape")
                              : draggingId == "console" ? juce::String ("Console")
+                             : draggingId == "analyzer" ? juce::String ("Analisador")
                              : draggingId == "mod"
                                    ? juce::String (juce::CharPointer_UTF8 ("Modula\xc3\xa7\xc3\xa3o"))
                              : draggingId == "preeq"
@@ -2282,6 +2519,54 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (tunerToggle);
 
+    // MUTE do afinador: silencia a saída enquanto o afinador estiver ligado
+    muteChip.getProperties().set ("chip", true);
+    muteChip.getProperties().set ("chipActive", false);
+    muteChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Silencia a sa\xc3\xad""da enquanto o afinador est\xc3\xa1 ligado (afinar em sil\xc3\xaancio)")));
+    muteChip.setMouseClickGrabsKeyboardFocus (false);
+    muteChip.onClick = [this]
+    {
+        tunerMuteWanted = ! tunerMuteWanted;
+        muteChip.getProperties().set ("chipActive", tunerMuteWanted);
+        muteChip.repaint();
+    };
+    addAndMakeVisible (muteChip);
+
+    // GRAVADOR rápido: WAV da saída em Documentos\GuitarRig NAM\Gravações
+    recChip.getProperties().set ("chip", true);
+    recChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Grava a sa\xc3\xad""da em WAV (Documentos\\GuitarRig NAM\\Grava\xc3\xa7\xc3\xb5""es)")));
+    recChip.setMouseClickGrabsKeyboardFocus (false);
+    recChip.onClick = [this]
+    {
+        if (processor.isRecording())
+        {
+            processor.stopRecording();
+            recSavedTicks = 45;
+        }
+        else
+        {
+            if (processor.startRecording() != juce::File())
+                recStartMs = juce::Time::currentTimeMillis();
+        }
+        recChip.getProperties().set ("chipActive", processor.isRecording());
+        recChip.repaint();
+    };
+    addAndMakeVisible (recChip);
+
+    // A/B: compara dois ajustes completos
+    abButton.getProperties().set ("chip", true);
+    abButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "A/B: alterna entre dois ajustes completos do rig (o atual \xc3\xa9 salvo no slot ativo)")));
+    abButton.setMouseClickGrabsKeyboardFocus (false);
+    abButton.onClick = [this]
+    {
+        processor.toggleAB();
+        abButton.setButtonText (processor.getABIndex() == 0 ? "A" : "B");
+    };
+    addAndMakeVisible (abButton);
+
     // PALCO: modo performance — só o essencial, gigante (tecla F)
     perfChip.getProperties().set ("chip", true);
     perfChip.getProperties().set ("chipActive", false);
@@ -2375,8 +2660,9 @@ void RigContent::resized()
     outMeter.setBounds (metersRight - 60 - 14 - 78, 32, 78, 7);
 
     {
-        const int pillW = 200, navW = 32, saveW = 68, gap = 8;
-        const int groupW = navW + gap + pillW + gap + navW + gap + saveW;
+        const int pillW = 190, navW = 32, saveW = 64, gap = 8;
+        const int groupW = navW + gap + pillW + gap + navW + gap + saveW
+                           + gap + 40 + 6 + 66; // + A/B + REC
         // deslocado para a esquerda para não colidir com os medidores
         int x = juce::jmin ((W - groupW) / 2, inMeter.getX() - 24 - groupW);
         x = juce::jmax (x, 200);
@@ -2387,13 +2673,19 @@ void RigContent::resized()
         nextButton.setBounds (x, 13, navW, 34);
         x += navW + gap;
         saveButton.setBounds (x, 13, saveW, 34);
+        x += saveW + gap;
+        abButton.setBounds (x, 16, 40, 28);
+        x += 40 + 6;
+        recChip.setBounds (x, 16, 66, 28);
     }
 
-    // ---- cadeia (rolável) e afinador
+    // ---- cadeia (rolável) e barra inferior (chips)
     chainViewport.setBounds (0, 60, W, getHeight() - 60 - 60);
-    tunerToggle.setBounds (22, getHeight() - 60 + 16, 92, 28);
-    autoEcoChip.setBounds (122, getHeight() - 60 + 16, 92, 28);
-    perfChip.setBounds (222, getHeight() - 60 + 16, 76, 28);
+    const int by = getHeight() - 60 + 16;
+    tunerToggle.setBounds (22, by, 76, 28);
+    muteChip.setBounds (102, by, 48, 28);
+    autoEcoChip.setBounds (154, by, 78, 28);
+    perfChip.setBounds (236, by, 58, 28);
 }
 
 void RigContent::setPerfMode (bool shouldBeOn)
@@ -2767,6 +3059,37 @@ void RigContent::timerCallback()
     {
         tunerToggle.getProperties().set ("chipActive", isTunerOn());
         tunerToggle.repaint();
+    }
+
+    // mute do afinador só vale com o afinador ativo (ou no palco)
+    processor.setTunerMuted (tunerMuteWanted && (isTunerOn() || perfMode));
+
+    // gravador: mostra o tempo decorrido no chip
+    {
+        juce::String recText;
+        if (processor.isRecording())
+        {
+            const int secs = (int) ((juce::Time::currentTimeMillis() - recStartMs) / 1000);
+            recText = juce::String::fromUTF8 ("\xe2\x96\xa0 ")
+                      + juce::String (secs / 60) + ":"
+                      + juce::String (secs % 60).paddedLeft ('0', 2);
+        }
+        else if (recSavedTicks > 0)
+        {
+            --recSavedTicks;
+            recText = "SALVO";
+        }
+        else
+        {
+            recText = juce::String::fromUTF8 ("\xe2\x97\x8f REC");
+        }
+        if (recChip.getButtonText() != recText)
+            recChip.setButtonText (recText);
+        if ((bool) recChip.getProperties()["chipActive"] != processor.isRecording())
+        {
+            recChip.getProperties().set ("chipActive", processor.isRecording());
+            recChip.repaint();
+        }
     }
 
     if (perfMode)

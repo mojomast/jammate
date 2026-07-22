@@ -39,6 +39,11 @@ public:
     Status getStatus() const { return status; }
     const Info& getInfo() const { return info; }
 
+    // favorito (★): persistido pelo overlay em favoritos.json
+    void setFavorite (bool fav);
+    bool isFavorite() const { return favorite; }
+    std::function<void (ToneCardComponent&)> onToggleFavorite;
+
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -46,8 +51,10 @@ private:
     Info info;
     Status status = Status::add;
     int progress = 0;
+    bool favorite = false;
     juce::Image image;
     juce::TextButton addButton;
+    juce::TextButton favButton;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToneCardComponent)
 };
@@ -119,6 +126,13 @@ private:
     juce::OwnedArray<juce::TextButton> tagChips;   // multi-toggle; entram na query
     juce::TextButton a2Chip { juce::String (juce::CharPointer_UTF8 ("S\xc3\xb3 A2")) };
     bool a2Only = false;
+    // favoritos (★): ids persistidos em Documentos\GuitarRig NAM\favoritos.json
+    juce::TextButton favChip { juce::String (juce::CharPointer_UTF8 ("S\xc3\xb3 \xe2\x98\x85")) };
+    bool favOnly = false;
+    juce::StringArray favIds;
+    void loadFavorites();
+    void saveFavorites() const;
+    void toggleFavorite (ToneCardComponent&);
     juce::StringArray activeTags;
     juce::ComboBox sortCombo;
 

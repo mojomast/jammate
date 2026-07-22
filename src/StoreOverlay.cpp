@@ -47,7 +47,30 @@ ToneCardComponent::ToneCardComponent (Info cardInfo, std::function<void (ToneCar
     addButton.setButtonText ("Adicionar");
     addButton.onClick = [this, onAdd = std::move (onAdd)] { onAdd (*this); };
     addAndMakeVisible (addButton);
+
+    // ★ favorito (só para tones do TONE3000, não para arquivos locais)
+    favButton.getProperties().set ("chip", true);
+    favButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x86")));
+    favButton.setTooltip ("Favorito");
+    favButton.setMouseClickGrabsKeyboardFocus (false);
+    favButton.onClick = [this]
+    {
+        if (onToggleFavorite)
+            onToggleFavorite (*this);
+    };
+    favButton.setVisible (info.toneId != 0);
+    addChildComponent (favButton);
+    favButton.setVisible (info.toneId != 0);
+
     setStatus (Status::add);
+}
+
+void ToneCardComponent::setFavorite (bool fav)
+{
+    favorite = fav;
+    favButton.setButtonText (juce::String (juce::CharPointer_UTF8 (fav ? "\xe2\x98\x85" : "\xe2\x98\x86")));
+    favButton.getProperties().set ("chipActive", fav);
+    favButton.repaint();
 }
 
 void ToneCardComponent::setStatus (Status s)
@@ -99,6 +122,7 @@ void ToneCardComponent::setLocalFile (const juce::File& file)
 void ToneCardComponent::resized()
 {
     addButton.setBounds (getLocalBounds().reduced (12).removeFromBottom (34));
+    favButton.setBounds (getWidth() - 8 - 30, 8, 30, 26);
 }
 
 void ToneCardComponent::paint (juce::Graphics& g)
@@ -367,6 +391,20 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
         addAndMakeVisible (chip);
     }
 
+    loadFavorites();
+    favChip.getProperties().set ("chip", true);
+    favChip.getProperties().set ("chipActive", false);
+    favChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "S\xc3\xb3 os tones marcados com \xe2\x98\x85")));
+    favChip.onClick = [this]
+    {
+        favOnly = ! favOnly;
+        favChip.getProperties().set ("chipActive", favOnly);
+        favChip.repaint();
+        doSearch (1);
+    };
+    addAndMakeVisible (favChip);
+
     a2Chip.getProperties().set ("chip", true);
     a2Chip.getProperties().set ("chipActive", false);
     a2Chip.setTooltip (juce::String (juce::CharPointer_UTF8 (
@@ -519,8 +557,50 @@ juce::String StoreOverlay::formatCount (juce::int64 n) const
     return juce::String (n);
 }
 
+void StoreOverlay::loadFavorites()
+{
+    const auto file = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                          .getChildFile ("GuitarRig NAM")
+                          .getChildFile ("favoritos.json");
+    favIds.clear();
+    const auto parsed = juce::JSON::parse (file.loadFileAsString());
+    if (auto* arr = parsed.getProperty ("ids", {}).getArray())
+        for (const auto& v : *arr)
+            favIds.add (v.toString());
+}
+
+void StoreOverlay::saveFavorites() const
+{
+    auto* obj = new juce::DynamicObject();
+    juce::Array<juce::var> arr;
+    for (const auto& id : favIds)
+        arr.add (id);
+    obj->setProperty ("ids", arr);
+
+    auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                   .getChildFile ("GuitarRig NAM");
+    dir.createDirectory();
+    dir.getChildFile ("favoritos.json")
+        .replaceWithText (juce::JSON::toString (juce::var (obj), true));
+}
+
+void StoreOverlay::toggleFavorite (ToneCardComponent& card)
+{
+    const auto id = juce::String (card.getInfo().toneId);
+    if (favIds.contains (id))
+        favIds.removeString (id);
+    else
+        favIds.add (id);
+    saveFavorites();
+    card.setFavorite (favIds.contains (id));
+}
+
 void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
 {
+    // filtro "Só ★" (client-side; a API não conhece nossos favoritos)
+    if (favOnly && ! favIds.contains (juce::String (tone.id)))
+        return;
+
     ToneCardComponent::Info info;
     info.toneId = tone.id;
     info.title = tone.title;
@@ -534,6 +614,8 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
 
     auto* card = cards.add (new ToneCardComponent (info,
         [this] (ToneCardComponent& c) { startAddFlow (c); }));
+    card->setFavorite (favIds.contains (juce::String (tone.id)));
+    card->onToggleFavorite = [this] (ToneCardComponent& c) { toggleFavorite (c); };
     gridContent.addAndMakeVisible (card);
 
     if (info.imageUrl.isNotEmpty())
@@ -932,6 +1014,7 @@ void StoreOverlay::resized()
     }
     cx += 8;
     a2Chip.setBounds (cx, 74, 62, 28);
+    favChip.setBounds (cx + 68, 74, 58, 28);
     sortCombo.setBounds (W - 22 - 150, 72, 150, 32);
 
     // banner de erro
