@@ -4,3 +4,35 @@
 [submodule "third_party/NeuralAmpModelerCore"]
 	path = third_party/NeuralAmpModelerCore
 	url = https://github.com/sdatkinson/NeuralAmpModelerCore.git
+[submodule "references/airwindows"]
+	path = references/airwindows
+	url = https://github.com/airwindows/airwindows.git
+	shallow = true
+[submodule "references/BYOD"]
+	path = references/BYOD
+	url = https://github.com/Chowdhury-DSP/BYOD.git
+	shallow = true
+[submodule "references/dragonfly-reverb"]
+	path = references/dragonfly-reverb
+	url = https://github.com/michaelwillis/dragonfly-reverb.git
+	shallow = true
+[submodule "references/guitarix"]
+	path = references/guitarix
+	url = https://github.com/brummer10/guitarix.git
+	shallow = true
+[submodule "references/GxPlugins.lv2"]
+	path = references/GxPlugins.lv2
+	url = https://github.com/brummer10/GxPlugins.lv2.git
+	shallow = true
+[submodule "references/lsp-plugins"]
+	path = references/lsp-plugins
+	url = https://github.com/lsp-plugins/lsp-plugins.git
+	shallow = true
+[submodule "references/rkrlv2"]
+	path = references/rkrlv2
+	url = https://github.com/ssj71/rkrlv2.git
+	shallow = true
+[submodule "references/ToobAmp"]
+	path = references/ToobAmp
+	url = https://github.com/rerdavies/ToobAmp.git
+	shallow = true

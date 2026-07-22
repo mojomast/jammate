@@ -47,7 +47,8 @@ Requisitos: VS 2022 (Build Tools ou Community) com C++, CMake ≥ 3.22, Git.
 ```powershell
 git clone <url-do-repo> GuitarRigNAM
 cd GuitarRigNAM
-git submodule update --init --recursive
+# só o necessário para o build (references/ é opcional e pesado):
+git submodule update --init --recursive third_party
 
 cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
@@ -82,22 +83,28 @@ A API exige uma chave própria (grátis):
 src/                  código do plugin (processor, editor, store, cliente TONE3000)
 assets/fonts/         Space Grotesk + JetBrains Mono (OFL, embutidas no binário)
 docs/screenshots/     telas do projeto
-third_party/JUCE            submódulo pinado em 8.0.15
-third_party/NeuralAmpModelerCore  submódulo pinado em v0.5.4 (suporte A2)
+references/           submódulos OPCIONAIS: projetos de referência p/ efeitos (ver references/README.md)
+third_party/JUCE            submódulo pinado em 8.0.15 (necessário p/ build)
+third_party/NeuralAmpModelerCore  submódulo pinado em v0.5.4, suporte A2 (necessário p/ build)
 ```
 
 Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `IRs/`, `Presets/`, `tone3000.json`.
 
 ## 🗺️ Roadmap
 
-- [ ] Animações e microinterações (LEDs pulsando, transições)
-- [ ] Medidores com peak-hold e indicador de clip
-- [ ] Drag-and-drop de arquivos e da biblioteca
-- [ ] Afinador com mute (modo pedal)
-- [ ] Delay ping-pong / reverb estéreo
-- [ ] Favoritos do TONE3000 na biblioteca
-- [ ] Segundo slot de IR com mix
-- [ ] A/B de rigs · gravador rápido · modo performance
+**Em andamento (Fase 6):**
+- [ ] Cabs paralelos: 1–3 slots de IR com blend, low/high cut e phase por cab
+- [ ] Cadeia com slots genéricos reordenáveis por drag-and-drop (amp+cab fixos como âncora)
+- [ ] Efeitos P1: compressor de pedal (presets Clean/Country/Lead), gate com hold+histerese, pré-EQ antes do NAM
+- [ ] Aviso no medidor quando a CPU passar de 90%
+
+**Próximos:**
+- [ ] Efeitos P2: pacote de drives, delay com tap tempo/ping-pong, reverbs Spring/Plate/Room/Hall, modulações
+- [ ] Efeitos P3: pitch/octaver, looper com export WAV, limiter/clip/analisador
+- [ ] Slot de plugin **VST3 externo** (hosting JUCE — Dragonfly, LSP etc. sem portar código)
+- [ ] Animações e microinterações · medidores com peak-hold/clip
+- [ ] Drag-and-drop de arquivos · afinador com mute · delay/reverb estéreo
+- [ ] Favoritos do TONE3000 · A/B de rigs · gravador rápido · modo performance
 
 ## 📜 Licenças
 
