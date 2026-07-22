@@ -40,6 +40,7 @@ Tone3000Client::Tone3000Client()
 Tone3000Client::~Tone3000Client()
 {
     pool.removeAllJobs (true, 10000);
+    imagePool.removeAllJobs (true, 5000);
 }
 
 juce::String Tone3000Client::redirectUri()
@@ -430,6 +431,12 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
                 tone.downloads = (juce::int64) t.getProperty ("downloads_count", 0);
                 tone.favorites = (juce::int64) t.getProperty ("favorites_count", 0);
 
+                if (auto* images = t.getProperty ("images", juce::var()).getArray())
+                    if (! images->isEmpty())
+                        tone.imageUrl = images->getFirst().toString();
+
+                tone.hasA2 = (int) t.getProperty ("a2_models_count", 0) > 0;
+
                 // Só formatos que o GuitarRig consegue usar hoje.
                 if (tone.format == "nam" || tone.format == "ir")
                     result.tones.push_back (tone);
@@ -437,6 +444,49 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
         }
 
         deliver (std::move (result));
+    });
+}
+
+void Tone3000Client::fetchImage (const juce::String& url, std::function<void (juce::Image)> done)
+{
+    if (url.isEmpty())
+        return;
+
+    imagePool.addJob ([url, done]
+    {
+        auto cacheDir = dataDir().getChildFile (".cache").getChildFile ("images");
+        cacheDir.createDirectory();
+        auto cacheFile = cacheDir.getChildFile (
+            juce::String::toHexString (url.hashCode64()) + ".img");
+
+        juce::Image img;
+        if (cacheFile.existsAsFile())
+            img = juce::ImageFileFormat::loadFrom (cacheFile);
+
+        if (img.isNull())
+        {
+            juce::URL u (url);
+            juce::WebInputStream stream (u, false);
+            stream.connect (nullptr);
+            if (stream.getStatusCode() != 200)
+                return;
+
+            juce::MemoryBlock data;
+            stream.readIntoMemoryBlock (data);
+            img = juce::ImageFileFormat::loadFrom (data.getData(), data.getSize());
+            if (img.isValid())
+                cacheFile.replaceWithData (data.getData(), data.getSize());
+        }
+
+        if (img.isNull())
+            return; // formato não suportado (ex.: webp) — o cartão fica com o placeholder
+
+        // Reduz para ~2x a largura do cartão: memória e blit baratos.
+        if (img.getWidth() > 560)
+            img = img.rescaled (560, juce::jmax (1, juce::roundToInt (
+                                          560.0 * img.getHeight() / img.getWidth())));
+
+        juce::MessageManager::callAsync ([done, img] { done (img); });
     });
 }
 

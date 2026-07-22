@@ -7,20 +7,35 @@ namespace
 juce::String gearLabel (const juce::String& gear)
 {
     if (gear == "amp") return "AMP HEAD";
+    if (gear == "amp-cab") return "AMP + CAB";
     if (gear == "pedal") return "STOMPBOX";
     if (gear == "full-rig") return "FULL RIG";
     if (gear == "ir") return "IMPULSE RESPONSE";
     if (gear == "outboard") return "OUTBOARD";
-    return "GEAR";
+    return gear.isEmpty() ? juce::String ("GEAR") : gear.toUpperCase();
 }
 
+// Rótulo dos chips de FILTRO ("" = sem filtro -> "Tudo").
 juce::String gearChipLabel (const juce::String& gear)
 {
     if (gear == "amp") return "Amp";
+    if (gear == "amp-cab") return "Amp+Cab";
     if (gear == "pedal") return "Pedal";
     if (gear == "full-rig") return "Full Rig";
     if (gear == "ir") return "IR";
     return "Tudo";
+}
+
+// Rótulo de tipo exibido NO CARTÃO (fallback: valor cru capitalizado, para
+// valores de gear que a API adicionar no futuro).
+juce::String gearDisplay (const juce::String& gear)
+{
+    if (gear.isEmpty())
+        return "Gear";
+    const auto known = gearChipLabel (gear);
+    if (known != "Tudo")
+        return known;
+    return gear.substring (0, 1).toUpperCase() + gear.substring (1);
 }
 } // namespace
 
@@ -68,6 +83,12 @@ void ToneCardComponent::setProgress (int pct)
     repaint();
 }
 
+void ToneCardComponent::setImage (juce::Image newImage)
+{
+    image = std::move (newImage);
+    repaint();
+}
+
 void ToneCardComponent::resized()
 {
     addButton.setBounds (getLocalBounds().reduced (12).removeFromBottom (34));
@@ -83,30 +104,47 @@ void ToneCardComponent::paint (juce::Graphics& g)
     g.setColour (juce::Colour (0xff303338));
     g.drawRoundedRectangle (b.reduced (0.5f), 12.0f, 1.0f);
 
-    // ---- header hachurado (130 px)
+    // ---- header: imagem do tone, ou hachurado como placeholder (130 px)
     auto header = getLocalBounds().withHeight (130);
     {
         g.saveState();
         juce::Path clip;
         clip.addRoundedRectangle (b.getX(), b.getY(), b.getWidth(), 130.0f, 12.0f);
         g.reduceClipRegion (clip);
-        g.setColour (juce::Colour (0xff2b2e33));
-        g.fillRect (header);
-        g.setColour (juce::Colour (0xff26282d));
-        for (float x = -130.0f; x < (float) getWidth() + 130.0f; x += 18.0f)
+
+        if (image.isValid())
         {
-            juce::Path stripe;
-            stripe.addQuadrilateral (x, 130.0f, x + 130.0f, 0.0f, x + 139.0f, 0.0f, x + 9.0f, 130.0f);
-            g.fillPath (stripe);
+            // preenche o header mantendo proporção (crop centralizado)
+            const float scale = juce::jmax ((float) getWidth() / (float) image.getWidth(),
+                                            130.0f / (float) image.getHeight());
+            const float dw = image.getWidth() * scale, dh = image.getHeight() * scale;
+            g.drawImage (image, juce::Rectangle<float> (((float) getWidth() - dw) / 2.0f,
+                                                        (130.0f - dh) / 2.0f, dw, dh),
+                         juce::RectanglePlacement::stretchToFit);
+        }
+        else
+        {
+            g.setColour (juce::Colour (0xff2b2e33));
+            g.fillRect (header);
+            g.setColour (juce::Colour (0xff26282d));
+            for (float x = -130.0f; x < (float) getWidth() + 130.0f; x += 18.0f)
+            {
+                juce::Path stripe;
+                stripe.addQuadrilateral (x, 130.0f, x + 130.0f, 0.0f, x + 139.0f, 0.0f, x + 9.0f, 130.0f);
+                g.fillPath (stripe);
+            }
         }
         g.restoreState();
 
-        g.setFont (ui::monoFont (9.0f));
-        g.setColour (juce::Colour (0xff5a5d63));
-        g.drawText (gearLabel (info.gear), header, juce::Justification::centred);
+        if (image.isNull())
+        {
+            g.setFont (ui::monoFont (9.0f));
+            g.setColour (juce::Colour (0xff5a5d63));
+            g.drawText (gearLabel (info.gear), header, juce::Justification::centred);
+        }
 
         // chip do tipo (topo esquerdo)
-        const auto typeText = gearChipLabel (info.gear);
+        const auto typeText = gearDisplay (info.gear);
         g.setFont (ui::monoFont (9.0f, true));
         const int tw = 14 + 6 * typeText.length();
         auto typeChip = juce::Rectangle<float> (9.0f, 9.0f, (float) tw, 17.0f);
@@ -117,16 +155,26 @@ void ToneCardComponent::paint (juce::Graphics& g)
         g.setColour (juce::Colour (0xffc8cace));
         g.drawText (typeText, typeChip, juce::Justification::centred);
 
-        // badge de formato (topo direito)
-        if (info.formatBadge.isNotEmpty())
+        // badges (topo direito): formato e, se houver modelos A2, "A2"
         {
-            auto badge = juce::Rectangle<float> (b.getWidth() - 9.0f - 34.0f, 9.0f, 34.0f, 17.0f);
-            g.setColour (juce::Colours::black.withAlpha (0.4f));
-            g.fillRoundedRectangle (badge, 5.0f);
-            g.setColour (ui::accent);
-            g.drawRoundedRectangle (badge, 5.0f, 1.0f);
-            g.setFont (ui::monoFont (9.0f, true));
-            g.drawText (info.formatBadge, badge, juce::Justification::centred);
+            float badgeX = b.getWidth() - 9.0f;
+            auto drawBadge = [&] (const juce::String& text)
+            {
+                const float bw = 14.0f + 6.5f * (float) text.length();
+                badgeX -= bw;
+                auto badge = juce::Rectangle<float> (badgeX, 9.0f, bw, 17.0f);
+                g.setColour (juce::Colours::black.withAlpha (0.4f));
+                g.fillRoundedRectangle (badge, 5.0f);
+                g.setColour (ui::accent);
+                g.drawRoundedRectangle (badge, 5.0f, 1.0f);
+                g.setFont (ui::monoFont (9.0f, true));
+                g.drawText (text, badge, juce::Justification::centred);
+                badgeX -= 5.0f;
+            };
+            if (info.formatBadge.isNotEmpty())
+                drawBadge (info.formatBadge);
+            if (info.a2)
+                drawBadge ("A2");
         }
 
         // offline ok (base esquerda)
@@ -273,7 +321,7 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     };
     addChildComponent (userChip);
 
-    for (const auto* gear : { "", "amp", "pedal", "full-rig", "ir" })
+    for (const auto* gear : { "", "amp", "amp-cab", "pedal", "full-rig", "ir" })
     {
         auto* chip = gearChips.add (new juce::TextButton (gearChipLabel (gear)));
         chip->getProperties().set ("chip", true);
@@ -391,6 +439,8 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
     info.creator = tone.creator;
     info.gear = tone.gear;
     info.formatBadge = tone.format == "ir" ? "IR" : "NAM";
+    info.imageUrl = tone.imageUrl;
+    info.a2 = tone.hasA2;
     info.downloads = formatCount (tone.downloads);
     info.favorites = formatCount (tone.favorites);
 
@@ -399,7 +449,10 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
         {
             c.setStatus (ToneCardComponent::Status::downloading);
             const auto& ci = c.getInfo();
-            client.downloadTone (ci.toneId, ci.gear,
+            // Roteia por FORMATO (não por gear): existem tones com gear "cab"
+            // cujo formato é IR, por exemplo.
+            const juce::String kind = ci.formatBadge == "IR" ? "ir" : "nam";
+            client.downloadTone (ci.toneId, kind,
                 [safe = juce::Component::SafePointer<ToneCardComponent> (&c)] (int pct)
                 {
                     if (safe != nullptr)
@@ -418,13 +471,21 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
                         return;
                     }
                     safe->setStatus (ToneCardComponent::Status::inRig);
-                    if (safe->getInfo().gear == "ir")
+                    if (safe->getInfo().formatBadge == "IR")
                         processor.loadIrAsync (file);
                     else
                         processor.loadModelAsync (file);
                 });
         }));
     gridContent.addAndMakeVisible (card);
+
+    if (info.imageUrl.isNotEmpty())
+        client.fetchImage (info.imageUrl,
+            [safe = juce::Component::SafePointer<ToneCardComponent> (card)] (juce::Image img)
+            {
+                if (safe != nullptr)
+                    safe->setImage (std::move (img));
+            });
 }
 
 void StoreOverlay::doSearch (int page)

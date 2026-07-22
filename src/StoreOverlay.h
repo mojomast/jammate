@@ -20,6 +20,8 @@ public:
         juce::File localFile;        // preenchido para itens locais/baixados
         juce::String title, creator, gear;   // gear: amp/pedal/full-rig/ir/...
         juce::String formatBadge;    // "NAM" / "IR"
+        juce::String imageUrl;       // imagem do tone ("" = placeholder)
+        bool a2 = false;             // tem modelos A2 disponíveis
         juce::String downloads, favorites;   // formatados ("24.1k"); vazios p/ locais
         bool offline = false;        // já existe localmente
     };
@@ -28,6 +30,7 @@ public:
 
     void setStatus (Status s);
     void setProgress (int pct);
+    void setImage (juce::Image);
     Status getStatus() const { return status; }
     const Info& getInfo() const { return info; }
 
@@ -38,6 +41,7 @@ private:
     Info info;
     Status status = Status::add;
     int progress = 0;
+    juce::Image image;
     juce::TextButton addButton;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToneCardComponent)

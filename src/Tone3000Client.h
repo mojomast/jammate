@@ -2,6 +2,7 @@
 
 #include <juce_core/juce_core.h>
 #include <juce_events/juce_events.h>
+#include <juce_graphics/juce_graphics.h>
 
 #include <atomic>
 #include <functional>
@@ -28,6 +29,8 @@ public:
     {
         int id = 0;
         juce::String title, creator, gear, format;
+        juce::String imageUrl; // primeira imagem do tone ("" se não houver)
+        bool hasA2 = false;    // a2_models_count > 0
         juce::int64 downloads = 0, favorites = 0;
     };
 
@@ -61,6 +64,11 @@ public:
                        std::function<void (int)> progress,
                        std::function<void (juce::File, juce::String error)> done);
 
+    /// Busca a imagem de um tone (com cache em disco). done só é chamado se a
+    /// imagem carregar; formatos que o JUCE não decodifica (ex.: webp) são
+    /// silenciosamente ignorados.
+    void fetchImage (const juce::String& url, std::function<void (juce::Image)> done);
+
     static juce::File dataDir();
     static juce::File capturesDir();
     static juce::File irsDir();
@@ -76,8 +84,10 @@ private:
     juce::int64 accessTokenExpiry = 0;      // só pool thread
     juce::CriticalSection configLock;
 
-    // 1 thread: serializa a rede e evita corrida no accessToken.
+    // 1 thread: serializa a rede autenticada e evita corrida no accessToken.
     juce::ThreadPool pool { 1 };
+    // Imagens são públicas (sem token) e podem baixar em paralelo.
+    juce::ThreadPool imagePool { 2 };
     std::atomic<bool> connecting { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Tone3000Client)
