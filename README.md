@@ -1,43 +1,51 @@
-# GuitarRig NAM
+# 🎸 GuitarRig NAM
 
-Amp sim pessoal de guitarra (Standalone + VST3) baseado em [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) e JUCE 8.
+**Amp sim pessoal para guitarra** — Standalone + VST3, baseado em [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) (captures neurais de amplificadores reais) e JUCE 8, com loja integrada ao [TONE3000](https://www.tone3000.com).
 
-**Estado atual: Fase 4** — Tone Store integrado ao [TONE3000](https://www.tone3000.com):
+![Windows](https://img.shields.io/badge/Windows-10%2F11%20x64-0078d4) ![JUCE](https://img.shields.io/badge/JUCE-8.0.15-8bc34a) ![NAM](https://img.shields.io/badge/NAM%20Core-v0.5.4%20(A2)-33c9d6) ![Status](https://img.shields.io/badge/status-funcional%20%C2%B7%20em%20evolu%C3%A7%C3%A3o-33c9d6)
 
-- Overlay do store (botão **Tone Store**): busca na biblioteca do TONE3000 com filtros de tipo (Amp/Pedal/Full Rig/IR) e ordenação (em alta/recentes/baixados), paginação, download com progresso e carregamento direto no rig. A aba **Minha biblioteca** lista os arquivos locais (`Documentos\GuitarRig NAM\Captures` e `IRs`) e funciona offline.
-- Login OAuth 2.0 + PKCE: o botão Conectar abre o navegador; o app escuta o callback em `http://localhost:53682/callback`. O refresh token fica em `Documentos\GuitarRig NAM\tone3000.json` — a sessão sobrevive entre aberturas.
-- **Configuração necessária (uma vez)**: a API do TONE3000 exige uma chave publishable própria. Crie em tone3000.com → Settings → API Keys, registre o redirect `http://localhost:53682/callback` e cole a chave (`t3k_pub_…`) no campo `publishable_key` de `Documentos\GuitarRig NAM\tone3000.json`. Sem a chave, o store mostra as instruções; a aba Minha biblioteca funciona mesmo sem conta.
-- Downloads preferem modelos A2/standard; apenas formatos suportados (`.nam` e IRs) aparecem na busca.
-- Flag de dev: `GUITARRIG_OPEN_STORE=explore|library` abre o store ao iniciar (testes de UI).
+![Tela principal](docs/screenshots/rig.png)
 
-Base da Fase 3:
+---
 
-- **Resampler automático** (Lanczos, via `ResamplingContainer` do AudioDSPTools): captures rodam no sample rate que esperam, em qualquer sample rate da interface (~0,6 ms de latência extra quando ativo, reportada ao host e exibida na barra de status).
-- **Noise Gate** (pré-amp): THRESH (−90..−20 dB) e RELEASE (10..500 ms), expander 10:1.
-- **Cab IR**: carrega WAV/AIFF/FLAC via `juce::dsp::Convolution` (troca RT-safe, IR resampleado automaticamente), knob LEVEL. Um IR de teste transparente é criado em `Documentos\GuitarRig NAM\IRs\`.
-- **Presets**: XML em `Documentos\GuitarRig NAM\Presets\` — salvar (SALVAR), navegar (◂ ▸), escolher pelo menu do pill central. O preset inclui parâmetros + caminhos do capture e do IR.
+## 📊 Estado do projeto
 
-Base da Fase 2:
+| Fase | Entrega | Status |
+|------|---------|--------|
+| 0 | Casco JUCE (Standalone + VST3), passthrough, ASIO | ✅ |
+| 1 | NAM Core integrado ao build (WHOLE_ARCHIVE, C++20) | ✅ |
+| 2 | Carregamento de captures `.nam` + DSP real, troca RT-safe | ✅ |
+| 3 | Resampler automático (Lanczos), Noise Gate, Cab IR, presets | ✅ |
+| 4 | Tone Store: OAuth PKCE + busca + downloads do TONE3000 | ✅ |
+| 5 | Design v2, cadeia de pedais completa, afinador, fotos, UX | ✅ |
 
-- Botão **CARREGAR CAPTURE NAM** no cartão do amp abre um seletor de `.nam`; o carregamento (incl. prewarm) roda numa thread de fundo e o modelo é trocado na thread de áudio sem glitch (troca lock-free por atomics; nunca há alocação/`delete` no `processBlock`).
-- Cadeia mono: canal 0 → input gain → NAM → output level → duplicado para stereo.
-- Knobs **GAIN** (entrada, ±24 dB) e **LEVEL** (saída, −40..+12 dB), LED de bypass do amp, medidores IN/OUT, barra de status com sample rate/buffer.
-- O caminho do capture e os parâmetros são salvos no estado do plugin (o capture recarrega ao reabrir).
-- UI conforme o design do projeto (claude.ai/design), canvas lógico 1100×700 escalado — janela redimensionável com aspecto travado.
-- Sem resampling ainda: se o capture espera 48 kHz, rode a interface em 48 kHz (a barra de status avisa). Tone Store, afinador e cadeia de pedais/efeitos são fases futuras.
+**Validação**: cada fase foi testada com guitarra real (Focusrite ASIO, 48 kHz, 128 samples) e testes headless do DSP (carregamento das arquiteturas A2/WaveNet/LSTM, resampling 48→44.1 kHz).
 
-Modelos de exemplo para teste: `third_party/NeuralAmpModelerCore/example_models/*.nam`.
+## ⚡ Funcionalidades
 
-## Requisitos
+- **Cadeia de sinal completa** (rolável): `Input → Noise Gate → Overdrive → Amp NAM → Cab IR → EQ → Delay → Reverb → Output`
+- **Amp por capture neural**: qualquer `.nam` (arquiteturas A1/A2), com GAIN que satura o modelo como o amp real, tone stack B/M/T/Presence e Master
+- **Resampler automático**: captures rodam no sample rate que esperam, em qualquer sample rate da interface (~0,6 ms de latência, reportada ao host)
+- **Cab IR** por convolução (wav/aiff/flac, troca sem glitch) + knob AIR
+- **Tone Store (TONE3000)**: login OAuth, busca com fotos, filtros por tipo/tags/arquitetura A2, escolha de variação (mics/canais), downloads com progresso, biblioteca offline, sem re-downloads
+- **Afinador** real (detecção de pitch NSDF) com liga/desliga
+- **Presets**: salvar em 1 clique, "Salvar como", indicador de modificado (•), presets de fábrica, navegação ◂ ▸
+- **Fotos** do amp/cabinete carregados nos cartões do rig
+- **UX**: knobs com trava no default, duplo-clique reseta, roda ajusta, Ctrl = fino, valor digitável; tooltips em tudo; atalhos (espaço, T, ←/→, Esc); medidores IN/OUT + CPU real
+- **Real-time safety**: zero alocação/locks/IO no caminho de áudio (regra inegociável do projeto)
 
-- Windows 10/11 x64
-- Visual Studio 2022 com workload "Desktop development with C++"
-- CMake >= 3.22 e Git no PATH
+## 🖼️ Telas
 
-## Build
+| Tone Store | Biblioteca offline |
+|---|---|
+| ![Tone Store](docs/screenshots/tone-store.png) | ![Biblioteca](docs/screenshots/biblioteca.png) |
+
+## 🔧 Build (Windows)
+
+Requisitos: VS 2022 (Build Tools ou Community) com C++, CMake ≥ 3.22, Git.
 
 ```powershell
-git clone <url> GuitarRigNAM
+git clone <url-do-repo> GuitarRigNAM
 cd GuitarRigNAM
 git submodule update --init --recursive
 
@@ -45,35 +53,55 @@ cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
 
-Artefatos:
+Artefatos em `build\GuitarRigNAM_artefacts\Release\` (`Standalone\GuitarRig NAM.exe` e `VST3\GuitarRig NAM.vst3`).
 
-- Standalone: `build\GuitarRigNAM_artefacts\Release\Standalone\GuitarRig NAM.exe`
-- VST3: `build\GuitarRigNAM_artefacts\Release\VST3\GuitarRig NAM.vst3`
+### ASIO (recomendado)
 
-O VST3 não é copiado automaticamente para a pasta do sistema (`COPY_PLUGIN_AFTER_BUILD FALSE`). Para usar em um DAW, copie a pasta `.vst3` para `C:\Program Files\Common Files\VST3\`.
-
-## Habilitar ASIO (recomendado para latência baixa)
-
-O ASIO SDK da Steinberg não pode ser redistribuído, então o download é manual:
-
-1. Baixe o SDK em <https://www.steinberg.net/asiosdk> (aceite a licença).
-2. Extraia para `third_party/asiosdk/` de modo que exista `third_party/asiosdk/common/iasiodrv.h`.
-3. Reconfigure e rebuilde:
+O SDK da Steinberg não pode ser redistribuído. Baixe em <https://www.steinberg.net/asiosdk>, extraia para `third_party/asiosdk/` (deve existir `common/iasiodrv.h`) e reconfigure com:
 
 ```powershell
 cmake -B build -G "Visual Studio 17 2022" -A x64 -DASIOSDK_DIR="$PWD\third_party\asiosdk"
-cmake --build build --config Release
 ```
 
-Sem o SDK, o build funciona normalmente usando WASAPI/DirectSound.
+`third_party/asiosdk/` está no `.gitignore` e **nunca** entra no Git.
 
-A pasta `third_party/asiosdk/` está no `.gitignore` e nunca deve ser commitada (licença Steinberg).
+## 🔑 Configuração do TONE3000
 
-## Versões pinadas
+A API exige uma chave própria (grátis):
 
-- JUCE `8.0.15` (série 8.x)
-- NeuralAmpModelerCore `v0.5.4` (>= v0.5.2 exigido para arquitetura A2)
+1. Crie conta em [tone3000.com](https://www.tone3000.com) → Settings → API Keys
+2. Registre o redirect `http://localhost:53682/callback`
+3. Cole a chave (`t3k_pub_…`) em `Documentos\GuitarRig NAM\tone3000.json` (o app cria o template)
+4. No app: Tone Store → **Conectar TONE3000**
 
-## Regra de real-time safety
+> ⚠️ **Segurança**: `tone3000.json` guarda sua chave e o refresh token da sua conta. Ele vive em `Documentos\GuitarRig NAM\` — **fora deste repositório** — e nunca deve ser commitado em lugar nenhum.
 
-Dentro de `processBlock` é proibido alocar memória, usar locks, fazer I/O, logar ou chamar rede. Vale para todo o projeto.
+## 📁 Estrutura
+
+```
+src/                  código do plugin (processor, editor, store, cliente TONE3000)
+assets/fonts/         Space Grotesk + JetBrains Mono (OFL, embutidas no binário)
+docs/screenshots/     telas do projeto
+third_party/JUCE            submódulo pinado em 8.0.15
+third_party/NeuralAmpModelerCore  submódulo pinado em v0.5.4 (suporte A2)
+```
+
+Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `IRs/`, `Presets/`, `tone3000.json`.
+
+## 🗺️ Roadmap
+
+- [ ] Animações e microinterações (LEDs pulsando, transições)
+- [ ] Medidores com peak-hold e indicador de clip
+- [ ] Drag-and-drop de arquivos e da biblioteca
+- [ ] Afinador com mute (modo pedal)
+- [ ] Delay ping-pong / reverb estéreo
+- [ ] Favoritos do TONE3000 na biblioteca
+- [ ] Segundo slot de IR com mix
+- [ ] A/B de rigs · gravador rápido · modo performance
+
+## 📜 Licenças
+
+- **JUCE 8** — AGPLv3 (uso pessoal/open-source) · **NAM Core** — MIT · **AudioDSPTools** — Apache-2.0/MIT (ver repositório)
+- **Fontes** — SIL Open Font License (textos em `assets/fonts/`)
+- **ASIO SDK** — licença Steinberg (download manual, não redistribuído)
+- Captures/IRs baixados do TONE3000 têm licenças próprias por tone (CC/T3K) — respeite-as ao redistribuir timbres.
