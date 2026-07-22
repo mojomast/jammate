@@ -2,6 +2,8 @@
 
 #include <juce_cryptography/juce_cryptography.h>
 
+#include <set>
+
 namespace
 {
 const juce::String kApiBase = "https://www.tone3000.com";
@@ -510,38 +512,51 @@ void Tone3000Client::listModels (int toneId,
             return;
         }
 
+        // ARMADILHA DA API: /models sem parâmetro retorna SÓ os modelos A1
+        // (para IRs, retorna os IRs). Os A2 exigem uma chamada separada com
+        // &architecture=2 — sem ela, a loja nunca vê (nem baixa) os A2.
         std::vector<Model> models;
-        int totalPages = 1;
+        std::set<int> seenIds;
 
-        for (int page = 1; page <= totalPages && page <= 4; ++page)
+        auto fetchModels = [&] (const juce::String& extraQuery, bool required) -> bool
         {
-            int status = 0;
-            const auto body = apiGet ("/api/v1/models?tone_id=" + juce::String (toneId)
-                                      + "&page_size=50&page=" + juce::String (page), status);
-            if (status != 200)
+            int totalPages = 1;
+            for (int page = 1; page <= totalPages && page <= 4; ++page)
             {
-                deliver ({}, "Falha ao listar modelos (HTTP " + juce::String (status) + ")");
-                return;
-            }
+                int status = 0;
+                const auto body = apiGet ("/api/v1/models?tone_id=" + juce::String (toneId)
+                                          + "&page_size=50&page=" + juce::String (page)
+                                          + extraQuery, status);
+                if (status != 200)
+                    return ! required; // a chamada extra pode falhar sem derrubar tudo
 
-            const auto json = juce::JSON::parse (body);
-            totalPages = (int) json.getProperty ("total_pages", 1);
+                const auto json = juce::JSON::parse (body);
+                totalPages = (int) json.getProperty ("total_pages", 1);
 
-            if (auto* arr = json.getProperty ("data", juce::var()).getArray())
-            {
-                for (const auto& m : *arr)
+                if (auto* arr = json.getProperty ("data", juce::var()).getArray())
                 {
-                    Model model;
-                    model.id = (int) m.getProperty ("id", 0);
-                    model.name = m.getProperty ("name", "").toString();
-                    model.url = m.getProperty ("model_url", "").toString();
-                    model.size = m.getProperty ("size", "").toString();
-                    model.arch = m.getProperty ("architecture_version", "").toString();
-                    if (model.url.isNotEmpty())
-                        models.push_back (std::move (model));
+                    for (const auto& m : *arr)
+                    {
+                        Model model;
+                        model.id = (int) m.getProperty ("id", 0);
+                        model.name = m.getProperty ("name", "").toString();
+                        model.url = m.getProperty ("model_url", "").toString();
+                        model.size = m.getProperty ("size", "").toString();
+                        model.arch = m.getProperty ("architecture_version", "").toString();
+                        if (model.url.isNotEmpty() && seenIds.insert (model.id).second)
+                            models.push_back (std::move (model));
+                    }
                 }
             }
+            return true;
+        };
+
+        if (! fetchModels ({}, true)) // A1 (e IRs)
+        {
+            deliver ({}, "Falha ao listar modelos");
+            return;
         }
+        fetchModels ("&architecture=2", false); // A2 (chamada separada)
 
         if (models.empty())
         {

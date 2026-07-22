@@ -98,7 +98,7 @@ public:
                 return true;
         return false;
     }
-    /// "V1", "V2" ou "" (arquitetura do capture da lane).
+    /// "A1", "A2" ou "" (arquitetura do capture da lane).
     juce::String getModelArchLabel (int lane) const;
 
     //==========================================================================
@@ -305,7 +305,7 @@ private:
     mutable juce::CriticalSection modelInfoLock;
     juce::String modelNames[maxRigs], modelPaths[maxRigs], loadError;   // sob modelInfoLock
     juce::String modelPathsStd[maxRigs], modelPathsEco[maxRigs];        // par ECO
-    juce::String modelArchLabels[maxRigs];                              // "V1"/"V2"
+    juce::String modelArchLabels[maxRigs];                              // "A1"/"A2"
     double modelExpectedSampleRates[maxRigs] = { -1.0, -1.0, -1.0 };
     juce::String currentPresetName;                      // sob modelInfoLock
 

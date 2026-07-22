@@ -798,8 +798,8 @@ juce::String ChainView::archBadgeForIr (int slot)
         {
             const auto meta = juce::JSON::parse (juce::File (path + ".meta").loadFileAsString());
             const auto arch = meta.getProperty ("arch", "").toString();
-            if (arch == "2") cabArchCache[slot] = "V2";
-            else if (arch == "1") cabArchCache[slot] = "V1";
+            if (arch == "2") cabArchCache[slot] = "A2";
+            else if (arch == "1") cabArchCache[slot] = "A1";
         }
     }
     return cabArchCache[slot];
@@ -2097,7 +2097,7 @@ void ChainView::paint (juce::Graphics& g)
                 auto badge = juce::Rectangle<float> ((float) cabB.getX() + 12.0f,
                                                      (float) cabB.getY() + (compact ? 32.0f : 38.0f),
                                                      26.0f, 15.0f);
-                g.setColour (ui::accent.withAlpha (irArch == "V2" ? 0.9f : 0.45f));
+                g.setColour (ui::accent.withAlpha (irArch == "A2" ? 0.9f : 0.45f));
                 g.drawRoundedRectangle (badge, 4.0f, 1.0f);
                 g.setFont (ui::monoFont (8.0f, true));
                 g.drawText (irArch, badge, juce::Justification::centred);
@@ -2245,7 +2245,7 @@ void ChainView::paint (juce::Graphics& g)
                                                        (float) ampB.getY() + 26.0f, 28.0f, 16.0f)
                              : juce::Rectangle<float> ((float) ampB.getRight() - 18.0f - 30.0f,
                                                        (float) ampB.getY() + 52.0f, 30.0f, 18.0f);
-            g.setColour (ui::accent.withAlpha (archLabel == "V2" ? 0.9f : 0.45f));
+            g.setColour (ui::accent.withAlpha (archLabel == "A2" ? 0.9f : 0.45f));
             g.drawRoundedRectangle (badge, 5.0f, 1.0f);
             g.setFont (ui::monoFont (9.0f, true));
             g.drawText (archLabel, badge, juce::Justification::centred);

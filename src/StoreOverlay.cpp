@@ -122,7 +122,7 @@ void ToneCardComponent::setLocalFile (const juce::File& file)
 void ToneCardComponent::resized()
 {
     addButton.setBounds (getLocalBounds().reduced (12).removeFromBottom (34));
-    favButton.setBounds (getWidth() - 8 - 30, 8, 30, 26);
+    favButton.setBounds (8, 8, 30, 26); // topo-esquerdo (badges NAM/A2 ficam à direita)
 }
 
 void ToneCardComponent::paint (juce::Graphics& g)
@@ -601,6 +601,11 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
     if (favOnly && ! favIds.contains (juce::String (tone.id)))
         return;
 
+    // "Só A2": a API filtra com &architecture=2, mas deixa vazar tones sem
+    // nenhum modelo A2 (IRs, por exemplo) — reforço client-side
+    if (a2Only && ! tone.hasA2)
+        return;
+
     ToneCardComponent::Info info;
     info.toneId = tone.id;
     info.title = tone.title;
@@ -734,15 +739,17 @@ void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
     // lane destino: primeira lane livre; todas ocupadas -> substitui a 1ª
     const int lane = juce::jmax (0, processor.firstFreeModelLane());
 
-    // par ECO: mesma variação (nome), tamanho mais leve mais próximo
+    // par ECO: mesma variação (nome) E mesma arquitetura, tamanho mais leve
+    // mais próximo (a lista agora tem A1+A2 com o mesmo nome — sem o guard
+    // de arquitetura o par podia cruzar A2 com A1)
     const Tone3000Client::Model* partner = nullptr;
     if (const auto it = modelsCache.find (toneId); it != modelsCache.end())
     {
         const int myRank = sizeRank (chosen.size);
         int bestRank = 99;
         for (const auto& m : it->second)
-            if (m.name == chosen.name && sizeRank (m.size) > myRank
-                && sizeRank (m.size) < bestRank)
+            if (m.name == chosen.name && m.arch == chosen.arch
+                && sizeRank (m.size) > myRank && sizeRank (m.size) < bestRank)
             {
                 bestRank = sizeRank (m.size);
                 partner = &m;
@@ -790,6 +797,10 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
     juce::String baseName = card.getInfo().title;
     if (model.name.isNotEmpty() && model.name != baseName)
         baseName += " - " + model.name;
+    // A1 e A2 costumam ter a MESMA variação/nome — o sufixo evita que um
+    // sobrescreva o arquivo do outro
+    if (model.arch == "2")
+        baseName += " [A2]";
 
     // Já baixado antes: carrega o arquivo local, sem gastar rede/API.
     if (const auto local = Tone3000Client::localFileForModel (model, kind, baseName);

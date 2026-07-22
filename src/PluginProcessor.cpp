@@ -2605,7 +2605,7 @@ void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
             return;
         }
 
-        // Arquitetura (badge V1/V2): sidecar .meta do TONE3000 tem prioridade;
+        // Arquitetura (badge A1/A2): sidecar .meta do TONE3000 tem prioridade;
         // sem ele, lemos o campo "architecture" do próprio .nam.
         juce::String archLabel;
         {
@@ -2613,15 +2613,16 @@ void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
                 juce::File (file.getFullPathName() + ".meta").loadFileAsString());
             const auto metaArch = meta.getProperty ("arch", "").toString();
             if (metaArch == "2")
-                archLabel = "V2";
+                archLabel = "A2";
             else if (metaArch == "1")
-                archLabel = "V1";
+                archLabel = "A1";
             else
             {
+                // A2 = formato SlimmableContainer no próprio arquivo .nam
                 const auto namJson = juce::JSON::parse (file.loadFileAsString());
                 const auto arch = namJson.getProperty ("architecture", "").toString();
                 if (arch.isNotEmpty())
-                    archLabel = arch.containsIgnoreCase ("slimmable") ? "V2" : "V1";
+                    archLabel = arch.containsIgnoreCase ("slimmable") ? "A2" : "A1";
             }
         }
 
