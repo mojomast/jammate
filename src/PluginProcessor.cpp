@@ -2617,6 +2617,17 @@ void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
     if (lane < 0 || lane >= maxRigs)
         return;
 
+    // guarda: IR (.wav/.aiff/.flac) nunca entra no amp — evita que um
+    // roteamento errado carregue impulso como capture
+    if (! file.hasFileExtension ("nam"))
+    {
+        const juce::ScopedLock sl (modelInfoLock);
+        loadError = juce::String (juce::CharPointer_UTF8 (
+                        "S\xc3\xb3 arquivos .nam podem ser carregados no amp ("))
+                    + file.getFileName() + ")";
+        return;
+    }
+
     loading.store (true);
 
     loaderPool.addJob ([this, lane, file]
@@ -2811,12 +2822,33 @@ void GuitarRigNAMProcessor::loadIrAsync (int slot, const juce::File& file)
     if (slot < 0 || slot >= maxCabSlots || ! file.existsAsFile())
         return;
 
-    // O Convolution carrega em background e troca RT-safe internamente.
-    convolutions[slot].loadImpulseResponse (file,
+    // ARMADILHA DO JUCE: Convolution::Normalise::yes normaliza o IR para
+    // energia total 0.125 (= -18 dB!) — o cab ficava MUITO baixo. Fazemos a
+    // normalização por ENERGIA UNITÁRIA (0 dB de energia) nós mesmos e
+    // carregamos com Normalise::no; o Convolution ainda resampleia e troca
+    // RT-safe internamente.
+    juce::AudioFormatManager fm;
+    fm.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader (fm.createReaderFor (file));
+    if (reader == nullptr || reader->lengthInSamples <= 0)
+        return;
+
+    const int len = (int) juce::jmin<juce::int64> (reader->lengthInSamples,
+                                                   (juce::int64) (reader->sampleRate * 4));
+    juce::AudioBuffer<float> ir (1, len);
+    reader->read (&ir, 0, len, 0, true, false);
+
+    double sum = 0.0;
+    const float* d = ir.getReadPointer (0);
+    for (int i = 0; i < len; ++i)
+        sum += (double) d[i] * d[i];
+    if (sum > 1.0e-12)
+        ir.applyGain ((float) (1.0 / std::sqrt (sum)));
+
+    convolutions[slot].loadImpulseResponse (std::move (ir), reader->sampleRate,
                                             juce::dsp::Convolution::Stereo::no,
                                             juce::dsp::Convolution::Trim::yes,
-                                            0,
-                                            juce::dsp::Convolution::Normalise::yes);
+                                            juce::dsp::Convolution::Normalise::no);
     {
         const juce::ScopedLock sl (modelInfoLock);
         irNames[slot] = file.getFileNameWithoutExtension();
