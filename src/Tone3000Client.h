@@ -58,11 +58,22 @@ public:
                       const juce::String& sort, int page,
                       std::function<void (SearchResult)> done);
 
-    /// Baixa o melhor modelo de um tone para o diretório certo
-    /// (Captures/ para nam, IRs/ para ir). progress recebe 0..100.
-    void downloadTone (int toneId, const juce::String& gear,
-                       std::function<void (int)> progress,
-                       std::function<void (juce::File, juce::String error)> done);
+    struct Model
+    {
+        int id = 0;
+        juce::String name, url, size, arch; // arch: "1" | "2" | "custom"
+    };
+
+    /// Lista os modelos/variações de um tone (mics, canais, tamanhos...),
+    /// ordenados por preferência (A2 e standard primeiro).
+    void listModels (int toneId,
+                     std::function<void (std::vector<Model>, juce::String error)> done);
+
+    /// Baixa um modelo específico para o diretório certo
+    /// (kind "ir" -> IRs/, senão Captures/). progress recebe 0..100.
+    void downloadModel (const Model& model, const juce::String& kind,
+                        std::function<void (int)> progress,
+                        std::function<void (juce::File, juce::String error)> done);
 
     /// Busca a imagem de um tone (com cache em disco). done só é chamado se a
     /// imagem carregar; formatos que o JUCE não decodifica (ex.: webp) são

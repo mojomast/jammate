@@ -73,6 +73,10 @@ private:
     void timerCallback() override;
     /// Sincroniza os status dos cartões com o que está carregado no rig.
     void updateRigStatuses();
+    /// Fluxo do Adicionar: lista os modelos do tone; um só -> baixa direto,
+    /// vários -> menu de escolha (como no site do TONE3000).
+    void startAddFlow (ToneCardComponent&);
+    void startDownload (ToneCardComponent&, const Tone3000Client::Model&);
     void setTab (Tab);
     void doSearch (int page);
     void refreshLibrary();

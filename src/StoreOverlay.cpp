@@ -489,41 +489,7 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
     info.favorites = formatCount (tone.favorites);
 
     auto* card = cards.add (new ToneCardComponent (info,
-        [this] (ToneCardComponent& c)
-        {
-            c.setStatus (ToneCardComponent::Status::downloading);
-            const auto& ci = c.getInfo();
-            // Roteia por FORMATO (não por gear): existem tones com gear "cab"
-            // cujo formato é IR, por exemplo.
-            const juce::String kind = ci.formatBadge == "IR" ? "ir" : "nam";
-            client.downloadTone (ci.toneId, kind,
-                [safe = juce::Component::SafePointer<ToneCardComponent> (&c)] (int pct)
-                {
-                    if (safe != nullptr)
-                        safe->setProgress (pct);
-                },
-                [this, safe = juce::Component::SafePointer<ToneCardComponent> (&c)] (juce::File file, juce::String error)
-                {
-                    if (safe == nullptr)
-                        return;
-                    if (error.isNotEmpty())
-                    {
-                        safe->setStatus (ToneCardComponent::Status::add);
-                        bannerError = error;
-                        resized();
-                        repaint();
-                        return;
-                    }
-                    // Otimista: o timer de status corrige se o load falhar ou
-                    // se outro item entrar no rig depois.
-                    safe->setLocalFile (file);
-                    safe->setStatus (ToneCardComponent::Status::inRig);
-                    if (safe->getInfo().formatBadge == "IR")
-                        processor.loadIrAsync (file);
-                    else
-                        processor.loadModelAsync (file);
-                });
-        }));
+        [this] (ToneCardComponent& c) { startAddFlow (c); }));
     gridContent.addAndMakeVisible (card);
 
     if (info.imageUrl.isNotEmpty())
@@ -533,6 +499,106 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
                 if (safe != nullptr)
                     safe->setImage (std::move (img));
             });
+}
+
+void StoreOverlay::startAddFlow (ToneCardComponent& card)
+{
+    // Feedback + guarda contra duplo clique enquanto lista os modelos.
+    card.setProgress (0);
+    card.setStatus (ToneCardComponent::Status::downloading);
+
+    client.listModels (card.getInfo().toneId,
+        [this, safe = juce::Component::SafePointer<ToneCardComponent> (&card)]
+        (std::vector<Tone3000Client::Model> models, juce::String error)
+        {
+            if (safe == nullptr)
+                return;
+
+            if (error.isNotEmpty())
+            {
+                safe->setStatus (ToneCardComponent::Status::add);
+                bannerError = error;
+                resized();
+                repaint();
+                return;
+            }
+
+            if (models.size() == 1)
+            {
+                startDownload (*safe, models.front());
+                return;
+            }
+
+            // Vários modelos: menu de escolha ancorado no cartão.
+            juce::PopupMenu menu;
+            menu.setLookAndFeel (&getLookAndFeel());
+
+            const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
+            for (int i = 0; i < (int) models.size(); ++i)
+            {
+                const auto& m = models[(size_t) i];
+                juce::String label = m.name.isNotEmpty() ? m.name
+                                                         : "Modelo " + juce::String (m.id);
+                if (m.arch == "2") label += dot + "A2";
+                else if (m.arch == "1") label += dot + "A1";
+                if (m.size.isNotEmpty() && m.size != "standard")
+                    label += dot + m.size;
+                menu.addItem (i + 1, label);
+            }
+
+            menu.showMenuAsync (
+                juce::PopupMenu::Options().withTargetComponent (safe.getComponent()),
+                [this, safe, models = std::move (models)] (int result)
+                {
+                    if (safe == nullptr)
+                        return;
+                    if (result <= 0 || result > (int) models.size())
+                    {
+                        safe->setStatus (ToneCardComponent::Status::add); // cancelado
+                        return;
+                    }
+                    startDownload (*safe, models[(size_t) (result - 1)]);
+                });
+        });
+}
+
+void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client::Model& model)
+{
+    card.setProgress (0);
+    card.setStatus (ToneCardComponent::Status::downloading);
+
+    // Roteia por FORMATO (não por gear): existem tones com gear "cab"
+    // cujo formato é IR, por exemplo.
+    const juce::String kind = card.getInfo().formatBadge == "IR" ? "ir" : "nam";
+
+    client.downloadModel (model, kind,
+        [safe = juce::Component::SafePointer<ToneCardComponent> (&card)] (int pct)
+        {
+            if (safe != nullptr)
+                safe->setProgress (pct);
+        },
+        [this, safe = juce::Component::SafePointer<ToneCardComponent> (&card)]
+        (juce::File file, juce::String error)
+        {
+            if (safe == nullptr)
+                return;
+            if (error.isNotEmpty())
+            {
+                safe->setStatus (ToneCardComponent::Status::add);
+                bannerError = error;
+                resized();
+                repaint();
+                return;
+            }
+            // Otimista: o timer de status corrige se o load falhar ou se
+            // outro item entrar no rig depois.
+            safe->setLocalFile (file);
+            safe->setStatus (ToneCardComponent::Status::inRig);
+            if (safe->getInfo().formatBadge == "IR")
+                processor.loadIrAsync (file);
+            else
+                processor.loadModelAsync (file);
+        });
 }
 
 void StoreOverlay::doSearch (int page)

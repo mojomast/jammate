@@ -490,11 +490,81 @@ void Tone3000Client::fetchImage (const juce::String& url, std::function<void (ju
     });
 }
 
-void Tone3000Client::downloadTone (int toneId, const juce::String& gear,
-                                   std::function<void (int)> progress,
-                                   std::function<void (juce::File, juce::String)> done)
+void Tone3000Client::listModels (int toneId,
+                                 std::function<void (std::vector<Model>, juce::String)> done)
 {
-    pool.addJob ([this, toneId, gear, progress, done]
+    pool.addJob ([this, toneId, done]
+    {
+        auto deliver = [done] (std::vector<Model> models, juce::String error)
+        {
+            juce::MessageManager::callAsync (
+                [done, models = std::move (models), error] { done (models, error); });
+        };
+
+        juce::String error;
+        if (! ensureAccessToken (error))
+        {
+            deliver ({}, error);
+            return;
+        }
+
+        std::vector<Model> models;
+        int totalPages = 1;
+
+        for (int page = 1; page <= totalPages && page <= 4; ++page)
+        {
+            int status = 0;
+            const auto body = apiGet ("/api/v1/models?tone_id=" + juce::String (toneId)
+                                      + "&page_size=50&page=" + juce::String (page), status);
+            if (status != 200)
+            {
+                deliver ({}, "Falha ao listar modelos (HTTP " + juce::String (status) + ")");
+                return;
+            }
+
+            const auto json = juce::JSON::parse (body);
+            totalPages = (int) json.getProperty ("total_pages", 1);
+
+            if (auto* arr = json.getProperty ("data", juce::var()).getArray())
+            {
+                for (const auto& m : *arr)
+                {
+                    Model model;
+                    model.id = (int) m.getProperty ("id", 0);
+                    model.name = m.getProperty ("name", "").toString();
+                    model.url = m.getProperty ("model_url", "").toString();
+                    model.size = m.getProperty ("size", "").toString();
+                    model.arch = m.getProperty ("architecture_version", "").toString();
+                    if (model.url.isNotEmpty())
+                        models.push_back (std::move (model));
+                }
+            }
+        }
+
+        if (models.empty())
+        {
+            deliver ({}, "Tone sem modelos disponiveis");
+            return;
+        }
+
+        // A2 primeiro, standard primeiro; ordem original como desempate.
+        std::stable_sort (models.begin(), models.end(),
+                          [] (const Model& a, const Model& b)
+                          {
+                              auto score = [] (const Model& m)
+                              { return (m.arch == "2" ? 10 : 0) + (m.size == "standard" ? 5 : 0); };
+                              return score (a) > score (b);
+                          });
+
+        deliver (std::move (models), {});
+    });
+}
+
+void Tone3000Client::downloadModel (const Model& model, const juce::String& kind,
+                                    std::function<void (int)> progress,
+                                    std::function<void (juce::File, juce::String)> done)
+{
+    pool.addJob ([this, model, kind, progress, done]
     {
         auto fail = [done] (juce::String error)
         {
@@ -508,46 +578,11 @@ void Tone3000Client::downloadTone (int toneId, const juce::String& gear,
             return;
         }
 
-        // 1) Modelos do tone — preferimos A2, depois standard.
-        int status = 0;
-        const auto body = apiGet ("/api/v1/models?tone_id=" + juce::String (toneId)
-                                  + "&page_size=50", status);
-        if (status != 200)
-        {
-            fail ("Falha ao listar modelos (HTTP " + juce::String (status) + ")");
-            return;
-        }
+        const auto modelUrl = model.url;
+        const auto modelName = model.name;
+        const auto gear = kind; // "ir" -> IRs/, senão Captures/
 
-        const auto json = juce::JSON::parse (body);
-        auto* arr = json.getProperty ("data", juce::var()).getArray();
-        if (arr == nullptr || arr->isEmpty())
-        {
-            fail ("Tone sem modelos disponiveis");
-            return;
-        }
-
-        auto score = [] (const juce::var& m)
-        {
-            int s = 0;
-            if (m.getProperty ("architecture_version", "").toString() == "2") s += 10;
-            if (m.getProperty ("size", "").toString() == "standard") s += 5;
-            return s;
-        };
-
-        juce::var best = arr->getFirst();
-        for (const auto& m : *arr)
-            if (score (m) > score (best))
-                best = m;
-
-        const auto modelUrl = best.getProperty ("model_url", "").toString();
-        const auto modelName = best.getProperty ("name", "").toString();
-        if (modelUrl.isEmpty())
-        {
-            fail ("Modelo sem URL de download");
-            return;
-        }
-
-        // 2) Download autenticado com progresso.
+        // Download autenticado com progresso.
         juce::URL url (modelUrl);
         juce::WebInputStream stream (url, false);
         stream.withExtraHeaders ("Authorization: Bearer " + accessToken);
