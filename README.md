@@ -99,8 +99,13 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 - [x] Badges **V1/V2** da arquitetura em amps e IRs
 - [x] Efeitos P1: compressor de pedal (presets Clean/Country/Lead), gate com hold+histerese de 6 dB, pré-EQ antes do NAM
 
+**Fase 7 — efeitos P2 (concluída):**
+- [x] Variações por efeito no cartão: Drive ×6 (Boost/Screamer/Blues/Distortion/Fuzz/Heavy), Comp ×3, Delay ×4, Reverb ×4
+- [x] Delay: **TAP tempo** com subdivisões (1/4, 1/8, 1/8., 1/16), **Ping-Pong** estéreo e **trails**
+- [x] Reverbs Hall/Room/Plate/**Spring**, estéreo real e trails
+- [x] Cartão **Modulação**: Chorus, Phaser, Flanger e Tremolo harmônico
+
 **Próximos:**
-- [ ] Efeitos P2: pacote de drives, delay com tap tempo/ping-pong, reverbs Spring/Plate/Room/Hall, modulações
 - [ ] Efeitos P3: pitch/octaver, looper com export WAV, limiter/clip/analisador
 - [ ] Slot de plugin **VST3 externo** (hosting JUCE — Dragonfly, LSP etc. sem portar código)
 - [ ] Animações e microinterações · medidores com peak-hold/clip

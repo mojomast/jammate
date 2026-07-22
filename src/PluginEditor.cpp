@@ -284,6 +284,10 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     makeKnob (preEqLowKnob, "preEqLow", "LOW", formatDbInt);
     makeKnob (preEqMidKnob, "preEqMid", "MID", formatDbInt);
     makeKnob (preEqHighKnob, "preEqHigh", "HIGH", formatDbInt);
+    auto formatHzMod = [] (float v) { return juce::String (v, 1) + " Hz"; };
+    makeKnob (modRateKnob, "modRate", "RATE", formatHzMod);
+    makeKnob (modDepthKnob, "modDepth", "DEPTH", formatPct);
+    makeKnob (modMixKnob, "modMix", "MIX", formatPct);
     makeKnob (odDriveKnob, "odDrive", "DRIVE", formatTen);
     makeKnob (odToneKnob, "odTone", "TONE", formatTen);
     makeKnob (odLevelKnob, "odLevel", "LEVEL", formatTen);
@@ -332,6 +336,11 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
                      juce::String (juce::CharPointer_UTF8 ("Escolher o modelo do delay")));
     setupTypeButton (revTypeButton, "revType",
                      juce::String (juce::CharPointer_UTF8 ("Escolher o modelo do reverb")));
+    setupTypeButton (modTypeButton, "modType",
+                     juce::String (juce::CharPointer_UTF8 ("Escolher o tipo de modula\xc3\xa7\xc3\xa3o")));
+    setupTypeButton (delayDivButton, "delayDiv",
+                     juce::String (juce::CharPointer_UTF8 (
+                         "Subdivis\xc3\xa3o aplicada ao TAP (1/8. = colcheia pontuada)")));
 
     cabAddButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Adicionar um cab em paralelo (at\xc3\xa9 3)")));
@@ -380,6 +389,18 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     makeLed (revLed, "revOn", revAtt);
     makeLed (compLed, "compOn", compAtt);
     makeLed (preEqLed, "preEqOn", preEqAtt);
+    modAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+        apvts, "modOn", modLed);
+    modLed.setTooltip (juce::String (juce::CharPointer_UTF8 ("Liga/desliga o m\xc3\xb3""dulo")));
+    modLed.setMouseClickGrabsKeyboardFocus (false);
+    addAndMakeVisible (modLed);
+
+    // TAP tempo do delay
+    tapButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Bata duas vezes no andamento da m\xc3\xbasica para definir o tempo do delay")));
+    tapButton.setMouseClickGrabsKeyboardFocus (false);
+    tapButton.onClick = [this] { applyTapTempo(); };
+    addAndMakeVisible (tapButton);
 
     // presets do compressor: ajustam os 4 knobs de uma vez
     {
@@ -448,6 +469,9 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     tip (preEqLowKnob, "Graves ANTES do amp (100 Hz) \xe2\x80\x94 muda a satura\xc3\xa7\xc3\xa3o");
     tip (preEqMidKnob, "M\xc3\xa9""dios ANTES do amp (500 Hz)");
     tip (preEqHighKnob, "Agudos ANTES do amp (2.2 kHz)");
+    tip (modRateKnob, "Velocidade da modula\xc3\xa7\xc3\xa3o");
+    tip (modDepthKnob, "Intensidade da modula\xc3\xa7\xc3\xa3o");
+    tip (modMixKnob, "Mistura do efeito no sinal");
     tip (odDriveKnob, "Quantidade de satura\xc3\xa7\xc3\xa3o do pedal");
     tip (odToneKnob, "Brilho do overdrive");
     tip (odLevelKnob, "Volume do overdrive");
@@ -550,6 +574,25 @@ void ChainView::refreshTypeButtons()
     update (compTypeButton, "compType");
     update (delayTypeButton, "delayType");
     update (revTypeButton, "revType");
+    update (modTypeButton, "modType");
+    update (delayDivButton, "delayDiv");
+}
+
+void ChainView::applyTapTempo()
+{
+    const auto now = juce::Time::currentTimeMillis();
+    const auto interval = now - lastTapMs;
+    lastTapMs = now;
+
+    if (interval < 120 || interval > 2000)
+        return; // primeiro tap (ou fora da faixa útil): só arma o próximo
+
+    const float factors[] = { 1.0f, 0.5f, 0.75f, 0.25f }; // 1/4, 1/8, 1/8., 1/16
+    const int div = juce::jlimit (0, 3, (int) processor.apvts.getRawParameterValue ("delayDiv")->load());
+    const float timeMs = juce::jlimit (60.0f, 1000.0f, (float) interval * factors[div]);
+
+    if (auto* param = processor.apvts.getParameter ("delayTime"))
+        param->setValueNotifyingHost (param->getNormalisableRange().convertTo0to1 (timeMs));
 }
 
 juce::String ChainView::archBadgeForIr (int slot)
@@ -668,6 +711,7 @@ juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
     if (id == "reverb") return revB;
     if (id == "comp") return compB;
     if (id == "preeq") return preEqB;
+    if (id == "mod") return modB;
     return ampB.getUnion (cabB); // "amp" = bloco amp+cabs
 }
 
@@ -710,6 +754,7 @@ void ChainView::resized()
             else if (id == "reverb") revB = box;
             else if (id == "comp") compB = box;
             else if (id == "preeq") preEqB = box;
+            else if (id == "mod") modB = box;
             x += w + 30;
         }
     }
@@ -749,6 +794,12 @@ void ChainView::resized()
     layoutPedal (revB, revLed, { revDecayKnob.get(), revMixKnob.get(), revPreKnob.get() });
     layoutPedal (compB, compLed, { compSustainKnob.get(), compAttackKnob.get(),
                                    compBlendKnob.get(), compLevelKnob.get() });
+    layoutPedal (modB, modLed, { modRateKnob.get(), modDepthKnob.get(), modMixKnob.get() });
+
+    // TAP + subdivisão no cartão do delay (linha acima do seletor de modelo)
+    tapButton.setBounds (delayB.getX() + 12, delayB.getBottom() - 96, 50, 24);
+    delayDivButton.setBounds (delayB.getX() + 12 + 54, delayB.getBottom() - 96,
+                              delayB.getWidth() - 24 - 54, 24);
 
     // chips de preset do compressor (linha sob o título)
     {
@@ -770,6 +821,7 @@ void ChainView::resized()
     placeTypeButton (compTypeButton, compB);
     placeTypeButton (delayTypeButton, delayB);
     placeTypeButton (revTypeButton, revB);
+    placeTypeButton (modTypeButton, modB);
 
     // pré-EQ: mesmos moldes do EQ
     {
@@ -971,6 +1023,7 @@ void ChainView::paint (juce::Graphics& g)
     drawPedalFrame (g, delayB, "Delay", " ");
     drawPedalFrame (g, revB, "Reverb", " ");
     drawPedalFrame (g, compB, "Compressor", " ");
+    drawPedalFrame (g, modB, juce::String (juce::CharPointer_UTF8 ("Modula\xc3\xa7\xc3\xa3o")), " ");
 
     // ---- pré-EQ (com barras vivas, como o EQ pós)
     {
@@ -1209,6 +1262,8 @@ void ChainView::paint (juce::Graphics& g)
                              : draggingId == "eq" ? juce::String ("EQ")
                              : draggingId == "delay" ? juce::String ("Delay")
                              : draggingId == "comp" ? juce::String ("Compressor")
+                             : draggingId == "mod"
+                                   ? juce::String (juce::CharPointer_UTF8 ("Modula\xc3\xa7\xc3\xa3o"))
                              : draggingId == "preeq"
                                    ? juce::String (juce::CharPointer_UTF8 ("Pr\xc3\xa9-EQ"))
                                    : juce::String ("Reverb");

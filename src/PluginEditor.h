@@ -147,9 +147,19 @@ private:
     juce::TextButton compPresetChips[3]; // Clean / Country / Lead
 
     // seletores de variação (modelo/marca) nos cartões
-    juce::TextButton odTypeButton, compTypeButton, delayTypeButton, revTypeButton;
+    juce::TextButton odTypeButton, compTypeButton, delayTypeButton, revTypeButton,
+        modTypeButton, delayDivButton;
     void setupTypeButton (juce::TextButton&, const char* paramId, const juce::String& tooltip);
     void refreshTypeButtons();
+
+    // cartão Mod + tap tempo do delay
+    juce::Rectangle<int> modB;
+    LedButton modLed;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> modAtt;
+    std::unique_ptr<KnobComponent> modRateKnob, modDepthKnob, modMixKnob;
+    juce::TextButton tapButton { "TAP" };
+    juce::int64 lastTapMs = 0;
+    void applyTapTempo();
     std::unique_ptr<KnobComponent> odDriveKnob, odToneKnob, odLevelKnob;
     std::unique_ptr<KnobComponent> ampGainKnob, ampBassKnob, ampMidKnob,
         ampTrebleKnob, ampPresKnob, ampMasterKnob;

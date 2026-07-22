@@ -283,16 +283,39 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
     // variações de modelo por efeito (selecionadas no cartão)
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "odType", 1 }, "OD Type",
-        juce::StringArray { "Screamer", "Blues", "Distortion", "Fuzz" }, 0));
+        juce::StringArray { "Screamer", "Blues", "Distortion", "Fuzz",
+                            "Boost", "Heavy Fuzz" }, 0));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "compType", 1 }, "Comp Type",
         juce::StringArray { "Dyna", "Optical", "Studio" }, 0));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "delayType", 1 }, "Delay Type",
-        juce::StringArray { "Digital", "Analog", "Tape" }, 0));
+        juce::StringArray { "Digital", "Analog", "Tape", "Ping-Pong" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "delayDiv", 1 }, "Delay Division",
+        juce::StringArray { "1/4", "1/8", "1/8.", "1/16" }, 0));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "revType", 1 }, "Reverb Type",
-        juce::StringArray { "Hall", "Room", "Plate" }, 0));
+        juce::StringArray { "Hall", "Room", "Plate", "Spring" }, 0));
+
+    // modulações (cartão Mod)
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "modOn", 1 }, "Mod On", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "modType", 1 }, "Mod Type",
+        juce::StringArray { "Chorus", "Phaser", "Flanger", "Tremolo H." }, 0));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "modRate", 1 }, "Mod Rate",
+        juce::NormalisableRange<float> (0.1f, 10.0f, 0.05f, 0.4f), 1.5f,
+        juce::AudioParameterFloatAttributes().withLabel ("Hz")));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "modDepth", 1 }, "Mod Depth",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 40.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "modMix", 1 }, "Mod Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 50.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
 
     // pré-EQ (antes do NAM)
     layout.add (std::make_unique<BoolParam> (
@@ -413,6 +436,11 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pCompType = apvts.getRawParameterValue ("compType");
     pDelayType = apvts.getRawParameterValue ("delayType");
     pRevType = apvts.getRawParameterValue ("revType");
+    pModOn = apvts.getRawParameterValue ("modOn");
+    pModType = apvts.getRawParameterValue ("modType");
+    pModRate = apvts.getRawParameterValue ("modRate");
+    pModDepth = apvts.getRawParameterValue ("modDepth");
+    pModMix = apvts.getRawParameterValue ("modMix");
     pPreEqOn = apvts.getRawParameterValue ("preEqOn");
     pPreEqLow = apvts.getRawParameterValue ("preEqLow");
     pPreEqMid = apvts.getRawParameterValue ("preEqMid");
@@ -528,8 +556,26 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
 
     delayLine.prepare (spec);
     delayLine.setMaximumDelayInSamples ((int) (sampleRate * 1.2) + 1);
+    delayLineR.prepare (spec);
+    delayLineR.setMaximumDelayInSamples ((int) (sampleRate * 1.2) + 1);
     delaySmoothedSamples.reset (sampleRate, 0.05);
     delaySmoothedSamples.setCurrentAndTargetValue ((float) (0.35 * sampleRate));
+
+    chorusFx.prepare (spec);
+    phaserFx.prepare (spec);
+    modCachedType = -1;
+    tremLp.setLowPass (sampleRate, 800.0, 0.707);
+    tremHp.setHighPass (sampleRate, 800.0, 0.707);
+    tremLp.reset();
+    tremHp.reset();
+
+    revSpringHp.setHighPass (sampleRate, 400.0, 0.707);
+    revSpringLp.setLowPass (sampleRate, 5000.0, 0.707);
+    revSpringHp.reset();
+    revSpringLp.reset();
+
+    wetScratchR.setSize (1, samplesPerBlock);
+    stereoExtra.setSize (1, samplesPerBlock);
 
     preDelayLine.prepare (spec);
     preDelayLine.setMaximumDelayInSamples ((int) (sampleRate * 0.15) + 1);
@@ -617,6 +663,8 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     }
 
     // ---- cadeia na ordem dinâmica (reordenável pelo usuário)
+    if (n <= stereoExtra.getNumSamples())
+        stereoExtra.clear (0, 0, n);
     {
         const int len = juce::jlimit (0, (int) chainMaxSlots, chainLen.load());
         for (int i = 0; i < len; ++i)
@@ -631,6 +679,7 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
                 case ChainFx::ampBlock: processAmpAndCabs (buffer, io, n); break;
                 case ChainFx::comp:     processCompFx (io, n); break;
                 case ChainFx::preEq:    processPreEqFx (io, n); break;
+                case ChainFx::mod:      processModFx (io, n); break;
             }
         }
     }
@@ -638,7 +687,12 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     buffer.applyGain (0, 0, n, outGain);
 
     if (numOut >= 2)
+    {
         buffer.copyFrom (1, 0, buffer, 0, 0, n);
+        // conteúdo estéreo (ping-pong/largura do reverb) entra só no canal R
+        if (n <= stereoExtra.getNumSamples())
+            buffer.addFrom (1, 0, stereoExtra, 0, 0, n, outGain);
+    }
 
     outputPeak.store (buffer.getMagnitude (0, 0, n));
 
@@ -866,8 +920,9 @@ void GuitarRigNAMProcessor::processEqFx (float* io, int n)
 
 void GuitarRigNAMProcessor::processDelayFx (float* io, int n)
 {
-    if (pDelayOn->load() <= 0.5f)
-        return;
+    // Trails: mesmo desligado, as repetições pendentes continuam soando —
+    // só a ENTRADA é cortada. Custo mínimo, comportamento de pedal moderno.
+    const bool on = pDelayOn->load() > 0.5f;
 
     const double sr = hostSampleRate.load();
     const int type = (int) pDelayType->load();
@@ -891,6 +946,7 @@ void GuitarRigNAMProcessor::processDelayFx (float* io, int n)
     const float fb = pDelayFb->load() / 100.0f;
     const float mix = pDelayMix->load() / 100.0f;
     const double lfoInc = juce::MathConstants<double>::twoPi * 0.9 / sr; // wobble do tape
+    float* extra = stereoExtra.getWritePointer (0);
 
     for (int i = 0; i < n; ++i)
     {
@@ -903,6 +959,20 @@ void GuitarRigNAMProcessor::processDelayFx (float* io, int n)
             delaySamples *= 1.0f + 0.0018f * (float) std::sin (delayLfoPhase);
         }
         delayLine.setDelay (delaySamples);
+        const float input = on ? io[i] : 0.0f;
+
+        if (type == 3)
+        {
+            // Ping-Pong: repetições alternam L/R (o R vai pro stereoExtra)
+            delayLineR.setDelay (delaySamples);
+            const float wetL = delayLine.popSample (0);
+            const float wetR = delayLineR.popSample (0);
+            delayLine.pushSample (0, input + wetR * fb);
+            delayLineR.pushSample (0, wetL);
+            io[i] += wetL * mix;
+            extra[i] += (wetR - wetL) * mix;
+            continue;
+        }
 
         const float wet = delayLine.popSample (0);
         float fbSignal = wet;
@@ -911,15 +981,17 @@ void GuitarRigNAMProcessor::processDelayFx (float* io, int n)
         else if (type == 2)
             fbSignal = delayFbLp.process (wet);
 
-        delayLine.pushSample (0, io[i] + fbSignal * fb);
+        delayLine.pushSample (0, input + fbSignal * fb);
         io[i] += wet * mix;
     }
 }
 
 void GuitarRigNAMProcessor::processReverbFx (float* io, int n)
 {
-    // mix manual, com predelay no caminho wet
-    if (pRevOn->load() <= 0.5f || n > wetScratch.getNumSamples())
+    // mix manual, com predelay no caminho wet; trails ao desligar; estéreo
+    // real via stereoExtra (diferença R-L)
+    const bool on = pRevOn->load() > 0.5f;
+    if (n > wetScratch.getNumSamples() || n > wetScratchR.getNumSamples())
         return;
 
     const float decay = pRevDecay->load();
@@ -946,6 +1018,11 @@ void GuitarRigNAMProcessor::processReverbFx (float* io, int n)
                 reverbParams.damping = 0.12f;
                 reverbParams.width = 1.0f;
                 break;
+            case 3: // Spring: curto, médios "molejados" (bandpass no wet)
+                reverbParams.roomSize = 0.15f + decay / 10.0f * 0.35f;
+                reverbParams.damping = 0.2f;
+                reverbParams.width = 0.6f;
+                break;
         }
         reverb.setParameters (reverbParams);
     }
@@ -957,15 +1034,98 @@ void GuitarRigNAMProcessor::processReverbFx (float* io, int n)
     preDelayLine.setDelay ((float) preSamples);
 
     float* wet = wetScratch.getWritePointer (0);
+    float* wetR = wetScratchR.getWritePointer (0);
     for (int i = 0; i < n; ++i)
     {
         const float d = preDelayLine.popSample (0);
-        preDelayLine.pushSample (0, io[i]);
-        wet[i] = d;
+        preDelayLine.pushSample (0, on ? io[i] : 0.0f); // trails: corta só a entrada
+        float v = d;
+        if (type == 3) // spring: bandpass dá o timbre "mola"
+            v = revSpringLp.process (revSpringHp.process (v));
+        wet[i] = v;
+        wetR[i] = v;
     }
-    reverb.processMono (wet, n);
+    reverb.processStereo (wet, wetR, n);
+
+    float* extra = stereoExtra.getWritePointer (0);
     for (int i = 0; i < n; ++i)
+    {
         io[i] += wet[i] * mix;
+        extra[i] += (wetR[i] - wet[i]) * mix;
+    }
+}
+
+void GuitarRigNAMProcessor::processModFx (float* io, int n)
+{
+    if (pModOn->load() <= 0.5f)
+        return;
+
+    const int type = (int) pModType->load();
+    const float rate = pModRate->load();
+    const float depth = pModDepth->load() / 100.0f;
+    const float mix = pModMix->load() / 100.0f;
+
+    if (type != modCachedType || rate != modCachedRate
+        || depth != modCachedDepth || mix != modCachedMix)
+    {
+        modCachedType = type;
+        modCachedRate = rate;
+        modCachedDepth = depth;
+        modCachedMix = mix;
+        switch (type)
+        {
+            case 0: // Chorus
+                chorusFx.setCentreDelay (7.0f);
+                chorusFx.setFeedback (0.0f);
+                chorusFx.setRate (rate);
+                chorusFx.setDepth (depth);
+                chorusFx.setMix (mix);
+                break;
+            case 2: // Flanger = chorus com delay curto + feedback
+                chorusFx.setCentreDelay (1.8f);
+                chorusFx.setFeedback (0.7f);
+                chorusFx.setRate (rate);
+                chorusFx.setDepth (depth);
+                chorusFx.setMix (mix);
+                break;
+            case 1: // Phaser
+                phaserFx.setRate (rate);
+                phaserFx.setDepth (depth);
+                phaserFx.setMix (mix);
+                phaserFx.setCentreFrequency (900.0f);
+                phaserFx.setFeedback (0.5f);
+                break;
+            default: break; // tremolo não usa juce::dsp
+        }
+    }
+
+    if (type == 0 || type == 2)
+    {
+        juce::dsp::AudioBlock<float> block (&io, 1, (size_t) n);
+        juce::dsp::ProcessContextReplacing<float> ctx (block);
+        chorusFx.process (ctx);
+    }
+    else if (type == 1)
+    {
+        juce::dsp::AudioBlock<float> block (&io, 1, (size_t) n);
+        juce::dsp::ProcessContextReplacing<float> ctx (block);
+        phaserFx.process (ctx);
+    }
+    else // Tremolo harmônico: graves e agudos tremulam em fases opostas
+    {
+        const double inc = juce::MathConstants<double>::twoPi * rate / hostSampleRate.load();
+        for (int i = 0; i < n; ++i)
+        {
+            tremPhase += inc;
+            if (tremPhase > juce::MathConstants<double>::twoPi)
+                tremPhase -= juce::MathConstants<double>::twoPi;
+            const float lfo = (float) std::sin (tremPhase) * depth;
+            const float lo = tremLp.process (io[i]) * (1.0f + lfo) * 0.5f;
+            const float hi = tremHp.process (io[i]) * (1.0f - lfo) * 0.5f;
+            const float wet = lo + hi;
+            io[i] = io[i] * (1.0f - mix) + wet * mix * 2.0f;
+        }
+    }
 }
 
 void GuitarRigNAMProcessor::processAmpAndCabs (juce::AudioBuffer<float>& buffer, float* io, int n)
@@ -1069,6 +1229,7 @@ juce::String GuitarRigNAMProcessor::fxToString (ChainFx fx)
         case ChainFx::ampBlock: return "amp";
         case ChainFx::comp:     return "comp";
         case ChainFx::preEq:    return "preeq";
+        case ChainFx::mod:      return "mod";
     }
     return "amp";
 }
@@ -1084,7 +1245,8 @@ int GuitarRigNAMProcessor::fxFromString (const juce::String& id)
 void GuitarRigNAMProcessor::writeDefaultChain()
 {
     const ChainFx def[] = { ChainFx::gate, ChainFx::comp, ChainFx::od, ChainFx::preEq,
-                            ChainFx::ampBlock, ChainFx::eq, ChainFx::delay, ChainFx::reverb };
+                            ChainFx::ampBlock, ChainFx::eq, ChainFx::mod,
+                            ChainFx::delay, ChainFx::reverb };
     for (int i = 0; i < (int) std::size (def); ++i)
         chainOrder[i].store ((int) def[i]);
     chainLen.store ((int) std::size (def));
@@ -1129,7 +1291,16 @@ void GuitarRigNAMProcessor::setChainOrder (const juce::StringArray& ids)
         insertAt ((int) ChainFx::comp, order.indexOf ((int) ChainFx::gate) + 1);
     if (! used[(int) ChainFx::preEq])
         insertAt ((int) ChainFx::preEq, order.indexOf ((int) ChainFx::ampBlock));
-    used[(int) ChainFx::ampBlock] = used[(int) ChainFx::comp] = used[(int) ChainFx::preEq] = true;
+    // mod entra antes do delay (ou depois do amp)
+    if (! used[(int) ChainFx::mod])
+    {
+        const int delayIdx = order.indexOf ((int) ChainFx::delay);
+        insertAt ((int) ChainFx::mod, delayIdx >= 0
+                                          ? delayIdx
+                                          : order.indexOf ((int) ChainFx::ampBlock) + 1);
+    }
+    used[(int) ChainFx::ampBlock] = used[(int) ChainFx::comp] = true;
+    used[(int) ChainFx::preEq] = used[(int) ChainFx::mod] = true;
 
     for (int f = 0; f < numChainFx; ++f)
         if (! used[f] && order.size() < chainMaxSlots)

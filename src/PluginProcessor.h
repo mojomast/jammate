@@ -108,8 +108,8 @@ public:
     // Cadeia reordenável: os efeitos podem mudar de posição; o bloco
     // Amp+Cabs ("amp") é âncora fixa mas efeitos podem ficar antes/depois.
 
-    enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock, comp, preEq };
-    static constexpr int numChainFx = 8;
+    enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock, comp, preEq, mod };
+    static constexpr int numChainFx = 9;
     static constexpr int chainMaxSlots = 16; // expansível para efeitos futuros
 
     /// Ordem atual como ids ("gate", "od", "amp", "eq", "delay", "reverb").
@@ -224,6 +224,7 @@ private:
     void processAmpAndCabs (juce::AudioBuffer<float>& buffer, float* io, int n);
     void processCompFx (float* io, int n);
     void processPreEqFx (float* io, int n);
+    void processModFx (float* io, int n);
 
     // Gate "inteligente": follower de envelope com histerese de 6 dB
     // (abre no threshold, só fecha 6 dB abaixo — preserva o sustain),
@@ -362,12 +363,33 @@ private:
 
     // Delay / Reverb (pós-cadeia)
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 * 2 };
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLineR { 96000 * 2 };
     juce::SmoothedValue<float> delaySmoothedSamples;
     juce::Reverb reverb;
     juce::Reverb::Parameters reverbParams;
     float revCachedDecay = -1.0f;
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::None> preDelayLine { 96000 / 4 };
-    juce::AudioBuffer<float> wetScratch;
+    juce::AudioBuffer<float> wetScratch, wetScratchR;
+
+    // conteúdo estéreo (diferença R-L) produzido por ping-pong/reverb;
+    // somado ao canal direito na montagem final do bloco
+    juce::AudioBuffer<float> stereoExtra;
+
+    // modulações (cartão Mod)
+    juce::dsp::Chorus<float> chorusFx;   // Chorus e Flanger (delay/feedback distintos)
+    juce::dsp::Phaser<float> phaserFx;
+    Biquad tremLp, tremHp;               // tremolo harmônico: bandas anti-fase
+    double tremPhase = 0.0;
+    int modCachedType = -1;
+    float modCachedRate = -1.0f, modCachedDepth = -1.0f, modCachedMix = -1.0f;
+    std::atomic<float>* pModOn = nullptr;
+    std::atomic<float>* pModType = nullptr;
+    std::atomic<float>* pModRate = nullptr;
+    std::atomic<float>* pModDepth = nullptr;
+    std::atomic<float>* pModMix = nullptr;
+
+    // spring reverb: bandpass no caminho wet
+    Biquad revSpringHp, revSpringLp;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarRigNAMProcessor)
 };
