@@ -54,8 +54,9 @@ public:
     void connect (std::function<void (bool ok, juce::String error)> done);
 
     // ---- API (message thread -> callback na message thread) ----
+    /// architecture: 0 = todas, 2 = só tones com modelos A2.
     void searchTones (const juce::String& query, const juce::String& gear,
-                      const juce::String& sort, int page,
+                      const juce::String& sort, int page, int architecture,
                       std::function<void (SearchResult)> done);
 
     struct Model

@@ -346,6 +346,39 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
         addAndMakeVisible (chip);
     }
 
+    // tags (multi-seleção; entram como termos da busca) e filtro A2
+    for (const auto* tag : { "metal", "clean", "vintage", "blues", "ambient" })
+    {
+        auto* chip = tagChips.add (new juce::TextButton (tag));
+        chip->getProperties().set ("chip", true);
+        chip->getProperties().set ("chipActive", false);
+        const juce::String value (tag);
+        chip->onClick = [this, value, chip]
+        {
+            if (activeTags.contains (value))
+                activeTags.removeString (value);
+            else
+                activeTags.add (value);
+            chip->getProperties().set ("chipActive", activeTags.contains (value));
+            chip->repaint();
+            doSearch (1);
+        };
+        addAndMakeVisible (chip);
+    }
+
+    a2Chip.getProperties().set ("chip", true);
+    a2Chip.getProperties().set ("chipActive", false);
+    a2Chip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "S\xc3\xb3 tones com modelos da arquitetura A2 (mais eficientes)")));
+    a2Chip.onClick = [this]
+    {
+        a2Only = ! a2Only;
+        a2Chip.getProperties().set ("chipActive", a2Only);
+        a2Chip.repaint();
+        doSearch (1);
+    };
+    addAndMakeVisible (a2Chip);
+
     sortCombo.addItem ("Em alta", 1);
     sortCombo.addItem ("Mais recentes", 2);
     sortCombo.addItem ("Mais baixados", 3);
@@ -592,6 +625,8 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
     {
         card.setLocalFile (local);
         card.setStatus (ToneCardComponent::Status::inRig);
+        // garante o sidecar de imagem mesmo sem re-download
+        client.saveImageSidecar (card.getInfo().imageUrl, local);
         if (kind == "ir")
             processor.loadIrAsync (local);
         else
@@ -642,7 +677,12 @@ void StoreOverlay::doSearch (int page)
     searching = true;
     currentPage = page;
 
-    client.searchTones (searchBox.getText().trim(), gearFilter, sortValue, page,
+    // tags ativas entram como termos extras da busca (o TONE3000 indexa tags)
+    juce::String query = searchBox.getText().trim();
+    for (const auto& tag : activeTags)
+        query += " " + tag;
+
+    client.searchTones (query.trim(), gearFilter, sortValue, page, a2Only ? 2 : 0,
         [safe = juce::Component::SafePointer<StoreOverlay> (this), page] (Tone3000Client::SearchResult result)
         {
             if (safe == nullptr)
@@ -710,6 +750,13 @@ void StoreOverlay::refreshLibrary()
 
         if (file.getFullPathName() == loadedPath)
             card->setStatus (ToneCardComponent::Status::inRig);
+
+        // foto salva como sidecar no download
+        const juce::File sidecar (file.getFullPathName() + ".img");
+        if (sidecar.existsAsFile())
+            if (auto img = juce::ImageFileFormat::loadFrom (sidecar); img.isValid())
+                card->setImage (std::move (img));
+
         gridContent.addAndMakeVisible (card);
     };
 
@@ -773,6 +820,15 @@ void StoreOverlay::resized()
         chip->setBounds (cx, 74, w, 28);
         cx += w + 9;
     }
+    cx += 48; // divisor + rótulo TAGS (pintados no paint)
+    for (auto* chip : tagChips)
+    {
+        const int w = 22 + 6 * chip->getButtonText().length();
+        chip->setBounds (cx, 74, w, 28);
+        cx += w + 7;
+    }
+    cx += 8;
+    a2Chip.setBounds (cx, 74, 62, 28);
     sortCombo.setBounds (W - 22 - 150, 72, 150, 32);
 
     // banner de erro
@@ -816,7 +872,14 @@ void StoreOverlay::paint (juce::Graphics& g)
     g.setFont (ui::monoFont (9.0f));
     g.setColour (ui::textMuted);
     g.drawText ("TIPO", 22, 74, 40, 28, juce::Justification::centredLeft);
-    g.drawText ("ORDENAR", sortCombo.getX() - 70, 72, 62, 32, juce::Justification::centredRight);
+    if (! tagChips.isEmpty())
+    {
+        const int divX = tagChips.getFirst()->getX() - 48;
+        g.setColour (juce::Colours::white.withAlpha (0.1f));
+        g.fillRect (divX + 4, 78, 1, 20);
+        g.setColour (ui::textMuted);
+        g.drawText ("TAGS", divX + 12, 74, 36, 28, juce::Justification::centredLeft);
+    }
 
     g.setColour (juce::Colour (0xff1e2023));
     g.fillRect (0, 110, W, 1);

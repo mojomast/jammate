@@ -364,10 +364,10 @@ juce::String Tone3000Client::apiGet (const juce::String& path, int& statusCode)
 }
 
 void Tone3000Client::searchTones (const juce::String& query, const juce::String& gear,
-                                  const juce::String& sort, int page,
+                                  const juce::String& sort, int page, int architecture,
                                   std::function<void (SearchResult)> done)
 {
-    pool.addJob ([this, query, gear, sort, page, done]
+    pool.addJob ([this, query, gear, sort, page, architecture, done]
     {
         SearchResult result;
         result.page = page;
@@ -389,6 +389,8 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
             path += "&query=" + urlEncode (query);
         if (gear.isNotEmpty())
             path += "&gears=" + urlEncode (gear);
+        if (architecture > 0)
+            path += "&architecture=" + juce::String (architecture);
 
         // Uma tentativa + um retry após refresh em caso de 401.
         int status = 0;

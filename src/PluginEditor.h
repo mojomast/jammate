@@ -179,6 +179,7 @@ private:
 
     // sidecars de imagem
     juce::String loadedModelPath, loadedIrPath;
+    bool ampImageLoaded = false, cabImageLoaded = false;
 
     float inMeterDb = -80.0f, outMeterDb = -80.0f;
 

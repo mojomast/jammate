@@ -943,27 +943,29 @@ void RigContent::analyseTuner()
 
 void RigContent::refreshSidecarImages()
 {
-    const auto modelPath = processor.getModelPath();
-    if (modelPath != loadedModelPath)
+    // Recarrega quando o caminho muda OU quando o sidecar aparece depois
+    // (a gravação da foto é assíncrona ao download).
+    auto refresh = [] (const juce::String& path, juce::String& cachedPath, bool& hadImage,
+                       auto&& apply)
     {
-        loadedModelPath = modelPath;
-        juce::Image img;
-        const juce::File sidecar (modelPath + ".img");
-        if (sidecar.existsAsFile())
-            img = juce::ImageFileFormat::loadFrom (sidecar);
-        chainView->setAmpImage (img);
-    }
+        const juce::File sidecar (path + ".img");
+        const bool exists = path.isNotEmpty() && sidecar.existsAsFile();
 
-    const auto irPath = processor.getIrPath();
-    if (irPath != loadedIrPath)
-    {
-        loadedIrPath = irPath;
+        if (path == cachedPath && hadImage == exists)
+            return;
+
+        cachedPath = path;
+        hadImage = exists;
         juce::Image img;
-        const juce::File sidecar (irPath + ".img");
-        if (sidecar.existsAsFile())
+        if (exists)
             img = juce::ImageFileFormat::loadFrom (sidecar);
-        chainView->setCabImage (img);
-    }
+        apply (std::move (img));
+    };
+
+    refresh (processor.getModelPath(), loadedModelPath, ampImageLoaded,
+             [this] (juce::Image img) { chainView->setAmpImage (std::move (img)); });
+    refresh (processor.getIrPath(), loadedIrPath, cabImageLoaded,
+             [this] (juce::Image img) { chainView->setCabImage (std::move (img)); });
 }
 
 void RigContent::chooseModelFile()

@@ -108,6 +108,10 @@ private:
 
     // filtros
     juce::OwnedArray<juce::TextButton> gearChips;
+    juce::OwnedArray<juce::TextButton> tagChips;   // multi-toggle; entram na query
+    juce::TextButton a2Chip { juce::String (juce::CharPointer_UTF8 ("S\xc3\xb3 A2")) };
+    bool a2Only = false;
+    juce::StringArray activeTags;
     juce::ComboBox sortCombo;
 
     // banner de erro
