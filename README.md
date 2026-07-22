@@ -33,6 +33,7 @@
 - **Presets**: salvar em 1 clique, "Salvar como", indicador de modificado (•), presets de fábrica, navegação ◂ ▸
 - **Fotos** do amp/cabinete carregados nos cartões do rig
 - **UX**: knobs com trava no default, duplo-clique reseta, roda ajusta, Ctrl = fino, valor digitável; tooltips em tudo; atalhos (espaço, T, ←/→, Esc); medidores IN/OUT + CPU real
+- **Pitch/octaver, Looper (60 s, overdub, export WAV) e Limiter** com indicador de clip
 - **Real-time safety**: zero alocação/locks/IO no caminho de áudio (regra inegociável do projeto)
 
 ## 🖼️ Telas
@@ -113,8 +114,15 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 
 ![Rigs paralelos](docs/screenshots/rigs-paralelos.png)
 
+**Fase 9 — efeitos P3 (concluída):**
+- [x] Cartão **Pitch**: octaver granular de 2 cabeças (Oitava ↓/↑, Quinta, Detune) com MIX/LEVEL — validado headless (440 Hz → 220/660/880 Hz)
+- [x] Cartão **Looper**: até 60 s, REC → fecha e toca → overdub, PLAY/STOP, LIMPAR e **export WAV** (`Documentos\GuitarRig NAM\Loops`)
+- [x] Cartão **Limiter** brickwall no fim da cadeia com barra de gain reduction + aviso **CLIP** no medidor OUT
+
+![Efeitos P3](docs/screenshots/efeitos-p3.png)
+
 **Próximos:**
-- [ ] Efeitos P3: pitch/octaver, looper com export WAV, limiter/clip/analisador
+- [ ] Analisador de espectro
 - [ ] Slot de plugin **VST3 externo** (hosting JUCE — Dragonfly, LSP etc. sem portar código)
 - [ ] Animações e microinterações · medidores com peak-hold/clip
 - [ ] Drag-and-drop de arquivos · afinador com mute · delay/reverb estéreo

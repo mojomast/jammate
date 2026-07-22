@@ -351,6 +351,8 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     setupTypeButton (delayDivButton, "delayDiv",
                      juce::String (juce::CharPointer_UTF8 (
                          "Subdivis\xc3\xa3o aplicada ao TAP (1/8. = colcheia pontuada)")));
+    setupTypeButton (pitchTypeButton, "pitchType",
+                     juce::String (juce::CharPointer_UTF8 ("Escolher o intervalo do pitch")));
 
     rigAddButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Adicionar um rig AMP+CAB em paralelo (at\xc3\xa9 3)")));
@@ -381,6 +383,43 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     makeKnob (revDecayKnob, "revDecay", "DECAY", formatTen);
     makeKnob (revMixKnob, "revMix", "MIX", formatPct);
     makeKnob (revPreKnob, "revPre", "PRE", formatMs);
+    makeKnob (pitchMixKnob, "pitchMix", "MIX", formatPct);
+    makeKnob (pitchLevelKnob, "pitchLevel", "LEVEL", formatDb);
+    makeKnob (looperLevelKnob, "looperLevel", "LOOP", formatDb);
+    makeKnob (limCeilKnob, "limCeiling", "CEIL", formatDb);
+    makeKnob (limRelKnob, "limRelease", "REL", formatMs);
+
+    // botões do looper (textos dinâmicos em refreshDynamicText)
+    {
+        auto setupLooperButton = [this] (juce::TextButton& b, int cmd, const char* tipUtf8)
+        {
+            b.setTooltip (juce::String (juce::CharPointer_UTF8 (tipUtf8)));
+            b.setMouseClickGrabsKeyboardFocus (false);
+            if (cmd > 0)
+                b.onClick = [this, cmd] { processor.requestLooperCommand (cmd); };
+            addAndMakeVisible (b);
+        };
+        setupLooperButton (looperRecButton, 1,
+                           "Grava o loop; de novo fecha e toca; depois alterna overdub");
+        setupLooperButton (looperPlayButton, 2, "Toca/para o loop gravado");
+        setupLooperButton (looperClearButton, 3, "Apaga o loop");
+        looperClearButton.setButtonText ("LIMPAR");
+        setupLooperButton (looperExportButton, 0,
+                           "Salva o loop em WAV (Documentos\\GuitarRig NAM\\Loops)");
+        looperExportButton.setButtonText ("WAV");
+        looperExportButton.onClick = [this]
+        {
+            const auto file = processor.exportLoopToWav();
+            looperExportButton.setButtonText (file != juce::File() ? "SALVO" : "VAZIO");
+            auto* self = this; // MSVC: 'this' em init-capture aninhada resolve errado
+            juce::Timer::callAfterDelay (1200,
+                [safe = juce::Component::SafePointer<ChainView> (self)]
+                {
+                    if (safe != nullptr)
+                        safe->looperExportButton.setButtonText ("WAV");
+                });
+        };
+    }
 
     auto makeLed = [&] (LedButton& led, const char* id, std::unique_ptr<Attachment>& att)
     {
@@ -400,6 +439,11 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     makeLed (revLed, "revOn", revAtt);
     makeLed (compLed, "compOn", compAtt);
     makeLed (preEqLed, "preEqOn", preEqAtt);
+    makeLed (pitchLed, "pitchOn", pitchAtt);
+    makeLed (looperLed, "looperOn", looperAtt);
+    looperLed.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Liga/desliga a escuta do loop (a grava\xc3\xa7\xc3\xa3o continua)")));
+    makeLed (limLed, "limOn", limAtt);
     modAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         apvts, "modOn", modLed);
     modLed.setTooltip (juce::String (juce::CharPointer_UTF8 ("Liga/desliga o m\xc3\xb3""dulo")));
@@ -503,6 +547,11 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     tip (revDecayKnob, "Tamanho/dura\xc3\xa7\xc3\xa3o do reverb");
     tip (revMixKnob, "Mistura do reverb no sinal");
     tip (revPreKnob, "Atraso antes do reverb come\xc3\xa7""ar");
+    tip (pitchMixKnob, "Mistura da voz transposta com o sinal seco");
+    tip (pitchLevelKnob, "Volume da voz transposta");
+    tip (looperLevelKnob, "Volume do loop na mistura");
+    tip (limCeilKnob, "Teto do limiter \xe2\x80\x94 nada passa deste n\xc3\xadvel");
+    tip (limRelKnob, "Tempo de recupera\xc3\xa7\xc3\xa3o ap\xc3\xb3s limitar");
 
     updateLayout();
 }
@@ -588,6 +637,7 @@ void ChainView::refreshTypeButtons()
     update (revTypeButton, "revType");
     update (modTypeButton, "modType");
     update (delayDivButton, "delayDiv");
+    update (pitchTypeButton, "pitchType");
 }
 
 void ChainView::applyTapTempo()
@@ -632,6 +682,27 @@ void ChainView::refreshDynamicText()
                                                                    : "CARREGAR CAPTURE NAM");
     ecoChip.setEnabled (processor.hasEcoVariant());
     refreshTypeButtons();
+
+    // botões do looper acompanham o estado
+    {
+        using LS = GuitarRigNAMProcessor::LooperState;
+        const auto st = processor.getLooperState();
+        const auto rec = st == LS::empty ? juce::String (juce::CharPointer_UTF8 ("\xe2\x97\x8f REC"))
+                         : st == LS::recording ? juce::String ("FECHAR")
+                         : st == LS::overdub ? juce::String ("FIM DUB")
+                                             : juce::String ("OVERDUB");
+        if (looperRecButton.getButtonText() != rec)
+            looperRecButton.setButtonText (rec);
+        const auto play = st == LS::playing || st == LS::overdub
+                              ? juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0 STOP"))
+                              : juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6 PLAY"));
+        if (looperPlayButton.getButtonText() != play)
+            looperPlayButton.setButtonText (play);
+        const bool hasLoop = st != LS::empty;
+        looperPlayButton.setEnabled (hasLoop);
+        looperClearButton.setEnabled (hasLoop);
+        looperExportButton.setEnabled (hasLoop && st != LS::recording);
+    }
 
     // número de rigs ou ordem da cadeia mudou -> relayout
     const auto orderNow = processor.getChainOrder().joinIntoString (",");
@@ -712,7 +783,9 @@ void ChainView::mouseUp (const juce::MouseEvent&)
 
 int ChainView::effectCardWidth (const juce::String& id) const
 {
-    return (id == "eq" || id == "preeq") ? 176 : 132;
+    if (id == "eq" || id == "preeq" || id == "looper")
+        return 176;
+    return 132;
 }
 
 juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
@@ -725,6 +798,9 @@ juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
     if (id == "comp") return compB;
     if (id == "preeq") return preEqB;
     if (id == "mod") return modB;
+    if (id == "pitch") return pitchB;
+    if (id == "looper") return looperB;
+    if (id == "limiter") return limB;
     return ampLaneB[0].getUnion (mixerB); // "amp" = bloco rigs+mixer
 }
 
@@ -787,6 +863,9 @@ void ChainView::resized()
             else if (id == "comp") compB = box;
             else if (id == "preeq") preEqB = box;
             else if (id == "mod") modB = box;
+            else if (id == "pitch") pitchB = box;
+            else if (id == "looper") looperB = box;
+            else if (id == "limiter") limB = box;
             x += w + 30;
         }
     }
@@ -827,6 +906,21 @@ void ChainView::resized()
     layoutPedal (compB, compLed, { compSustainKnob.get(), compAttackKnob.get(),
                                    compBlendKnob.get(), compLevelKnob.get() });
     layoutPedal (modB, modLed, { modRateKnob.get(), modDepthKnob.get(), modMixKnob.get() });
+    layoutPedal (pitchB, pitchLed, { pitchMixKnob.get(), pitchLevelKnob.get() });
+    layoutPedal (limB, limLed, { limCeilKnob.get(), limRelKnob.get() });
+
+    // looper: LOOP (nível) + grade de botões 2x2
+    {
+        looperLed.setBounds (looperB.getRight() - 12 - 18, looperB.getY() + 10, 18, 18);
+        looperLevelKnob->setBounds (looperB.getCentreX() - 23, looperB.getY() + 64, 46, 46 + 26);
+        const int bw = (looperB.getWidth() - 24 - 8) / 2, bh = 30;
+        const int bx = looperB.getX() + 12;
+        const int by = looperB.getY() + 168;
+        looperRecButton.setBounds (bx, by, bw, bh);
+        looperPlayButton.setBounds (bx + bw + 8, by, bw, bh);
+        looperClearButton.setBounds (bx, by + bh + 8, bw, bh);
+        looperExportButton.setBounds (bx + bw + 8, by + bh + 8, bw, bh);
+    }
 
     // TAP + subdivisão no cartão do delay (linha acima do seletor de modelo)
     tapButton.setBounds (delayB.getX() + 12, delayB.getBottom() - 96, 50, 24);
@@ -854,6 +948,7 @@ void ChainView::resized()
     placeTypeButton (delayTypeButton, delayB);
     placeTypeButton (revTypeButton, revB);
     placeTypeButton (modTypeButton, modB);
+    placeTypeButton (pitchTypeButton, pitchB);
 
     // pré-EQ: mesmos moldes do EQ
     {
@@ -1156,6 +1251,82 @@ void ChainView::paint (juce::Graphics& g)
     drawPedalFrame (g, revB, "Reverb", " ");
     drawPedalFrame (g, compB, "Compressor", " ");
     drawPedalFrame (g, modB, juce::String (juce::CharPointer_UTF8 ("Modula\xc3\xa7\xc3\xa3o")), " ");
+    drawPedalFrame (g, pitchB, "Pitch", " ");
+
+    // ---- looper (estado + tempo desenhados ao vivo)
+    {
+        drawPedalFrame (g, looperB, "Looper", {});
+
+        const auto st = processor.getLooperState();
+        juce::String status;
+        juce::Colour c = ui::textFaint;
+        switch (st)
+        {
+            case GuitarRigNAMProcessor::LooperState::empty:
+                status = juce::String (juce::CharPointer_UTF8 ("vazio \xc2\xb7 REC para gravar"));
+                break;
+            case GuitarRigNAMProcessor::LooperState::recording:
+                status = "gravando " + juce::String (processor.getLooperPosSeconds(), 1) + " s";
+                c = ui::red;
+                break;
+            case GuitarRigNAMProcessor::LooperState::playing:
+                status = "tocando " + juce::String (processor.getLooperPosSeconds(), 1) + " / "
+                         + juce::String (processor.getLooperSeconds(), 1) + " s";
+                c = ui::accent;
+                break;
+            case GuitarRigNAMProcessor::LooperState::overdub:
+                status = "overdub " + juce::String (processor.getLooperPosSeconds(), 1) + " / "
+                         + juce::String (processor.getLooperSeconds(), 1) + " s";
+                c = ui::glowOrange;
+                break;
+            case GuitarRigNAMProcessor::LooperState::stopped:
+                status = juce::String (juce::CharPointer_UTF8 ("parado \xc2\xb7 "))
+                         + juce::String (processor.getLooperSeconds(), 1) + " s";
+                break;
+        }
+        g.setFont (ui::monoFont (9.0f));
+        g.setColour (c);
+        g.drawText (status, looperB.getX() + 12, looperB.getY() + 34, looperB.getWidth() - 24, 12,
+                    juce::Justification::centredLeft);
+
+        // barra de progresso do loop
+        if (st != GuitarRigNAMProcessor::LooperState::empty)
+        {
+            auto bar = juce::Rectangle<float> ((float) looperB.getX() + 12.0f,
+                                               (float) looperB.getY() + 52.0f,
+                                               (float) looperB.getWidth() - 24.0f, 4.0f);
+            g.setColour (ui::meterBg);
+            g.fillRoundedRectangle (bar, 2.0f);
+            const double total = st == GuitarRigNAMProcessor::LooperState::recording
+                                     ? (double) GuitarRigNAMProcessor::looperMaxSeconds
+                                     : processor.getLooperSeconds();
+            const double frac = total > 0 ? processor.getLooperPosSeconds() / total : 0.0;
+            g.setColour (c);
+            g.fillRoundedRectangle (bar.withWidth (bar.getWidth() * (float) juce::jlimit (0.0, 1.0, frac)), 2.0f);
+        }
+    }
+
+    // ---- limiter (com barrinha de gain reduction)
+    {
+        drawPedalFrame (g, limB, "Limiter", juce::String (juce::CharPointer_UTF8 ("brickwall \xc2\xb7 fim da cadeia")));
+
+        const float gr = processor.getLimiterGrDb();
+        auto bar = juce::Rectangle<float> ((float) limB.getX() + 13.0f, (float) limB.getY() + 40.0f,
+                                           (float) limB.getWidth() - 26.0f, 6.0f);
+        g.setColour (ui::meterBg);
+        g.fillRoundedRectangle (bar, 3.0f);
+        if (gr > 0.05f)
+        {
+            g.setColour (gr > 6.0f ? ui::red : ui::accent);
+            g.fillRoundedRectangle (bar.withWidth (bar.getWidth()
+                                                   * juce::jlimit (0.0f, 1.0f, gr / 12.0f)), 3.0f);
+        }
+        g.setFont (ui::monoFont (8.0f));
+        g.setColour (ui::textFaint);
+        g.drawText ("GR " + juce::String (gr, 1) + " dB",
+                    limB.getX() + 13, limB.getY() + 50, limB.getWidth() - 26, 11,
+                    juce::Justification::centredLeft);
+    }
 
     // ---- pré-EQ (com barras vivas, como o EQ pós)
     {
@@ -1433,6 +1604,9 @@ void ChainView::paint (juce::Graphics& g)
                              : draggingId == "eq" ? juce::String ("EQ")
                              : draggingId == "delay" ? juce::String ("Delay")
                              : draggingId == "comp" ? juce::String ("Compressor")
+                             : draggingId == "pitch" ? juce::String ("Pitch")
+                             : draggingId == "looper" ? juce::String ("Looper")
+                             : draggingId == "limiter" ? juce::String ("Limiter")
                              : draggingId == "mod"
                                    ? juce::String (juce::CharPointer_UTF8 ("Modula\xc3\xa7\xc3\xa3o"))
                              : draggingId == "preeq"
@@ -1669,7 +1843,20 @@ void RigContent::paint (juce::Graphics& g)
         g.setFont (ui::monoFont (8.0f));
         g.setColour (ui::textFaint);
         g.drawText ("IN", inMeter.getX() - 28, inMeter.getY() - 4, 24, 12, juce::Justification::centredRight);
-        g.drawText ("OUT", outMeter.getX() - 28, outMeter.getY() - 4, 24, 12, juce::Justification::centredRight);
+        if (clipTicks > 0)
+        {
+            g.setColour (ui::red);
+            g.setFont (ui::monoFont (8.0f, true));
+            g.drawText ("CLIP", outMeter.getX() - 32, outMeter.getY() - 4, 28, 12,
+                        juce::Justification::centredRight);
+            g.setColour (ui::textFaint);
+            g.setFont (ui::monoFont (8.0f));
+        }
+        else
+        {
+            g.drawText ("OUT", outMeter.getX() - 28, outMeter.getY() - 4, 24, 12,
+                        juce::Justification::centredRight);
+        }
         {
             const float cpu = processor.cpuLoad.load();
             const bool overload = cpu >= 0.9f;
@@ -1805,6 +1992,11 @@ void RigContent::timerCallback()
     outMeterDb = juce::jmax (toDb (processor.outputPeak.load()), outMeterDb - 2.2f);
     inMeter.setLevel (inMeterDb);
     outMeter.setLevel (outMeterDb);
+
+    if (processor.outputPeak.load() >= 0.999f)
+        clipTicks = 60; // ~2 s de aviso
+    else if (clipTicks > 0)
+        --clipTicks;
 
     const float cpu = processor.cpuLoad.load();
     cpuMeter.setFraction (cpu, cpu > 0.8f ? ui::red : cpu > 0.5f ? ui::yellow : ui::accent);

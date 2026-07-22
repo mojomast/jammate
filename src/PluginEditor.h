@@ -137,14 +137,15 @@ private:
     GuitarRigNAMProcessor& processor;
 
     juce::Rectangle<int> ioInB, gateB, odB, eqB, delayB, revB, ioOutB;
-    juce::Rectangle<int> compB, preEqB;
+    juce::Rectangle<int> compB, preEqB, pitchB, looperB, limB;
     // rigs paralelos: um par amp+cab por lane + o card Mixer que soma tudo
     juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs], mixerB;
     juce::Image ampImages[maxRigs], cabImages[maxRigs];
 
     // knobs / LEDs / botões
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
-    LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed, compLed, preEqLed;
+    LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed, compLed, preEqLed,
+        pitchLed, looperLed, limLed;
     std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob, gateHoldKnob;
     std::unique_ptr<KnobComponent> compSustainKnob, compAttackKnob, compBlendKnob, compLevelKnob;
     std::unique_ptr<KnobComponent> preEqLowKnob, preEqMidKnob, preEqHighKnob;
@@ -152,7 +153,7 @@ private:
 
     // seletores de variação (modelo/marca) nos cartões
     juce::TextButton odTypeButton, compTypeButton, delayTypeButton, revTypeButton,
-        modTypeButton, delayDivButton;
+        modTypeButton, delayDivButton, pitchTypeButton;
     void setupTypeButton (juce::TextButton&, const char* paramId, const juce::String& tooltip);
     void refreshTypeButtons();
 
@@ -183,6 +184,11 @@ private:
     std::unique_ptr<KnobComponent> eqLowKnob, eqMidKnob, eqHighKnob;
     std::unique_ptr<KnobComponent> delayTimeKnob, delayFbKnob, delayMixKnob;
     std::unique_ptr<KnobComponent> revDecayKnob, revMixKnob, revPreKnob;
+    // P3: pitch, looper e limiter
+    std::unique_ptr<KnobComponent> pitchMixKnob, pitchLevelKnob;
+    std::unique_ptr<KnobComponent> looperLevelKnob;
+    std::unique_ptr<KnobComponent> limCeilKnob, limRelKnob;
+    juce::TextButton looperRecButton, looperPlayButton, looperClearButton, looperExportButton;
     juce::TextButton ecoChip { "ECO" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ecoAtt;
 
@@ -193,7 +199,7 @@ private:
 
     using Attachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     std::unique_ptr<Attachment> gateAtt, odAtt, ampAtt, cabAtt, eqAtt, delayAtt, revAtt,
-        compAtt, preEqAtt;
+        compAtt, preEqAtt, pitchAtt, looperAtt, limAtt;
     std::unique_ptr<Attachment> cabPhaseAtt[GuitarRigNAMProcessor::maxCabSlots];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChainView)
@@ -273,6 +279,7 @@ private:
     bool cabImagesLoaded[GuitarRigNAMProcessor::maxRigs] = {};
 
     float inMeterDb = -80.0f, outMeterDb = -80.0f;
+    int clipTicks = 0; // "CLIP" aceso no medidor OUT após pico >= 0 dBFS
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RigContent)
 };

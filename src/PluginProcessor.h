@@ -133,8 +133,9 @@ public:
     // Cadeia reordenável: os efeitos podem mudar de posição; o bloco
     // Amp+Cabs ("amp") é âncora fixa mas efeitos podem ficar antes/depois.
 
-    enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock, comp, preEq, mod };
-    static constexpr int numChainFx = 9;
+    enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock, comp, preEq, mod,
+                               pitch, looper, limiter };
+    static constexpr int numChainFx = 12;
     static constexpr int chainMaxSlots = 16; // expansível para efeitos futuros
 
     /// Ordem atual como ids ("gate", "od", "amp", "eq", "delay", "reverb").
@@ -145,6 +146,25 @@ public:
 
     static juce::String fxToString (ChainFx);
     static int fxFromString (const juce::String&); // -1 se desconhecido
+
+    //==========================================================================
+    // Looper (comandos do editor via atomics; transições aplicadas no
+    // processBlock — o buffer é pré-alocado, nada de alocação no áudio)
+
+    enum class LooperState : int { empty = 0, recording, playing, overdub, stopped };
+    static constexpr int looperMaxSeconds = 60;
+
+    LooperState getLooperState() const noexcept { return (LooperState) looperState.load(); }
+    /// 1 = REC/fecha/overdub · 2 = play/stop · 3 = limpar
+    void requestLooperCommand (int cmd) noexcept { looperCmd.store (cmd); }
+    double getLooperSeconds() const noexcept;
+    double getLooperPosSeconds() const noexcept;
+    /// Grava o loop atual em WAV (Documentos\GuitarRig NAM\Loops). Message
+    /// thread; retorna o arquivo criado ou {} se não há loop.
+    juce::File exportLoopToWav() const;
+
+    /// Redução de ganho atual do limiter em dB (para o cartão).
+    float getLimiterGrDb() const noexcept { return limGrDb.load(); }
 
     /// true quando o estado atual difere do último preset salvo/carregado.
     bool isPresetDirty();
@@ -249,6 +269,9 @@ private:
     void processCompFx (float* io, int n);
     void processPreEqFx (float* io, int n);
     void processModFx (float* io, int n);
+    void processPitchFx (float* io, int n);
+    void processLooperFx (float* io, int n);
+    void processLimiterFx (float* io, int n);
 
     // Gate "inteligente": follower de envelope com histerese de 6 dB
     // (abre no threshold, só fecha 6 dB abaixo — preserva o sustain),
@@ -418,6 +441,58 @@ private:
 
     // spring reverb: bandpass no caminho wet
     Biquad revSpringHp, revSpringLp;
+
+    // ---- Pitch (cartão): shifter granular de 2 cabeças com crossfade
+    // seno/cosseno (potência constante) sobre um ring buffer fixo.
+    struct PitchShifter
+    {
+        static constexpr int bufSize = 1 << 14; // 16384 (341 ms @ 48k)
+        float buf[bufSize] = {};
+        int w = 0;
+        double ph = 0.0;
+        double win = 2400.0; // amostras da janela (50 ms @ 48k)
+
+        void prepare (double sr)
+        {
+            win = juce::jlimit (256.0, (double) bufSize / 2.0, 0.05 * sr);
+            ph = 0.0;
+            w = 0;
+            std::fill (std::begin (buf), std::end (buf), 0.0f);
+        }
+        float readInterp (double delaySamples) const noexcept
+        {
+            double pos = (double) w - 1.0 - delaySamples;
+            while (pos < 0.0)
+                pos += bufSize;
+            const int i0 = (int) pos & (bufSize - 1);
+            const int i1 = (i0 + 1) & (bufSize - 1);
+            const float frac = (float) (pos - std::floor (pos));
+            return buf[i0] * (1.0f - frac) + buf[i1] * frac;
+        }
+        void process (float* io, int n, double ratio, float mix, float outGain) noexcept;
+    };
+    PitchShifter pitchShift;
+    std::atomic<float>* pPitchOn = nullptr;
+    std::atomic<float>* pPitchType = nullptr;   // Oitava ↓ / Oitava ↑ / Quinta / Detune
+    std::atomic<float>* pPitchMix = nullptr;
+    std::atomic<float>* pPitchLevel = nullptr;
+
+    // ---- Looper (buffer pré-alocado em prepareToPlay)
+    juce::AudioBuffer<float> loopBuf;
+    std::atomic<int> looperState { 0 };  // LooperState
+    std::atomic<int> looperCmd { 0 };    // 0 = nada; ver requestLooperCommand
+    std::atomic<int> looperLen { 0 };    // amostras gravadas
+    std::atomic<int> looperPos { 0 };
+    std::atomic<float>* pLooperOn = nullptr;
+    std::atomic<float>* pLooperLevel = nullptr;
+
+    // ---- Limiter (pós-cadeia; brickwall do JUCE)
+    juce::dsp::Limiter<float> outLimiter;
+    float limCachedThresh = 99.0f, limCachedRelease = -1.0f;
+    std::atomic<float> limGrDb { 0.0f };
+    std::atomic<float>* pLimOn = nullptr;
+    std::atomic<float>* pLimCeiling = nullptr;
+    std::atomic<float>* pLimRelease = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarRigNAMProcessor)
 };

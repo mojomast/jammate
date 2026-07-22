@@ -1,6 +1,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <juce_audio_formats/juce_audio_formats.h>
+
 #include <NAM/dsp.h>
 #include <NAM/get_dsp.h>
 
@@ -216,6 +218,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
     using BoolParam = juce::AudioParameterBool;
     auto dB = juce::AudioParameterFloatAttributes().withLabel ("dB");
     auto ms = juce::AudioParameterFloatAttributes().withLabel ("ms");
+    auto pct = juce::AudioParameterFloatAttributes().withLabel ("%");
 
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
@@ -303,6 +306,38 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::ParameterID { "revType", 1 }, "Reverb Type",
         juce::StringArray { "Hall", "Room", "Plate", "Spring" }, 0));
 
+    // pitch/octaver (cartão Pitch)
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "pitchOn", 1 }, "Pitch On", false));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "pitchType", 1 }, "Pitch Type",
+        juce::StringArray { juce::String::fromUTF8 ("Oitava \xe2\x86\x93"),
+                            juce::String::fromUTF8 ("Oitava \xe2\x86\x91"),
+                            "Quinta", "Detune" }, 0));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "pitchMix", 1 }, "Pitch Mix",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 50.0f, pct));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "pitchLevel", 1 }, "Pitch Level",
+        juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f, dB));
+
+    // looper (LED = escuta do playback; nível do loop na mistura)
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "looperOn", 1 }, "Looper On", true));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "looperLevel", 1 }, "Looper Level",
+        juce::NormalisableRange<float> (-20.0f, 6.0f, 0.1f), 0.0f, dB));
+
+    // limiter de saída (brickwall)
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "limOn", 1 }, "Limiter On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "limCeiling", 1 }, "Limiter Ceiling",
+        juce::NormalisableRange<float> (-12.0f, 0.0f, 0.1f), -1.0f, dB));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "limRelease", 1 }, "Limiter Release",
+        juce::NormalisableRange<float> (10.0f, 500.0f, 1.0f, 0.5f), 100.0f, ms));
+
     // modulações (cartão Mod)
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { "modOn", 1 }, "Mod On", false));
@@ -340,7 +375,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f, dB));
 
     auto zeroTen = juce::NormalisableRange<float> (0.0f, 10.0f, 0.1f);
-    auto pct = juce::AudioParameterFloatAttributes().withLabel ("%");
 
     layout.add (std::make_unique<FloatParam> (
         juce::ParameterID { kParamCabAir, 1 }, "Cab Air", zeroTen, 0.0f));
@@ -451,6 +485,15 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pModRate = apvts.getRawParameterValue ("modRate");
     pModDepth = apvts.getRawParameterValue ("modDepth");
     pModMix = apvts.getRawParameterValue ("modMix");
+    pPitchOn = apvts.getRawParameterValue ("pitchOn");
+    pPitchType = apvts.getRawParameterValue ("pitchType");
+    pPitchMix = apvts.getRawParameterValue ("pitchMix");
+    pPitchLevel = apvts.getRawParameterValue ("pitchLevel");
+    pLooperOn = apvts.getRawParameterValue ("looperOn");
+    pLooperLevel = apvts.getRawParameterValue ("looperLevel");
+    pLimOn = apvts.getRawParameterValue ("limOn");
+    pLimCeiling = apvts.getRawParameterValue ("limCeiling");
+    pLimRelease = apvts.getRawParameterValue ("limRelease");
     pPreEqOn = apvts.getRawParameterValue ("preEqOn");
     pPreEqLow = apvts.getRawParameterValue ("preEqLow");
     pPreEqMid = apvts.getRawParameterValue ("preEqMid");
@@ -593,6 +636,21 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     revSpringHp.reset();
     revSpringLp.reset();
 
+    pitchShift.prepare (sampleRate);
+
+    // looper: buffer pré-alocado; loop antigo perde o sentido em outro SR
+    loopBuf.setSize (1, (int) (sampleRate * looperMaxSeconds) + 1);
+    loopBuf.clear();
+    looperState.store (0);
+    looperLen.store (0);
+    looperPos.store (0);
+    looperCmd.store (0);
+
+    outLimiter.prepare (spec);
+    limCachedThresh = 99.0f;
+    limCachedRelease = -1.0f;
+    limGrDb.store (0.0f);
+
     wetScratchR.setSize (1, samplesPerBlock);
     stereoExtra.setSize (1, samplesPerBlock);
 
@@ -717,6 +775,9 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
                 case ChainFx::comp:     processCompFx (io, n); break;
                 case ChainFx::preEq:    processPreEqFx (io, n); break;
                 case ChainFx::mod:      processModFx (io, n); break;
+                case ChainFx::pitch:    processPitchFx (io, n); break;
+                case ChainFx::looper:   processLooperFx (io, n); break;
+                case ChainFx::limiter:  processLimiterFx (io, n); break;
             }
         }
     }
@@ -1165,6 +1226,191 @@ void GuitarRigNAMProcessor::processModFx (float* io, int n)
     }
 }
 
+void GuitarRigNAMProcessor::PitchShifter::process (float* io, int n, double ratio,
+                                                   float mix, float outGain) noexcept
+{
+    const double inc = 1.0 - ratio;
+    const float dry = 1.0f - mix;
+
+    for (int i = 0; i < n; ++i)
+    {
+        buf[w] = io[i];
+
+        ph += inc;
+        while (ph >= win) ph -= win;
+        while (ph < 0.0)  ph += win;
+
+        double d2 = ph + win * 0.5;
+        if (d2 >= win) d2 -= win;
+
+        // crossfade seno/cosseno = potência constante entre as 2 cabeças;
+        // -3 dB compensa a soma coerente (senão material tonal chega a +1.41x)
+        const float g1 = std::sin ((float) (juce::MathConstants<double>::pi * ph / win));
+        const float g2 = std::sin ((float) (juce::MathConstants<double>::pi * d2 / win));
+        const float s = (readInterp (ph) * g1 + readInterp (d2) * g2) * 0.7071f;
+
+        w = (w + 1) & (bufSize - 1);
+        io[i] = io[i] * dry + s * mix * outGain;
+    }
+}
+
+void GuitarRigNAMProcessor::processPitchFx (float* io, int n)
+{
+    if (pPitchOn->load() <= 0.5f)
+        return;
+
+    // razões por tipo: oitava ↓/↑, quinta justa e detune leve (~12 cents)
+    const int type = (int) pPitchType->load();
+    const double ratio = type == 0 ? 0.5
+                       : type == 1 ? 2.0
+                       : type == 2 ? 1.5
+                                   : 1.007;
+    const float mix = pPitchMix->load() / 100.0f;
+    const float level = juce::Decibels::decibelsToGain (pPitchLevel->load());
+    pitchShift.process (io, n, ratio, mix, level);
+}
+
+void GuitarRigNAMProcessor::processLooperFx (float* io, int n)
+{
+    const int maxLen = loopBuf.getNumSamples();
+    if (maxLen <= 0)
+        return;
+
+    float* loop = loopBuf.getWritePointer (0);
+    int st = looperState.load();
+    int len = looperLen.load();
+    int pos = looperPos.load();
+
+    // comandos do editor (aplicados na borda do bloco)
+    switch (looperCmd.exchange (0))
+    {
+        case 1: // REC: grava -> fecha e toca -> overdub -> toca
+            if (st == (int) LooperState::empty)        { st = (int) LooperState::recording; len = 0; pos = 0; }
+            else if (st == (int) LooperState::recording) { st = (int) LooperState::playing; len = pos; pos = 0; }
+            else if (st == (int) LooperState::playing)   st = (int) LooperState::overdub;
+            else if (st == (int) LooperState::overdub)   st = (int) LooperState::playing;
+            else if (st == (int) LooperState::stopped)   { st = (int) LooperState::overdub; }
+            break;
+        case 2: // PLAY/STOP
+            if (st == (int) LooperState::playing || st == (int) LooperState::overdub)
+                { st = (int) LooperState::stopped; pos = 0; }
+            else if (st == (int) LooperState::stopped && len > 0)
+                st = (int) LooperState::playing;
+            else if (st == (int) LooperState::recording)
+                { st = (int) LooperState::playing; len = pos; pos = 0; }
+            break;
+        case 3: // CLEAR
+            st = (int) LooperState::empty; len = 0; pos = 0;
+            break;
+    }
+
+    const float lvl = pLooperOn->load() > 0.5f
+                          ? juce::Decibels::decibelsToGain (pLooperLevel->load())
+                          : 0.0f;
+
+    if (st == (int) LooperState::recording)
+    {
+        for (int i = 0; i < n && pos < maxLen; ++i)
+            loop[pos++] = io[i];
+        if (pos >= maxLen) // estourou o máximo: fecha o loop sozinho
+        {
+            st = (int) LooperState::playing;
+            len = maxLen;
+            pos = 0;
+        }
+    }
+    else if ((st == (int) LooperState::playing || st == (int) LooperState::overdub) && len > 0)
+    {
+        const bool dub = st == (int) LooperState::overdub;
+        for (int i = 0; i < n; ++i)
+        {
+            const float played = loop[pos];
+            if (dub)
+                loop[pos] = played + io[i];
+            io[i] += played * lvl;
+            if (++pos >= len)
+                pos = 0;
+        }
+    }
+
+    looperState.store (st);
+    looperLen.store (len);
+    looperPos.store (pos);
+}
+
+void GuitarRigNAMProcessor::processLimiterFx (float* io, int n)
+{
+    if (pLimOn->load() <= 0.5f)
+    {
+        limGrDb.store (0.0f);
+        return;
+    }
+
+    const float thresh = pLimCeiling->load();
+    const float release = pLimRelease->load();
+    if (thresh != limCachedThresh || release != limCachedRelease)
+    {
+        limCachedThresh = thresh;
+        limCachedRelease = release;
+        outLimiter.setThreshold (thresh);
+        outLimiter.setRelease (release);
+    }
+
+    const float preepk = juce::FloatVectorOperations::findMaximum (io, n);
+
+    juce::dsp::AudioBlock<float> block (&io, 1, (size_t) n);
+    juce::dsp::ProcessContextReplacing<float> ctx (block);
+    outLimiter.process (ctx);
+
+    // estimativa de gain reduction para o cartão (pico antes/depois)
+    const float postpk = juce::FloatVectorOperations::findMaximum (io, n);
+    const float gr = preepk > 1.0e-4f && postpk > 1.0e-4f && preepk > postpk
+                         ? juce::Decibels::gainToDecibels (preepk / postpk)
+                         : 0.0f;
+    limGrDb.store (limGrDb.load() * 0.7f + gr * 0.3f);
+}
+
+double GuitarRigNAMProcessor::getLooperSeconds() const noexcept
+{
+    return looperLen.load() / juce::jmax (1.0, hostSampleRate.load());
+}
+
+double GuitarRigNAMProcessor::getLooperPosSeconds() const noexcept
+{
+    return looperPos.load() / juce::jmax (1.0, hostSampleRate.load());
+}
+
+juce::File GuitarRigNAMProcessor::exportLoopToWav() const
+{
+    const int len = looperLen.load();
+    if (len <= 0 || loopBuf.getNumSamples() < len)
+        return {};
+
+    // cópia primeiro: o áudio pode estar tocando/overdubando o buffer
+    juce::AudioBuffer<float> copy (1, len);
+    copy.copyFrom (0, 0, loopBuf, 0, 0, len);
+
+    auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                   .getChildFile ("GuitarRig NAM")
+                   .getChildFile ("Loops");
+    dir.createDirectory();
+    const auto stamp = juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H.%M.%S");
+    auto file = dir.getChildFile ("Loop " + stamp + ".wav");
+
+    juce::WavAudioFormat wav;
+    if (auto stream = file.createOutputStream())
+    {
+        if (std::unique_ptr<juce::AudioFormatWriter> writer {
+                wav.createWriterFor (stream.get(), hostSampleRate.load(), 1, 24, {}, 0) })
+        {
+            stream.release(); // o writer é dono do stream agora
+            writer->writeFromAudioSampleBuffer (copy, 0, len);
+            return file;
+        }
+    }
+    return {};
+}
+
 void GuitarRigNAMProcessor::processAmpAndCabs (juce::AudioBuffer<float>& buffer, float* io, int n)
 {
     // ---- até 3 lanes AMP+CAB em paralelo, sempre em dupla (capture + IR),
@@ -1285,6 +1531,9 @@ juce::String GuitarRigNAMProcessor::fxToString (ChainFx fx)
         case ChainFx::comp:     return "comp";
         case ChainFx::preEq:    return "preeq";
         case ChainFx::mod:      return "mod";
+        case ChainFx::pitch:    return "pitch";
+        case ChainFx::looper:   return "looper";
+        case ChainFx::limiter:  return "limiter";
     }
     return "amp";
 }
@@ -1299,9 +1548,10 @@ int GuitarRigNAMProcessor::fxFromString (const juce::String& id)
 
 void GuitarRigNAMProcessor::writeDefaultChain()
 {
-    const ChainFx def[] = { ChainFx::gate, ChainFx::comp, ChainFx::od, ChainFx::preEq,
-                            ChainFx::ampBlock, ChainFx::eq, ChainFx::mod,
-                            ChainFx::delay, ChainFx::reverb };
+    const ChainFx def[] = { ChainFx::gate, ChainFx::comp, ChainFx::od, ChainFx::pitch,
+                            ChainFx::preEq, ChainFx::ampBlock, ChainFx::eq, ChainFx::mod,
+                            ChainFx::delay, ChainFx::reverb, ChainFx::limiter,
+                            ChainFx::looper };
     for (int i = 0; i < (int) std::size (def); ++i)
         chainOrder[i].store ((int) def[i]);
     chainLen.store ((int) std::size (def));
@@ -1354,8 +1604,24 @@ void GuitarRigNAMProcessor::setChainOrder (const juce::StringArray& ids)
                                           ? delayIdx
                                           : order.indexOf ((int) ChainFx::ampBlock) + 1);
     }
+    // pitch entra antes do drive; limiter depois do reverb; looper no fim
+    if (! used[(int) ChainFx::pitch])
+    {
+        const int odIdx = order.indexOf ((int) ChainFx::od);
+        insertAt ((int) ChainFx::pitch, odIdx >= 0 ? odIdx + 1
+                                                   : order.indexOf ((int) ChainFx::ampBlock));
+    }
+    if (! used[(int) ChainFx::limiter])
+    {
+        const int revIdx = order.indexOf ((int) ChainFx::reverb);
+        insertAt ((int) ChainFx::limiter, revIdx >= 0 ? revIdx + 1 : order.size());
+    }
+    if (! used[(int) ChainFx::looper])
+        insertAt ((int) ChainFx::looper, order.size());
     used[(int) ChainFx::ampBlock] = used[(int) ChainFx::comp] = true;
     used[(int) ChainFx::preEq] = used[(int) ChainFx::mod] = true;
+    used[(int) ChainFx::pitch] = used[(int) ChainFx::looper] = true;
+    used[(int) ChainFx::limiter] = true;
 
     for (int f = 0; f < numChainFx; ++f)
         if (! used[f] && order.size() < chainMaxSlots)
