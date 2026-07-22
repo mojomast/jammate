@@ -74,6 +74,7 @@ target_sources(GuitarRigNAM
     PRIVATE
         src/PluginProcessor.cpp
         src/PluginEditor.cpp
+        src/PluginCatalog.cpp
         src/Tone3000Client.cpp
         src/StoreOverlay.cpp)
 

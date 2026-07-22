@@ -1,18 +1,26 @@
 # 🔌 Plugins VST3 recomendados
 
-Pacote de efeitos open source prontos para o **slot Plugin VST3** da cadeia
-(cards "Plugin VST3 1–3"). Depois de instalados, eles aparecem automaticamente
-no menu **CARREGAR VST3**, organizados por categoria.
+Pacote de efeitos open source prontos para os **slots Plugin VST3 1–3** da
+cadeia. Depois de instalados, eles aparecem automaticamente no menu
+**CARREGAR VST3**, organizados por categoria.
 
-## Instalar
+## Instalar — pelo próprio app (recomendado)
+
+O catálogo é **embutido no programa** (`src/PluginCatalog.cpp`): abra o menu
+**CARREGAR VST3** de um card Plugin VST3 → seção **"Instalar recomendados"**
+→ clique no plugin. O app baixa do release oficial e instala em
+`%LOCALAPPDATA%\Programs\Common\VST3` (pasta VST3 de usuário da spec —
+**sem precisar de administrador**), com progresso na barra inferior. O que
+foi instalado fica registrado em `Documentos\GuitarRig NAM\plugins.json`
+(id + versão).
+
+## Instalar — pelo script (alternativa offline/sistema)
 
 Clique-direito em **`instalar-plugins.ps1`** → *Executar com o PowerShell*
-(ele pede permissão de administrador sozinho — o destino é
-`C:\Program Files\Common Files\VST3`).
-
-O instalador usa a **cópia offline** de [`offline/`](offline/) quando ela
-existe (vem junto no repositório — instala sem internet) e cai para o
-**release oficial no GitHub** de cada projeto quando não.
+(pede administrador — o destino é `C:\Program Files\Common Files\VST3`).
+O script usa a **cópia offline** de [`offline/`](offline/) quando ela existe
+(vem junto no repositório — instala sem internet) e cai para o **release
+oficial no GitHub** de cada projeto quando não.
 
 ## O pacote
 

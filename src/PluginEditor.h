@@ -338,6 +338,10 @@ private:
     // janelas flutuantes com os painéis dos plugins VST3 hospedados
     std::unique_ptr<juce::DocumentWindow> extWindow[GuitarRigNAMProcessor::maxExtSlots];
 
+    // instalação de plugins do catálogo embutido (barra inferior mostra)
+    juce::String pluginInstallMsg;
+    int pluginMsgTicks = 0;
+
     // afinador
     juce::TextButton tunerToggle { "AFINADOR" };
     bool isTunerOn() const;

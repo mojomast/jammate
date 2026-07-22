@@ -1,5 +1,7 @@
 #include "PluginEditor.h"
 
+#include "PluginCatalog.h"
+
 #include <BinaryData.h>
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
 
@@ -2914,7 +2916,12 @@ void RigContent::paint (juce::Graphics& g)
 
             const auto err = processor.getLoadError();
             juce::Colour c = ui::textFaint;
-            if (err.isNotEmpty())
+            if (pluginInstallMsg.isNotEmpty())
+            {
+                status = pluginInstallMsg; // download/instalação de plugin
+                c = pluginInstallMsg.startsWith ("Erro") ? ui::red : ui::accent;
+            }
+            else if (err.isNotEmpty())
             {
                 status = "Erro: " + err;
                 c = ui::red;
@@ -3089,6 +3096,10 @@ void RigContent::timerCallback()
     applyEcoSwitchIfNeeded();
     if (ecoNoticeTicks > 0)
         --ecoNoticeTicks;
+
+    // mensagem de instalação de plugin: transiente só depois de concluída
+    if (pluginMsgTicks > 0 && --pluginMsgTicks == 0)
+        pluginInstallMsg.clear();
 
     if (++tunerTick % 3 == 0 && (isTunerOn() || perfMode))
         analyseTuner();
@@ -3271,15 +3282,15 @@ void RigContent::chooseModelFile (int lane)
 
 void RigContent::chooseExtPluginFile (int slot)
 {
-    // Menu por CATEGORIA: lista os .vst3 instalados no sistema (só nomes de
-    // arquivo, sem escanear/instanciar), agrupados pelo catálogo de
-    // recomendados (plugins/README.md) + "Outros" + procurar no disco.
-    const juce::File vst3Dir ("C:\\Program Files\\Common Files\\VST3");
+    // Menu por CATEGORIA: lista os .vst3 instalados (pasta do sistema + do
+    // usuário — o instalador embutido usa a do usuário, sem admin), agrupados
+    // pelo catálogo embutido (PluginCatalog) + instalar o que falta + disco.
     juce::Array<juce::File> found;
-    if (vst3Dir.isDirectory())
-        for (const auto& f : vst3Dir.findChildFiles (juce::File::findFilesAndDirectories,
+    for (const auto& dir : { plugcat::systemVst3Dir(), plugcat::userVst3Dir() })
+        if (dir.isDirectory())
+            for (const auto& f : dir.findChildFiles (juce::File::findFilesAndDirectories,
                                                      false, "*.vst3"))
-            found.add (f);
+                found.add (f);
 
     struct Category { const char* title; std::initializer_list<const char*> keys; };
     static const Category categories[] = {
@@ -3338,10 +3349,34 @@ void RigContent::chooseExtPluginFile (int slot)
                               found[i].getFullPathName() == current);
     }
 
-    if (found.isEmpty())
-        menu.addItem (9998, juce::String (juce::CharPointer_UTF8 (
-                          "Nenhum VST3 instalado \xe2\x80\x94 rode plugins\\instalar-plugins.ps1")),
-                      false);
+    // catálogo embutido: instalar direto pelo app o que ainda falta
+    // (baixa do release oficial e instala no VST3 do usuário, sem admin)
+    {
+        bool header = false;
+        const auto& cat = plugcat::entries();
+        for (int i = 0; i < (int) cat.size(); ++i)
+        {
+            if (plugcat::isInstalled (cat[(size_t) i]))
+                continue;
+            if (! header)
+            {
+                menu.addSectionHeader (juce::String (juce::CharPointer_UTF8 (
+                    "Instalar recomendados")));
+                header = true;
+            }
+            const auto& e = cat[(size_t) i];
+            if (juce::String (e.url).isNotEmpty())
+                menu.addItem (9100 + i,
+                              juce::String (juce::CharPointer_UTF8 ("\xe2\xac\x87 "))
+                                  + e.name + " " + e.version + " (" + juce::String (e.sizeMB)
+                                  + " MB, " + e.license + ")");
+            else
+                menu.addItem (9100 + i,
+                              juce::String (e.name)
+                                  + juce::String (juce::CharPointer_UTF8 (
+                                      " \xe2\x80\x94 baixar no site\xe2\x80\xa6")));
+        }
+    }
 
     menu.addSeparator();
     menu.addItem (9000, juce::String (juce::CharPointer_UTF8 ("Procurar arquivo\xe2\x80\xa6")));
@@ -3358,6 +3393,41 @@ void RigContent::chooseExtPluginFile (int slot)
                 self->processor.loadExternalPluginAsync (slot, found[result - 1]);
                 return;
             }
+
+            // instalar do catálogo embutido
+            if (result >= 9100 && result < 9100 + (int) plugcat::entries().size())
+            {
+                const auto& e = plugcat::entries()[(size_t) (result - 9100)];
+                if (juce::String (e.url).isEmpty())
+                {
+                    juce::URL (e.homepage).launchInDefaultBrowser();
+                    return;
+                }
+                self->pluginInstallMsg = juce::String (juce::CharPointer_UTF8 ("Baixando "))
+                                         + e.name + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\xa6"));
+                self->pluginMsgTicks = 0; // fica até terminar
+                plugcat::installAsync (
+                    e,
+                    [safe, name = juce::String (e.name)] (int pct)
+                    {
+                        if (safe != nullptr)
+                            safe->pluginInstallMsg =
+                                juce::String (juce::CharPointer_UTF8 ("Baixando "))
+                                + name + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\xa6 "))
+                                + juce::String (pct) + "%";
+                    },
+                    [safe] (bool ok, juce::String msg)
+                    {
+                        if (safe == nullptr)
+                            return;
+                        safe->pluginInstallMsg = (ok ? juce::String (juce::CharPointer_UTF8 ("\xe2\x9c\x93 "))
+                                                     : juce::String ("Erro: "))
+                                                 + msg;
+                        safe->pluginMsgTicks = 150; // ~5 s e some
+                    });
+                return;
+            }
+
             if (result != 9000)
                 return;
 
