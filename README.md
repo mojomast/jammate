@@ -35,6 +35,7 @@
 - **UX**: knobs com trava no default, duplo-clique reseta, roda ajusta, Ctrl = fino, valor digitável; tooltips em tudo; atalhos (espaço, T, ←/→, Esc); medidores IN/OUT + CPU real
 - **Pitch/octaver, Looper (60 s, overdub, export WAV) e Limiter** com indicador de clip
 - **Variações por efeito** (Drive ×8, Comp ×4, Delay ×5, Reverb ×5, Mod ×6, Pitch ×5) com inspiração clássica e fonte de estudo documentadas em **[docs/EFEITOS.md](docs/EFEITOS.md)**
+- **Slot de plugin VST3 externo**: hospede qualquer efeito de terceiros na cadeia, com painel próprio, MIX e estado salvo nos presets
 - **Real-time safety**: zero alocação/locks/IO no caminho de áudio (regra inegociável do projeto)
 
 ## 🖼️ Telas
@@ -128,9 +129,15 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 - [x] Novas variações vindas da lista de referências: Drive **Valve** (Airwindows Tube, MIT) e **Metal** (Guitarix) · Comp **Squeezer** · Delay **Ducking** · Reverb **Shimmer** (oitava acima no wet) · Mod **Vibrato** e **Rotary** (Leslie) · Pitch **Quarta**
 - [x] Correção: Boost e Heavy Fuzz do Drive tinham menu mas caíam no som do Screamer — agora têm vozeamento e clip próprios
 
+**Fase 11 — slot de plugin VST3 externo (concluída):**
+- [x] Cartão **Plugin VST3** na cadeia: hospeda qualquer efeito VST3 do disco (Dragonfly, LSP, Airwindows, BIAS FX…) via hosting JUCE
+- [x] Botões CARREGAR/TROCAR, **PAINEL** (interface do plugin em janela própria) e REMOVER + knob MIX (dry/wet) + LED de bypass
+- [x] Troca de instância RT-safe (mesmo protocolo pending/retired dos modelos NAM); mono → estéreo para o hóspede com retorno estéreo via `stereoExtra`
+- [x] Caminho **e estado interno** do plugin salvos nos presets (base64), com restauração automática
+- [x] Testado com BIAS FX 2 (processamento + painel)
+
 **Próximos:**
 - [ ] Analisador de espectro
-- [ ] Slot de plugin **VST3 externo** (hosting JUCE — Dragonfly, LSP etc. sem portar código)
 - [ ] Animações e microinterações · medidores com peak-hold/clip
 - [ ] Drag-and-drop de arquivos · afinador com mute · delay/reverb estéreo
 - [ ] Favoritos do TONE3000 · A/B de rigs · gravador rápido · modo performance

@@ -131,6 +131,14 @@ export WAV. Implementação própria (buffer pré-alocado, estados via atomics).
 Motor: `juce::dsp::Limiter` (brickwall). Papel de limiter de saída + medidor de
 gain reduction estudado em `references/lsp-plugins`.
 
+## Slot de plugin VST3 externo
+
+Hosting nativo do JUCE (`AudioPluginFormatManager` + `VST3PluginFormat`,
+`JUCE_PLUGINHOST_VST3`). Qualquer efeito VST3 de terceiros entra na cadeia sem
+portar código — inclusive os builds Windows dos projetos de referência
+(Dragonfly Reverb e LSP publicam VST3 oficiais; Airwindows tem o pacote
+consolidado). Dev: `GUITARRIG_EXT_PLUGIN=<caminho>` carrega no slot ao iniciar.
+
 ## Gate / Cab / Resampler (infra)
 
 - **Cab IR**: `juce::dsp::Convolution` (troca RT-safe interna do JUCE)

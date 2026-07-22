@@ -254,7 +254,9 @@ void PillButton::paintButton (juce::Graphics& g, bool isHighlighted, bool)
 
 //==============================================================================
 ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoadModel,
-                      std::function<void (int)> onLoadIr)
+                      std::function<void (int)> onLoadIr,
+                      std::function<void()> onLoadExtPlugin,
+                      std::function<void()> onOpenExtPluginUi)
     : processor (p)
 {
     auto& apvts = processor.apvts;
@@ -395,6 +397,24 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     makeKnob (looperLevelKnob, "looperLevel", "LOOP", formatDb);
     makeKnob (limCeilKnob, "limCeiling", "CEIL", formatDb);
     makeKnob (limRelKnob, "limRelease", "REL", formatMs);
+    makeKnob (extMixKnob, "extMix", "MIX", formatPct);
+
+    // slot de plugin VST3 externo
+    extLoadButton.setButtonText ("CARREGAR VST3");
+    extLoadButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Escolher um plugin .vst3 do disco (Dragonfly, LSP, Airwindows\xe2\x80\xa6)")));
+    extLoadButton.onClick = std::move (onLoadExtPlugin);
+    extUiButton.setButtonText ("PAINEL");
+    extUiButton.setTooltip ("Abrir a interface do plugin hospedado");
+    extUiButton.onClick = std::move (onOpenExtPluginUi);
+    extRemoveButton.setButtonText ("REMOVER");
+    extRemoveButton.setTooltip ("Esvaziar o slot");
+    extRemoveButton.onClick = [this] { processor.clearExternalPlugin(); };
+    for (auto* b : { &extLoadButton, &extUiButton, &extRemoveButton })
+    {
+        b->setMouseClickGrabsKeyboardFocus (false);
+        addAndMakeVisible (*b);
+    }
 
     // botões do looper (textos dinâmicos em refreshDynamicText)
     {
@@ -451,6 +471,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     looperLed.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Liga/desliga a escuta do loop (a grava\xc3\xa7\xc3\xa3o continua)")));
     makeLed (limLed, "limOn", limAtt);
+    makeLed (extLed, "extOn", extAtt);
     modAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         apvts, "modOn", modLed);
     modLed.setTooltip (juce::String (juce::CharPointer_UTF8 ("Liga/desliga o m\xc3\xb3""dulo")));
@@ -559,6 +580,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     tip (looperLevelKnob, "Volume do loop na mistura");
     tip (limCeilKnob, "Teto do limiter \xe2\x80\x94 nada passa deste n\xc3\xadvel");
     tip (limRelKnob, "Tempo de recupera\xc3\xa7\xc3\xa3o ap\xc3\xb3s limitar");
+    tip (extMixKnob, "Mistura do plugin hospedado com o sinal seco");
 
     updateLayout();
 }
@@ -711,6 +733,17 @@ void ChainView::refreshDynamicText()
         looperExportButton.setEnabled (hasLoop && st != LS::recording);
     }
 
+    // slot VST3
+    {
+        const bool hasExt = processor.hasExternalPlugin();
+        const auto loadText = hasExt ? juce::String ("TROCAR VST3")
+                                     : juce::String ("CARREGAR VST3");
+        if (extLoadButton.getButtonText() != loadText)
+            extLoadButton.setButtonText (loadText);
+        extUiButton.setEnabled (hasExt);
+        extRemoveButton.setEnabled (hasExt);
+    }
+
     // número de rigs ou ordem da cadeia mudou -> relayout
     const auto orderNow = processor.getChainOrder().joinIntoString (",");
     if (processor.getRigCount() != lastRigCount || orderNow != lastOrderSeen)
@@ -790,7 +823,7 @@ void ChainView::mouseUp (const juce::MouseEvent&)
 
 int ChainView::effectCardWidth (const juce::String& id) const
 {
-    if (id == "eq" || id == "preeq" || id == "looper")
+    if (id == "eq" || id == "preeq" || id == "looper" || id == "ext")
         return 176;
     return 132;
 }
@@ -808,6 +841,7 @@ juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
     if (id == "pitch") return pitchB;
     if (id == "looper") return looperB;
     if (id == "limiter") return limB;
+    if (id == "ext") return extB;
     return ampLaneB[0].getUnion (mixerB); // "amp" = bloco rigs+mixer
 }
 
@@ -873,6 +907,7 @@ void ChainView::resized()
             else if (id == "pitch") pitchB = box;
             else if (id == "looper") looperB = box;
             else if (id == "limiter") limB = box;
+            else if (id == "ext") extB = box;
             x += w + 30;
         }
     }
@@ -915,6 +950,16 @@ void ChainView::resized()
     layoutPedal (modB, modLed, { modRateKnob.get(), modDepthKnob.get(), modMixKnob.get() });
     layoutPedal (pitchB, pitchLed, { pitchMixKnob.get(), pitchLevelKnob.get() });
     layoutPedal (limB, limLed, { limCeilKnob.get(), limRelKnob.get() });
+
+    // slot VST3: MIX + botões CARREGAR/PAINEL/REMOVER empilhados
+    {
+        extLed.setBounds (extB.getRight() - 12 - 18, extB.getY() + 10, 18, 18);
+        extMixKnob->setBounds (extB.getCentreX() - 23, extB.getY() + 92, 46, 46 + 26);
+        const int bx = extB.getX() + 12, bw = extB.getWidth() - 24;
+        extLoadButton.setBounds (bx, extB.getBottom() - 12 - 24 - 60, bw, 24);
+        extUiButton.setBounds (bx, extB.getBottom() - 12 - 24 - 30, bw, 24);
+        extRemoveButton.setBounds (bx, extB.getBottom() - 12 - 24, bw, 24);
+    }
 
     // looper: LOOP (nível) + grade de botões 2x2
     {
@@ -1313,6 +1358,25 @@ void ChainView::paint (juce::Graphics& g)
         }
     }
 
+    // ---- slot de plugin VST3 externo
+    {
+        drawPedalFrame (g, extB, "Plugin VST3", {});
+
+        const auto extName = processor.getExternalPluginName();
+        g.setFont (ui::monoFont (8.0f));
+        g.setColour (ui::accent);
+        g.drawText (juce::CharPointer_UTF8 ("HOSTING \xc2\xb7 VST3"),
+                    extB.getX() + 12, extB.getY() + 32, 140, 11,
+                    juce::Justification::centredLeft);
+        g.setFont (ui::uiFont (13.0f, true));
+        g.setColour (extName.isNotEmpty() ? ui::textBright : ui::textMuted);
+        g.drawFittedText (extName.isNotEmpty()
+                              ? extName
+                              : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 slot vazio \xe2\x80\x94")),
+                          extB.getX() + 12, extB.getY() + 48, extB.getWidth() - 24, 34,
+                          juce::Justification::topLeft, 2);
+    }
+
     // ---- limiter (com barrinha de gain reduction)
     {
         drawPedalFrame (g, limB, "Limiter", juce::String (juce::CharPointer_UTF8 ("brickwall \xc2\xb7 fim da cadeia")));
@@ -1614,6 +1678,7 @@ void ChainView::paint (juce::Graphics& g)
                              : draggingId == "pitch" ? juce::String ("Pitch")
                              : draggingId == "looper" ? juce::String ("Looper")
                              : draggingId == "limiter" ? juce::String ("Limiter")
+                             : draggingId == "ext" ? juce::String ("Plugin VST3")
                              : draggingId == "mod"
                                    ? juce::String (juce::CharPointer_UTF8 ("Modula\xc3\xa7\xc3\xa3o"))
                              : draggingId == "preeq"
@@ -1730,7 +1795,17 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 
     chainView = std::make_unique<ChainView> (processor,
                                              [this] (int lane) { chooseModelFile (lane); },
-                                             [this] (int slot) { chooseIrFile (slot); });
+                                             [this] (int slot) { chooseIrFile (slot); },
+                                             [this] { chooseExtPluginFile(); },
+                                             [this] { openExtPluginWindow(); });
+
+    // fecha o painel do plugin hospedado antes de qualquer troca/descarte
+    processor.onExternalPluginWillChange =
+        [safe = juce::Component::SafePointer<RigContent> (this)]
+        {
+            if (safe != nullptr)
+                safe->closeExtPluginWindow();
+        };
     chainViewport.setViewedComponent (chainView.get(), false);
     chainViewport.setScrollBarsShown (false, true);
     chainViewport.setScrollBarThickness (9);
@@ -1738,6 +1813,18 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 
     storeOverlay = std::make_unique<StoreOverlay> (processor);
     addChildComponent (*storeOverlay);
+
+    // Dev: GUITARRIG_EXT_PLUGIN=<caminho .vst3> carrega no slot ao iniciar.
+    {
+        const auto extFlag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_EXT_PLUGIN", "");
+        if (extFlag.isNotEmpty())
+            juce::MessageManager::callAsync (
+                [safe = juce::Component::SafePointer<RigContent> (this), extFlag]
+                {
+                    if (safe != nullptr)
+                        safe->processor.loadExternalPluginAsync (juce::File (extFlag));
+                });
+    }
 
     // Flag de dev: GUITARRIG_OPEN_STORE=explore|library abre o store ao iniciar.
     {
@@ -1758,6 +1845,8 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 
 RigContent::~RigContent()
 {
+    processor.onExternalPluginWillChange = nullptr;
+    closeExtPluginWindow();
     setLookAndFeel (nullptr);
 }
 
@@ -2040,6 +2129,9 @@ void RigContent::timerCallback()
     chainView->refreshDynamicText();
     refreshSidecarImages();
 
+    // instância VST3 aposentada é deletada aqui (message thread, fora do áudio)
+    processor.collectExternalRetired();
+
     applyEcoSwitchIfNeeded();
     if (ecoNoticeTicks > 0)
         --ecoNoticeTicks;
@@ -2185,6 +2277,84 @@ void RigContent::chooseModelFile (int lane)
                                   if (file.existsAsFile())
                                       processor.setModelPair (lane, file, {}); // local: sem par eco
                               });
+}
+
+void RigContent::chooseExtPluginFile()
+{
+    auto initialDir = juce::File (processor.getExternalPluginPath()).getParentDirectory();
+    if (! initialDir.isDirectory())
+        initialDir = juce::File ("C:\\Program Files\\Common Files\\VST3");
+    if (! initialDir.isDirectory())
+        initialDir = juce::File::getSpecialLocation (juce::File::userHomeDirectory);
+
+    fileChooser = std::make_unique<juce::FileChooser> ("Escolher plugin VST3 (.vst3)",
+                                                       initialDir, "*.vst3");
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode
+                                  | juce::FileBrowserComponent::canSelectFiles
+                                  | juce::FileBrowserComponent::canSelectDirectories,
+                              [this] (const juce::FileChooser& fc)
+                              {
+                                  const auto file = fc.getResult();
+                                  if (file.exists())
+                                      processor.loadExternalPluginAsync (file);
+                              });
+}
+
+// Janela flutuante com o painel do plugin hospedado; fecha sozinha antes de
+// qualquer troca de instância (onExternalPluginWillChange).
+class ExtPluginWindow : public juce::DocumentWindow
+{
+public:
+    ExtPluginWindow (juce::AudioPluginInstance& inst, std::function<void()> onCloseIn)
+        : juce::DocumentWindow (inst.getName(), juce::Colour (0xff14181d),
+                                juce::DocumentWindow::closeButton),
+          onClose (std::move (onCloseIn))
+    {
+        setUsingNativeTitleBar (true);
+        juce::AudioProcessorEditor* ed = inst.createEditorIfNeeded();
+        if (ed != nullptr)
+            setContentOwned (ed, true);
+        else
+            setContentOwned (new juce::GenericAudioProcessorEditor (inst), true);
+        setResizable (ed == nullptr || ed->isResizable(), false);
+        centreWithSize (getWidth(), getHeight());
+        setVisible (true);
+        toFront (true);
+    }
+
+    void closeButtonPressed() override
+    {
+        if (onClose)
+            onClose();
+    }
+
+private:
+    std::function<void()> onClose;
+};
+
+void RigContent::openExtPluginWindow()
+{
+    auto* inst = processor.getExternalInstance();
+    if (inst == nullptr || ! processor.hasExternalPlugin())
+        return;
+
+    if (extWindow != nullptr)
+    {
+        extWindow->toFront (true);
+        return;
+    }
+
+    extWindow = std::make_unique<ExtPluginWindow> (
+        *inst, [safe = juce::Component::SafePointer<RigContent> (this)]
+        {
+            if (safe != nullptr)
+                safe->closeExtPluginWindow();
+        });
+}
+
+void RigContent::closeExtPluginWindow()
+{
+    extWindow.reset();
 }
 
 void RigContent::chooseIrFile (int slot)

@@ -134,8 +134,8 @@ public:
     // Amp+Cabs ("amp") é âncora fixa mas efeitos podem ficar antes/depois.
 
     enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock, comp, preEq, mod,
-                               pitch, looper, limiter };
-    static constexpr int numChainFx = 12;
+                               pitch, looper, limiter, extPlugin };
+    static constexpr int numChainFx = 13;
     static constexpr int chainMaxSlots = 16; // expansível para efeitos futuros
 
     /// Ordem atual como ids ("gate", "od", "amp", "eq", "delay", "reverb").
@@ -165,6 +165,29 @@ public:
 
     /// Redução de ganho atual do limiter em dB (para o cartão).
     float getLimiterGrDb() const noexcept { return limGrDb.load(); }
+
+    //==========================================================================
+    // Slot de plugin VST3 externo (hosting JUCE). Toda a gestão acontece na
+    // message thread; a troca da instância no áudio usa o mesmo protocolo
+    // pending/retired dos modelos NAM.
+
+    /// Carrega um .vst3 do disco (message thread). stateToRestore opcional
+    /// aplica o estado salvo do plugin após a instanciação.
+    void loadExternalPluginAsync (const juce::File& file,
+                                  const juce::MemoryBlock* stateToRestore = nullptr);
+    /// Descarrega o plugin do slot (message thread).
+    void clearExternalPlugin();
+    bool hasExternalPlugin() const noexcept { return extLoaded.load(); }
+    juce::String getExternalPluginName() const;
+    juce::String getExternalPluginPath() const;
+    /// Instância ativa — SÓ para a message thread criar o painel do plugin.
+    /// Feche o painel antes de qualquer troca (onExternalPluginWillChange).
+    juce::AudioPluginInstance* getExternalInstance() const noexcept { return extUiInstance.load(); }
+    /// Chamado (message thread) antes de trocar/descartar a instância —
+    /// o editor usa para fechar a janela do painel do plugin.
+    std::function<void()> onExternalPluginWillChange;
+    /// Coleta a instância aposentada (chamar periodicamente na message thread).
+    void collectExternalRetired() { delete extRetired.exchange (nullptr); }
 
     /// true quando o estado atual difere do último preset salvo/carregado.
     bool isPresetDirty();
@@ -215,7 +238,9 @@ private:
     void prepareLoadedModel (LoadedModel&, double hostRate, int blockSize) const;
 
     void applyState (juce::ValueTree state);
-    juce::ValueTree captureState();
+    /// includeExtPluginState=false pula o getStateInformation do plugin
+    /// hospedado (o fingerprint de preset roda a 2 Hz — seria caro demais).
+    juce::ValueTree captureState (bool includeExtPluginState = true);
     void setCurrentPresetName (const juce::String&);
     juce::int64 stateFingerprint();
     void createFactoryPresetsIfNeeded() const;
@@ -272,6 +297,7 @@ private:
     void processPitchFx (float* io, int n);
     void processLooperFx (float* io, int n);
     void processLimiterFx (float* io, int n);
+    void processExtFx (float* io, int n);
 
     // Gate "inteligente": follower de envelope com histerese de 6 dB
     // (abre no threshold, só fecha 6 dB abaixo — preserva o sustain),
@@ -488,6 +514,20 @@ private:
     std::atomic<int> looperPos { 0 };
     std::atomic<float>* pLooperOn = nullptr;
     std::atomic<float>* pLooperLevel = nullptr;
+
+    // ---- Slot VST3 externo (hosting)
+    juce::AudioPluginFormatManager extFormatManager;      // VST3 registrado no ctor
+    std::unique_ptr<juce::AudioPluginInstance> extActive; // só thread de áudio
+    std::atomic<juce::AudioPluginInstance*> extPending { nullptr };
+    std::atomic<juce::AudioPluginInstance*> extRetired { nullptr };
+    std::atomic<juce::AudioPluginInstance*> extUiInstance { nullptr }; // p/ o painel (message thread)
+    std::atomic<bool> extLoaded { false };
+    std::atomic<bool> extUnloadRequest { false };
+    juce::String extName, extPath;                        // sob modelInfoLock
+    juce::AudioBuffer<float> extBuf;                      // mono -> estéreo p/ o hóspede
+    juce::MidiBuffer extMidi;
+    std::atomic<float>* pExtOn = nullptr;
+    std::atomic<float>* pExtMix = nullptr;
 
     // ---- Limiter (pós-cadeia; brickwall do JUCE)
     juce::dsp::Limiter<float> outLimiter;

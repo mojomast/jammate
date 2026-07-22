@@ -91,7 +91,9 @@ target_compile_definitions(GuitarRigNAM
         JUCE_DIRECTSOUND=1
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0)
+        JUCE_VST3_CAN_REPLACE_VST2=0
+        # Slot de plugin externo: hosting de VST3 de terceiros na cadeia.
+        JUCE_PLUGINHOST_VST3=1)
 
 # ASIO opcional: o SDK da Steinberg não pode ser redistribuído, então só é
 # habilitado se o usuário baixar o SDK e apontar ASIOSDK_DIR para ele.

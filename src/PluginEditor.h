@@ -88,7 +88,9 @@ class ChainView : public juce::Component
 {
 public:
     ChainView (GuitarRigNAMProcessor&, std::function<void (int)> onLoadModel,
-               std::function<void (int)> onLoadIr);
+               std::function<void (int)> onLoadIr,
+               std::function<void()> onLoadExtPlugin,
+               std::function<void()> onOpenExtPluginUi);
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -137,7 +139,7 @@ private:
     GuitarRigNAMProcessor& processor;
 
     juce::Rectangle<int> ioInB, gateB, odB, eqB, delayB, revB, ioOutB;
-    juce::Rectangle<int> compB, preEqB, pitchB, looperB, limB;
+    juce::Rectangle<int> compB, preEqB, pitchB, looperB, limB, extB;
     // rigs paralelos: um par amp+cab por lane + o card Mixer que soma tudo
     juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs], mixerB;
     juce::Image ampImages[maxRigs], cabImages[maxRigs];
@@ -145,7 +147,7 @@ private:
     // knobs / LEDs / botões
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
     LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed, compLed, preEqLed,
-        pitchLed, looperLed, limLed;
+        pitchLed, looperLed, limLed, extLed;
     std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob, gateHoldKnob;
     std::unique_ptr<KnobComponent> compSustainKnob, compAttackKnob, compBlendKnob, compLevelKnob;
     std::unique_ptr<KnobComponent> preEqLowKnob, preEqMidKnob, preEqHighKnob;
@@ -189,6 +191,9 @@ private:
     std::unique_ptr<KnobComponent> looperLevelKnob;
     std::unique_ptr<KnobComponent> limCeilKnob, limRelKnob;
     juce::TextButton looperRecButton, looperPlayButton, looperClearButton, looperExportButton;
+    // slot de plugin VST3 externo
+    std::unique_ptr<KnobComponent> extMixKnob;
+    juce::TextButton extLoadButton, extUiButton, extRemoveButton;
     juce::TextButton ecoChip { "ECO" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ecoAtt;
 
@@ -199,7 +204,7 @@ private:
 
     using Attachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     std::unique_ptr<Attachment> gateAtt, odAtt, ampAtt, cabAtt, eqAtt, delayAtt, revAtt,
-        compAtt, preEqAtt, pitchAtt, looperAtt, limAtt;
+        compAtt, preEqAtt, pitchAtt, looperAtt, limAtt, extAtt;
     std::unique_ptr<Attachment> cabPhaseAtt[GuitarRigNAMProcessor::maxCabSlots];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChainView)
@@ -228,6 +233,9 @@ private:
     void refreshSidecarImages();
     void chooseModelFile (int lane);
     void chooseIrFile (int slot);
+    void chooseExtPluginFile();
+    void openExtPluginWindow();
+    void closeExtPluginWindow();
     void saveCurrentPreset();
     void beginPresetNameEdit();
     void showPresetMenu();
@@ -255,6 +263,9 @@ private:
 
     std::unique_ptr<juce::FileChooser> fileChooser;
     std::unique_ptr<StoreOverlay> storeOverlay;
+
+    // janela flutuante com o painel do plugin VST3 hospedado
+    std::unique_ptr<juce::DocumentWindow> extWindow;
 
     // afinador
     juce::TextButton tunerToggle { "AFINADOR" };
