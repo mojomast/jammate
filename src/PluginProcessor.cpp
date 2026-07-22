@@ -259,6 +259,37 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
     layout.add (std::make_unique<FloatParam> (
         juce::ParameterID { kParamGateRelease, 1 }, "Gate Release",
         juce::NormalisableRange<float> (10.0f, 500.0f, 1.0f, 0.5f), 100.0f, ms));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "gateHold", 1 }, "Gate Hold",
+        juce::NormalisableRange<float> (0.0f, 500.0f, 1.0f, 0.5f), 40.0f, ms));
+
+    // compressor de pedal
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "compOn", 1 }, "Comp On", false));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "compSustain", 1 }, "Comp Sustain",
+        juce::NormalisableRange<float> (0.0f, 10.0f, 0.1f), 4.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "compAttack", 1 }, "Comp Attack",
+        juce::NormalisableRange<float> (1.0f, 100.0f, 1.0f, 0.5f), 20.0f, ms));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "compBlend", 1 }, "Comp Blend",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 100.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "compLevel", 1 }, "Comp Level",
+        juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f, dB));
+
+    // pré-EQ (antes do NAM)
+    layout.add (std::make_unique<BoolParam> (
+        juce::ParameterID { "preEqOn", 1 }, "Pre EQ On", true));
+    auto preEqRange = juce::NormalisableRange<float> (-12.0f, 12.0f, 0.5f);
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "preEqLow", 1 }, "Pre EQ Low", preEqRange, 0.0f, dB));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "preEqMid", 1 }, "Pre EQ Mid", preEqRange, 0.0f, dB));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { "preEqHigh", 1 }, "Pre EQ High", preEqRange, 0.0f, dB));
 
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { kParamCabOn, 1 }, "Cab On", true));
@@ -358,6 +389,16 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pGateOn = apvts.getRawParameterValue (kParamGateOn);
     pGateThresh = apvts.getRawParameterValue (kParamGateThresh);
     pGateRelease = apvts.getRawParameterValue (kParamGateRelease);
+    pGateHold = apvts.getRawParameterValue ("gateHold");
+    pCompOn = apvts.getRawParameterValue ("compOn");
+    pCompSustain = apvts.getRawParameterValue ("compSustain");
+    pCompAttack = apvts.getRawParameterValue ("compAttack");
+    pCompBlend = apvts.getRawParameterValue ("compBlend");
+    pCompLevel = apvts.getRawParameterValue ("compLevel");
+    pPreEqOn = apvts.getRawParameterValue ("preEqOn");
+    pPreEqLow = apvts.getRawParameterValue ("preEqLow");
+    pPreEqMid = apvts.getRawParameterValue ("preEqMid");
+    pPreEqHigh = apvts.getRawParameterValue ("preEqHigh");
     pCabOn = apvts.getRawParameterValue (kParamCabOn);
     pCabLevel = apvts.getRawParameterValue (kParamCabLevel);
     pCabAir = apvts.getRawParameterValue (kParamCabAir);
@@ -436,6 +477,12 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
 
     juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) samplesPerBlock, 1 };
     noiseGate.prepare (spec);
+    smartGate.prepare (sampleRate);
+    pedalComp.prepare (spec);
+    compCachedSustain = -1.0f;
+    preEqCachedLow = -99.0f;
+    for (auto* f : { &preEqLowF, &preEqMidF, &preEqHighF })
+        f->reset();
     for (auto& conv : convolutions)
         conv.prepare (spec);
 
@@ -563,6 +610,8 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
                 case ChainFx::delay:    processDelayFx (io, n); break;
                 case ChainFx::reverb:   processReverbFx (io, n); break;
                 case ChainFx::ampBlock: processAmpAndCabs (buffer, io, n); break;
+                case ChainFx::comp:     processCompFx (io, n); break;
+                case ChainFx::preEq:    processPreEqFx (io, n); break;
             }
         }
     }
@@ -591,17 +640,114 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 // Módulos da cadeia (chamados na ordem dinâmica; mesmas regras RT do
 // processBlock — nada de alocação/locks/IO aqui)
 
+void GuitarRigNAMProcessor::SmartGate::prepare (double sampleRate)
+{
+    sr = sampleRate;
+    envAttackCoef = 1.0f - std::exp (-1.0f / (float) (0.0005 * sr));  // 0.5 ms
+    envReleaseCoef = 1.0f - std::exp (-1.0f / (float) (0.03 * sr));   // 30 ms
+    gainAttackCoef = 1.0f - std::exp (-1.0f / (float) (0.001 * sr));  // 1 ms
+    reset();
+}
+
+void GuitarRigNAMProcessor::SmartGate::process (float* io, int n, float threshDb,
+                                                float holdMs, float releaseMs)
+{
+    const float openLin = juce::Decibels::decibelsToGain (threshDb);
+    const float closeLin = juce::Decibels::decibelsToGain (threshDb - 6.0f); // histerese
+    const int holdSamples = (int) (holdMs / 1000.0f * (float) sr);
+    const float gainReleaseCoef =
+        1.0f - std::exp (-1.0f / juce::jmax (1.0f, (float) (releaseMs / 1000.0 * sr)));
+
+    for (int i = 0; i < n; ++i)
+    {
+        const float rect = std::abs (io[i]);
+        env += (rect > env ? envAttackCoef : envReleaseCoef) * (rect - env);
+
+        if (env > openLin)
+        {
+            isOpen = true;
+            holdCounter = holdSamples;
+        }
+        else if (isOpen && env < closeLin)
+        {
+            if (holdCounter > 0)
+                --holdCounter;   // segura aberto durante o hold
+            else
+                isOpen = false;
+        }
+
+        const float target = isOpen ? 1.0f : 0.0f;
+        gain += (target > gain ? gainAttackCoef : gainReleaseCoef) * (target - gain);
+        io[i] *= gain;
+    }
+}
+
 void GuitarRigNAMProcessor::processGateFx (float* io, int n)
 {
     if (pGateOn->load() <= 0.5f)
         return;
 
-    noiseGate.setThreshold (pGateThresh->load());
-    noiseGate.setRelease (pGateRelease->load());
+    smartGate.process (io, n, pGateThresh->load(), pGateHold->load(), pGateRelease->load());
+}
+
+void GuitarRigNAMProcessor::processCompFx (float* io, int n)
+{
+    // Compressor de pedal: Sustain controla threshold+ratio+makeup juntos;
+    // Blend faz compressão paralela (mistura com o sinal seco).
+    if (pCompOn->load() <= 0.5f || n > monoScratch.getNumSamples())
+        return;
+
+    const float sustain = pCompSustain->load();
+    const float attack = pCompAttack->load();
+    if (sustain != compCachedSustain || attack != compCachedAttack)
+    {
+        compCachedSustain = sustain;
+        compCachedAttack = attack;
+        pedalComp.setThreshold (-10.0f - sustain * 4.0f);   // -10..-50 dB
+        pedalComp.setRatio (2.0f + sustain * 0.8f);         // 2:1..10:1
+        pedalComp.setAttack (attack);
+        pedalComp.setRelease (180.0f);
+    }
+
+    // guarda o sinal seco para o blend
+    float* dry = monoScratch.getWritePointer (0);
+    juce::FloatVectorOperations::copy (dry, io, n);
 
     juce::dsp::AudioBlock<float> block (&io, 1, (size_t) n);
     juce::dsp::ProcessContextReplacing<float> ctx (block);
-    noiseGate.process (ctx);
+    pedalComp.process (ctx);
+
+    const float makeup = juce::Decibels::decibelsToGain (sustain * 2.2f);
+    const float blend = pCompBlend->load() / 100.0f;
+    const float level = juce::Decibels::decibelsToGain (pCompLevel->load());
+    for (int i = 0; i < n; ++i)
+        io[i] = (dry[i] * (1.0f - blend) + io[i] * makeup * blend) * level;
+}
+
+void GuitarRigNAMProcessor::updatePreEqIfNeeded()
+{
+    const float lo = pPreEqLow->load(), mi = pPreEqMid->load(), hi = pPreEqHigh->load();
+    if (lo == preEqCachedLow && mi == preEqCachedMid && hi == preEqCachedHigh)
+        return;
+    preEqCachedLow = lo;
+    preEqCachedMid = mi;
+    preEqCachedHigh = hi;
+    const double sr = hostSampleRate.load();
+    // vozeamento pré-amp: mexe no que ENTRA no capture (muda a saturação)
+    preEqLowF.setLowShelf (sr, 100.0, lo);
+    preEqMidF.setPeak (sr, 500.0, mi, 0.9);
+    preEqHighF.setHighShelf (sr, 2200.0, hi);
+}
+
+void GuitarRigNAMProcessor::processPreEqFx (float* io, int n)
+{
+    if (pPreEqOn->load() <= 0.5f)
+        return;
+
+    updatePreEqIfNeeded();
+    if (preEqCachedLow != 0.0f || preEqCachedMid != 0.0f || preEqCachedHigh != 0.0f)
+        for (int i = 0; i < n; ++i)
+            io[i] = preEqHighF.process (preEqMidF.process (preEqLowF.process (io[i])));
 }
 
 void GuitarRigNAMProcessor::processOdFx (float* io, int n)
@@ -783,13 +929,15 @@ juce::String GuitarRigNAMProcessor::fxToString (ChainFx fx)
         case ChainFx::delay:    return "delay";
         case ChainFx::reverb:   return "reverb";
         case ChainFx::ampBlock: return "amp";
+        case ChainFx::comp:     return "comp";
+        case ChainFx::preEq:    return "preeq";
     }
     return "amp";
 }
 
 int GuitarRigNAMProcessor::fxFromString (const juce::String& id)
 {
-    for (int f = 0; f <= (int) ChainFx::ampBlock; ++f)
+    for (int f = 0; f < numChainFx; ++f)
         if (fxToString ((ChainFx) f) == id)
             return f;
     return -1;
@@ -797,8 +945,8 @@ int GuitarRigNAMProcessor::fxFromString (const juce::String& id)
 
 void GuitarRigNAMProcessor::writeDefaultChain()
 {
-    const ChainFx def[] = { ChainFx::gate, ChainFx::od, ChainFx::ampBlock,
-                            ChainFx::eq, ChainFx::delay, ChainFx::reverb };
+    const ChainFx def[] = { ChainFx::gate, ChainFx::comp, ChainFx::od, ChainFx::preEq,
+                            ChainFx::ampBlock, ChainFx::eq, ChainFx::delay, ChainFx::reverb };
     for (int i = 0; i < (int) std::size (def); ++i)
         chainOrder[i].store ((int) def[i]);
     chainLen.store ((int) std::size (def));
@@ -816,26 +964,42 @@ juce::StringArray GuitarRigNAMProcessor::getChainOrder() const
 void GuitarRigNAMProcessor::setChainOrder (const juce::StringArray& ids)
 {
     // Normaliza: ids conhecidos, cada um no máximo 1x; efeitos ausentes são
-    // anexados ao fim e "amp" garante presença (âncora).
-    int normalized[chainMaxSlots];
-    int len = 0;
-    bool used[(int) ChainFx::ampBlock + 1] = {};
+    // inseridos em posições sensatas (migração de presets antigos) e "amp"
+    // garante presença (âncora).
+    juce::Array<int> order;
+    bool used[numChainFx] = {};
 
     for (const auto& id : ids)
     {
         const int f = fxFromString (id);
-        if (f >= 0 && ! used[f] && len < chainMaxSlots)
+        if (f >= 0 && ! used[f] && order.size() < chainMaxSlots)
         {
             used[f] = true;
-            normalized[len++] = f;
+            order.add (f);
         }
     }
-    for (int f = 0; f <= (int) ChainFx::ampBlock; ++f)
-        if (! used[f] && len < chainMaxSlots)
-            normalized[len++] = f;
 
+    auto insertAt = [&order] (int fx, int index)
+    {
+        order.insert (juce::jlimit (0, order.size(), index), fx);
+    };
+
+    if (! used[(int) ChainFx::ampBlock])
+        insertAt ((int) ChainFx::ampBlock, order.size() / 2);
+    // comp entra depois do gate (ou no início); preEq logo antes do amp
+    if (! used[(int) ChainFx::comp])
+        insertAt ((int) ChainFx::comp, order.indexOf ((int) ChainFx::gate) + 1);
+    if (! used[(int) ChainFx::preEq])
+        insertAt ((int) ChainFx::preEq, order.indexOf ((int) ChainFx::ampBlock));
+    used[(int) ChainFx::ampBlock] = used[(int) ChainFx::comp] = used[(int) ChainFx::preEq] = true;
+
+    for (int f = 0; f < numChainFx; ++f)
+        if (! used[f] && order.size() < chainMaxSlots)
+            order.add (f);
+
+    const int len = juce::jmin (order.size(), (int) chainMaxSlots);
     for (int i = 0; i < len; ++i)
-        chainOrder[i].store (normalized[i]);
+        chainOrder[i].store (order[i]);
     chainLen.store (len);
 }
 

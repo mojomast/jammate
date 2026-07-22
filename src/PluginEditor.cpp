@@ -275,7 +275,15 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     makeKnob (inputKnob, "inputGain", "GAIN", formatDb);
     makeKnob (outputKnob, "outputGain", "LEVEL", formatDb);
     makeKnob (gateThreshKnob, "gateThresh", "THRESH", formatDbInt);
+    makeKnob (gateHoldKnob, "gateHold", "HOLD", formatMs);
     makeKnob (gateReleaseKnob, "gateRelease", "RELEASE", formatMs);
+    makeKnob (compSustainKnob, "compSustain", "SUSTAIN", formatTen);
+    makeKnob (compAttackKnob, "compAttack", "ATTACK", formatMs);
+    makeKnob (compBlendKnob, "compBlend", "BLEND", formatPct);
+    makeKnob (compLevelKnob, "compLevel", "LEVEL", formatDb);
+    makeKnob (preEqLowKnob, "preEqLow", "LOW", formatDbInt);
+    makeKnob (preEqMidKnob, "preEqMid", "MID", formatDbInt);
+    makeKnob (preEqHighKnob, "preEqHigh", "HIGH", formatDbInt);
     makeKnob (odDriveKnob, "odDrive", "DRIVE", formatTen);
     makeKnob (odToneKnob, "odTone", "TONE", formatTen);
     makeKnob (odLevelKnob, "odLevel", "LEVEL", formatTen);
@@ -360,6 +368,45 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     makeLed (eqLed, "eqOn", eqAtt);
     makeLed (delayLed, "delayOn", delayAtt);
     makeLed (revLed, "revOn", revAtt);
+    makeLed (compLed, "compOn", compAtt);
+    makeLed (preEqLed, "preEqOn", preEqAtt);
+
+    // presets do compressor: ajustam os 4 knobs de uma vez
+    {
+        struct CompPreset { const char* label; float sustain, attack, blend, level; };
+        const CompPreset presets[3] = { { "CLN", 2.5f, 30.0f, 70.0f, 0.0f },
+                                        { "CTY", 6.0f, 10.0f, 100.0f, 1.0f },
+                                        { "LEAD", 8.0f, 25.0f, 100.0f, 2.0f } };
+        for (int i = 0; i < 3; ++i)
+        {
+            auto& chip = compPresetChips[i];
+            chip.setButtonText (presets[i].label);
+            chip.getProperties().set ("chip", true);
+            chip.setMouseClickGrabsKeyboardFocus (false);
+            const CompPreset pr = presets[i];
+            chip.onClick = [this, pr]
+            {
+                auto set = [this] (const char* id, float value)
+                {
+                    if (auto* param = processor.apvts.getParameter (id))
+                        param->setValueNotifyingHost (
+                            param->getNormalisableRange().convertTo0to1 (value));
+                };
+                set ("compSustain", pr.sustain);
+                set ("compAttack", pr.attack);
+                set ("compBlend", pr.blend);
+                set ("compLevel", pr.level);
+                set ("compOn", 1.0f);
+            };
+            addAndMakeVisible (chip);
+        }
+        compPresetChips[0].setTooltip (juce::String (juce::CharPointer_UTF8 (
+            "Clean: compress\xc3\xa3o leve e transparente")));
+        compPresetChips[1].setTooltip (juce::String (juce::CharPointer_UTF8 (
+            "Country: squish r\xc3\xa1pido estilo Dyna Comp")));
+        compPresetChips[2].setTooltip (juce::String (juce::CharPointer_UTF8 (
+            "Lead: sustain m\xc3\xa1ximo para solos")));
+    }
 
     loadButton.onClick = std::move (onLoadModel);
     loadButton.setTooltip ("Escolher um arquivo .nam do disco");
@@ -381,8 +428,16 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     { k->setKnobTooltip (juce::String (juce::CharPointer_UTF8 (utf8))); };
     tip (inputKnob, "Ganho de entrada (antes de tudo)");
     tip (outputKnob, "Volume final de sa\xc3\xad""da");
-    tip (gateThreshKnob, "Abaixo deste n\xc3\xadvel o gate fecha");
+    tip (gateThreshKnob, "Abre neste n\xc3\xadvel; s\xc3\xb3 fecha 6 dB abaixo (preserva o sustain)");
+    tip (gateHoldKnob, "Segura o gate aberto ap\xc3\xb3s o sinal cair");
     tip (gateReleaseKnob, "Tempo para o gate fechar");
+    tip (compSustainKnob, "Mais sustain = mais compress\xc3\xa3o (threshold+ratio+makeup)");
+    tip (compAttackKnob, "Ataque: alto deixa a palhetada passar antes de comprimir");
+    tip (compBlendKnob, "Compress\xc3\xa3o paralela: mistura com o sinal seco");
+    tip (compLevelKnob, "Volume de sa\xc3\xad""da do compressor");
+    tip (preEqLowKnob, "Graves ANTES do amp (100 Hz) \xe2\x80\x94 muda a satura\xc3\xa7\xc3\xa3o");
+    tip (preEqMidKnob, "M\xc3\xa9""dios ANTES do amp (500 Hz)");
+    tip (preEqHighKnob, "Agudos ANTES do amp (2.2 kHz)");
     tip (odDriveKnob, "Quantidade de satura\xc3\xa7\xc3\xa3o do pedal");
     tip (odToneKnob, "Brilho do overdrive");
     tip (odLevelKnob, "Volume do overdrive");
@@ -543,7 +598,7 @@ void ChainView::mouseUp (const juce::MouseEvent&)
 
 int ChainView::effectCardWidth (const juce::String& id) const
 {
-    return id == "eq" ? 176 : 132;
+    return (id == "eq" || id == "preeq") ? 176 : 132;
 }
 
 juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
@@ -553,6 +608,8 @@ juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
     if (id == "eq") return eqB;
     if (id == "delay") return delayB;
     if (id == "reverb") return revB;
+    if (id == "comp") return compB;
+    if (id == "preeq") return preEqB;
     return ampB.getUnion (cabB); // "amp" = bloco amp+cabs
 }
 
@@ -593,6 +650,8 @@ void ChainView::resized()
             else if (id == "eq") eqB = box;
             else if (id == "delay") delayB = box;
             else if (id == "reverb") revB = box;
+            else if (id == "comp") compB = box;
+            else if (id == "preeq") preEqB = box;
             x += w + 30;
         }
     }
@@ -625,10 +684,35 @@ void ChainView::resized()
         }
     };
 
-    layoutPedal (gateB, gateLed, { gateThreshKnob.get(), gateReleaseKnob.get() });
+    layoutPedal (gateB, gateLed, { gateThreshKnob.get(), gateHoldKnob.get(),
+                                   gateReleaseKnob.get() });
     layoutPedal (odB, odLed, { odDriveKnob.get(), odToneKnob.get(), odLevelKnob.get() });
     layoutPedal (delayB, delayLed, { delayTimeKnob.get(), delayFbKnob.get(), delayMixKnob.get() });
     layoutPedal (revB, revLed, { revDecayKnob.get(), revMixKnob.get(), revPreKnob.get() });
+    layoutPedal (compB, compLed, { compSustainKnob.get(), compAttackKnob.get(),
+                                   compBlendKnob.get(), compLevelKnob.get() });
+
+    // chips de preset do compressor (linha sob o título)
+    {
+        const int cw = 36;
+        int px = compB.getX() + (compB.getWidth() - (3 * cw + 2 * 4)) / 2;
+        for (auto& chip : compPresetChips)
+        {
+            chip.setBounds (px, compB.getY() + 32, cw, 18);
+            px += cw + 4;
+        }
+    }
+
+    // pré-EQ: mesmos moldes do EQ
+    {
+        preEqLed.setBounds (preEqB.getRight() - 13 - 18, preEqB.getY() + 10, 18, 18);
+        const int kw = 44, kh = kw + 26, gap = 13;
+        const int gx = preEqB.getCentreX() - (3 * kw + 2 * gap) / 2;
+        const int ky = preEqB.getY() + 130;
+        preEqLowKnob->setBounds (gx, ky, kw, kh);
+        preEqMidKnob->setBounds (gx + kw + gap, ky, kw, kh);
+        preEqHighKnob->setBounds (gx + 2 * (kw + gap), ky, kw, kh);
+    }
 
     // ---- amp (foto opcional entre o cabeçalho e os knobs)
     {
@@ -814,10 +898,40 @@ void ChainView::paint (juce::Graphics& g)
     drawIo (ioOutB, "OUTPUT", "OUT");
 
     // ---- pedais
-    drawPedalFrame (g, gateB, "Noise Gate", "Downward expander 10:1");
+    drawPedalFrame (g, gateB, "Noise Gate", juce::String (juce::CharPointer_UTF8 ("Histerese 6 dB \xc2\xb7 hold")));
     drawPedalFrame (g, odB, "Overdrive", juce::String (juce::CharPointer_UTF8 ("Soft-clip \xc2\xb7 HP 120 Hz")));
     drawPedalFrame (g, delayB, "Delay", juce::String (juce::CharPointer_UTF8 ("Digital \xc2\xb7 mono")));
     drawPedalFrame (g, revB, "Reverb", juce::String (juce::CharPointer_UTF8 ("Hall \xc2\xb7 predelay")));
+    drawPedalFrame (g, compB, "Compressor", juce::String (juce::CharPointer_UTF8 ("Pedal \xc2\xb7 paralelo")));
+
+    // ---- pré-EQ (com barras vivas, como o EQ pós)
+    {
+        drawPedalFrame (g, preEqB, juce::String (juce::CharPointer_UTF8 ("Pr\xc3\xa9-EQ")),
+                        juce::String (juce::CharPointer_UTF8 ("molda a satura\xc3\xa7\xc3\xa3o \xc2\xb7 pr\xc3\xa9-amp")));
+
+        auto viz = juce::Rectangle<float> ((float) preEqB.getX() + 13.0f, (float) preEqB.getY() + 38.0f,
+                                           (float) preEqB.getWidth() - 26.0f, 62.0f);
+        g.setColour (ui::meterBg);
+        g.fillRoundedRectangle (viz, 9.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.06f));
+        g.drawRoundedRectangle (viz, 9.0f, 1.0f);
+
+        const float lo = processor.apvts.getRawParameterValue ("preEqLow")->load();
+        const float mi = processor.apvts.getRawParameterValue ("preEqMid")->load();
+        const float hi = processor.apvts.getRawParameterValue ("preEqHigh")->load();
+        const float gains[7] = { lo, lo, (lo + mi) / 2.0f, mi, (mi + hi) / 2.0f, hi, hi };
+        const float bw = (viz.getWidth() - 2 * 11.0f - 6 * 5.0f) / 7.0f;
+        for (int i = 0; i < 7; ++i)
+        {
+            const float hgt = juce::jlimit (0.12f, 0.95f, 0.5f + gains[i] / 30.0f)
+                              * (viz.getHeight() - 18.0f);
+            const float bx = viz.getX() + 11.0f + i * (bw + 5.0f);
+            juce::ColourGradient grad (ui::glowOrange, 0.0f, viz.getBottom() - 9.0f - hgt,
+                                       ui::glowOrange.withAlpha (0.15f), 0.0f, viz.getBottom() - 9.0f, false);
+            g.setGradientFill (grad);
+            g.fillRoundedRectangle (bx, viz.getBottom() - 9.0f - hgt, bw, hgt, 2.0f);
+        }
+    }
 
     // ---- cabs paralelos
     {
@@ -1022,10 +1136,14 @@ void ChainView::paint (juce::Graphics& g)
         g.drawRoundedRectangle (ghost, 16.0f, 1.5f);
         g.setFont (ui::uiFont (13.0f, true));
         g.setColour (ui::textBright);
-        juce::String title = draggingId == "gate" ? "Noise Gate"
-                             : draggingId == "od" ? "Overdrive"
-                             : draggingId == "eq" ? "EQ"
-                             : draggingId == "delay" ? "Delay" : "Reverb";
+        juce::String title = draggingId == "gate" ? juce::String ("Noise Gate")
+                             : draggingId == "od" ? juce::String ("Overdrive")
+                             : draggingId == "eq" ? juce::String ("EQ")
+                             : draggingId == "delay" ? juce::String ("Delay")
+                             : draggingId == "comp" ? juce::String ("Compressor")
+                             : draggingId == "preeq"
+                                   ? juce::String (juce::CharPointer_UTF8 ("Pr\xc3\xa9-EQ"))
+                                   : juce::String ("Reverb");
         g.drawText (title, ghost.reduced (12.0f).removeFromTop (30.0f),
                     juce::Justification::centredLeft);
     }

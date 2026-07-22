@@ -108,7 +108,8 @@ public:
     // Cadeia reordenável: os efeitos podem mudar de posição; o bloco
     // Amp+Cabs ("amp") é âncora fixa mas efeitos podem ficar antes/depois.
 
-    enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock };
+    enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock, comp, preEq };
+    static constexpr int numChainFx = 8;
     static constexpr int chainMaxSlots = 16; // expansível para efeitos futuros
 
     /// Ordem atual como ids ("gate", "od", "amp", "eq", "delay", "reverb").
@@ -221,6 +222,29 @@ private:
     void processDelayFx (float* io, int n);
     void processReverbFx (float* io, int n);
     void processAmpAndCabs (juce::AudioBuffer<float>& buffer, float* io, int n);
+    void processCompFx (float* io, int n);
+    void processPreEqFx (float* io, int n);
+
+    // Gate "inteligente": follower de envelope com histerese de 6 dB
+    // (abre no threshold, só fecha 6 dB abaixo — preserva o sustain),
+    // hold configurável e release suave.
+    struct SmartGate
+    {
+        void prepare (double sampleRate);
+        void process (float* io, int n, float threshDb, float holdMs, float releaseMs);
+        void reset() noexcept { env = 0.0f; gain = 0.0f; holdCounter = 0; isOpen = false; }
+
+        double sr = 48000.0;
+        float env = 0.0f, gain = 0.0f;
+        float envAttackCoef = 0.0f, envReleaseCoef = 0.0f, gainAttackCoef = 0.0f;
+        int holdCounter = 0;
+        bool isOpen = false;
+    };
+    SmartGate smartGate;
+
+    juce::dsp::Compressor<float> pedalComp;
+    float compCachedSustain = -1.0f, compCachedAttack = -1.0f;
+    void updatePreEqIfNeeded();
 
     std::atomic<float>* pInputGain = nullptr;
     std::atomic<float>* pOutputGain = nullptr;
@@ -236,6 +260,16 @@ private:
     std::atomic<float>* pGateOn = nullptr;
     std::atomic<float>* pGateThresh = nullptr;
     std::atomic<float>* pGateRelease = nullptr;
+    std::atomic<float>* pGateHold = nullptr;
+    std::atomic<float>* pCompOn = nullptr;
+    std::atomic<float>* pCompSustain = nullptr;
+    std::atomic<float>* pCompAttack = nullptr;
+    std::atomic<float>* pCompBlend = nullptr;
+    std::atomic<float>* pCompLevel = nullptr;
+    std::atomic<float>* pPreEqOn = nullptr;
+    std::atomic<float>* pPreEqLow = nullptr;
+    std::atomic<float>* pPreEqMid = nullptr;
+    std::atomic<float>* pPreEqHigh = nullptr;
     std::atomic<float>* pCabOn = nullptr;
     std::atomic<float>* pCabLevel = nullptr;   // legado (sem knob) — trim pós-mix
     std::atomic<float>* pCabAir = nullptr;
@@ -308,6 +342,10 @@ private:
     Biquad cabLc[maxCabSlots], cabHc[maxCabSlots];
     float cabLcCached[maxCabSlots] = { -1.0f, -1.0f, -1.0f };
     float cabHcCached[maxCabSlots] = { -1.0f, -1.0f, -1.0f };
+
+    // Pré-EQ (antes do NAM — muda como o amp satura)
+    Biquad preEqLowF, preEqMidF, preEqHighF;
+    float preEqCachedLow = -99.0f, preEqCachedMid = -99.0f, preEqCachedHigh = -99.0f;
 
     // Delay / Reverb (pós-cadeia)
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 * 2 };

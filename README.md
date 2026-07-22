@@ -92,11 +92,12 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 
 ## 🗺️ Roadmap
 
-**Em andamento (Fase 6):**
+**Fase 6 — concluída:**
 - [x] Cabs paralelos: 1–3 slots de IR com blend, low/high cut e phase por cab + AIR global
 - [x] Cadeia reordenável por **drag-and-drop** (arraste os cartões de efeito; amp+cabs são âncora fixa)
-- [x] Aviso ⚠ no medidor quando a CPU passa de 90%
-- [ ] Efeitos P1: compressor de pedal (presets Clean/Country/Lead), gate com hold+histerese, pré-EQ antes do NAM
+- [x] Modo **ECO** (capture leve baixado junto) com **auto-ECO** em CPU > 90% + aviso ⚠ no medidor
+- [x] Badges **V1/V2** da arquitetura em amps e IRs
+- [x] Efeitos P1: compressor de pedal (presets Clean/Country/Lead), gate com hold+histerese de 6 dB, pré-EQ antes do NAM
 
 **Próximos:**
 - [ ] Efeitos P2: pacote de drives, delay com tap tempo/ping-pong, reverbs Spring/Plate/Room/Hall, modulações

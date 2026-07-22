@@ -135,12 +135,16 @@ private:
     GuitarRigNAMProcessor& processor;
 
     juce::Rectangle<int> ioInB, gateB, odB, ampB, cabB, eqB, delayB, revB, ioOutB;
+    juce::Rectangle<int> compB, preEqB;
     juce::Image ampImage, cabImage;
 
     // knobs / LEDs / botões
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
-    LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed;
-    std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob;
+    LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed, compLed, preEqLed;
+    std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob, gateHoldKnob;
+    std::unique_ptr<KnobComponent> compSustainKnob, compAttackKnob, compBlendKnob, compLevelKnob;
+    std::unique_ptr<KnobComponent> preEqLowKnob, preEqMidKnob, preEqHighKnob;
+    juce::TextButton compPresetChips[3]; // Clean / Country / Lead
     std::unique_ptr<KnobComponent> odDriveKnob, odToneKnob, odLevelKnob;
     std::unique_ptr<KnobComponent> ampGainKnob, ampBassKnob, ampMidKnob,
         ampTrebleKnob, ampPresKnob, ampMasterKnob;
@@ -166,7 +170,8 @@ private:
     juce::String archBadgeForIr (int slot);
 
     using Attachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
-    std::unique_ptr<Attachment> gateAtt, odAtt, ampAtt, cabAtt, eqAtt, delayAtt, revAtt;
+    std::unique_ptr<Attachment> gateAtt, odAtt, ampAtt, cabAtt, eqAtt, delayAtt, revAtt,
+        compAtt, preEqAtt;
     std::unique_ptr<Attachment> cabPhaseAtt[GuitarRigNAMProcessor::maxCabSlots];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChainView)
