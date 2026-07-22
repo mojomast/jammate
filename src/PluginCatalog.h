@@ -24,6 +24,9 @@ struct Entry
     const char* homepage;    // para os manuais / crédito
     const char* checkBundle; // bundle usado para detectar instalação
     int sizeMB;              // tamanho aproximado do download
+    // se não-vazio, extrai SÓ os bundles que casarem este wildcard (para
+    // zips que trazem extras — ex.: Surge vem com o sintetizador junto)
+    const char* onlyBundle = "";
 };
 
 const std::vector<Entry>& entries();

@@ -315,7 +315,6 @@ public:
     void refresh()
     {
         installed = plugcat::isInstalled (entry);
-        const bool manual = juce::String (entry.url).isEmpty();
 
         if (busy)
         {
@@ -324,12 +323,6 @@ public:
                                             : juce::String (juce::CharPointer_UTF8 ("Baixando\xe2\x80\xa6 "))
                                                   + juce::String (pct) + "%");
             actionButton.setEnabled (false);
-        }
-        else if (manual)
-        {
-            actionButton.setButtonText (installed ? "SITE" : "BAIXAR NO SITE");
-            actionButton.setEnabled (true);
-            actionButton.setTooltip ("Abre a p\xc3\xa1gina oficial no navegador");
         }
         else if (installed)
         {
@@ -405,12 +398,6 @@ private:
         if (busy)
             return;
         lastError.clear();
-
-        if (juce::String (entry.url).isEmpty())
-        {
-            juce::URL (entry.homepage).launchInDefaultBrowser();
-            return;
-        }
 
         if (! installed)
         {

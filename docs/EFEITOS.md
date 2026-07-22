@@ -196,16 +196,21 @@ portar código; o botão CARREGAR abre um menu com os plugins instalados em
 `C:\Program Files\Common Files\VST3` + "Procurar arquivo…".
 Dev: `GUITARRIG_EXT_PLUGIN=<caminho>` carrega no slot ao iniciar.
 
-Plugins **grátis** recomendados para o slot (builds Windows oficiais):
+Plugins **grátis** recomendados para o slot — o catálogo embutido (Tone
+Store → aba Plugins) instala todos por **download direto** (extrai o .vst3,
+sem instalador/admin; desinstalar = apagar o arquivo). Lista completa e
+critérios em [`plugins/README.md`](../plugins/README.md):
 
 | Plugin | Licença | O que traz |
 |---|---|---|
 | [Dragonfly Reverb](https://michaelwillis.github.io/dragonfly-reverb/) | GPLv3 | os 4 reverbs completos (Hall/Room/Plate/Early) |
-| [LSP Plugins](https://lsp-plug.in/) | LGPLv3 | compressor multibanda, EQ paramétrico 32 bandas, gate sidechain |
 | [Airwindows Consolidated](https://github.com/baconpaul/airwin2rack) | MIT | ~400 efeitos num só VST3 com browser |
 | [Zam Plugins](https://www.zamaudio.com/) | GPLv2+ | ZamTube, ZamComp, ZamEQ |
-| [Ratatouille](https://github.com/brummer10/Ratatouille.lv2) | GPLv3 | loader NAM/RTNeural com blend de 2 modelos |
-| Valhalla Supermassive | grátis (não open) | reverb/delay ambient |
+| [AIDA-X](https://github.com/AidaDSP/AIDA-X) | GPLv3 | player neural (pedais/amps) |
+| [Fire](https://github.com/jerryuhoo/Fire) | GPLv3 | distorção multibanda |
+| [Wolf Shaper](https://github.com/wolf-plugins/wolf-shaper) | GPLv3 | waveshaper com editor de curva |
+| [PeakEater](https://github.com/vvvar/PeakEater) | GPLv3 | clipper |
+| [Surge XT Effects](https://surge-synthesizer.github.io/) | GPLv3 | multi-fx (reverbs, delays, rotary, phaser…) |
 
 ## Gate / Cab / Resampler (infra)
 

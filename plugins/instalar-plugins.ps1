@@ -1,13 +1,14 @@
 # =============================================================================
-# PedalForge NAM — instalador dos plugins VST3 recomendados
+# PedalForge NAM — copia os plugins VST3 recomendados (SEM instalador)
 #
-# Uso:  clique-direito > "Executar com o PowerShell"  (pede admin sozinho)
+# Uso:  clique-direito > "Executar com o PowerShell"
 #       ou:  powershell -ExecutionPolicy Bypass -File instalar-plugins.ps1
 #
 # Ordem de fontes: 1) pasta offline\ ao lado deste script (vem no repo)
 #                  2) release oficial no GitHub de cada projeto
-# Destino: C:\Program Files\Common Files\VST3
-# Depois de instalar, os plugins aparecem no menu CARREGAR VST3 do app.
+# Destino: %LOCALAPPDATA%\Programs\Common\VST3  (pasta VST3 de USUÁRIO da
+#          spec — NÃO precisa de administrador; para remover, apague o .vst3)
+# Depois de copiar, os plugins aparecem no menu CARREGAR VST3 do app.
 # =============================================================================
 param([switch]$SomenteListar)
 
@@ -27,21 +28,11 @@ $plugins = @(
 
 if ($SomenteListar) {
     $plugins | ForEach-Object { "{0}  [{1}]" -f $_.Nome, $_.Licenca }
-    "LSP Plugins  [LGPLv3]  (instalacao manual: https://lsp-plug.in)"
-    return
-}
-
-# ---- eleva para admin (o destino e Program Files) ---------------------------
-$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
-           ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin) {
-    Write-Host "Elevando para administrador..." -ForegroundColor Yellow
-    Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`""
     return
 }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$destino = "C:\Program Files\Common Files\VST3"
+$destino = Join-Path $env:LOCALAPPDATA "Programs\Common\VST3"
 New-Item -ItemType Directory -Force $destino | Out-Null
 $offlineDir = Join-Path $PSScriptRoot "offline"
 $tempDir = Join-Path $env:TEMP "guitarrig-plugins"
@@ -102,7 +93,7 @@ Write-Host ""
 Write-Host "================ RESUMO ================" -ForegroundColor Yellow
 $resumo | ForEach-Object { Write-Host $_ }
 Write-Host ""
-Write-Host "LSP Plugins nao tem binario Windows no GitHub - baixe em https://lsp-plug.in" -ForegroundColor Yellow
 Write-Host "Pronto! Os plugins aparecem no menu CARREGAR VST3 do PedalForge NAM." -ForegroundColor Green
+Write-Host "Para remover um plugin: apague o .vst3 de $destino (ou use a aba Plugins do app)." -ForegroundColor Yellow
 Write-Host ""
 Read-Host "Enter para fechar"

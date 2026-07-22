@@ -167,7 +167,7 @@ Dados do usuário (fora do repo): `Documentos\PedalForge NAM\` — `Captures/`, 
 
 **Fases 16–17 — plugins VST3 externos (concluídas):**
 - [x] **Até 8 slots** de plugin VST3 na cadeia (na prática o limite é a CPU); menu CARREGAR por categoria
-- [x] Catálogo **embutido** com 18 plugins open source/freeware (Dragonfly, Airwindows, Zam, BYOD, ChowDSP, GuitarML, AIDA-X…): aba **Plugins** no Tone Store com toggle INSTALAR ⇄ DESINSTALAR, progresso e versões pinadas; instalação sem admin (pasta VST3 do usuário) ou via instalador oficial
+- [x] Catálogo **embutido** com 8 plugins open source (Dragonfly, Airwindows, Zam, AIDA-X, Fire, Wolf Shaper, PeakEater, Surge XT Effects): aba **Plugins** no Tone Store com toggle INSTALAR ⇄ DESINSTALAR, progresso e versões pinadas — **só download direto**: instala extraindo o .vst3 na pasta do usuário (sem admin) e desinstala apagando o arquivo, sem instalador
 - [x] `plugins/` no repo: script alternativo + cópia offline (32 MB) com licenças
 - [x] **Renomeado para PedalForge NAM** (evita confusão com o Guitar Rig da NI); dados antigos migram sozinhos
 
