@@ -192,14 +192,24 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     auto formatDbInt = [] (float v) { return juce::String ((int) v) + " dB"; };
     auto formatMs = [] (float v) { return juce::String ((int) v) + " ms"; };
 
+    auto formatTen = [] (float v) { return juce::String (v, 1); };
+
     inputKnob = std::make_unique<KnobComponent> (processor.apvts, "inputGain", "GAIN", formatDb);
     outputKnob = std::make_unique<KnobComponent> (processor.apvts, "outputGain", "LEVEL", formatDb);
     gateThreshKnob = std::make_unique<KnobComponent> (processor.apvts, "gateThresh", "THRESH", formatDbInt);
     gateReleaseKnob = std::make_unique<KnobComponent> (processor.apvts, "gateRelease", "RELEASE", formatMs);
     cabLevelKnob = std::make_unique<KnobComponent> (processor.apvts, "cabLevel", "LEVEL", formatDb);
+    ampGainKnob = std::make_unique<KnobComponent> (processor.apvts, "ampGain", "GAIN", formatDb);
+    ampBassKnob = std::make_unique<KnobComponent> (processor.apvts, "ampBass", "BASS", formatTen);
+    ampMidKnob = std::make_unique<KnobComponent> (processor.apvts, "ampMid", "MID", formatTen);
+    ampTrebleKnob = std::make_unique<KnobComponent> (processor.apvts, "ampTreble", "TREBLE", formatTen);
+    ampPresKnob = std::make_unique<KnobComponent> (processor.apvts, "ampPresence", "PRES", formatTen);
+    ampMasterKnob = std::make_unique<KnobComponent> (processor.apvts, "ampMaster", "MASTER", formatDb);
 
     for (auto* k : { inputKnob.get(), outputKnob.get(), gateThreshKnob.get(),
-                     gateReleaseKnob.get(), cabLevelKnob.get() })
+                     gateReleaseKnob.get(), cabLevelKnob.get(), ampGainKnob.get(),
+                     ampBassKnob.get(), ampMidKnob.get(), ampTrebleKnob.get(),
+                     ampPresKnob.get(), ampMasterKnob.get() })
         addAndMakeVisible (*k);
 
     setSize (designWidth, designHeight);
@@ -264,6 +274,17 @@ void RigContent::resized()
     ampLed.setBounds (ampCardBounds.getRight() - 17 - 18, ampCardBounds.getY() + 15, 18, 18);
     loadButton.setBounds (ampCardBounds.getX() + 17, ampCardBounds.getBottom() - 15 - 30,
                           ampCardBounds.getWidth() - 34, 30);
+
+    // 6 knobs do amp em grade 3x2: GAIN BASS MID / TREBLE PRES MASTER
+    {
+        const int kw = 42, kh = kw + 26, gapX = 30, gapY = 10;
+        const int gx = ampCardBounds.getX() + (ampCardBounds.getWidth() - (3 * kw + 2 * gapX)) / 2;
+        const int gy = ampCardBounds.getY() + 98;
+        KnobComponent* grid[6] = { ampGainKnob.get(), ampBassKnob.get(), ampMidKnob.get(),
+                                   ampTrebleKnob.get(), ampPresKnob.get(), ampMasterKnob.get() };
+        for (int i = 0; i < 6; ++i)
+            grid[i]->setBounds (gx + (i % 3) * (kw + gapX), gy + (i / 3) * (kh + gapY), kw, kh);
+    }
 
     // gate: dois knobs lado a lado
     gateLed.setBounds (gateCardBounds.getRight() - 12 - 18, gateCardBounds.getY() + 10, 18, 18);

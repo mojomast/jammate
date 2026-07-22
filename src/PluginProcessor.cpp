@@ -28,6 +28,12 @@ namespace
 constexpr auto* kParamInputGain = "inputGain";
 constexpr auto* kParamOutputGain = "outputGain";
 constexpr auto* kParamAmpOn = "ampOn";
+constexpr auto* kParamAmpGain = "ampGain";
+constexpr auto* kParamAmpBass = "ampBass";
+constexpr auto* kParamAmpMid = "ampMid";
+constexpr auto* kParamAmpTreble = "ampTreble";
+constexpr auto* kParamAmpPresence = "ampPresence";
+constexpr auto* kParamAmpMaster = "ampMaster";
 constexpr auto* kParamGateOn = "gateOn";
 constexpr auto* kParamGateThresh = "gateThresh";
 constexpr auto* kParamGateRelease = "gateRelease";
@@ -39,6 +45,80 @@ constexpr auto* kStatePresetName = "presetName";
 } // namespace
 
 GuitarRigNAMProcessor::LoadedModel::~LoadedModel() = default;
+
+//==============================================================================
+// Biquads RBJ (Audio EQ Cookbook), S=1 nos shelves.
+
+void GuitarRigNAMProcessor::Biquad::setLowShelf (double sr, double freq, double dbGain)
+{
+    const double A = std::pow (10.0, dbGain / 40.0);
+    const double w = juce::MathConstants<double>::twoPi * freq / sr;
+    const double c = std::cos (w), s = std::sin (w);
+    const double alpha = s / 2.0 * std::sqrt (2.0);
+    const double s2a = 2.0 * std::sqrt (A) * alpha;
+
+    const double a0 = (A + 1) + (A - 1) * c + s2a;
+    b0 = (float) (A * ((A + 1) - (A - 1) * c + s2a) / a0);
+    b1 = (float) (2 * A * ((A - 1) - (A + 1) * c) / a0);
+    b2 = (float) (A * ((A + 1) - (A - 1) * c - s2a) / a0);
+    a1 = (float) (-2 * ((A - 1) + (A + 1) * c) / a0);
+    a2 = (float) (((A + 1) + (A - 1) * c - s2a) / a0);
+}
+
+void GuitarRigNAMProcessor::Biquad::setHighShelf (double sr, double freq, double dbGain)
+{
+    const double A = std::pow (10.0, dbGain / 40.0);
+    const double w = juce::MathConstants<double>::twoPi * freq / sr;
+    const double c = std::cos (w), s = std::sin (w);
+    const double alpha = s / 2.0 * std::sqrt (2.0);
+    const double s2a = 2.0 * std::sqrt (A) * alpha;
+
+    const double a0 = (A + 1) - (A - 1) * c + s2a;
+    b0 = (float) (A * ((A + 1) + (A - 1) * c + s2a) / a0);
+    b1 = (float) (-2 * A * ((A - 1) + (A + 1) * c) / a0);
+    b2 = (float) (A * ((A + 1) + (A - 1) * c - s2a) / a0);
+    a1 = (float) (2 * ((A - 1) - (A + 1) * c) / a0);
+    a2 = (float) (((A + 1) - (A - 1) * c - s2a) / a0);
+}
+
+void GuitarRigNAMProcessor::Biquad::setPeak (double sr, double freq, double dbGain, double q)
+{
+    const double A = std::pow (10.0, dbGain / 40.0);
+    const double w = juce::MathConstants<double>::twoPi * freq / sr;
+    const double c = std::cos (w), s = std::sin (w);
+    const double alpha = s / (2.0 * q);
+
+    const double a0 = 1 + alpha / A;
+    b0 = (float) ((1 + alpha * A) / a0);
+    b1 = (float) (-2 * c / a0);
+    b2 = (float) ((1 - alpha * A) / a0);
+    a1 = (float) (-2 * c / a0);
+    a2 = (float) ((1 - alpha / A) / a0);
+}
+
+void GuitarRigNAMProcessor::updateToneStackIfNeeded()
+{
+    const float bass = pAmpBass->load();
+    const float mid = pAmpMid->load();
+    const float treble = pAmpTreble->load();
+    const float pres = pAmpPresence->load();
+
+    if (bass == tsCachedBass && mid == tsCachedMid
+        && treble == tsCachedTreble && pres == tsCachedPresence)
+        return;
+
+    tsCachedBass = bass;
+    tsCachedMid = mid;
+    tsCachedTreble = treble;
+    tsCachedPresence = pres;
+
+    const double sr = hostSampleRate.load();
+    // 5 = neutro; curso de ±12 dB (±9 dB no presence).
+    tsBass.setLowShelf (sr, 150.0, (bass - 5.0) * 2.4);
+    tsMid.setPeak (sr, 500.0, (mid - 5.0) * 2.4, 0.7);
+    tsTreble.setHighShelf (sr, 1800.0, (treble - 5.0) * 2.4);
+    tsPresence.setHighShelf (sr, 4500.0, (pres - 5.0) * 1.8);
+}
 
 juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::createParameterLayout()
 {
@@ -57,6 +137,25 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::NormalisableRange<float> (-40.0f, 12.0f, 0.1f), 0.0f, dB));
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { kParamAmpOn, 1 }, "Amp On", true));
+
+    // Painel do amp: GAIN empurra o sinal para dentro do capture (como o
+    // gain do amp real); tone stack + presence pós-modelo; MASTER na saída
+    // da seção do amp.
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamAmpGain, 1 }, "Amp Gain",
+        juce::NormalisableRange<float> (-20.0f, 20.0f, 0.1f), 0.0f, dB));
+    auto zeroToTen = juce::NormalisableRange<float> (0.0f, 10.0f, 0.1f);
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamAmpBass, 1 }, "Bass", zeroToTen, 5.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamAmpMid, 1 }, "Mid", zeroToTen, 5.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamAmpTreble, 1 }, "Treble", zeroToTen, 5.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamAmpPresence, 1 }, "Presence", zeroToTen, 5.0f));
+    layout.add (std::make_unique<FloatParam> (
+        juce::ParameterID { kParamAmpMaster, 1 }, "Amp Master",
+        juce::NormalisableRange<float> (-20.0f, 10.0f, 0.1f), 0.0f, dB));
 
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { kParamGateOn, 1 }, "Gate On", true));
@@ -85,6 +184,12 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pInputGain = apvts.getRawParameterValue (kParamInputGain);
     pOutputGain = apvts.getRawParameterValue (kParamOutputGain);
     pAmpOn = apvts.getRawParameterValue (kParamAmpOn);
+    pAmpGain = apvts.getRawParameterValue (kParamAmpGain);
+    pAmpBass = apvts.getRawParameterValue (kParamAmpBass);
+    pAmpMid = apvts.getRawParameterValue (kParamAmpMid);
+    pAmpTreble = apvts.getRawParameterValue (kParamAmpTreble);
+    pAmpPresence = apvts.getRawParameterValue (kParamAmpPresence);
+    pAmpMaster = apvts.getRawParameterValue (kParamAmpMaster);
     pGateOn = apvts.getRawParameterValue (kParamGateOn);
     pGateThresh = apvts.getRawParameterValue (kParamGateThresh);
     pGateRelease = apvts.getRawParameterValue (kParamGateRelease);
@@ -139,6 +244,11 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) samplesPerBlock, 1 };
     noiseGate.prepare (spec);
     convolution.prepare (spec);
+
+    // Força o recálculo do tone stack no novo sample rate e zera o estado.
+    tsCachedBass = -1.0f;
+    for (auto* f : { &tsBass, &tsMid, &tsTreble, &tsPresence })
+        f->reset();
 
     // prepareToPlay não é concorrente com processBlock; pode alocar/tocar nos
     // modelos ativo e pendente (o loader não toca no pendente após publicar).
@@ -216,9 +326,12 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         noiseGate.process (ctx);
     }
 
-    // ---- amp NAM (com resampler quando o SR do capture difere do host)
+    // ---- amp NAM (com resampler quando o SR do capture difere do host):
+    //      GAIN -> modelo -> tone stack (B/M/T/Pres) -> MASTER
     if (activeModel != nullptr && ampOn)
     {
+        buffer.applyGain (0, 0, n, juce::Decibels::decibelsToGain (pAmpGain->load()));
+
         float* scratch = monoScratch.getWritePointer (0);
         const int maxChunk = monoScratch.getNumSamples();
 
@@ -236,6 +349,12 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
             juce::FloatVectorOperations::copy (io + pos, scratch, len);
         }
+
+        updateToneStackIfNeeded();
+        for (int i = 0; i < n; ++i)
+            io[i] = tsPresence.process (tsTreble.process (tsMid.process (tsBass.process (io[i]))));
+
+        buffer.applyGain (0, 0, n, juce::Decibels::decibelsToGain (pAmpMaster->load()));
     }
 
     // ---- cab IR (convolução; troca de IR é RT-safe dentro do Convolution)

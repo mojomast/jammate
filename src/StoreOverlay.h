@@ -2,6 +2,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <map>
+
 #include "LookAndFeel.h"
 #include "Tone3000Client.h"
 
@@ -76,6 +78,7 @@ private:
     /// Fluxo do Adicionar: lista os modelos do tone; um só -> baixa direto,
     /// vários -> menu de escolha (como no site do TONE3000).
     void startAddFlow (ToneCardComponent&);
+    void showModelChoices (ToneCardComponent&, const std::vector<Tone3000Client::Model>&);
     void startDownload (ToneCardComponent&, const Tone3000Client::Model&);
     void setTab (Tab);
     void doSearch (int page);
@@ -116,6 +119,9 @@ private:
     juce::Component gridContent;
     juce::OwnedArray<ToneCardComponent> cards;
     juce::TextButton loadMoreButton { "Carregar mais" };
+
+    // Cache de variações por tone (1 chamada de API por tone por sessão).
+    std::map<int, std::vector<Tone3000Client::Model>> modelsCache;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StoreOverlay)
 };

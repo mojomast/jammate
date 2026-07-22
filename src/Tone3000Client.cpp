@@ -560,6 +560,17 @@ void Tone3000Client::listModels (int toneId,
     });
 }
 
+juce::File Tone3000Client::localFileForModel (const Model& model, const juce::String& kind)
+{
+    const auto storageName = juce::URL (model.url).getFileName();
+    const auto ext = storageName.contains (".")
+                         ? storageName.fromLastOccurrenceOf (".", true, false)
+                         : (kind == "ir" ? juce::String (".wav") : juce::String (".nam"));
+    const auto dir = kind == "ir" ? irsDir() : capturesDir();
+    return dir.getChildFile (
+        sanitizeFilename (model.name.isNotEmpty() ? model.name : storageName) + ext);
+}
+
 void Tone3000Client::downloadModel (const Model& model, const juce::String& kind,
                                     std::function<void (int)> progress,
                                     std::function<void (juce::File, juce::String)> done)
@@ -594,14 +605,7 @@ void Tone3000Client::downloadModel (const Model& model, const juce::String& kind
             return;
         }
 
-        const auto storageName = url.getFileName();
-        const auto ext = storageName.contains (".")
-                             ? storageName.fromLastOccurrenceOf (".", true, false)
-                             : (gear == "ir" ? juce::String (".wav") : juce::String (".nam"));
-
-        const auto targetDir = gear == "ir" ? irsDir() : capturesDir();
-        auto target = targetDir.getChildFile (
-            sanitizeFilename (modelName.isNotEmpty() ? modelName : storageName) + ext);
+        auto target = localFileForModel (model, kind);
 
         target.deleteFile();
         juce::FileOutputStream out (target);

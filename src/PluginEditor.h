@@ -114,6 +114,8 @@ private:
     // knobs
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
     std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob, cabLevelKnob;
+    std::unique_ptr<KnobComponent> ampGainKnob, ampBassKnob, ampMidKnob,
+        ampTrebleKnob, ampPresKnob, ampMasterKnob;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
     std::unique_ptr<StoreOverlay> storeOverlay;

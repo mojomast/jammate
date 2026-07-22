@@ -75,6 +75,10 @@ public:
                         std::function<void (int)> progress,
                         std::function<void (juce::File, juce::String error)> done);
 
+    /// Onde o modelo ficaria/fica salvo localmente — permite pular o
+    /// download quando o arquivo já existe.
+    static juce::File localFileForModel (const Model&, const juce::String& kind);
+
     /// Busca a imagem de um tone (com cache em disco). done só é chamado se a
     /// imagem carregar; formatos que o JUCE não decodifica (ex.: webp) são
     /// silenciosamente ignorados.

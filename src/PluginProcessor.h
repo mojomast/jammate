@@ -140,11 +140,43 @@ private:
     std::atomic<float>* pInputGain = nullptr;
     std::atomic<float>* pOutputGain = nullptr;
     std::atomic<float>* pAmpOn = nullptr;
+    std::atomic<float>* pAmpGain = nullptr;
+    std::atomic<float>* pAmpBass = nullptr;
+    std::atomic<float>* pAmpMid = nullptr;
+    std::atomic<float>* pAmpTreble = nullptr;
+    std::atomic<float>* pAmpPresence = nullptr;
+    std::atomic<float>* pAmpMaster = nullptr;
     std::atomic<float>* pGateOn = nullptr;
     std::atomic<float>* pGateThresh = nullptr;
     std::atomic<float>* pGateRelease = nullptr;
     std::atomic<float>* pCabOn = nullptr;
     std::atomic<float>* pCabLevel = nullptr;
+
+    // ---- tone stack do amp (pós-modelo): biquads próprios, sem alocação
+    // no caminho de áudio (coeficientes recalculados inline quando os
+    // parâmetros mudam — só aritmética).
+    struct Biquad
+    {
+        void setLowShelf (double sr, double freq, double dbGain);
+        void setPeak (double sr, double freq, double dbGain, double q);
+        void setHighShelf (double sr, double freq, double dbGain);
+        inline float process (float x) noexcept
+        {
+            const float y = b0 * x + z1;
+            z1 = b1 * x - a1 * y + z2;
+            z2 = b2 * x - a2 * y;
+            return y;
+        }
+        void reset() noexcept { z1 = z2 = 0.0f; }
+        float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f, a1 = 0.0f, a2 = 0.0f;
+        float z1 = 0.0f, z2 = 0.0f;
+    };
+
+    void updateToneStackIfNeeded();
+
+    Biquad tsBass, tsMid, tsTreble, tsPresence;
+    float tsCachedBass = -1.0f, tsCachedMid = -1.0f,
+          tsCachedTreble = -1.0f, tsCachedPresence = -1.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarRigNAMProcessor)
 };
