@@ -308,6 +308,12 @@ private:
     juce::TextButton tunerToggle { "AFINADOR" };
     bool isTunerOn() const;
 
+    // modo performance (palco): esconde a cadeia, mostra o essencial grande
+    bool perfMode = false;
+    juce::TextButton perfChip { "PALCO" };
+    void setPerfMode (bool shouldBeOn);
+    void paintPerformanceView (juce::Graphics&);
+
     // auto-ECO (troca para o capture leve quando a CPU estoura)
     juce::TextButton autoEcoChip { "AUTO-ECO" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoEcoAtt;

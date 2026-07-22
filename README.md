@@ -151,11 +151,17 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 
 ![Gaveta de efeitos](docs/screenshots/gaveta-efeitos.png)
 
+**Fase 14 — modo palco (concluída):**
+- [x] Chip **PALCO** (ou tecla **F**): esconde a cadeia e mostra o essencial gigante — nome do preset (com indicador de modificado), capture carregado, **afinador grande** (nota + régua de cents, verde quando afinado) e dicas de atalhos
+- [x] No palco o afinador funciona mesmo com o chip AFINADOR desligado; clique nas laterais navega presets, no centro abre o menu; **Esc/F** volta a editar
+
+![Modo palco](docs/screenshots/modo-palco.png)
+
 **Próximos:**
 - [ ] Analisador de espectro
 - [ ] Animações e microinterações · medidores com peak-hold/clip
 - [ ] Drag-and-drop de arquivos · afinador com mute · delay/reverb estéreo
-- [ ] Favoritos do TONE3000 · A/B de rigs · gravador rápido · modo performance
+- [ ] Favoritos do TONE3000 · A/B de rigs · gravador rápido
 
 ## 🤝 Contribuindo
 

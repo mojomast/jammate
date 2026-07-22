@@ -2282,6 +2282,16 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (tunerToggle);
 
+    // PALCO: modo performance — só o essencial, gigante (tecla F)
+    perfChip.getProperties().set ("chip", true);
+    perfChip.getProperties().set ("chipActive", false);
+    perfChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Modo palco (F): esconde a cadeia e mostra preset, afinador e "
+        "medidores em tamanho grande. Esc volta.")));
+    perfChip.setMouseClickGrabsKeyboardFocus (false);
+    perfChip.onClick = [this] { setPerfMode (! perfMode); };
+    addAndMakeVisible (perfChip);
+
     // AUTO-ECO: troca para o capture leve sozinho quando a CPU passa de 90%
     autoEcoChip.getProperties().set ("chip", true);
     autoEcoChip.setClickingTogglesState (true);
@@ -2383,6 +2393,17 @@ void RigContent::resized()
     chainViewport.setBounds (0, 60, W, getHeight() - 60 - 60);
     tunerToggle.setBounds (22, getHeight() - 60 + 16, 92, 28);
     autoEcoChip.setBounds (122, getHeight() - 60 + 16, 92, 28);
+    perfChip.setBounds (222, getHeight() - 60 + 16, 76, 28);
+}
+
+void RigContent::setPerfMode (bool shouldBeOn)
+{
+    perfMode = shouldBeOn;
+    chainViewport.setVisible (! perfMode);
+    perfChip.getProperties().set ("chipActive", perfMode);
+    perfChip.repaint();
+    repaint();
+    grabKeyboardFocus();
 }
 
 bool RigContent::isTunerOn() const
@@ -2578,6 +2599,108 @@ void RigContent::paint (juce::Graphics& g)
             g.drawText (status, W - 22 - 360, barY, 360, 60, juce::Justification::centredRight);
         }
     }
+
+    if (perfMode)
+        paintPerformanceView (g);
+}
+
+void RigContent::paintPerformanceView (juce::Graphics& g)
+{
+    const int W = getWidth(), H = getHeight();
+    const auto area = juce::Rectangle<int> (0, 60, W, H - 120);
+
+    // ---- preset gigante (clique: esquerda = anterior, direita = próximo,
+    //      centro = menu)
+    const auto presetName = processor.getCurrentPresetName();
+    const bool dirty = presetDirtyCached;
+    g.setFont (ui::uiFont (48.0f, true));
+    g.setColour (ui::textBright);
+    g.drawFittedText ((dirty ? juce::String (juce::CharPointer_UTF8 ("\xe2\x80\xa2 ")) : juce::String())
+                          + (presetName.isNotEmpty() ? presetName : juce::String ("(sem preset)")),
+                      area.getX() + 120, area.getY() + 40, area.getWidth() - 240, 60,
+                      juce::Justification::centred, 1);
+
+    // setas de navegação nas laterais
+    g.setFont (ui::uiFont (40.0f, true));
+    g.setColour (ui::textFaint);
+    g.drawText (juce::CharPointer_UTF8 ("\xe2\x97\x82"), area.getX() + 30, area.getY() + 40, 60, 60,
+                juce::Justification::centred);
+    g.drawText (juce::CharPointer_UTF8 ("\xe2\x96\xb8"), area.getRight() - 90, area.getY() + 40, 60, 60,
+                juce::Justification::centred);
+
+    // capture carregado + rigs
+    {
+        const auto model = processor.getModelName (0);
+        juce::String info = model.isNotEmpty()
+                                ? model
+                                : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 sem capture \xe2\x80\x94"));
+        if (processor.getRigCount() > 1)
+            info += juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))
+                    + juce::String (processor.getRigCount()) + " rigs";
+        g.setFont (ui::monoFont (14.0f));
+        g.setColour (ui::accent);
+        g.drawText (info, area.getX(), area.getY() + 108, area.getWidth(), 20,
+                    juce::Justification::centred);
+    }
+
+    // ---- afinador grande
+    {
+        const int cy = area.getCentreY() + 60;
+        const bool hasNote = tunerNote.isNotEmpty();
+        const bool inTune = hasNote && std::abs (tunerCents) <= 5.0;
+
+        g.setFont (ui::monoFont (84.0f, true));
+        g.setColour (! hasNote ? ui::textMuted : inTune ? ui::green : ui::textBright);
+        g.drawText (hasNote ? tunerNote : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94")),
+                    area.getX(), cy - 110, area.getWidth(), 100, juce::Justification::centred);
+
+        // régua de cents: -50 .. +50, agulha na posição
+        const int barW = juce::jmin (560, W - 200);
+        auto bar = juce::Rectangle<float> ((float) (W - barW) / 2.0f, (float) cy + 10.0f,
+                                           (float) barW, 12.0f);
+        g.setColour (ui::meterBg);
+        g.fillRoundedRectangle (bar, 6.0f);
+
+        g.setColour (juce::Colours::white.withAlpha (0.15f));
+        for (int t = -40; t <= 40; t += 10)
+        {
+            const float tx = bar.getCentreX() + (float) t / 50.0f * bar.getWidth() / 2.0f;
+            g.fillRect (tx - 0.5f, bar.getY() - 5.0f, 1.0f, bar.getHeight() + 10.0f);
+        }
+        g.setColour (ui::green.withAlpha (0.5f));
+        g.fillRect (bar.getCentreX() - 1.0f, bar.getY() - 8.0f, 2.0f, bar.getHeight() + 16.0f);
+
+        if (hasNote)
+        {
+            const float nx = bar.getCentreX()
+                             + (float) juce::jlimit (-50.0, 50.0, tunerCents) / 50.0f
+                                   * bar.getWidth() / 2.0f;
+            g.setColour (inTune ? ui::green : ui::glowOrange);
+            g.fillRoundedRectangle (nx - 3.0f, bar.getY() - 10.0f, 6.0f,
+                                    bar.getHeight() + 20.0f, 3.0f);
+
+            g.setFont (ui::monoFont (16.0f, true));
+            g.drawText ((tunerCents >= 0 ? "+" : "") + juce::String (tunerCents, 1) + " cents",
+                        area.getX(), (int) bar.getBottom() + 14, area.getWidth(), 20,
+                        juce::Justification::centred);
+        }
+        else
+        {
+            g.setFont (ui::monoFont (12.0f));
+            g.setColour (ui::textFaint);
+            g.drawText ("toque uma corda para afinar", area.getX(), (int) bar.getBottom() + 14,
+                        area.getWidth(), 18, juce::Justification::centred);
+        }
+    }
+
+    // ---- dicas
+    g.setFont (ui::monoFont (10.0f));
+    g.setColour (ui::textFaint);
+    g.drawText (juce::CharPointer_UTF8 ("\xe2\x86\x90/\xe2\x86\x92 presets \xc2\xb7 "
+                                        "espa\xc3\xa7o liga/desliga o amp \xc2\xb7 "
+                                        "T afinador \xc2\xb7 F/Esc volta a editar"),
+                area.getX(), area.getBottom() - 26, area.getWidth(), 16,
+                juce::Justification::centred);
 }
 
 void RigContent::timerCallback()
@@ -2636,7 +2759,7 @@ void RigContent::timerCallback()
     if (ecoNoticeTicks > 0)
         --ecoNoticeTicks;
 
-    if (++tunerTick % 3 == 0 && isTunerOn())
+    if (++tunerTick % 3 == 0 && (isTunerOn() || perfMode))
         analyseTuner();
 
     // o chip pode ter mudado por load de estado/preset
@@ -2646,8 +2769,13 @@ void RigContent::timerCallback()
         tunerToggle.repaint();
     }
 
-    repaint (0, 0, getWidth(), 60);
-    repaint (0, getHeight() - 60, getWidth(), 60);
+    if (perfMode)
+        repaint(); // afinador/medidores grandes ao vivo
+    else
+    {
+        repaint (0, 0, getWidth(), 60);
+        repaint (0, getHeight() - 60, getWidth(), 60);
+    }
 }
 
 void RigContent::applyEcoSwitchIfNeeded()
@@ -2982,6 +3110,16 @@ bool RigContent::keyPressed (const juce::KeyPress& key)
         toggleTuner();
         return true;
     }
+    if (key.getTextCharacter() == 'f' || key.getTextCharacter() == 'F')
+    {
+        setPerfMode (! perfMode);
+        return true;
+    }
+    if (key == juce::KeyPress::escapeKey && perfMode)
+    {
+        setPerfMode (false);
+        return true;
+    }
     if (key == juce::KeyPress::leftKey)
     {
         processor.loadAdjacentPreset (-1);
@@ -2995,8 +3133,20 @@ bool RigContent::keyPressed (const juce::KeyPress& key)
     return false;
 }
 
-void RigContent::mouseDown (const juce::MouseEvent&)
+void RigContent::mouseDown (const juce::MouseEvent& e)
 {
+    // modo palco: laterais navegam presets, centro abre o menu
+    if (perfMode && e.y > 60 && e.y < getHeight() - 60)
+    {
+        if (e.x < getWidth() / 4)
+            processor.loadAdjacentPreset (-1);
+        else if (e.x > getWidth() * 3 / 4)
+            processor.loadAdjacentPreset (1);
+        else
+            showPresetMenu();
+        return;
+    }
+
     grabKeyboardFocus(); // clique em área vazia devolve o foco aos atalhos
 }
 
