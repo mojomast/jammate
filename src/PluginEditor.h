@@ -145,6 +145,11 @@ private:
     std::unique_ptr<KnobComponent> compSustainKnob, compAttackKnob, compBlendKnob, compLevelKnob;
     std::unique_ptr<KnobComponent> preEqLowKnob, preEqMidKnob, preEqHighKnob;
     juce::TextButton compPresetChips[3]; // Clean / Country / Lead
+
+    // seletores de variação (modelo/marca) nos cartões
+    juce::TextButton odTypeButton, compTypeButton, delayTypeButton, revTypeButton;
+    void setupTypeButton (juce::TextButton&, const char* paramId, const juce::String& tooltip);
+    void refreshTypeButtons();
     std::unique_ptr<KnobComponent> odDriveKnob, odToneKnob, odLevelKnob;
     std::unique_ptr<KnobComponent> ampGainKnob, ampBassKnob, ampMidKnob,
         ampTrebleKnob, ampPresKnob, ampMasterKnob;

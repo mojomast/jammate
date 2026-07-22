@@ -244,7 +244,17 @@ private:
 
     juce::dsp::Compressor<float> pedalComp;
     float compCachedSustain = -1.0f, compCachedAttack = -1.0f;
+    int compCachedType = -1;
     void updatePreEqIfNeeded();
+
+    // variações de modelo por efeito (escolhidas no cartão)
+    std::atomic<float>* pOdType = nullptr;     // Screamer/Blues/Distortion/Fuzz
+    std::atomic<float>* pCompType = nullptr;   // Dyna/Optical/Studio
+    std::atomic<float>* pDelayType = nullptr;  // Digital/Analog/Tape
+    std::atomic<float>* pRevType = nullptr;    // Hall/Room/Plate
+    int odCachedType = -1, delayCachedType = -1, revCachedType = -1;
+    bool odPostActive = false;
+    double delayLfoPhase = 0.0;
 
     std::atomic<float>* pInputGain = nullptr;
     std::atomic<float>* pOutputGain = nullptr;
@@ -326,9 +336,12 @@ private:
     float tsCachedBass = -1.0f, tsCachedMid = -1.0f,
           tsCachedTreble = -1.0f, tsCachedPresence = -1.0f;
 
-    // Overdrive (pré-amp): HP fixo -> tanh -> tone LP -> level
-    Biquad odHp, odToneLp;
+    // Overdrive (pré-amp): HP -> clip (por variação) -> tone LP -> pós-filtro
+    Biquad odHp, odToneLp, odPost;
     float odCachedTone = -1.0f;
+
+    // filtros do caminho de feedback do delay (variações Analog/Tape)
+    Biquad delayFbLp, delayFbHp;
 
     // EQ pós-cab
     Biquad eqLowF, eqMidF, eqHighF;

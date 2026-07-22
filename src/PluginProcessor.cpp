@@ -280,6 +280,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::ParameterID { "compLevel", 1 }, "Comp Level",
         juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f, dB));
 
+    // variações de modelo por efeito (selecionadas no cartão)
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "odType", 1 }, "OD Type",
+        juce::StringArray { "Screamer", "Blues", "Distortion", "Fuzz" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "compType", 1 }, "Comp Type",
+        juce::StringArray { "Dyna", "Optical", "Studio" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "delayType", 1 }, "Delay Type",
+        juce::StringArray { "Digital", "Analog", "Tape" }, 0));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "revType", 1 }, "Reverb Type",
+        juce::StringArray { "Hall", "Room", "Plate" }, 0));
+
     // pré-EQ (antes do NAM)
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { "preEqOn", 1 }, "Pre EQ On", true));
@@ -395,6 +409,10 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pCompAttack = apvts.getRawParameterValue ("compAttack");
     pCompBlend = apvts.getRawParameterValue ("compBlend");
     pCompLevel = apvts.getRawParameterValue ("compLevel");
+    pOdType = apvts.getRawParameterValue ("odType");
+    pCompType = apvts.getRawParameterValue ("compType");
+    pDelayType = apvts.getRawParameterValue ("delayType");
+    pRevType = apvts.getRawParameterValue ("revType");
     pPreEqOn = apvts.getRawParameterValue ("preEqOn");
     pPreEqLow = apvts.getRawParameterValue ("preEqLow");
     pPreEqMid = apvts.getRawParameterValue ("preEqMid");
@@ -480,6 +498,7 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     smartGate.prepare (sampleRate);
     pedalComp.prepare (spec);
     compCachedSustain = -1.0f;
+    odCachedType = delayCachedType = revCachedType = compCachedType = -1;
     preEqCachedLow = -99.0f;
     for (auto* f : { &preEqLowF, &preEqMidF, &preEqHighF })
         f->reset();
@@ -699,14 +718,34 @@ void GuitarRigNAMProcessor::processCompFx (float* io, int n)
 
     const float sustain = pCompSustain->load();
     const float attack = pCompAttack->load();
-    if (sustain != compCachedSustain || attack != compCachedAttack)
+    const int type = (int) pCompType->load();
+    if (sustain != compCachedSustain || attack != compCachedAttack || type != compCachedType)
     {
         compCachedSustain = sustain;
         compCachedAttack = attack;
-        pedalComp.setThreshold (-10.0f - sustain * 4.0f);   // -10..-50 dB
-        pedalComp.setRatio (2.0f + sustain * 0.8f);         // 2:1..10:1
-        pedalComp.setAttack (attack);
-        pedalComp.setRelease (180.0f);
+        compCachedType = type;
+        switch (type)
+        {
+            default:
+            case 0: // Dyna: agressivo, estilo pedal clássico
+                pedalComp.setThreshold (-10.0f - sustain * 4.0f);
+                pedalComp.setRatio (2.0f + sustain * 0.8f);
+                pedalComp.setAttack (attack);
+                pedalComp.setRelease (180.0f);
+                break;
+            case 1: // Optical: lento e musical (estilo LA-2A)
+                pedalComp.setThreshold (-8.0f - sustain * 3.5f);
+                pedalComp.setRatio (1.5f + sustain * 0.45f);
+                pedalComp.setAttack (juce::jmax (10.0f, attack));
+                pedalComp.setRelease (400.0f);
+                break;
+            case 2: // Studio: VCA transparente
+                pedalComp.setThreshold (-6.0f - sustain * 3.0f);
+                pedalComp.setRatio (3.0f);
+                pedalComp.setAttack (attack);
+                pedalComp.setRelease (250.0f);
+                break;
+        }
     }
 
     // guarda o sinal seco para o blend
@@ -717,7 +756,8 @@ void GuitarRigNAMProcessor::processCompFx (float* io, int n)
     juce::dsp::ProcessContextReplacing<float> ctx (block);
     pedalComp.process (ctx);
 
-    const float makeup = juce::Decibels::decibelsToGain (sustain * 2.2f);
+    const float makeupPerSustain = type == 1 ? 2.0f : type == 2 ? 1.6f : 2.2f;
+    const float makeup = juce::Decibels::decibelsToGain (sustain * makeupPerSustain);
     const float blend = pCompBlend->load() / 100.0f;
     const float level = juce::Decibels::decibelsToGain (pCompLevel->load());
     for (int i = 0; i < n; ++i)
@@ -752,18 +792,63 @@ void GuitarRigNAMProcessor::processPreEqFx (float* io, int n)
 
 void GuitarRigNAMProcessor::processOdFx (float* io, int n)
 {
-    // HP 120 Hz -> drive/tanh -> tone LP -> level
+    // HP -> clip (por variação) -> tone LP -> pós-filtro -> level
     if (pOdOn->load() <= 0.5f)
         return;
+
+    const int type = (int) pOdType->load();
+    if (type != odCachedType)
+    {
+        odCachedType = type;
+        const double sr = hostSampleRate.load();
+        // vozeamento de entrada e pós-filtro por variação
+        switch (type)
+        {
+            default:
+            case 0: // Screamer: aperta graves, corcova de médios
+                odHp.setHighPass (sr, 300.0, 0.707);
+                odPost.setPeak (sr, 700.0, 2.5, 0.9);
+                odPostActive = true;
+                break;
+            case 1: // Blues: quase flat, clip suave
+                odHp.setHighPass (sr, 100.0, 0.707);
+                odPostActive = false;
+                break;
+            case 2: // Distortion: leve scoop de médios
+                odHp.setHighPass (sr, 120.0, 0.707);
+                odPost.setPeak (sr, 800.0, -2.0, 0.9);
+                odPostActive = true;
+                break;
+            case 3: // Fuzz: grave cheio, clip assimétrico
+                odHp.setHighPass (sr, 80.0, 0.707);
+                odPostActive = false;
+                break;
+        }
+        odHp.reset();
+        odPost.reset();
+    }
 
     updateOdIfNeeded();
     const float driveGain = juce::Decibels::decibelsToGain (pOdDrive->load() * 4.0f);
     const float levelGain = juce::Decibels::decibelsToGain ((pOdLevel->load() - 5.0f) * 3.0f - 6.0f);
+    const float fuzzBiasOut = std::tanh (0.2f); // remove o DC do clip assimétrico
+
     for (int i = 0; i < n; ++i)
     {
-        float v = odHp.process (io[i]);
-        v = std::tanh (v * driveGain);
+        float v = odHp.process (io[i]) * driveGain;
+
+        switch (type)
+        {
+            default:
+            case 0: v = std::tanh (v); break;                                    // soft
+            case 1: v = v / (1.0f + std::abs (v)); break;                        // mais suave
+            case 2: v = juce::jlimit (-0.9f, 0.9f, std::tanh (v * 1.6f) * 1.1f); break; // duro
+            case 3: v = std::tanh (v * 1.5f + 0.2f) - fuzzBiasOut; break;        // assimétrico
+        }
+
         v = odToneLp.process (v);
+        if (odPostActive)
+            v = odPost.process (v);
         io[i] = v * levelGain;
     }
 }
@@ -785,15 +870,48 @@ void GuitarRigNAMProcessor::processDelayFx (float* io, int n)
         return;
 
     const double sr = hostSampleRate.load();
+    const int type = (int) pDelayType->load();
+    if (type != delayCachedType)
+    {
+        delayCachedType = type;
+        if (type == 1) // Analog: repetições escuras e comprimidas
+        {
+            delayFbLp.setLowPass (sr, 3000.0, 0.707);
+            delayFbHp.setHighPass (sr, 150.0, 0.707);
+        }
+        else if (type == 2) // Tape: um pouco mais aberto + wobble
+        {
+            delayFbLp.setLowPass (sr, 4500.0, 0.707);
+        }
+        delayFbLp.reset();
+        delayFbHp.reset();
+    }
+
     delaySmoothedSamples.setTargetValue ((float) (pDelayTime->load() / 1000.0 * sr));
     const float fb = pDelayFb->load() / 100.0f;
     const float mix = pDelayMix->load() / 100.0f;
+    const double lfoInc = juce::MathConstants<double>::twoPi * 0.9 / sr; // wobble do tape
 
     for (int i = 0; i < n; ++i)
     {
-        delayLine.setDelay (delaySmoothedSamples.getNextValue());
+        float delaySamples = delaySmoothedSamples.getNextValue();
+        if (type == 2)
+        {
+            delayLfoPhase += lfoInc;
+            if (delayLfoPhase > juce::MathConstants<double>::twoPi)
+                delayLfoPhase -= juce::MathConstants<double>::twoPi;
+            delaySamples *= 1.0f + 0.0018f * (float) std::sin (delayLfoPhase);
+        }
+        delayLine.setDelay (delaySamples);
+
         const float wet = delayLine.popSample (0);
-        delayLine.pushSample (0, io[i] + wet * fb);
+        float fbSignal = wet;
+        if (type == 1)
+            fbSignal = std::tanh (delayFbLp.process (delayFbHp.process (wet)) * 1.05f);
+        else if (type == 2)
+            fbSignal = delayFbLp.process (wet);
+
+        delayLine.pushSample (0, io[i] + fbSignal * fb);
         io[i] += wet * mix;
     }
 }
@@ -805,10 +923,30 @@ void GuitarRigNAMProcessor::processReverbFx (float* io, int n)
         return;
 
     const float decay = pRevDecay->load();
-    if (decay != revCachedDecay)
+    const int type = (int) pRevType->load();
+    if (decay != revCachedDecay || type != revCachedType)
     {
         revCachedDecay = decay;
-        reverbParams.roomSize = 0.2f + decay / 10.0f * 0.75f;
+        revCachedType = type;
+        switch (type)
+        {
+            default:
+            case 0: // Hall: grande e suave
+                reverbParams.roomSize = 0.2f + decay / 10.0f * 0.75f;
+                reverbParams.damping = 0.45f;
+                reverbParams.width = 1.0f;
+                break;
+            case 1: // Room: curto e abafado
+                reverbParams.roomSize = 0.1f + decay / 10.0f * 0.5f;
+                reverbParams.damping = 0.6f;
+                reverbParams.width = 0.7f;
+                break;
+            case 2: // Plate: denso e brilhante
+                reverbParams.roomSize = 0.3f + decay / 10.0f * 0.65f;
+                reverbParams.damping = 0.12f;
+                reverbParams.width = 1.0f;
+                break;
+        }
         reverb.setParameters (reverbParams);
     }
 

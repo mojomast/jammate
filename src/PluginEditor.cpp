@@ -323,6 +323,16 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
         addChildComponent (cabIrButtons[s]);
     }
 
+    // seletores de variação nos cartões (menu no rodapé)
+    setupTypeButton (odTypeButton, "odType",
+                     juce::String (juce::CharPointer_UTF8 ("Escolher o modelo do drive")));
+    setupTypeButton (compTypeButton, "compType",
+                     juce::String (juce::CharPointer_UTF8 ("Escolher o modelo do compressor")));
+    setupTypeButton (delayTypeButton, "delayType",
+                     juce::String (juce::CharPointer_UTF8 ("Escolher o modelo do delay")));
+    setupTypeButton (revTypeButton, "revType",
+                     juce::String (juce::CharPointer_UTF8 ("Escolher o modelo do reverb")));
+
     cabAddButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Adicionar um cab em paralelo (at\xc3\xa9 3)")));
     cabRemoveButton.setTooltip (juce::String (juce::CharPointer_UTF8 ("Remover o \xc3\xbaltimo cab")));
@@ -495,6 +505,53 @@ void ChainView::setCabImage (juce::Image img)
     repaint();
 }
 
+void ChainView::setupTypeButton (juce::TextButton& button, const char* paramId,
+                                 const juce::String& tooltip)
+{
+    button.setTooltip (tooltip);
+    button.setMouseClickGrabsKeyboardFocus (false);
+    button.onClick = [this, &button, paramId]
+    {
+        auto* param = dynamic_cast<juce::AudioParameterChoice*> (
+            processor.apvts.getParameter (paramId));
+        if (param == nullptr)
+            return;
+
+        juce::PopupMenu menu;
+        menu.setLookAndFeel (&getLookAndFeel());
+        for (int i = 0; i < param->choices.size(); ++i)
+            menu.addItem (i + 1, param->choices[i], true, i == param->getIndex());
+
+        menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&button),
+                            [param] (int result)
+                            {
+                                if (result > 0)
+                                    param->setValueNotifyingHost (
+                                        param->convertTo0to1 ((float) (result - 1)));
+                            });
+    };
+    addAndMakeVisible (button);
+}
+
+void ChainView::refreshTypeButtons()
+{
+    auto update = [this] (juce::TextButton& b, const char* id)
+    {
+        if (auto* param = dynamic_cast<juce::AudioParameterChoice*> (
+                processor.apvts.getParameter (id)))
+        {
+            const auto text = param->getCurrentChoiceName()
+                              + juce::String (juce::CharPointer_UTF8 (" \xe2\x96\xbe"));
+            if (b.getButtonText() != text)
+                b.setButtonText (text);
+        }
+    };
+    update (odTypeButton, "odType");
+    update (compTypeButton, "compType");
+    update (delayTypeButton, "delayType");
+    update (revTypeButton, "revType");
+}
+
 juce::String ChainView::archBadgeForIr (int slot)
 {
     const auto path = processor.getIrPath (slot);
@@ -518,6 +575,7 @@ void ChainView::refreshDynamicText()
     loadButton.setButtonText (processor.hasModelLoaded() ? "TROCAR CAPTURE NAM"
                                                          : "CARREGAR CAPTURE NAM");
     ecoChip.setEnabled (processor.hasEcoVariant());
+    refreshTypeButtons();
 
     // número de cabs ou ordem da cadeia mudou -> relayout
     const auto orderNow = processor.getChainOrder().joinIntoString (",");
@@ -702,6 +760,16 @@ void ChainView::resized()
             px += cw + 4;
         }
     }
+
+    // seletores de variação (rodapé dos cartões, no lugar do texto)
+    auto placeTypeButton = [] (juce::TextButton& b, juce::Rectangle<int> card)
+    {
+        b.setBounds (card.getX() + 12, card.getBottom() - 66, card.getWidth() - 24, 24);
+    };
+    placeTypeButton (odTypeButton, odB);
+    placeTypeButton (compTypeButton, compB);
+    placeTypeButton (delayTypeButton, delayB);
+    placeTypeButton (revTypeButton, revB);
 
     // pré-EQ: mesmos moldes do EQ
     {
@@ -897,12 +965,12 @@ void ChainView::paint (juce::Graphics& g)
     drawIo (ioInB, "INPUT", "IN");
     drawIo (ioOutB, "OUTPUT", "OUT");
 
-    // ---- pedais
+    // ---- pedais (os com variação têm seletor no rodapé em vez de texto)
     drawPedalFrame (g, gateB, "Noise Gate", juce::String (juce::CharPointer_UTF8 ("Histerese 6 dB \xc2\xb7 hold")));
-    drawPedalFrame (g, odB, "Overdrive", juce::String (juce::CharPointer_UTF8 ("Soft-clip \xc2\xb7 HP 120 Hz")));
-    drawPedalFrame (g, delayB, "Delay", juce::String (juce::CharPointer_UTF8 ("Digital \xc2\xb7 mono")));
-    drawPedalFrame (g, revB, "Reverb", juce::String (juce::CharPointer_UTF8 ("Hall \xc2\xb7 predelay")));
-    drawPedalFrame (g, compB, "Compressor", juce::String (juce::CharPointer_UTF8 ("Pedal \xc2\xb7 paralelo")));
+    drawPedalFrame (g, odB, "Drive", " ");
+    drawPedalFrame (g, delayB, "Delay", " ");
+    drawPedalFrame (g, revB, "Reverb", " ");
+    drawPedalFrame (g, compB, "Compressor", " ");
 
     // ---- pré-EQ (com barras vivas, como o EQ pós)
     {
