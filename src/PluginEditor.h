@@ -171,6 +171,8 @@ private:
     std::unique_ptr<StoreOverlay> storeOverlay;
 
     // afinador
+    juce::TextButton tunerToggle { "AFINADOR" };
+    bool isTunerOn() const;
     double tunerFreq = -1.0;
     double tunerCents = 0.0;
     juce::String tunerNote;

@@ -649,6 +649,27 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     addAndMakeVisible (saveButton);
     addAndMakeVisible (presetPill);
 
+    // dev: GUITARRIG_TUNER=off inicia com o afinador desligado (teste de UI)
+    if (juce::SystemStats::getEnvironmentVariable ("GUITARRIG_TUNER", "") == "off")
+        processor.apvts.state.setProperty ("tunerOn", false, nullptr);
+
+    tunerToggle.getProperties().set ("chip", true);
+    tunerToggle.getProperties().set ("chipActive", isTunerOn());
+    tunerToggle.onClick = [this]
+    {
+        const bool newState = ! isTunerOn();
+        processor.apvts.state.setProperty ("tunerOn", newState, nullptr);
+        tunerToggle.getProperties().set ("chipActive", newState);
+        tunerToggle.repaint();
+        if (! newState)
+        {
+            tunerFreq = -1.0;
+            tunerNote.clear();
+            tunerStringIndex = -1;
+        }
+    };
+    addAndMakeVisible (tunerToggle);
+
     chainView = std::make_unique<ChainView> (processor,
                                              [this] { chooseModelFile(); },
                                              [this] { chooseIrFile(); });
@@ -713,6 +734,12 @@ void RigContent::resized()
 
     // ---- cadeia (rolável) e afinador
     chainViewport.setBounds (0, 60, W, getHeight() - 60 - 60);
+    tunerToggle.setBounds (22, getHeight() - 60 + 16, 92, 28);
+}
+
+bool RigContent::isTunerOn() const
+{
+    return (bool) processor.apvts.state.getProperty ("tunerOn", true);
 }
 
 void RigContent::paint (juce::Graphics& g)
@@ -781,6 +808,9 @@ void RigContent::paint (juce::Graphics& g)
         g.fillRect (0, barY, W, 1);
 
         const int cy = barY + 30;
+        const bool tunerOn = isTunerOn();
+        if (! tunerOn)
+            g.beginTransparencyLayer (0.3f); // afinador desligado: tudo esmaecido
 
         // cordas
         int sx = 300;
@@ -846,6 +876,9 @@ void RigContent::paint (juce::Graphics& g)
             }
         }
 
+        if (! tunerOn)
+            g.endTransparencyLayer();
+
         // status compacto à direita
         {
             const double sr = processor.getSampleRate();
@@ -893,8 +926,15 @@ void RigContent::timerCallback()
     chainView->refreshDynamicText();
     refreshSidecarImages();
 
-    if (++tunerTick % 3 == 0)
+    if (++tunerTick % 3 == 0 && isTunerOn())
         analyseTuner();
+
+    // o chip pode ter mudado por load de estado/preset
+    if ((bool) tunerToggle.getProperties()["chipActive"] != isTunerOn())
+    {
+        tunerToggle.getProperties().set ("chipActive", isTunerOn());
+        tunerToggle.repaint();
+    }
 
     repaint (0, 0, getWidth(), 60);
     repaint (0, getHeight() - 60, getWidth(), 60);
