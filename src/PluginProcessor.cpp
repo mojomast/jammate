@@ -2361,16 +2361,36 @@ int GuitarRigNAMProcessor::fxFromString (const juce::String& id)
 
 void GuitarRigNAMProcessor::writeDefaultChain()
 {
-    const ChainFx def[] = { ChainFx::gate, ChainFx::comp, ChainFx::slowgear, ChainFx::wah,
-                            ChainFx::octaver, ChainFx::ringmod, ChainFx::od, ChainFx::pitch,
-                            ChainFx::harm, ChainFx::preEq, ChainFx::ampBlock,
-                            ChainFx::bitcrush, ChainFx::eq, ChainFx::exciter,
-                            ChainFx::deesser, ChainFx::mod, ChainFx::tape, ChainFx::delay,
-                            ChainFx::reverb, ChainFx::extPlugin, ChainFx::console,
-                            ChainFx::limiter, ChainFx::looper };
+    // pedaleira inicial enxuta — o resto fica na gaveta do "+ EFEITO"
+    const ChainFx def[] = { ChainFx::gate, ChainFx::comp, ChainFx::od, ChainFx::preEq,
+                            ChainFx::ampBlock, ChainFx::eq, ChainFx::mod,
+                            ChainFx::delay, ChainFx::reverb };
     for (int i = 0; i < (int) std::size (def); ++i)
         chainOrder[i].store ((int) def[i]);
     chainLen.store ((int) std::size (def));
+}
+
+int GuitarRigNAMProcessor::canonicalRank (int fx)
+{
+    // ordem "musicalmente óbvia" completa — usada para inserir efeitos da
+    // gaveta na posição certa e para garantir a âncora do amp
+    static const ChainFx canon[] = { ChainFx::gate, ChainFx::comp, ChainFx::slowgear,
+                                     ChainFx::wah, ChainFx::octaver, ChainFx::ringmod,
+                                     ChainFx::od, ChainFx::pitch, ChainFx::harm,
+                                     ChainFx::preEq, ChainFx::ampBlock, ChainFx::bitcrush,
+                                     ChainFx::eq, ChainFx::exciter, ChainFx::deesser,
+                                     ChainFx::mod, ChainFx::tape, ChainFx::delay,
+                                     ChainFx::reverb, ChainFx::extPlugin, ChainFx::console,
+                                     ChainFx::limiter, ChainFx::looper };
+    for (int i = 0; i < (int) std::size (canon); ++i)
+        if ((int) canon[i] == fx)
+            return i;
+    return (int) std::size (canon);
+}
+
+int GuitarRigNAMProcessor::canonicalRank (const juce::String& id)
+{
+    return canonicalRank (fxFromString (id));
 }
 
 juce::StringArray GuitarRigNAMProcessor::getChainOrder() const
@@ -2384,9 +2404,10 @@ juce::StringArray GuitarRigNAMProcessor::getChainOrder() const
 
 void GuitarRigNAMProcessor::setChainOrder (const juce::StringArray& ids)
 {
-    // Normaliza: ids conhecidos, cada um no máximo 1x; efeitos ausentes são
-    // inseridos em posições sensatas (migração de presets antigos) e "amp"
-    // garante presença (âncora).
+    // A cadeia é PARCIAL: só os efeitos "na pedaleira" — o resto fica na
+    // gaveta (não processa, mas mantém os ajustes nos parâmetros).
+    // Normaliza: ids conhecidos, cada um no máximo 1x; "amp" sempre presente
+    // (âncora), inserido na posição canônica se faltar.
     juce::Array<int> order;
     bool used[numChainFx] = {};
 
@@ -2400,80 +2421,17 @@ void GuitarRigNAMProcessor::setChainOrder (const juce::StringArray& ids)
         }
     }
 
-    auto insertAt = [&order] (int fx, int index)
-    {
-        order.insert (juce::jlimit (0, order.size(), index), fx);
-    };
-
     if (! used[(int) ChainFx::ampBlock])
-        insertAt ((int) ChainFx::ampBlock, order.size() / 2);
-    // comp entra depois do gate (ou no início); preEq logo antes do amp
-    if (! used[(int) ChainFx::comp])
-        insertAt ((int) ChainFx::comp, order.indexOf ((int) ChainFx::gate) + 1);
-    if (! used[(int) ChainFx::preEq])
-        insertAt ((int) ChainFx::preEq, order.indexOf ((int) ChainFx::ampBlock));
-    // mod entra antes do delay (ou depois do amp)
-    if (! used[(int) ChainFx::mod])
     {
-        const int delayIdx = order.indexOf ((int) ChainFx::delay);
-        insertAt ((int) ChainFx::mod, delayIdx >= 0
-                                          ? delayIdx
-                                          : order.indexOf ((int) ChainFx::ampBlock) + 1);
+        int pos = order.size();
+        for (int i = 0; i < order.size(); ++i)
+            if (canonicalRank (order[i]) > canonicalRank ((int) ChainFx::ampBlock))
+            {
+                pos = i;
+                break;
+            }
+        order.insert (pos, (int) ChainFx::ampBlock);
     }
-    // pitch entra antes do drive; limiter depois do reverb; looper no fim
-    if (! used[(int) ChainFx::pitch])
-    {
-        const int odIdx = order.indexOf ((int) ChainFx::od);
-        insertAt ((int) ChainFx::pitch, odIdx >= 0 ? odIdx + 1
-                                                   : order.indexOf ((int) ChainFx::ampBlock));
-    }
-    if (! used[(int) ChainFx::extPlugin])
-    {
-        const int revIdx = order.indexOf ((int) ChainFx::reverb);
-        insertAt ((int) ChainFx::extPlugin, revIdx >= 0 ? revIdx + 1 : order.size());
-    }
-    if (! used[(int) ChainFx::limiter])
-    {
-        const int extIdx = order.indexOf ((int) ChainFx::extPlugin);
-        insertAt ((int) ChainFx::limiter, extIdx >= 0 ? extIdx + 1 : order.size());
-    }
-    if (! used[(int) ChainFx::looper])
-        insertAt ((int) ChainFx::looper, order.size());
-
-    // cards P4: cada um entra na posição musicalmente óbvia
-    auto insertBefore = [&] (ChainFx fx, ChainFx anchor)
-    {
-        if (used[(int) fx]) return;
-        const int idx = order.indexOf ((int) anchor);
-        insertAt ((int) fx, idx >= 0 ? idx : order.size());
-        used[(int) fx] = true;
-    };
-    auto insertAfter = [&] (ChainFx fx, ChainFx anchor)
-    {
-        if (used[(int) fx]) return;
-        const int idx = order.indexOf ((int) anchor);
-        insertAt ((int) fx, idx >= 0 ? idx + 1 : order.size());
-        used[(int) fx] = true;
-    };
-    insertAfter (ChainFx::slowgear, ChainFx::comp);
-    insertAfter (ChainFx::wah, ChainFx::slowgear);
-    insertBefore (ChainFx::octaver, ChainFx::od);
-    insertAfter (ChainFx::ringmod, ChainFx::octaver);
-    insertAfter (ChainFx::harm, ChainFx::pitch);
-    insertAfter (ChainFx::bitcrush, ChainFx::ampBlock);
-    insertAfter (ChainFx::exciter, ChainFx::eq);
-    insertAfter (ChainFx::deesser, ChainFx::exciter);
-    insertBefore (ChainFx::tape, ChainFx::delay);
-    insertAfter (ChainFx::console, ChainFx::extPlugin);
-
-    used[(int) ChainFx::ampBlock] = used[(int) ChainFx::comp] = true;
-    used[(int) ChainFx::preEq] = used[(int) ChainFx::mod] = true;
-    used[(int) ChainFx::pitch] = used[(int) ChainFx::looper] = true;
-    used[(int) ChainFx::limiter] = used[(int) ChainFx::extPlugin] = true;
-
-    for (int f = 0; f < numChainFx; ++f)
-        if (! used[f] && order.size() < chainMaxSlots)
-            order.add (f);
 
     const int len = juce::jmin (order.size(), (int) chainMaxSlots);
     for (int i = 0; i < len; ++i)

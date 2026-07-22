@@ -23,7 +23,7 @@
 
 ## ⚡ Funcionalidades
 
-- **Cadeia de sinal completa** (rolável): `Input → Noise Gate → Overdrive → Amp NAM → Cab IR → EQ → Delay → Reverb → Output`
+- **Cadeia de sinal estilo pedaleira**: mostra só os efeitos em uso; 23 efeitos disponíveis na gaveta **`+ EFEITO`** (por categoria), todos reordenáveis por drag-and-drop
 - **Amp por capture neural**: qualquer `.nam` (arquiteturas A1/A2), com GAIN que satura o modelo como o amp real, tone stack B/M/T/Presence e Master
 - **Resampler automático**: captures rodam no sample rate que esperam, em qualquer sample rate da interface (~0,6 ms de latência, reportada ao host)
 - **Rigs paralelos**: até 3 pares **AMP+CAB** completos (capture + knobs próprios + IR por lane), sempre em dupla, somados no card **Mixer** (blend por rig + AIR global)
@@ -142,6 +142,14 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 - [x] **Exciter** · **De-esser** · **Tape** (Airwindows ToTape, MIT) · **Console** glue (Airwindows Console, MIT) — lado pós-amp
 - [x] Cada efeito tem card próprio com controles dedicados (total: 23 cards na cadeia, todos reordenáveis)
 - [x] Slot VST3: botão CARREGAR virou menu com os plugins instalados no sistema + tabela de grátis recomendados em docs/EFEITOS.md
+
+**Fase 13 — UX: gaveta de efeitos + navegação (concluída):**
+- [x] A cadeia mostra **só os efeitos em uso**; o botão tracejado **`+ EFEITO`** abre a gaveta por categorias (Dinâmica · Drive & Filtro · Pitch · Modulação & Cor · Ambiência · Extras) e insere na posição musicalmente certa
+- [x] **✕** em cada card devolve o efeito pra gaveta (ajustes preservados); presets salvam a pedaleira montada
+- [x] Cards **desligados ficam esmaecidos** — o olho acha na hora o que está soando
+- [x] **Roda do mouse rola a cadeia** e **arrastar o fundo faz pan** (mãozinha), como numa DAW
+
+![Gaveta de efeitos](docs/screenshots/gaveta-efeitos.png)
 
 **Próximos:**
 - [ ] Analisador de espectro

@@ -148,6 +148,9 @@ public:
 
     static juce::String fxToString (ChainFx);
     static int fxFromString (const juce::String&); // -1 se desconhecido
+    /// Posição do efeito na ordem canônica (para inserir da gaveta no lugar certo).
+    static int canonicalRank (int fx);
+    static int canonicalRank (const juce::String& id);
 
     //==========================================================================
     // Looper (comandos do editor via atomics; transições aplicadas no

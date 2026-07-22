@@ -95,10 +95,12 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    // drag-and-drop de reordenação (rigs+mixer são âncora fixa)
+    // drag-and-drop de reordenação (rigs+mixer são âncora fixa) + pan pelo
+    // fundo + roda do mouse rolando a cadeia
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
 
     void setAmpImage (int lane, juce::Image);
     void setCabImage (int lane, juce::Image);
@@ -128,6 +130,22 @@ private:
     float dragMouseX = -1.0f;
     int dropIndex = -1;
     juce::String lastOrderSeen;      // relayout quando a ordem muda por preset
+
+    // gaveta de efeitos: a cadeia mostra só o que está em uso
+    juce::Rectangle<int> addFxB;     // botão "+ EFEITO" no fim da cadeia
+    void showAddFxMenu();
+    void removeFxFromChain (const juce::String& id);
+    juce::Array<juce::Component*> componentsForFx (const juce::String& id);
+    const char* onParamIdForFx (const juce::String& id) const;
+    static juce::String fxDisplayName (const juce::String& id);
+    static juce::Rectangle<int> removeHotspot (juce::Rectangle<int> cardBox)
+    {
+        return { cardBox.getRight() - 12 - 18 - 6 - 14, cardBox.getY() + 12, 14, 14 };
+    }
+
+    // pan da cadeia arrastando o fundo
+    bool panning = false;
+    juce::Point<int> panStartMouse, panStartView;
 
 public:
 

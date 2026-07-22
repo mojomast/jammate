@@ -668,6 +668,7 @@ void ChainView::updateLayout()
     int x = 26 + 90 + 30; // margem + card IN + conector
     for (const auto& id : processor.getChainOrder())
         x += (id == "amp" ? rigBlockWidth() : effectCardWidth (id)) + 30;
+    x += 74 + 30; // botão "+ EFEITO"
     setSize (x + 90 + 26, chainHeight);
 }
 
@@ -818,6 +819,25 @@ void ChainView::refreshDynamicText()
         extRemoveButton.setEnabled (hasExt);
     }
 
+    // cards desligados: esmaece knobs/botões (o LED fica aceso p/ religar)
+    {
+        static const char* dimIds[] = { "gate", "comp", "od", "preeq", "eq", "mod", "delay",
+                                        "reverb", "pitch", "looper", "limiter", "ext", "wah",
+                                        "harm", "octaver", "ringmod", "bitcrush", "slowgear",
+                                        "exciter", "deesser", "tape", "console" };
+        const auto chain = processor.getChainOrder();
+        for (auto* id : dimIds)
+        {
+            if (! chain.contains (id))
+                continue;
+            auto* p = processor.apvts.getRawParameterValue (onParamIdForFx (id));
+            const float alpha = p != nullptr && p->load() > 0.5f ? 1.0f : 0.4f;
+            auto comps = componentsForFx (id);
+            for (int i = 1; i < comps.size(); ++i) // 0 = LED, fica sempre visível
+                comps[i]->setAlpha (alpha);
+        }
+    }
+
     // número de rigs ou ordem da cadeia mudou -> relayout
     const auto orderNow = processor.getChainOrder().joinIntoString (",");
     if (processor.getRigCount() != lastRigCount || orderNow != lastOrderSeen)
@@ -831,13 +851,198 @@ void ChainView::refreshDynamicText()
 }
 
 //==============================================================================
+// Gaveta de efeitos: mapeamentos por id (componentes, param On, nome)
+
+juce::Array<juce::Component*> ChainView::componentsForFx (const juce::String& id)
+{
+    // convenção: o LED é sempre o primeiro (fica fora do esmaecimento)
+    if (id == "gate")   return { &gateLed, gateThreshKnob.get(), gateHoldKnob.get(), gateReleaseKnob.get() };
+    if (id == "comp")   return { &compLed, compSustainKnob.get(), compAttackKnob.get(), compBlendKnob.get(),
+                                 compLevelKnob.get(), &compTypeButton, &compPresetChips[0],
+                                 &compPresetChips[1], &compPresetChips[2] };
+    if (id == "od")     return { &odLed, odDriveKnob.get(), odToneKnob.get(), odLevelKnob.get(), &odTypeButton };
+    if (id == "preeq")  return { &preEqLed, preEqLowKnob.get(), preEqMidKnob.get(), preEqHighKnob.get() };
+    if (id == "eq")     return { &eqLed, eqLowKnob.get(), eqMidKnob.get(), eqHighKnob.get() };
+    if (id == "mod")    return { &modLed, modRateKnob.get(), modDepthKnob.get(), modMixKnob.get(), &modTypeButton };
+    if (id == "delay")  return { &delayLed, delayTimeKnob.get(), delayFbKnob.get(), delayMixKnob.get(),
+                                 &delayTypeButton, &delayDivButton, &tapButton };
+    if (id == "reverb") return { &revLed, revDecayKnob.get(), revMixKnob.get(), revPreKnob.get(), &revTypeButton };
+    if (id == "pitch")  return { &pitchLed, pitchMixKnob.get(), pitchLevelKnob.get(), &pitchTypeButton };
+    if (id == "looper") return { &looperLed, looperLevelKnob.get(), &looperRecButton, &looperPlayButton,
+                                 &looperClearButton, &looperExportButton };
+    if (id == "limiter") return { &limLed, limCeilKnob.get(), limRelKnob.get() };
+    if (id == "ext")    return { &extLed, extMixKnob.get(), &extLoadButton, &extUiButton, &extRemoveButton };
+    if (id == "wah")    return { &wahLed, wahFreqKnob.get(), wahRangeKnob.get(), wahResKnob.get(), &wahModeButton };
+    if (id == "harm")   return { &harmLed, harmMixKnob.get(), harmLevelKnob.get(), &harmKeyButton,
+                                 &harmScaleButton, &harmIntervalButton };
+    if (id == "octaver") return { &octLed, octSubKnob.get(), octDirectKnob.get(), octToneKnob.get() };
+    if (id == "ringmod") return { &rmLed, rmFreqKnob.get(), rmMixKnob.get() };
+    if (id == "bitcrush") return { &bcLed, bcBitsKnob.get(), bcRateKnob.get(), bcMixKnob.get() };
+    if (id == "slowgear") return { &sgLed, sgSensKnob.get(), sgRiseKnob.get() };
+    if (id == "exciter") return { &excLed, excFreqKnob.get(), excAmtKnob.get() };
+    if (id == "deesser") return { &dsLed, dsFreqKnob.get(), dsSensKnob.get(), dsAmtKnob.get() };
+    if (id == "tape")   return { &tapeLed, tapeDriveKnob.get(), tapeBumpKnob.get(), tapeRollKnob.get() };
+    if (id == "console") return { &cnsLed, cnsAmtKnob.get() };
+    return {};
+}
+
+const char* ChainView::onParamIdForFx (const juce::String& id) const
+{
+    if (id == "gate") return "gateOn";
+    if (id == "comp") return "compOn";
+    if (id == "od") return "odOn";
+    if (id == "preeq") return "preEqOn";
+    if (id == "eq") return "eqOn";
+    if (id == "mod") return "modOn";
+    if (id == "delay") return "delayOn";
+    if (id == "reverb") return "revOn";
+    if (id == "pitch") return "pitchOn";
+    if (id == "looper") return "looperOn";
+    if (id == "limiter") return "limOn";
+    if (id == "ext") return "extOn";
+    if (id == "wah") return "wahOn";
+    if (id == "harm") return "harmOn";
+    if (id == "octaver") return "octOn";
+    if (id == "ringmod") return "rmOn";
+    if (id == "bitcrush") return "bcOn";
+    if (id == "slowgear") return "sgOn";
+    if (id == "exciter") return "excOn";
+    if (id == "deesser") return "dsOn";
+    if (id == "tape") return "tapeOn";
+    if (id == "console") return "cnsOn";
+    return nullptr;
+}
+
+juce::String ChainView::fxDisplayName (const juce::String& id)
+{
+    if (id == "gate") return "Noise Gate";
+    if (id == "comp") return "Compressor";
+    if (id == "od") return "Drive";
+    if (id == "preeq") return juce::String (juce::CharPointer_UTF8 ("Pr\xc3\xa9-EQ"));
+    if (id == "eq") return "EQ";
+    if (id == "mod") return juce::String (juce::CharPointer_UTF8 ("Modula\xc3\xa7\xc3\xa3o"));
+    if (id == "delay") return "Delay";
+    if (id == "reverb") return "Reverb";
+    if (id == "pitch") return "Pitch";
+    if (id == "looper") return "Looper";
+    if (id == "limiter") return "Limiter";
+    if (id == "ext") return "Plugin VST3";
+    if (id == "wah") return "Wah";
+    if (id == "harm") return "Harmonizer";
+    if (id == "octaver") return "Octaver";
+    if (id == "ringmod") return "Ring Mod";
+    if (id == "bitcrush") return "Bitcrusher";
+    if (id == "slowgear") return "Slow Gear";
+    if (id == "exciter") return "Exciter";
+    if (id == "deesser") return "De-esser";
+    if (id == "tape") return "Tape";
+    if (id == "console") return "Console";
+    return id;
+}
+
+void ChainView::showAddFxMenu()
+{
+    struct Category { const char* title; std::initializer_list<const char*> ids; };
+    static const Category categories[] = {
+        { "Din\xc3\xa2mica",       { "gate", "comp", "slowgear", "limiter" } },
+        { "Drive & Filtro",        { "wah", "od", "octaver", "ringmod", "bitcrush", "preeq" } },
+        { "Pitch",                 { "pitch", "harm" } },
+        { "Modula\xc3\xa7\xc3\xa3o & Cor", { "mod", "exciter", "deesser", "tape", "console" } },
+        { "Amb\xc3\xaancia",       { "delay", "reverb" } },
+        { "Extras",                { "ext", "looper" } },
+    };
+
+    const auto order = processor.getChainOrder();
+    juce::PopupMenu menu;
+    menu.setLookAndFeel (&getLookAndFeel());
+    bool any = false;
+
+    for (const auto& cat : categories)
+    {
+        bool catAny = false;
+        for (auto* id : cat.ids)
+            if (! order.contains (id))
+                catAny = true;
+        if (! catAny)
+            continue;
+
+        menu.addSectionHeader (juce::String (juce::CharPointer_UTF8 (cat.title)));
+        for (auto* id : cat.ids)
+            if (! order.contains (id))
+                menu.addItem (GuitarRigNAMProcessor::fxFromString (id) + 1,
+                              fxDisplayName (id));
+        any = true;
+    }
+
+    if (! any)
+        menu.addItem (99999, juce::String (juce::CharPointer_UTF8 (
+                          "Todos os efeitos j\xc3\xa1 est\xc3\xa3o na cadeia")), false);
+
+    menu.showMenuAsync (
+        juce::PopupMenu::Options().withTargetScreenArea (
+            juce::Rectangle<int> (addFxB.getX(), addFxB.getY(), addFxB.getWidth(), 1)
+                .withPosition (localPointToGlobal (addFxB.getPosition()))),
+        [safe = juce::Component::SafePointer<ChainView> (this)] (int result)
+        {
+            if (safe == nullptr || result <= 0 || result >= 99999)
+                return;
+            const auto id = GuitarRigNAMProcessor::fxToString (
+                (GuitarRigNAMProcessor::ChainFx) (result - 1));
+
+            // insere na posição canônica (dá para arrastar depois)
+            auto order = safe->processor.getChainOrder();
+            const int rank = GuitarRigNAMProcessor::canonicalRank (id);
+            int pos = order.size();
+            for (int i = 0; i < order.size(); ++i)
+                if (GuitarRigNAMProcessor::canonicalRank (order[i]) > rank)
+                {
+                    pos = i;
+                    break;
+                }
+            order.insert (pos, id);
+            safe->processor.setChainOrder (order);
+        });
+}
+
+void ChainView::removeFxFromChain (const juce::String& id)
+{
+    auto order = processor.getChainOrder();
+    order.removeString (id);
+    processor.setChainOrder (order);
+}
+
+//==============================================================================
 // Drag-and-drop de reordenação
 
 void ChainView::mouseDown (const juce::MouseEvent& e)
 {
+    draggingId.clear();
+    panning = false;
+
+    // botão "+ EFEITO"
+    if (addFxB.contains (e.getPosition()))
+    {
+        showAddFxMenu();
+        return;
+    }
+
+    // "✕" remove o efeito da cadeia (volta pra gaveta, ajustes preservados)
+    for (const auto& entry : orderedEntries())
+        if (entry.id != "amp" && removeHotspot (entry.box).contains (e.getPosition()))
+        {
+            const auto id = entry.id;
+            auto* self = this; // MSVC: 'this' em init-capture aninhada resolve errado
+            juce::MessageManager::callAsync (
+                [safe = juce::Component::SafePointer<ChainView> (self), id]
+                {
+                    if (safe != nullptr)
+                        safe->removeFxFromChain (id);
+                });
+            return;
+        }
+
     // Cliques em knobs/botões vão para os filhos; aqui só chega o fundo dos
     // cartões. Amp+cabs são âncora e não podem ser arrastados.
-    draggingId.clear();
     for (const auto& entry : orderedEntries())
         if (entry.id != "amp" && entry.box.contains (e.getPosition()))
         {
@@ -848,10 +1053,30 @@ void ChainView::mouseDown (const juce::MouseEvent& e)
             setMouseCursor (juce::MouseCursor::DraggingHandCursor);
             break;
         }
+
+    // fundo vazio (ou bloco do amp): arrastar faz pan da cadeia
+    if (draggingId.isEmpty())
+        if (auto* vp = findParentComponentOfClass<juce::Viewport>())
+        {
+            panning = true;
+            panStartMouse = e.getScreenPosition();
+            panStartView = vp->getViewPosition();
+            setMouseCursor (juce::MouseCursor::DraggingHandCursor);
+        }
 }
 
 void ChainView::mouseDrag (const juce::MouseEvent& e)
 {
+    if (panning)
+    {
+        if (auto* vp = findParentComponentOfClass<juce::Viewport>())
+        {
+            const int dx = e.getScreenPosition().x - panStartMouse.x;
+            vp->setViewPosition (juce::jmax (0, panStartView.x - dx), panStartView.y);
+        }
+        return;
+    }
+
     if (draggingId.isEmpty())
         return;
 
@@ -870,9 +1095,21 @@ void ChainView::mouseDrag (const juce::MouseEvent& e)
     repaint();
 }
 
+void ChainView::mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails& wheel)
+{
+    // roda do mouse rola a cadeia (não há scroll vertical aqui)
+    if (auto* vp = findParentComponentOfClass<juce::Viewport>())
+    {
+        const int dx = juce::roundToInt ((wheel.deltaY + wheel.deltaX) * 480.0f);
+        vp->setViewPosition (juce::jmax (0, vp->getViewPositionX() - dx),
+                             vp->getViewPositionY());
+    }
+}
+
 void ChainView::mouseUp (const juce::MouseEvent&)
 {
     setMouseCursor (juce::MouseCursor::NormalCursor);
+    panning = false;
 
     if (draggingId.isNotEmpty() && dropIndex >= 0)
     {
@@ -942,6 +1179,22 @@ void ChainView::resized()
     const int H = chainHeight;
     auto cardY = [H] (int cardH) { return (H - cardH) / 2; };
 
+    // gaveta: zera as caixas e esconde os componentes de efeitos fora da
+    // cadeia; os presentes reaparecem ao serem posicionados abaixo
+    static const char* allFxIds[] = { "gate", "comp", "od", "preeq", "eq", "mod", "delay",
+                                      "reverb", "pitch", "looper", "limiter", "ext", "wah",
+                                      "harm", "octaver", "ringmod", "bitcrush", "slowgear",
+                                      "exciter", "deesser", "tape", "console" };
+    const auto chain = processor.getChainOrder();
+    for (auto* id : allFxIds)
+    {
+        const bool present = chain.contains (id);
+        for (auto* c : componentsForFx (id))
+            c->setVisible (present);
+    }
+    gateB = odB = eqB = delayB = revB = compB = preEqB = pitchB = looperB = limB = extB = {};
+    wahB = harmB = octB = rmB = bcB = sgB = excB = dsB = tapeB = cnsB = {};
+
     // posiciona os cartões seguindo a ordem dinâmica da cadeia
     int x = 26;
     ioInB = { x, cardY (330), 90, 330 };
@@ -1006,6 +1259,8 @@ void ChainView::resized()
         }
     }
 
+    addFxB = { x, cardY (330), 74, 330 };
+    x += 74 + 30;
     ioOutB = { x, cardY (330), 90, 330 };
 
     // ---- IO
@@ -1237,6 +1492,9 @@ void ChainView::resized()
 void ChainView::drawPedalFrame (juce::Graphics& g, juce::Rectangle<int> b,
                                 const juce::String& title, const juce::String& footer)
 {
+    if (b.isEmpty()) // efeito na gaveta (fora da cadeia atual)
+        return;
+
     auto bf = b.toFloat();
     g.setGradientFill ({ ui::cardTop, 0.0f, bf.getY(), ui::cardBottom, 0.0f, bf.getBottom(), false });
     g.fillRoundedRectangle (bf, 16.0f);
@@ -1377,7 +1635,8 @@ void ChainView::paint (juce::Graphics& g)
                 prev = e.box;
             }
         }
-        connector (prev, ioOutB);
+        connector (prev, addFxB);
+        connector (addFxB, ioOutB);
     }
 
     // ---- IO
@@ -1439,6 +1698,7 @@ void ChainView::paint (juce::Graphics& g)
                     juce::String (juce::CharPointer_UTF8 ("cola de buss anal\xc3\xb3gico")));
 
     // ---- looper (estado + tempo desenhados ao vivo)
+    if (! looperB.isEmpty())
     {
         drawPedalFrame (g, looperB, "Looper", {});
 
@@ -1492,6 +1752,7 @@ void ChainView::paint (juce::Graphics& g)
     }
 
     // ---- slot de plugin VST3 externo
+    if (! extB.isEmpty())
     {
         drawPedalFrame (g, extB, "Plugin VST3", {});
 
@@ -1511,6 +1772,7 @@ void ChainView::paint (juce::Graphics& g)
     }
 
     // ---- limiter (com barrinha de gain reduction)
+    if (! limB.isEmpty())
     {
         drawPedalFrame (g, limB, "Limiter", juce::String (juce::CharPointer_UTF8 ("brickwall \xc2\xb7 fim da cadeia")));
 
@@ -1533,6 +1795,7 @@ void ChainView::paint (juce::Graphics& g)
     }
 
     // ---- pré-EQ (com barras vivas, como o EQ pós)
+    if (! preEqB.isEmpty())
     {
         drawPedalFrame (g, preEqB, juce::String (juce::CharPointer_UTF8 ("Pr\xc3\xa9-EQ")),
                         juce::String (juce::CharPointer_UTF8 ("molda a satura\xc3\xa7\xc3\xa3o \xc2\xb7 pr\xc3\xa9-amp")));
@@ -1627,6 +1890,7 @@ void ChainView::paint (juce::Graphics& g)
     }
 
     // ---- EQ (com barras vivas refletindo LOW/MID/HIGH)
+    if (! eqB.isEmpty())
     {
         drawPedalFrame (g, eqB, "EQ", juce::String (juce::CharPointer_UTF8 ("3 bandas \xc2\xb7 p\xc3\xb3s-cab")));
 
@@ -1772,6 +2036,51 @@ void ChainView::paint (juce::Graphics& g)
             g.setGradientFill (grad);
             g.fillRoundedRectangle (glow, 5.0f);
         }
+    }
+
+    // ---- cards desligados esmaecidos (os knobs recebem setAlpha à parte)
+    for (const auto& entry : orderedEntries())
+    {
+        if (entry.id == "amp" || entry.box.isEmpty())
+            continue;
+        if (auto* p = processor.apvts.getRawParameterValue (onParamIdForFx (entry.id));
+            p != nullptr && p->load() <= 0.5f)
+        {
+            g.setColour (ui::bg.withAlpha (0.55f));
+            g.fillRoundedRectangle (entry.box.toFloat(), 16.0f);
+        }
+    }
+
+    // ---- "✕" de remover (volta o efeito pra gaveta)
+    for (const auto& entry : orderedEntries())
+    {
+        if (entry.id == "amp" || entry.box.isEmpty())
+            continue;
+        const auto h = removeHotspot (entry.box).toFloat();
+        g.setColour (ui::textFaint.withAlpha (0.55f));
+        g.drawLine (h.getX() + 4.0f, h.getY() + 4.0f, h.getRight() - 4.0f, h.getBottom() - 4.0f, 1.4f);
+        g.drawLine (h.getRight() - 4.0f, h.getY() + 4.0f, h.getX() + 4.0f, h.getBottom() - 4.0f, 1.4f);
+    }
+
+    // ---- botão "+ EFEITO" (gaveta)
+    {
+        auto bf = addFxB.toFloat();
+        g.setColour (ui::accent.withAlpha (0.35f));
+        const float dash[] = { 5.0f, 4.0f };
+        juce::Path outline;
+        outline.addRoundedRectangle (bf.reduced (1.0f), 14.0f);
+        juce::PathStrokeType stroke (1.4f);
+        juce::Path dashed;
+        stroke.createDashedStroke (dashed, outline, dash, 2);
+        g.fillPath (dashed);
+
+        g.setColour (ui::accent.withAlpha (0.9f));
+        g.setFont (ui::uiFont (26.0f, true));
+        g.drawText ("+", addFxB.withHeight (40).withY (addFxB.getCentreY() - 34),
+                    juce::Justification::centred);
+        g.setFont (ui::monoFont (9.0f, true));
+        g.drawText ("EFEITO", addFxB.withHeight (14).withY (addFxB.getCentreY() + 8),
+                    juce::Justification::centred);
     }
 
     // ---- feedback do drag-and-drop (fantasma + indicador de inserção)
