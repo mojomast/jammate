@@ -16,6 +16,48 @@ nunca perder a rastreabilidade:
 > GPL/LGPL foram usados **somente como leitura** (ver nota de licenças no
 > [`references/README.md`](../references/README.md)).
 
+## Tabela-resumo: todos os efeitos e suas origens
+
+Na ordem canônica da cadeia. **Porte direto** = algoritmo adaptado do
+código-fonte (só de fontes MIT); os demais são implementação própria com o
+projeto citado como referência de estudo (topologia/vozeamento).
+
+| # | Efeito | Variações | Origem open source |
+|---|--------|-----------|--------------------|
+| 1 | **Noise Gate** | — (hold + histerese 6 dB) | ToobAmp (gate) — estudo |
+| 2 | **Compressor** | Dyna · Optical · Studio · Squeezer | `juce::dsp::Compressor` + LSP Plugins e rkrlv2 — estudo |
+| 3 | **Slow Gear** | — (swell automático) | Guitarix GxSlowGear — estudo |
+| 4 | **Wah** | Auto · Manual · LFO | Guitarix GxWahwah — estudo |
+| 5 | **Octaver** | — (sub analógica) | GxPlugins.lv2 GxOctaver — estudo |
+| 6 | **Ring Mod** | — | Airwindows — estudo |
+| 7 | **Drive** | Screamer · Blues · Distortion · Fuzz · Boost · Heavy Fuzz · **Valve** · Metal | BYOD, Guitarix, GxPlugins — estudo; **Valve = porte do Airwindows Tube (MIT)** |
+| 8 | **Pitch** | Oitava ↓ · Oitava ↑ · Quinta · Detune · Quarta | rkrlv2/rakarrack — estudo (técnica granular DAFX/Zölzer) |
+| 9 | **Harmonizer** | tom × escala × intervalo (3ª/5ª/6ª/8ª) | rkrlv2/rakarrack (harmonizer) — estudo |
+| 10 | **Pré-EQ** | — (3 bandas pré-amp) | ToobAmp — estudo; biquads RBJ (Audio EQ Cookbook) |
+| — | **Amp NAM** (1–3 rigs) | captures A1/A2 | **NAM Core (MIT) — dependência direta** |
+| — | **Cab IR** (por rig) | — | `juce::dsp::Convolution` (JUCE/AGPLv3) |
+| — | **Mixer** | blend por rig + AIR | próprio |
+| 11 | **Bitcrusher** | — (bits + rate) | Airwindows — estudo |
+| 12 | **EQ** | — (3 bandas pós-cab) | RBJ Audio EQ Cookbook (fórmulas públicas) |
+| 13 | **Exciter** | — | Airwindows Energy — estudo |
+| 14 | **De-esser** | — (corte dinâmico) | LSP Plugins — estudo |
+| 15 | **Modulação** | Chorus · Phaser · Flanger · Tremolo H. · Vibrato · Rotary | `juce::dsp` Chorus/Phaser + ToobAmp, GxPlugins, Airwindows — estudo |
+| 16 | **Tape** | — (drive + bump + rolloff) | **porte do Airwindows ToTape/IronOxide (MIT)** |
+| 17 | **Delay** | Digital · Analog · Tape · Ping-Pong · Ducking | `juce::dsp::DelayLine` + Airwindows e Guitarix — estudo; Ducking ref. LSP |
+| 18 | **Reverb** | Hall · Room · Plate · Spring · Shimmer | `juce::Reverb` (Freeverb/Schroeder) + Dragonfly Reverb e GxPlugins (spring) — estudo |
+| 19 | **Plugin VST3** | qualquer efeito de terceiros | hosting nativo JUCE (roda Dragonfly, LSP, Airwindows Consolidated…) |
+| 20 | **Console** | — (glue de buss) | **porte do Airwindows Console (MIT)** |
+| 21 | **Analisador** | — (FFT 24 bandas) | `juce::dsp::FFT` — próprio |
+| 22 | **Limiter** | — (brickwall) | `juce::dsp::Limiter` + LSP Plugins — estudo |
+| 23 | **Looper** | 60 s · overdub · export WAV | próprio (conceito TC Ditto) |
+
+**Resumo por fonte**: Airwindows (MIT) — 3 portes diretos (Valve, Tape,
+Console) + 4 estudos · Guitarix/GxPlugins (GPL) — pedais de personalidade
+(wah, slow gear, octaver, drives) · rkrlv2/rakarrack (GPL) — pitch/harmonizer ·
+LSP (LGPL) — lado estúdio (comp, de-esser, limiter) · Dragonfly (GPLv3) —
+vozeamentos de reverb · ToobAmp (MIT) — gate/pré-EQ/modulações · BYOD (GPLv3)
+— circuitos de drive.
+
 ## Noise Gate
 
 | | |
