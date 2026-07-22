@@ -1,6 +1,28 @@
 #include "PluginEditor.h"
 
+#include <BinaryData.h>
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
+
+namespace ui
+{
+juce::Typeface::Ptr uiTypeface (bool bold)
+{
+    static juce::Typeface::Ptr regular = juce::Typeface::createSystemTypefaceFor (
+        BinaryData::SpaceGroteskRegular_ttf, BinaryData::SpaceGroteskRegular_ttfSize);
+    static juce::Typeface::Ptr boldTf = juce::Typeface::createSystemTypefaceFor (
+        BinaryData::SpaceGroteskBold_ttf, BinaryData::SpaceGroteskBold_ttfSize);
+    return bold ? boldTf : regular;
+}
+
+juce::Typeface::Ptr monoTypeface (bool bold)
+{
+    static juce::Typeface::Ptr regular = juce::Typeface::createSystemTypefaceFor (
+        BinaryData::JetBrainsMonoRegular_ttf, BinaryData::JetBrainsMonoRegular_ttfSize);
+    static juce::Typeface::Ptr boldTf = juce::Typeface::createSystemTypefaceFor (
+        BinaryData::JetBrainsMonoBold_ttf, BinaryData::JetBrainsMonoBold_ttfSize);
+    return bold ? boldTf : regular;
+}
+} // namespace ui
 
 namespace
 {
@@ -69,13 +91,18 @@ KnobComponent::KnobComponent (juce::AudioProcessorValueTreeState& apvts,
                                 juce::MathConstants<float>::pi * 2.75f, true);
     slider.onValueChange = [this] { updateValueText(); };
 
-    // trava (detent) no valor default do parâmetro
+    // trava (detent) no valor default + interações refinadas
     if (auto* param = apvts.getParameter (paramId))
     {
         const auto& range = param->getNormalisableRange();
         slider.snapTarget = range.convertFrom0to1 (param->getDefaultValue());
         slider.snapRadius = (range.end - range.start) * 0.04;
+        slider.setDoubleClickReturnValue (true, slider.snapTarget); // duplo-clique reseta
     }
+    slider.setScrollWheelEnabled (true);                            // roda ajusta
+    slider.setVelocityModeParameters (1.0, 1, 0.05, true,           // Ctrl = ajuste fino
+                                      juce::ModifierKeys::ctrlModifier);
+    slider.setMouseClickGrabsKeyboardFocus (false); // atalhos ficam com o RigContent
     addAndMakeVisible (slider);
 
     nameLabel.setText (labelText, juce::dontSendNotification);
@@ -86,10 +113,32 @@ KnobComponent::KnobComponent (juce::AudioProcessorValueTreeState& apvts,
 
     valueLabel.setFont (ui::monoFont (10.5f, true));
     valueLabel.setColour (juce::Label::textColourId, juce::Colour (0xffe8ecf1));
+    valueLabel.setColour (juce::Label::backgroundWhenEditingColourId, juce::Colour (0xff14181d));
+    valueLabel.setColour (juce::TextEditor::highlightColourId, ui::accent.withAlpha (0.4f));
     valueLabel.setJustificationType (juce::Justification::centred);
+    // clique no valor -> digitar o número
+    valueLabel.setEditable (true, false, true);
+    valueLabel.setTooltip ("Clique para digitar o valor");
+    valueLabel.onTextChange = [this]
+    {
+        const auto text = valueLabel.getText().retainCharacters ("0123456789.,-");
+        if (text.isEmpty())
+        {
+            updateValueText();
+            return;
+        }
+        slider.setValue (text.replaceCharacter (',', '.').getDoubleValue(),
+                         juce::sendNotificationSync);
+        updateValueText();
+    };
     addAndMakeVisible (valueLabel);
 
     updateValueText();
+}
+
+void KnobComponent::setKnobTooltip (const juce::String& tip)
+{
+    slider.setTooltip (tip);
 }
 
 void KnobComponent::updateValueText()
@@ -251,11 +300,15 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
     auto makeLed = [&] (LedButton& led, const char* id, std::unique_ptr<Attachment>& att)
     {
         att = std::make_unique<Attachment> (apvts, id, led);
+        led.setTooltip (juce::String (juce::CharPointer_UTF8 ("Liga/desliga o m\xc3\xb3""dulo")));
+        led.setMouseClickGrabsKeyboardFocus (false);
         addAndMakeVisible (led);
     };
     makeLed (gateLed, "gateOn", gateAtt);
     makeLed (odLed, "odOn", odAtt);
     makeLed (ampLed, "ampOn", ampAtt);
+    ampLed.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Liga/desliga a se\xc3\xa7\xc3\xa3o do amp (espa\xc3\xa7o)")));
     makeLed (cabLed, "cabOn", cabAtt);
     makeLed (eqLed, "eqOn", eqAtt);
     makeLed (delayLed, "delayOn", delayAtt);
@@ -263,8 +316,40 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void()> onLoadMode
 
     loadButton.onClick = std::move (onLoadModel);
     irButton.onClick = std::move (onLoadIr);
+    loadButton.setTooltip ("Escolher um arquivo .nam do disco");
+    irButton.setTooltip ("Escolher um impulse response (wav/aiff/flac)");
+    loadButton.setMouseClickGrabsKeyboardFocus (false);
+    irButton.setMouseClickGrabsKeyboardFocus (false);
     addAndMakeVisible (loadButton);
     addAndMakeVisible (irButton);
+
+    // tooltips dos knobs
+    auto tip = [] (std::unique_ptr<KnobComponent>& k, const char* utf8)
+    { k->setKnobTooltip (juce::String (juce::CharPointer_UTF8 (utf8))); };
+    tip (inputKnob, "Ganho de entrada (antes de tudo)");
+    tip (outputKnob, "Volume final de sa\xc3\xad""da");
+    tip (gateThreshKnob, "Abaixo deste n\xc3\xadvel o gate fecha");
+    tip (gateReleaseKnob, "Tempo para o gate fechar");
+    tip (odDriveKnob, "Quantidade de satura\xc3\xa7\xc3\xa3o do pedal");
+    tip (odToneKnob, "Brilho do overdrive");
+    tip (odLevelKnob, "Volume do overdrive");
+    tip (ampGainKnob, "Empurra o sinal para dentro do capture \xe2\x80\x94 age como o gain do amp real");
+    tip (ampBassKnob, "Graves (150 Hz)");
+    tip (ampMidKnob, "M\xc3\xa9""dios (500 Hz)");
+    tip (ampTrebleKnob, "Agudos (1.8 kHz)");
+    tip (ampPresKnob, "Presen\xc3\xa7""a (4.5 kHz)");
+    tip (ampMasterKnob, "Volume da se\xc3\xa7\xc3\xa3o do amp");
+    tip (cabLevelKnob, "Volume do cabinete");
+    tip (cabAirKnob, "Ar/brilho p\xc3\xb3s-IR (shelf 8 kHz)");
+    tip (eqLowKnob, "Graves p\xc3\xb3s-cab (120 Hz)");
+    tip (eqMidKnob, "M\xc3\xa9""dios p\xc3\xb3s-cab (800 Hz)");
+    tip (eqHighKnob, "Agudos p\xc3\xb3s-cab (4 kHz)");
+    tip (delayTimeKnob, "Tempo entre repeti\xc3\xa7\xc3\xb5""es");
+    tip (delayFbKnob, "Quantas repeti\xc3\xa7\xc3\xb5""es (realimenta\xc3\xa7\xc3\xa3o)");
+    tip (delayMixKnob, "Mistura do delay no sinal");
+    tip (revDecayKnob, "Tamanho/dura\xc3\xa7\xc3\xa3o do reverb");
+    tip (revMixKnob, "Mistura do reverb no sinal");
+    tip (revPreKnob, "Atraso antes do reverb come\xc3\xa7""ar");
 
     // largura total fixa da cadeia (métricas do design + conectores de 30 px)
     const int total = 26 + 90 + 30 + 132 + 30 + 132 + 30 + 266 + 30 + 132 + 30
@@ -642,12 +727,53 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 
     prevButton.onClick = [this] { processor.loadAdjacentPreset (-1); };
     nextButton.onClick = [this] { processor.loadAdjacentPreset (1); };
-    saveButton.onClick = [this] { savePresetDialog(); };
+    saveButton.onClick = [this] { saveCurrentPreset(); };
     presetPill.onClick = [this] { showPresetMenu(); };
     addAndMakeVisible (prevButton);
     addAndMakeVisible (nextButton);
     addAndMakeVisible (saveButton);
     addAndMakeVisible (presetPill);
+
+    // editor inline do nome do preset (aparece sobre o pill)
+    presetNameEditor.setFont (ui::uiFont (13.0f, true));
+    presetNameEditor.setJustification (juce::Justification::centred);
+    presetNameEditor.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff14181d));
+    presetNameEditor.setColour (juce::TextEditor::outlineColourId, ui::accent);
+    presetNameEditor.setColour (juce::TextEditor::focusedOutlineColourId, ui::accent);
+    presetNameEditor.setColour (juce::TextEditor::textColourId, ui::text);
+    presetNameEditor.onReturnKey = [this]
+    {
+        const auto name = juce::File::createLegalFileName (presetNameEditor.getText().trim());
+        presetNameEditor.setVisible (false);
+        if (name.isNotEmpty())
+        {
+            processor.savePreset (processor.getPresetsDirectory().getChildFile (name + ".xml"));
+            saveFlashTicks = 27;
+        }
+        grabKeyboardFocus();
+    };
+    presetNameEditor.onEscapeKey = [this]
+    {
+        presetNameEditor.setVisible (false);
+        grabKeyboardFocus();
+    };
+    presetNameEditor.onFocusLost = [this] { presetNameEditor.setVisible (false); };
+    addChildComponent (presetNameEditor);
+
+    // tooltips + atalhos
+    setWantsKeyboardFocus (true);
+    for (auto* b : std::initializer_list<juce::Button*> { &prevButton, &nextButton, &saveButton,
+                                                          &presetPill, &audioButton, &storeButton,
+                                                          &tunerToggle })
+        b->setMouseClickGrabsKeyboardFocus (false);
+
+    prevButton.setTooltip (juce::String (juce::CharPointer_UTF8 ("Preset anterior (\xe2\x86\x90)")));
+    nextButton.setTooltip (juce::String (juce::CharPointer_UTF8 ("Pr\xc3\xb3ximo preset (\xe2\x86\x92)")));
+    saveButton.setTooltip ("Salva o preset atual (sem nome: pede um)");
+    presetPill.setTooltip ("Escolher preset / Salvar como novo");
+    storeButton.setTooltip ("Buscar e baixar tones do TONE3000");
+    audioButton.setTooltip ("Driver, dispositivo, sample rate e buffer (ASIO/WASAPI)");
+    tunerToggle.setTooltip ("Liga/desliga o afinador (T)");
 
     // dev: GUITARRIG_TUNER=off inicia com o afinador desligado (teste de UI)
     if (juce::SystemStats::getEnvironmentVariable ("GUITARRIG_TUNER", "") == "off")
@@ -916,12 +1042,34 @@ void RigContent::timerCallback()
     const float cpu = processor.cpuLoad.load();
     cpuMeter.setFraction (cpu, cpu > 0.8f ? ui::red : cpu > 0.5f ? ui::yellow : ui::accent);
 
+    // fingerprint do preset é serialização de XML — checa a 2 Hz, não a 30 Hz
+    if (tunerTick % 15 == 0)
+    {
+        processor.settlePresetBaseline();
+        presetDirtyCached = processor.isPresetDirty();
+    }
+
     const auto presetName = processor.getCurrentPresetName();
+    const bool dirty = presetDirtyCached;
     presetPill.setButtonText (processor.isLoadingModel()
                                   ? juce::String (juce::CharPointer_UTF8 ("Carregando\xe2\x80\xa6"))
-                                  : (presetName.isNotEmpty() ? presetName
-                                                             : juce::String ("(sem preset)")));
+                                  : (presetName.isNotEmpty()
+                                         ? (dirty ? juce::String (juce::CharPointer_UTF8 ("\xe2\x80\xa2 ")) + presetName
+                                                  : presetName)
+                                         : juce::String ("(sem preset)")));
     presetPill.dotLit = processor.hasModelLoaded();
+
+    if (saveFlashTicks > 0)
+    {
+        --saveFlashTicks;
+        saveButton.setButtonText (saveFlashTicks > 0 ? "Salvo" : "SALVAR");
+    }
+
+    if (! focusGrabbed && isShowing())
+    {
+        focusGrabbed = true;
+        grabKeyboardFocus();
+    }
 
     chainView->refreshDynamicText();
     refreshSidecarImages();
@@ -1044,33 +1192,38 @@ void RigContent::chooseIrFile()
                               });
 }
 
-void RigContent::savePresetDialog()
+void RigContent::saveCurrentPreset()
 {
     const auto name = processor.getCurrentPresetName();
-    auto initialFile = processor.getPresetsDirectory()
-                           .getChildFile ((name.isNotEmpty() ? name : "Meu preset") + ".xml");
+    if (name.isEmpty())
+    {
+        beginPresetNameEdit();
+        return;
+    }
+    processor.savePreset (processor.getPresetsDirectory().getChildFile (name + ".xml"));
+    saveFlashTicks = 27; // ~0.9 s de "Salvo"
+}
 
-    fileChooser = std::make_unique<juce::FileChooser> ("Salvar preset", initialFile, "*.xml");
-    fileChooser->launchAsync (juce::FileBrowserComponent::saveMode
-                                  | juce::FileBrowserComponent::warnAboutOverwriting,
-                              [this] (const juce::FileChooser& fc)
-                              {
-                                  auto file = fc.getResult();
-                                  if (file == juce::File())
-                                      return;
-                                  processor.savePreset (file.withFileExtension ("xml"));
-                              });
+void RigContent::beginPresetNameEdit()
+{
+    presetNameEditor.setBounds (presetPill.getBounds());
+    presetNameEditor.setText (processor.getCurrentPresetName(), juce::dontSendNotification);
+    presetNameEditor.setVisible (true);
+    presetNameEditor.toFront (true);
+    presetNameEditor.grabKeyboardFocus();
+    presetNameEditor.selectAll();
 }
 
 void RigContent::showPresetMenu()
 {
-    const auto files = processor.getPresetFiles();
-    if (files.isEmpty())
-        return;
-
     juce::PopupMenu menu;
     menu.setLookAndFeel (&lookAndFeel);
     const auto current = processor.getCurrentPresetName();
+    const auto files = processor.getPresetFiles();
+
+    menu.addItem (1000, juce::String (juce::CharPointer_UTF8 ("Salvar como novo\xe2\x80\xa6")));
+    if (! files.isEmpty())
+        menu.addSeparator();
 
     for (int i = 0; i < files.size(); ++i)
     {
@@ -1081,9 +1234,50 @@ void RigContent::showPresetMenu()
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&presetPill),
                         [this, files] (int result)
                         {
-                            if (result > 0 && result <= files.size())
+                            if (result == 1000)
+                                beginPresetNameEdit();
+                            else if (result > 0 && result <= files.size())
                                 processor.loadPreset (files.getReference (result - 1));
                         });
+}
+
+void RigContent::toggleTuner()
+{
+    tunerToggle.onClick();
+}
+
+bool RigContent::keyPressed (const juce::KeyPress& key)
+{
+    if (storeOverlay->isVisible())
+        return false; // o overlay tem seus próprios atalhos
+
+    if (key == juce::KeyPress::spaceKey)
+    {
+        if (auto* p = processor.apvts.getParameter ("ampOn"))
+            p->setValueNotifyingHost (p->getValue() > 0.5f ? 0.0f : 1.0f);
+        return true;
+    }
+    if (key.getTextCharacter() == 't' || key.getTextCharacter() == 'T')
+    {
+        toggleTuner();
+        return true;
+    }
+    if (key == juce::KeyPress::leftKey)
+    {
+        processor.loadAdjacentPreset (-1);
+        return true;
+    }
+    if (key == juce::KeyPress::rightKey)
+    {
+        processor.loadAdjacentPreset (1);
+        return true;
+    }
+    return false;
+}
+
+void RigContent::mouseDown (const juce::MouseEvent&)
+{
+    grabKeyboardFocus(); // clique em área vazia devolve o foco aos atalhos
 }
 
 //==============================================================================

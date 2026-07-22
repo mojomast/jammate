@@ -66,6 +66,8 @@ public:
     void open();
     void openOnLibrary();   // usado pelo flag de dev GUITARRIG_OPEN_STORE
 
+    bool keyPressed (const juce::KeyPress&) override;
+
     void paint (juce::Graphics&) override;
     void resized() override;
 

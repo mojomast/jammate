@@ -838,11 +838,79 @@ juce::File GuitarRigNAMProcessor::getPresetsDirectory() const
     return dir;
 }
 
+// Presets de fábrica: só parâmetros (sem capture/IR — mantêm o que estiver
+// carregado). Criados uma vez, quando a pasta está vazia.
+void GuitarRigNAMProcessor::createFactoryPresetsIfNeeded() const
+{
+    auto dir = getPresetsDirectory();
+    if (! dir.findChildFiles (juce::File::findFiles, false, "*.xml").isEmpty())
+        return;
+
+    auto make = [&] (const juce::String& name,
+                     std::initializer_list<std::pair<const char*, float>> tweaks)
+    {
+        juce::ValueTree tree ("GuitarRigNAM");
+        for (auto* p : getParameters())
+        {
+            if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p))
+            {
+                float value = rp->convertFrom0to1 (rp->getDefaultValue());
+                for (const auto& [id, v] : tweaks)
+                    if (rp->paramID == id)
+                        value = v;
+
+                juce::ValueTree param ("PARAM");
+                param.setProperty ("id", rp->paramID, nullptr);
+                param.setProperty ("value", value, nullptr);
+                tree.addChild (param, -1, nullptr);
+            }
+        }
+        tree.setProperty ("presetName", name, nullptr);
+        if (auto xml = tree.createXml())
+            xml->writeTo (dir.getChildFile (name + ".xml"));
+    };
+
+    make ("Clean", { { "ampGain", -3.0f }, { "ampTreble", 6.0f }, { "gateThresh", -80.0f },
+                     { "revOn", 1.0f }, { "revMix", 22.0f }, { "revDecay", 5.0f } });
+    make ("Crunch", { { "odOn", 1.0f }, { "odDrive", 4.0f }, { "odLevel", 6.0f },
+                      { "ampGain", 2.0f }, { "ampMid", 6.0f } });
+    make ("Lead", { { "odOn", 1.0f }, { "odDrive", 7.0f }, { "ampGain", 3.0f },
+                    { "delayOn", 1.0f }, { "delayTime", 380.0f }, { "delayMix", 22.0f },
+                    { "revOn", 1.0f }, { "revMix", 15.0f } });
+    make ("Metal", { { "gateThresh", -55.0f }, { "gateRelease", 60.0f }, { "ampGain", 4.0f },
+                     { "ampBass", 6.5f }, { "ampMid", 3.5f }, { "ampTreble", 6.5f },
+                     { "ampPresence", 6.0f } });
+}
+
 juce::Array<juce::File> GuitarRigNAMProcessor::getPresetFiles() const
 {
+    createFactoryPresetsIfNeeded();
     auto files = getPresetsDirectory().findChildFiles (juce::File::findFiles, false, "*.xml");
     files.sort();
     return files;
+}
+
+juce::int64 GuitarRigNAMProcessor::stateFingerprint()
+{
+    auto state = captureState();
+    state.removeProperty ("tunerOn", nullptr); // preferência de UI, não suja o preset
+    return state.toXmlString().hashCode64();
+}
+
+bool GuitarRigNAMProcessor::isPresetDirty()
+{
+    if (getCurrentPresetName().isEmpty() || baselinePending.load())
+        return false;
+    return stateFingerprint() != savedFingerprint;
+}
+
+void GuitarRigNAMProcessor::settlePresetBaseline()
+{
+    if (baselinePending.load() && ! isLoadingModel())
+    {
+        savedFingerprint = stateFingerprint();
+        baselinePending.store (false);
+    }
 }
 
 void GuitarRigNAMProcessor::savePreset (const juce::File& file)
@@ -851,6 +919,9 @@ void GuitarRigNAMProcessor::savePreset (const juce::File& file)
 
     if (auto xml = captureState().createXml())
         xml->writeTo (file);
+
+    savedFingerprint = stateFingerprint();
+    baselinePending.store (false);
 }
 
 void GuitarRigNAMProcessor::loadPreset (const juce::File& file)
@@ -859,6 +930,8 @@ void GuitarRigNAMProcessor::loadPreset (const juce::File& file)
     {
         applyState (juce::ValueTree::fromXml (*xml));
         setCurrentPresetName (file.getFileNameWithoutExtension());
+        // a baseline consolida quando o load assíncrono de modelo/IR terminar
+        baselinePending.store (true);
     }
 }
 

@@ -81,6 +81,12 @@ public:
     void loadAdjacentPreset (int delta);
     juce::String getCurrentPresetName() const;
 
+    /// true quando o estado atual difere do último preset salvo/carregado.
+    bool isPresetDirty();
+    /// Chamado pelo editor a cada tick: consolida a baseline do preset depois
+    /// que um load assíncrono de modelo/IR termina.
+    void settlePresetBaseline();
+
     juce::AudioProcessorValueTreeState apvts;
 
     std::atomic<float> inputPeak { 0.0f };
@@ -126,6 +132,11 @@ private:
     void applyState (juce::ValueTree state);
     juce::ValueTree captureState();
     void setCurrentPresetName (const juce::String&);
+    juce::int64 stateFingerprint();
+    void createFactoryPresetsIfNeeded() const;
+
+    juce::int64 savedFingerprint = 0;            // baseline do preset atual
+    std::atomic<bool> baselinePending { false }; // aguardando load assíncrono
 
     // Troca RT-safe (mesmo protocolo da Fase 2, agora com LoadedModel):
     std::unique_ptr<LoadedModel> activeModel;            // só thread de áudio

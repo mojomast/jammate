@@ -36,16 +36,19 @@ inline juce::Colour borderHover() { return juce::Colours::white.withAlpha (0.18f
 inline juce::Colour glass()       { return juce::Colours::white.withAlpha (0.03f); }
 inline juce::Colour glassHover()  { return juce::Colours::white.withAlpha (0.06f); }
 
+// Typefaces do design embutidos no binário (OFL): Space Grotesk (UI) e
+// JetBrains Mono (valores/labels técnicos).
+juce::Typeface::Ptr uiTypeface (bool bold);
+juce::Typeface::Ptr monoTypeface (bool bold);
+
 inline juce::Font monoFont (float size, bool bold = false)
 {
-    return juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), size,
-                                          bold ? juce::Font::bold : juce::Font::plain));
+    return juce::Font (juce::FontOptions (monoTypeface (bold)).withHeight (size));
 }
 
 inline juce::Font uiFont (float size, bool bold = false)
 {
-    return juce::Font (juce::FontOptions ("Segoe UI", size,
-                                          bold ? juce::Font::bold : juce::Font::plain));
+    return juce::Font (juce::FontOptions (uiTypeface (bold)).withHeight (size));
 }
 } // namespace ui
 

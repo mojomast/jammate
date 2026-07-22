@@ -562,15 +562,23 @@ void Tone3000Client::listModels (int toneId,
     });
 }
 
-juce::File Tone3000Client::localFileForModel (const Model& model, const juce::String& kind)
+juce::File Tone3000Client::localFileForModel (const Model& model, const juce::String& kind,
+                                              const juce::String& baseName)
 {
     const auto storageName = juce::URL (model.url).getFileName();
     const auto ext = storageName.contains (".")
                          ? storageName.fromLastOccurrenceOf (".", true, false)
                          : (kind == "ir" ? juce::String (".wav") : juce::String (".nam"));
     const auto dir = kind == "ir" ? irsDir() : capturesDir();
-    return dir.getChildFile (
-        sanitizeFilename (model.name.isNotEmpty() ? model.name : storageName) + ext);
+
+    // Nome legível (título do tone + variação), preservando maiúsculas e
+    // espaços; fallback: nome técnico do modelo.
+    auto base = baseName.isNotEmpty()
+                    ? juce::File::createLegalFileName (baseName).trim()
+                    : sanitizeFilename (model.name.isNotEmpty() ? model.name : storageName);
+    if (base.isEmpty())
+        base = "tone";
+    return dir.getChildFile (base + ext);
 }
 
 void Tone3000Client::saveImageSidecar (const juce::String& imageUrl, const juce::File& besideFile)
@@ -604,10 +612,11 @@ void Tone3000Client::saveImageSidecar (const juce::String& imageUrl, const juce:
 }
 
 void Tone3000Client::downloadModel (const Model& model, const juce::String& kind,
+                                    const juce::String& baseName,
                                     std::function<void (int)> progress,
                                     std::function<void (juce::File, juce::String)> done)
 {
-    pool.addJob ([this, model, kind, progress, done]
+    pool.addJob ([this, model, kind, baseName, progress, done]
     {
         auto fail = [done] (juce::String error)
         {
@@ -637,7 +646,7 @@ void Tone3000Client::downloadModel (const Model& model, const juce::String& kind
             return;
         }
 
-        auto target = localFileForModel (model, kind);
+        auto target = localFileForModel (model, kind, baseName);
 
         target.deleteFile();
         juce::FileOutputStream out (target);

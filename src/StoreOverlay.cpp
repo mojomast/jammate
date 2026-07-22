@@ -294,6 +294,7 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     searchBox.setColour (juce::TextEditor::focusedOutlineColourId, ui::accent.withAlpha (0.6f));
     searchBox.setColour (juce::TextEditor::textColourId, ui::text);
     searchBox.onReturnKey = [this] { doSearch (1); };
+    searchBox.onEscapeKey = [this] { setVisible (false); };
     addAndMakeVisible (searchBox);
 
     connectButton.getProperties().set ("accent", true);
@@ -450,12 +451,24 @@ void StoreOverlay::updateRigStatuses()
     }
 }
 
+bool StoreOverlay::keyPressed (const juce::KeyPress& key)
+{
+    if (key == juce::KeyPress::escapeKey)
+    {
+        setVisible (false);
+        return true;
+    }
+    return false;
+}
+
 void StoreOverlay::open()
 {
     client.reloadConfig();
     updateHeaderState();
     setVisible (true);
     toFront (true);
+    setWantsKeyboardFocus (true);
+    grabKeyboardFocus();
 
     if (tab == Tab::library)
         refreshLibrary();
@@ -619,8 +632,13 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
     // cujo formato é IR, por exemplo.
     const juce::String kind = card.getInfo().formatBadge == "IR" ? "ir" : "nam";
 
+    // Nome legível: "Título do tone - Variação"
+    juce::String baseName = card.getInfo().title;
+    if (model.name.isNotEmpty() && model.name != baseName)
+        baseName += " - " + model.name;
+
     // Já baixado antes: carrega o arquivo local, sem gastar rede/API.
-    if (const auto local = Tone3000Client::localFileForModel (model, kind);
+    if (const auto local = Tone3000Client::localFileForModel (model, kind, baseName);
         local.existsAsFile())
     {
         card.setLocalFile (local);
@@ -637,7 +655,7 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
     card.setProgress (0);
     card.setStatus (ToneCardComponent::Status::downloading);
 
-    client.downloadModel (model, kind,
+    client.downloadModel (model, kind, baseName,
         [safe = juce::Component::SafePointer<ToneCardComponent> (&card)] (int pct)
         {
             if (safe != nullptr)

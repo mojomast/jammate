@@ -71,14 +71,18 @@ public:
                      std::function<void (std::vector<Model>, juce::String error)> done);
 
     /// Baixa um modelo específico para o diretório certo
-    /// (kind "ir" -> IRs/, senão Captures/). progress recebe 0..100.
+    /// (kind "ir" -> IRs/, senão Captures/). baseName é o nome legível do
+    /// arquivo (ex.: "Mesa Dual Rectifier - TB 57"); vazio usa o nome técnico
+    /// do modelo. progress recebe 0..100.
     void downloadModel (const Model& model, const juce::String& kind,
+                        const juce::String& baseName,
                         std::function<void (int)> progress,
                         std::function<void (juce::File, juce::String error)> done);
 
     /// Onde o modelo ficaria/fica salvo localmente — permite pular o
     /// download quando o arquivo já existe.
-    static juce::File localFileForModel (const Model&, const juce::String& kind);
+    static juce::File localFileForModel (const Model&, const juce::String& kind,
+                                         const juce::String& baseName = {});
 
     /// Busca a imagem de um tone (com cache em disco). done só é chamado se a
     /// imagem carregar; formatos que o JUCE não decodifica (ex.: webp) são

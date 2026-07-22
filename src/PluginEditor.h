@@ -32,6 +32,7 @@ public:
                    const juce::String& labelText,
                    std::function<juce::String (float)> formatter);
 
+    void setKnobTooltip (const juce::String&);
     void resized() override;
 
 private:
@@ -142,6 +143,8 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    bool keyPressed (const juce::KeyPress&) override;
+    void mouseDown (const juce::MouseEvent&) override;
 
 private:
     void timerCallback() override;
@@ -149,8 +152,10 @@ private:
     void refreshSidecarImages();
     void chooseModelFile();
     void chooseIrFile();
-    void savePresetDialog();
+    void saveCurrentPreset();
+    void beginPresetNameEdit();
     void showPresetMenu();
+    void toggleTuner();
 
     GuitarRigNAMProcessor& processor;
     RigLookAndFeel lookAndFeel;
@@ -162,6 +167,11 @@ private:
     juce::TextButton prevButton { "<" }, nextButton { ">" };
     juce::TextButton saveButton { "SALVAR" };
     PillButton presetPill;
+    juce::TextEditor presetNameEditor;   // edição inline do nome (sem diálogo)
+    int saveFlashTicks = 0;              // feedback "Salvo" no botão
+    bool focusGrabbed = false;
+    bool presetDirtyCached = false;
+    juce::TooltipWindow tooltipWindow { this, 600 };
 
     // cadeia
     juce::Viewport chainViewport;

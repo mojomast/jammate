@@ -62,6 +62,14 @@ juce_add_plugin(GuitarRigNAM
     NEEDS_MIDI_OUTPUT FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
+# Fontes do design (OFL) embutidas no binário.
+juce_add_binary_data(GuitarRigAssets
+    SOURCES
+        assets/fonts/SpaceGrotesk-Regular.ttf
+        assets/fonts/SpaceGrotesk-Bold.ttf
+        assets/fonts/JetBrainsMono-Regular.ttf
+        assets/fonts/JetBrainsMono-Bold.ttf)
+
 target_sources(GuitarRigNAM
     PRIVATE
         src/PluginProcessor.cpp
@@ -109,6 +117,7 @@ target_link_libraries(GuitarRigNAM
         # referencia — sem isso o linker os descarta e get_dsp() falha com
         # "No config parser registered for architecture".
         "$<LINK_LIBRARY:WHOLE_ARCHIVE,nam_core>"
+        GuitarRigAssets
         juce::juce_audio_utils
         juce::juce_cryptography
         juce::juce_audio_devices
