@@ -34,6 +34,7 @@
 - **Fotos** do amp/cabinete carregados nos cartões do rig
 - **UX**: knobs com trava no default, duplo-clique reseta, roda ajusta, Ctrl = fino, valor digitável; tooltips em tudo; atalhos (espaço, T, ←/→, Esc); medidores IN/OUT + CPU real
 - **Pitch/octaver, Looper (60 s, overdub, export WAV) e Limiter** com indicador de clip
+- **Variações por efeito** (Drive ×8, Comp ×4, Delay ×5, Reverb ×5, Mod ×6, Pitch ×5) com inspiração clássica e fonte de estudo documentadas em **[docs/EFEITOS.md](docs/EFEITOS.md)**
 - **Real-time safety**: zero alocação/locks/IO no caminho de áudio (regra inegociável do projeto)
 
 ## 🖼️ Telas
@@ -83,6 +84,7 @@ A API exige uma chave própria (grátis):
 
 ```
 src/                  código do plugin (processor, editor, store, cliente TONE3000)
+docs/EFEITOS.md       fontes/referências de cada efeito e variação
 assets/fonts/         Space Grotesk + JetBrains Mono (OFL, embutidas no binário)
 docs/screenshots/     telas do projeto
 references/           submódulos OPCIONAIS: projetos de referência p/ efeitos (ver references/README.md)
@@ -120,6 +122,11 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 - [x] Cartão **Limiter** brickwall no fim da cadeia com barra de gain reduction + aviso **CLIP** no medidor OUT
 
 ![Efeitos P3](docs/screenshots/efeitos-p3.png)
+
+**Fase 10 — variações extra + referências documentadas (concluída):**
+- [x] **[docs/EFEITOS.md](docs/EFEITOS.md)**: cada efeito e variação com a inspiração clássica, o projeto de referência estudado (`references/`) e a base da implementação; tooltips dos seletores citam as fontes
+- [x] Novas variações vindas da lista de referências: Drive **Valve** (Airwindows Tube, MIT) e **Metal** (Guitarix) · Comp **Squeezer** · Delay **Ducking** · Reverb **Shimmer** (oitava acima no wet) · Mod **Vibrato** e **Rotary** (Leslie) · Pitch **Quarta**
+- [x] Correção: Boost e Heavy Fuzz do Drive tinham menu mas caíam no som do Screamer — agora têm vozeamento e clip próprios
 
 **Próximos:**
 - [ ] Analisador de espectro

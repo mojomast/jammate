@@ -394,6 +394,7 @@ private:
 
     // filtros do caminho de feedback do delay (variações Analog/Tape)
     Biquad delayFbLp, delayFbHp;
+    float delayDuckEnv = 0.0f; // follower do Ducking (repetições abaixam ao tocar)
 
     // EQ pós-cab
     Biquad eqLowF, eqMidF, eqHighF;
@@ -431,6 +432,7 @@ private:
     juce::dsp::Phaser<float> phaserFx;
     Biquad tremLp, tremHp;               // tremolo harmônico: bandas anti-fase
     double tremPhase = 0.0;
+    double tremPhase2 = 0.0;             // rotary: corneta gira mais rápido que o tambor
     int modCachedType = -1;
     float modCachedRate = -1.0f, modCachedDepth = -1.0f, modCachedMix = -1.0f;
     std::atomic<float>* pModOn = nullptr;
@@ -472,6 +474,7 @@ private:
         void process (float* io, int n, double ratio, float mix, float outGain) noexcept;
     };
     PitchShifter pitchShift;
+    PitchShifter revShimmer; // oitava acima no wet do reverb (tipo Shimmer)
     std::atomic<float>* pPitchOn = nullptr;
     std::atomic<float>* pPitchType = nullptr;   // Oitava ↓ / Oitava ↑ / Quinta / Detune
     std::atomic<float>* pPitchMix = nullptr;

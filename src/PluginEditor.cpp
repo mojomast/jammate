@@ -337,22 +337,29 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         addChildComponent (cabIrButtons[r]);
     }
 
-    // seletores de variação nos cartões (menu no rodapé)
+    // seletores de variação nos cartões (menu no rodapé) — os tooltips citam
+    // as fontes de estudo de cada família; detalhes em docs/EFEITOS.md
     setupTypeButton (odTypeButton, "odType",
-                     juce::String (juce::CharPointer_UTF8 ("Escolher o modelo do drive")));
+                     juce::String (juce::CharPointer_UTF8 (
+                         "Escolher o modelo do drive \xc2\xb7 refs: BYOD, Guitarix, Airwindows (docs/EFEITOS.md)")));
     setupTypeButton (compTypeButton, "compType",
-                     juce::String (juce::CharPointer_UTF8 ("Escolher o modelo do compressor")));
+                     juce::String (juce::CharPointer_UTF8 (
+                         "Escolher o modelo do compressor \xc2\xb7 refs: LSP Plugins, rkrlv2 (docs/EFEITOS.md)")));
     setupTypeButton (delayTypeButton, "delayType",
-                     juce::String (juce::CharPointer_UTF8 ("Escolher o modelo do delay")));
+                     juce::String (juce::CharPointer_UTF8 (
+                         "Escolher o modelo do delay \xc2\xb7 refs: Airwindows, Guitarix (docs/EFEITOS.md)")));
     setupTypeButton (revTypeButton, "revType",
-                     juce::String (juce::CharPointer_UTF8 ("Escolher o modelo do reverb")));
+                     juce::String (juce::CharPointer_UTF8 (
+                         "Escolher o modelo do reverb \xc2\xb7 refs: Dragonfly, GxPlugins (docs/EFEITOS.md)")));
     setupTypeButton (modTypeButton, "modType",
-                     juce::String (juce::CharPointer_UTF8 ("Escolher o tipo de modula\xc3\xa7\xc3\xa3o")));
+                     juce::String (juce::CharPointer_UTF8 (
+                         "Escolher o tipo de modula\xc3\xa7\xc3\xa3o \xc2\xb7 refs: ToobAmp, GxPlugins, Airwindows (docs/EFEITOS.md)")));
     setupTypeButton (delayDivButton, "delayDiv",
                      juce::String (juce::CharPointer_UTF8 (
                          "Subdivis\xc3\xa3o aplicada ao TAP (1/8. = colcheia pontuada)")));
     setupTypeButton (pitchTypeButton, "pitchType",
-                     juce::String (juce::CharPointer_UTF8 ("Escolher o intervalo do pitch")));
+                     juce::String (juce::CharPointer_UTF8 (
+                         "Escolher o intervalo do pitch \xc2\xb7 ref: rkrlv2/rakarrack (docs/EFEITOS.md)")));
 
     rigAddButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Adicionar um rig AMP+CAB em paralelo (at\xc3\xa9 3)")));

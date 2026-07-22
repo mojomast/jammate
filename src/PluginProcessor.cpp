@@ -288,23 +288,25 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::ParameterID { "compLevel", 1 }, "Comp Level",
         juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f, dB));
 
-    // variações de modelo por efeito (selecionadas no cartão)
+    // variações de modelo por efeito (selecionadas no cartão) — inspirações
+    // e fontes de estudo em docs/EFEITOS.md; novas opções sempre entram no
+    // FIM da lista (preserva índices salvos em presets antigos)
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "odType", 1 }, "OD Type",
         juce::StringArray { "Screamer", "Blues", "Distortion", "Fuzz",
-                            "Boost", "Heavy Fuzz" }, 0));
+                            "Boost", "Heavy Fuzz", "Valve", "Metal" }, 0));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "compType", 1 }, "Comp Type",
-        juce::StringArray { "Dyna", "Optical", "Studio" }, 0));
+        juce::StringArray { "Dyna", "Optical", "Studio", "Squeezer" }, 0));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "delayType", 1 }, "Delay Type",
-        juce::StringArray { "Digital", "Analog", "Tape", "Ping-Pong" }, 0));
+        juce::StringArray { "Digital", "Analog", "Tape", "Ping-Pong", "Ducking" }, 0));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "delayDiv", 1 }, "Delay Division",
         juce::StringArray { "1/4", "1/8", "1/8.", "1/16" }, 0));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "revType", 1 }, "Reverb Type",
-        juce::StringArray { "Hall", "Room", "Plate", "Spring" }, 0));
+        juce::StringArray { "Hall", "Room", "Plate", "Spring", "Shimmer" }, 0));
 
     // pitch/octaver (cartão Pitch)
     layout.add (std::make_unique<BoolParam> (
@@ -313,7 +315,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::ParameterID { "pitchType", 1 }, "Pitch Type",
         juce::StringArray { juce::String::fromUTF8 ("Oitava \xe2\x86\x93"),
                             juce::String::fromUTF8 ("Oitava \xe2\x86\x91"),
-                            "Quinta", "Detune" }, 0));
+                            "Quinta", "Detune", "Quarta" }, 0));
     layout.add (std::make_unique<FloatParam> (
         juce::ParameterID { "pitchMix", 1 }, "Pitch Mix",
         juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 50.0f, pct));
@@ -343,7 +345,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
         juce::ParameterID { "modOn", 1 }, "Mod On", false));
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "modType", 1 }, "Mod Type",
-        juce::StringArray { "Chorus", "Phaser", "Flanger", "Tremolo H." }, 0));
+        juce::StringArray { "Chorus", "Phaser", "Flanger", "Tremolo H.",
+                            "Vibrato", "Rotary" }, 0));
     layout.add (std::make_unique<FloatParam> (
         juce::ParameterID { "modRate", 1 }, "Mod Rate",
         juce::NormalisableRange<float> (0.1f, 10.0f, 0.05f, 0.4f), 1.5f,
@@ -637,6 +640,8 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     revSpringLp.reset();
 
     pitchShift.prepare (sampleRate);
+    revShimmer.prepare (sampleRate);
+    delayDuckEnv = 0.0f;
 
     // looper: buffer pré-alocado; loop antigo perde o sentido em outro SR
     loopBuf.setSize (1, (int) (sampleRate * looperMaxSeconds) + 1);
@@ -855,6 +860,8 @@ void GuitarRigNAMProcessor::SmartGate::process (float* io, int n, float threshDb
 
 void GuitarRigNAMProcessor::processGateFx (float* io, int n)
 {
+    // Gate próprio (follower + histerese 6 dB + hold); comportamento
+    // estudado no gate do references/ToobAmp — ver docs/EFEITOS.md.
     if (pGateOn->load() <= 0.5f)
         return;
 
@@ -865,6 +872,8 @@ void GuitarRigNAMProcessor::processCompFx (float* io, int n)
 {
     // Compressor de pedal: Sustain controla threshold+ratio+makeup juntos;
     // Blend faz compressão paralela (mistura com o sinal seco).
+    // Motor: juce::dsp::Compressor; curvas por tipo estudadas em
+    // references/lsp-plugins e references/rkrlv2 — ver docs/EFEITOS.md.
     if (pCompOn->load() <= 0.5f || n > monoScratch.getNumSamples())
         return;
 
@@ -879,7 +888,7 @@ void GuitarRigNAMProcessor::processCompFx (float* io, int n)
         switch (type)
         {
             default:
-            case 0: // Dyna: agressivo, estilo pedal clássico
+            case 0: // Dyna: agressivo, estilo MXR Dyna Comp
                 pedalComp.setThreshold (-10.0f - sustain * 4.0f);
                 pedalComp.setRatio (2.0f + sustain * 0.8f);
                 pedalComp.setAttack (attack);
@@ -891,11 +900,17 @@ void GuitarRigNAMProcessor::processCompFx (float* io, int n)
                 pedalComp.setAttack (juce::jmax (10.0f, attack));
                 pedalComp.setRelease (400.0f);
                 break;
-            case 2: // Studio: VCA transparente
+            case 2: // Studio: VCA transparente (estilo dbx/SSL de rack)
                 pedalComp.setThreshold (-6.0f - sustain * 3.0f);
                 pedalComp.setRatio (3.0f);
                 pedalComp.setAttack (attack);
                 pedalComp.setRelease (250.0f);
+                break;
+            case 3: // Squeezer (estilo Orange Squeezer/Armstrong): squish rápido e vintage
+                pedalComp.setThreshold (-14.0f - sustain * 4.5f);
+                pedalComp.setRatio (5.0f + sustain * 0.5f);
+                pedalComp.setAttack (juce::jmin (5.0f, attack));
+                pedalComp.setRelease (120.0f);
                 break;
         }
     }
@@ -908,7 +923,7 @@ void GuitarRigNAMProcessor::processCompFx (float* io, int n)
     juce::dsp::ProcessContextReplacing<float> ctx (block);
     pedalComp.process (ctx);
 
-    const float makeupPerSustain = type == 1 ? 2.0f : type == 2 ? 1.6f : 2.2f;
+    const float makeupPerSustain = type == 1 ? 2.0f : type == 2 ? 1.6f : type == 3 ? 2.6f : 2.2f;
     const float makeup = juce::Decibels::decibelsToGain (sustain * makeupPerSustain);
     const float blend = pCompBlend->load() / 100.0f;
     const float level = juce::Decibels::decibelsToGain (pCompLevel->load());
@@ -945,6 +960,8 @@ void GuitarRigNAMProcessor::processPreEqFx (float* io, int n)
 void GuitarRigNAMProcessor::processOdFx (float* io, int n)
 {
     // HP -> clip (por variação) -> tone LP -> pós-filtro -> level
+    // Topologia e vozeamentos estudados em references/BYOD, references/guitarix
+    // e references/GxPlugins.lv2 (implementação própria) — ver docs/EFEITOS.md.
     if (pOdOn->load() <= 0.5f)
         return;
 
@@ -957,23 +974,42 @@ void GuitarRigNAMProcessor::processOdFx (float* io, int n)
         switch (type)
         {
             default:
-            case 0: // Screamer: aperta graves, corcova de médios
+            case 0: // Screamer (estilo Ibanez Tube Screamer): aperta graves, corcova de médios
                 odHp.setHighPass (sr, 300.0, 0.707);
                 odPost.setPeak (sr, 700.0, 2.5, 0.9);
                 odPostActive = true;
                 break;
-            case 1: // Blues: quase flat, clip suave
+            case 1: // Blues (estilo Marshall Blues Breaker): quase flat, clip suave
                 odHp.setHighPass (sr, 100.0, 0.707);
                 odPostActive = false;
                 break;
-            case 2: // Distortion: leve scoop de médios
+            case 2: // Distortion (estilo ProCo RAT/DS-1): leve scoop de médios
                 odHp.setHighPass (sr, 120.0, 0.707);
                 odPost.setPeak (sr, 800.0, -2.0, 0.9);
                 odPostActive = true;
                 break;
-            case 3: // Fuzz: grave cheio, clip assimétrico
+            case 3: // Fuzz (estilo Fuzz Face): grave cheio, clip assimétrico
                 odHp.setHighPass (sr, 80.0, 0.707);
                 odPostActive = false;
+                break;
+            case 4: // Boost (clean boost linear, estilo EP Booster): flat, quase sem clip
+                odHp.setHighPass (sr, 40.0, 0.707);
+                odPostActive = false;
+                break;
+            case 5: // Heavy Fuzz (estilo Big Muff): grave cheio + scoop de médios
+                odHp.setHighPass (sr, 60.0, 0.707);
+                odPost.setPeak (sr, 1000.0, -3.5, 0.8);
+                odPostActive = true;
+                break;
+            case 6: // Valve (estilo Airwindows Tube, MIT): saturação de válvula, harmônicos pares
+                odHp.setHighPass (sr, 50.0, 0.707);
+                odPost.setPeak (sr, 1200.0, 1.5, 0.8);
+                odPostActive = true;
+                break;
+            case 7: // Metal (estilo Guitarix/Metal Zone): ganho alto + scoop profundo
+                odHp.setHighPass (sr, 90.0, 0.707);
+                odPost.setPeak (sr, 650.0, -6.0, 0.7);
+                odPostActive = true;
                 break;
         }
         odHp.reset();
@@ -984,6 +1020,7 @@ void GuitarRigNAMProcessor::processOdFx (float* io, int n)
     const float driveGain = juce::Decibels::decibelsToGain (pOdDrive->load() * 4.0f);
     const float levelGain = juce::Decibels::decibelsToGain ((pOdLevel->load() - 5.0f) * 3.0f - 6.0f);
     const float fuzzBiasOut = std::tanh (0.2f); // remove o DC do clip assimétrico
+    const float fuzzBiasIn = std::tanh (0.1f);  // idem, para o Valve
 
     for (int i = 0; i < n; ++i)
     {
@@ -996,6 +1033,10 @@ void GuitarRigNAMProcessor::processOdFx (float* io, int n)
             case 1: v = v / (1.0f + std::abs (v)); break;                        // mais suave
             case 2: v = juce::jlimit (-0.9f, 0.9f, std::tanh (v * 1.6f) * 1.1f); break; // duro
             case 3: v = std::tanh (v * 1.5f + 0.2f) - fuzzBiasOut; break;        // assimétrico
+            case 4: v = std::tanh (v * 0.35f) * 2.86f; break;                    // ~linear, satura só no extremo
+            case 5: v = juce::jlimit (-0.85f, 0.85f, std::tanh (v * 3.0f) * 1.2f); break; // sustain massivo
+            case 6: v = std::tanh (v * 1.1f + 0.1f) - fuzzBiasIn; break;         // assimetria leve = harmônicos pares
+            case 7: v = juce::jlimit (-0.75f, 0.75f, std::tanh (v * 4.0f) * 1.3f); break; // clip duro
         }
 
         v = odToneLp.process (v);
@@ -1020,6 +1061,9 @@ void GuitarRigNAMProcessor::processDelayFx (float* io, int n)
 {
     // Trails: mesmo desligado, as repetições pendentes continuam soando —
     // só a ENTRADA é cortada. Custo mínimo, comportamento de pedal moderno.
+    // Linha: juce::dsp::DelayLine; vozeamentos Analog (BBD, estilo Memory
+    // Man) e Tape (wobble, estilo Echoplex) estudados em references/
+    // airwindows e references/guitarix — ver docs/EFEITOS.md.
     const bool on = pDelayOn->load() > 0.5f;
 
     const double sr = hostSampleRate.load();
@@ -1080,7 +1124,17 @@ void GuitarRigNAMProcessor::processDelayFx (float* io, int n)
             fbSignal = delayFbLp.process (wet);
 
         delayLine.pushSample (0, input + fbSignal * fb);
-        io[i] += wet * mix;
+
+        float wetGain = mix;
+        if (type == 4)
+        {
+            // Ducking (estilo TC 2290): repetições abaixam enquanto você
+            // toca e voltam nas pausas — follower rápido/solta lenta
+            const float rect = std::abs (input);
+            delayDuckEnv += (rect > delayDuckEnv ? 0.008f : 0.0004f) * (rect - delayDuckEnv);
+            wetGain *= 1.0f - juce::jlimit (0.0f, 0.85f, delayDuckEnv * 6.0f);
+        }
+        io[i] += wet * wetGain;
     }
 }
 
@@ -1088,6 +1142,9 @@ void GuitarRigNAMProcessor::processReverbFx (float* io, int n)
 {
     // mix manual, com predelay no caminho wet; trails ao desligar; estéreo
     // real via stereoExtra (diferença R-L)
+    // Motor: juce::Reverb (Freeverb/Schroeder); vozeamentos Hall/Room/Plate
+    // estudados em references/dragonfly-reverb e o timbre Spring (bandpass
+    // no wet) em references/GxPlugins.lv2 — ver docs/EFEITOS.md.
     const bool on = pRevOn->load() > 0.5f;
     if (n > wetScratch.getNumSamples() || n > wetScratchR.getNumSamples())
         return;
@@ -1121,6 +1178,11 @@ void GuitarRigNAMProcessor::processReverbFx (float* io, int n)
                 reverbParams.damping = 0.2f;
                 reverbParams.width = 0.6f;
                 break;
+            case 4: // Shimmer: grande e brilhante, entrada com oitava acima
+                reverbParams.roomSize = 0.5f + decay / 10.0f * 0.48f;
+                reverbParams.damping = 0.1f;
+                reverbParams.width = 1.0f;
+                break;
         }
         reverb.setParameters (reverbParams);
     }
@@ -1141,8 +1203,14 @@ void GuitarRigNAMProcessor::processReverbFx (float* io, int n)
         if (type == 3) // spring: bandpass dá o timbre "mola"
             v = revSpringLp.process (revSpringHp.process (v));
         wet[i] = v;
-        wetR[i] = v;
     }
+
+    // Shimmer: a entrada do reverb ganha uma voz uma oitava acima (60%) —
+    // o rabo do reverb fica "coral" (mesma técnica do Valhalla/Dragonfly)
+    if (type == 4)
+        revShimmer.process (wet, n, 2.0, 0.6f, 1.0f);
+
+    juce::FloatVectorOperations::copy (wetR, wet, n);
     reverb.processStereo (wet, wetR, n);
 
     float* extra = stereoExtra.getWritePointer (0);
@@ -1155,6 +1223,10 @@ void GuitarRigNAMProcessor::processReverbFx (float* io, int n)
 
 void GuitarRigNAMProcessor::processModFx (float* io, int n)
 {
+    // Chorus/Flanger: juce::dsp::Chorus (flanger = delay curto + feedback);
+    // Phaser: juce::dsp::Phaser; Tremolo harmônico próprio (bandas em
+    // anti-fase, estilo Fender brownface) — estudo em references/ToobAmp e
+    // references/GxPlugins.lv2; ver docs/EFEITOS.md.
     if (pModOn->load() <= 0.5f)
         return;
 
@@ -1193,15 +1265,52 @@ void GuitarRigNAMProcessor::processModFx (float* io, int n)
                 phaserFx.setCentreFrequency (900.0f);
                 phaserFx.setFeedback (0.5f);
                 break;
+            case 4: // Vibrato = chorus 100% wet (só a afinação ondula)
+                chorusFx.setCentreDelay (5.0f);
+                chorusFx.setFeedback (0.0f);
+                chorusFx.setRate (rate);
+                chorusFx.setDepth (depth);
+                chorusFx.setMix (1.0f);
+                break;
+            case 5: // Rotary (estilo Leslie): doppler leve + AM por bandas
+                chorusFx.setCentreDelay (8.0f);
+                chorusFx.setFeedback (0.05f);
+                chorusFx.setRate (rate * 0.8f);
+                chorusFx.setDepth (depth * 0.5f);
+                chorusFx.setMix (1.0f);
+                break;
             default: break; // tremolo não usa juce::dsp
         }
     }
 
-    if (type == 0 || type == 2)
+    if (type == 0 || type == 2 || type == 4 || type == 5)
     {
         juce::dsp::AudioBlock<float> block (&io, 1, (size_t) n);
         juce::dsp::ProcessContextReplacing<float> ctx (block);
         chorusFx.process (ctx);
+
+        if (type == 5)
+        {
+            // corneta (agudos) gira ~2.7x mais rápido que o tambor (graves)
+            const double sr = hostSampleRate.load();
+            const double incLo = juce::MathConstants<double>::twoPi * rate / sr;
+            const double incHi = incLo * 2.7;
+            for (int i = 0; i < n; ++i)
+            {
+                tremPhase += incLo;
+                tremPhase2 += incHi;
+                if (tremPhase > juce::MathConstants<double>::twoPi)
+                    tremPhase -= juce::MathConstants<double>::twoPi;
+                if (tremPhase2 > juce::MathConstants<double>::twoPi)
+                    tremPhase2 -= juce::MathConstants<double>::twoPi;
+                const float amLo = 1.0f + (float) std::sin (tremPhase) * depth * 0.35f;
+                const float amHi = 1.0f + (float) std::sin (tremPhase2) * depth * 0.5f;
+                const float lo = tremLp.process (io[i]) * amLo;
+                const float hi = tremHp.process (io[i]) * amHi;
+                const float wet = lo + hi;
+                io[i] = io[i] * (1.0f - mix) + wet * mix;
+            }
+        }
     }
     else if (type == 1)
     {
@@ -1256,14 +1365,18 @@ void GuitarRigNAMProcessor::PitchShifter::process (float* io, int n, double rati
 
 void GuitarRigNAMProcessor::processPitchFx (float* io, int n)
 {
+    // Shifter granular de 2 cabeças (técnica clássica de delay-line pitch
+    // shifting, DAFX/Zölzer); referência de uso musical em references/rkrlv2
+    // (harmonizer do rakarrack) — ver docs/EFEITOS.md.
     if (pPitchOn->load() <= 0.5f)
         return;
 
-    // razões por tipo: oitava ↓/↑, quinta justa e detune leve (~12 cents)
+    // razões por tipo: oitava ↓/↑, quinta e quarta justas, detune (~12 cents)
     const int type = (int) pPitchType->load();
     const double ratio = type == 0 ? 0.5
                        : type == 1 ? 2.0
                        : type == 2 ? 1.5
+                       : type == 4 ? 4.0 / 3.0
                                    : 1.007;
     const float mix = pPitchMix->load() / 100.0f;
     const float level = juce::Decibels::decibelsToGain (pPitchLevel->load());
@@ -1340,6 +1453,8 @@ void GuitarRigNAMProcessor::processLooperFx (float* io, int n)
 
 void GuitarRigNAMProcessor::processLimiterFx (float* io, int n)
 {
+    // Motor: juce::dsp::Limiter (brickwall); papel de limiter de saída
+    // estudado em references/lsp-plugins — ver docs/EFEITOS.md.
     if (pLimOn->load() <= 0.5f)
     {
         limGrDb.store (0.0f);
