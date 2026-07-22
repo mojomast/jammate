@@ -109,6 +109,7 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 **Fase 8 — rigs paralelos AMP+CAB (concluída):**
 - [x] Arquitetura corrigida: cada lane paralela é um par **AMP+CAB** completo (capture NAM com knobs próprios + IR), não só IRs em paralelo
 - [x] Card **Mixer** dedicado: soma das lanes com blend por rig, AIR global e botões +/− que adicionam/removem o par inteiro (mín. 1, máx. 3)
+- [x] Visual em paralelo de verdade: lanes **empilhadas** com bus de divisão na entrada e bus de soma no Mixer (com 1 rig, mantém o card grande clássico)
 
 ![Rigs paralelos](docs/screenshots/rigs-paralelos.png)
 
