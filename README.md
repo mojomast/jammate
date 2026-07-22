@@ -157,11 +157,16 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 
 ![Modo palco](docs/screenshots/modo-palco.png)
 
+**Fase 15 — roadmap fechado (concluída):**
+- [x] **Analisador de espectro**: card com FFT 2048 ao vivo (24 bandas log, 40 Hz–16 kHz)
+- [x] **Medidores com peak-hold** + microinterações (hover nos `+`/`✕`, cursor de mãozinha)
+- [x] **Drag-and-drop de arquivos**: arraste `.nam` no amp, IR no cab e `.vst3` no slot externo (com realce do alvo)
+- [x] **Afinador com MUTE** (silencia a saída enquanto afina) · delay/reverb estéreo (desde a fase 7)
+- [x] **Favoritos ★ no TONE3000** (persistidos + filtro "Só ★") · **A/B de rigs** (compara dois ajustes completos) · **Gravador rápido** (WAV 24-bit da saída em `Documentos\GuitarRig NAM\Gravações`)
+- [x] Correções de UX: relayout imediato ao remover/adicionar cards (sem alvos defasados sob o mouse), relayout adiado durante arrasto de knob
+
 **Próximos:**
-- [ ] Analisador de espectro
-- [ ] Animações e microinterações · medidores com peak-hold/clip
-- [ ] Drag-and-drop de arquivos · afinador com mute · delay/reverb estéreo
-- [ ] Favoritos do TONE3000 · A/B de rigs · gravador rápido
+- [ ] Ideias futuras: minimapa da cadeia, MIDI learn, snapshot de cena por música
 
 ## 🤝 Contribuindo
 
