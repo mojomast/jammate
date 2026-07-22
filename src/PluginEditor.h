@@ -133,8 +133,11 @@ private:
 
     // gaveta de efeitos: a cadeia mostra só o que está em uso
     juce::Rectangle<int> addFxB;     // botão "+ EFEITO" no fim da cadeia
-    void showAddFxMenu();
+    /// insertIndex >= 0 insere na posição exata; -1 = posição canônica
+    void showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea);
     void removeFxFromChain (const juce::String& id);
+    /// "+" nos conectores entre cards: {hotspot, índice de inserção}
+    std::vector<std::pair<juce::Rectangle<int>, int>> insertSpots() const;
     juce::Array<juce::Component*> componentsForFx (const juce::String& id);
     const char* onParamIdForFx (const juce::String& id) const;
     static juce::String fxDisplayName (const juce::String& id);

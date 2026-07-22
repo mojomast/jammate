@@ -940,7 +940,25 @@ juce::String ChainView::fxDisplayName (const juce::String& id)
     return id;
 }
 
-void ChainView::showAddFxMenu()
+std::vector<std::pair<juce::Rectangle<int>, int>> ChainView::insertSpots() const
+{
+    // um "+" no meio de cada conector: inserir ANTES do card i = índice i
+    std::vector<std::pair<juce::Rectangle<int>, int>> spots;
+    juce::Rectangle<int> prev = ioInB;
+    const auto entries = orderedEntries();
+    for (int i = 0; i < (int) entries.size(); ++i)
+    {
+        const auto& box = entries[(size_t) i].box;
+        if (box.isEmpty())
+            continue;
+        const int midX = (prev.getRight() + box.getX()) / 2;
+        spots.push_back ({ juce::Rectangle<int> (midX - 11, chainHeight / 2 - 11, 22, 22), i });
+        prev = box;
+    }
+    return spots;
+}
+
+void ChainView::showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea)
 {
     struct Category { const char* title; std::initializer_list<const char*> ids; };
     static const Category categories[] = {
@@ -980,25 +998,34 @@ void ChainView::showAddFxMenu()
 
     menu.showMenuAsync (
         juce::PopupMenu::Options().withTargetScreenArea (
-            juce::Rectangle<int> (addFxB.getX(), addFxB.getY(), addFxB.getWidth(), 1)
-                .withPosition (localPointToGlobal (addFxB.getPosition()))),
-        [safe = juce::Component::SafePointer<ChainView> (this)] (int result)
+            juce::Rectangle<int> (targetArea.getWidth(), 1)
+                .withPosition (localPointToGlobal (targetArea.getPosition()))),
+        [safe = juce::Component::SafePointer<ChainView> (this), insertIndex] (int result)
         {
             if (safe == nullptr || result <= 0 || result >= 99999)
                 return;
             const auto id = GuitarRigNAMProcessor::fxToString (
                 (GuitarRigNAMProcessor::ChainFx) (result - 1));
 
-            // insere na posição canônica (dá para arrastar depois)
             auto order = safe->processor.getChainOrder();
-            const int rank = GuitarRigNAMProcessor::canonicalRank (id);
-            int pos = order.size();
-            for (int i = 0; i < order.size(); ++i)
-                if (GuitarRigNAMProcessor::canonicalRank (order[i]) > rank)
-                {
-                    pos = i;
-                    break;
-                }
+            int pos;
+            if (insertIndex >= 0)
+            {
+                // "+" do conector: entra exatamente onde foi clicado
+                pos = juce::jlimit (0, order.size(), insertIndex);
+            }
+            else
+            {
+                // botão do fim: posição canônica (dá para arrastar depois)
+                const int rank = GuitarRigNAMProcessor::canonicalRank (id);
+                pos = order.size();
+                for (int i = 0; i < order.size(); ++i)
+                    if (GuitarRigNAMProcessor::canonicalRank (order[i]) > rank)
+                    {
+                        pos = i;
+                        break;
+                    }
+            }
             order.insert (pos, id);
             safe->processor.setChainOrder (order);
         });
@@ -1019,12 +1046,20 @@ void ChainView::mouseDown (const juce::MouseEvent& e)
     draggingId.clear();
     panning = false;
 
-    // botão "+ EFEITO"
+    // botão "+ EFEITO" (fim da cadeia)
     if (addFxB.contains (e.getPosition()))
     {
-        showAddFxMenu();
+        showAddFxMenu (-1, addFxB);
         return;
     }
+
+    // "+" dos conectores: adiciona efeito NAQUELA posição
+    for (const auto& [rect, idx] : insertSpots())
+        if (rect.contains (e.getPosition()))
+        {
+            showAddFxMenu (idx, rect);
+            return;
+        }
 
     // "✕" remove o efeito da cadeia (volta pra gaveta, ajustes preservados)
     for (const auto& entry : orderedEntries())
@@ -2060,6 +2095,19 @@ void ChainView::paint (juce::Graphics& g)
         g.setColour (ui::textFaint.withAlpha (0.55f));
         g.drawLine (h.getX() + 4.0f, h.getY() + 4.0f, h.getRight() - 4.0f, h.getBottom() - 4.0f, 1.4f);
         g.drawLine (h.getRight() - 4.0f, h.getY() + 4.0f, h.getX() + 4.0f, h.getBottom() - 4.0f, 1.4f);
+    }
+
+    // ---- "+" nos conectores (inserir efeito naquela posição)
+    for (const auto& [rect, idx] : insertSpots())
+    {
+        auto rf = rect.toFloat().reduced (2.0f);
+        g.setColour (ui::cardTop);
+        g.fillEllipse (rf);
+        g.setColour (ui::accent.withAlpha (0.4f));
+        g.drawEllipse (rf, 1.2f);
+        g.setColour (ui::accent.withAlpha (0.85f));
+        g.setFont (ui::uiFont (14.0f, true));
+        g.drawText ("+", rect, juce::Justification::centred);
     }
 
     // ---- botão "+ EFEITO" (gaveta)

@@ -144,7 +144,7 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 - [x] Slot VST3: botão CARREGAR virou menu com os plugins instalados no sistema + tabela de grátis recomendados em docs/EFEITOS.md
 
 **Fase 13 — UX: gaveta de efeitos + navegação (concluída):**
-- [x] A cadeia mostra **só os efeitos em uso**; o botão tracejado **`+ EFEITO`** abre a gaveta por categorias (Dinâmica · Drive & Filtro · Pitch · Modulação & Cor · Ambiência · Extras) e insere na posição musicalmente certa
+- [x] A cadeia mostra **só os efeitos em uso**; **`+` em cada conector** adiciona um efeito naquela posição exata, e o botão tracejado **`+ EFEITO`** no fim insere na posição musicalmente certa — ambos abrem a gaveta por categorias (Dinâmica · Drive & Filtro · Pitch · Modulação & Cor · Ambiência · Extras)
 - [x] **✕** em cada card devolve o efeito pra gaveta (ajustes preservados); presets salvam a pedaleira montada
 - [x] Cards **desligados ficam esmaecidos** — o olho acha na hora o que está soando
 - [x] **Roda do mouse rola a cadeia** e **arrastar o fundo faz pan** (mãozinha), como numa DAW
