@@ -26,7 +26,8 @@
 - **Cadeia de sinal completa** (rolável): `Input → Noise Gate → Overdrive → Amp NAM → Cab IR → EQ → Delay → Reverb → Output`
 - **Amp por capture neural**: qualquer `.nam` (arquiteturas A1/A2), com GAIN que satura o modelo como o amp real, tone stack B/M/T/Presence e Master
 - **Resampler automático**: captures rodam no sample rate que esperam, em qualquer sample rate da interface (~0,6 ms de latência, reportada ao host)
-- **Cab IR** por convolução (wav/aiff/flac, troca sem glitch) + knob AIR
+- **Rigs paralelos**: até 3 pares **AMP+CAB** completos (capture + knobs próprios + IR por lane), sempre em dupla, somados no card **Mixer** (blend por rig + AIR global)
+- **Cab IR** por convolução (wav/aiff/flac, troca sem glitch), low/high cut e fase por lane
 - **Tone Store (TONE3000)**: login OAuth, busca com fotos, filtros por tipo/tags/arquitetura A2, escolha de variação (mics/canais), downloads com progresso, biblioteca offline, sem re-downloads
 - **Afinador** real (detecção de pitch NSDF) com liga/desliga
 - **Presets**: salvar em 1 clique, "Salvar como", indicador de modificado (•), presets de fábrica, navegação ◂ ▸
@@ -93,7 +94,7 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 ## 🗺️ Roadmap
 
 **Fase 6 — concluída:**
-- [x] Cabs paralelos: 1–3 slots de IR com blend, low/high cut e phase por cab + AIR global
+- [x] Cabs paralelos: 1–3 slots de IR com blend, low/high cut e phase por cab + AIR global *(evoluiu para rigs AMP+CAB na fase 8)*
 - [x] Cadeia reordenável por **drag-and-drop** (arraste os cartões de efeito; amp+cabs são âncora fixa)
 - [x] Modo **ECO** (capture leve baixado junto) com **auto-ECO** em CPU > 90% + aviso ⚠ no medidor
 - [x] Badges **V1/V2** da arquitetura em amps e IRs
@@ -104,6 +105,12 @@ Dados do usuário (fora do repo): `Documentos\GuitarRig NAM\` — `Captures/`, `
 - [x] Delay: **TAP tempo** com subdivisões (1/4, 1/8, 1/8., 1/16), **Ping-Pong** estéreo e **trails**
 - [x] Reverbs Hall/Room/Plate/**Spring**, estéreo real e trails
 - [x] Cartão **Modulação**: Chorus, Phaser, Flanger e Tremolo harmônico
+
+**Fase 8 — rigs paralelos AMP+CAB (concluída):**
+- [x] Arquitetura corrigida: cada lane paralela é um par **AMP+CAB** completo (capture NAM com knobs próprios + IR), não só IRs em paralelo
+- [x] Card **Mixer** dedicado: soma das lanes com blend por rig, AIR global e botões +/− que adicionam/removem o par inteiro (mín. 1, máx. 3)
+
+![Rigs paralelos](docs/screenshots/rigs-paralelos.png)
 
 **Próximos:**
 - [ ] Efeitos P3: pitch/octaver, looper com export WAV, limiter/clip/analisador

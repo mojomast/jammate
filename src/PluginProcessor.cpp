@@ -186,28 +186,28 @@ void GuitarRigNAMProcessor::readTunerBlock (float* dest, int numSamples) const
     }
 }
 
-void GuitarRigNAMProcessor::updateToneStackIfNeeded()
+void GuitarRigNAMProcessor::updateToneStackIfNeeded (int lane)
 {
-    const float bass = pAmpBass->load();
-    const float mid = pAmpMid->load();
-    const float treble = pAmpTreble->load();
-    const float pres = pAmpPresence->load();
+    const float bass = pAmpBass[lane]->load();
+    const float mid = pAmpMid[lane]->load();
+    const float treble = pAmpTreble[lane]->load();
+    const float pres = pAmpPresence[lane]->load();
 
-    if (bass == tsCachedBass && mid == tsCachedMid
-        && treble == tsCachedTreble && pres == tsCachedPresence)
+    if (bass == tsCachedBass[lane] && mid == tsCachedMid[lane]
+        && treble == tsCachedTreble[lane] && pres == tsCachedPresence[lane])
         return;
 
-    tsCachedBass = bass;
-    tsCachedMid = mid;
-    tsCachedTreble = treble;
-    tsCachedPresence = pres;
+    tsCachedBass[lane] = bass;
+    tsCachedMid[lane] = mid;
+    tsCachedTreble[lane] = treble;
+    tsCachedPresence[lane] = pres;
 
     const double sr = hostSampleRate.load();
     // 5 = neutro; curso de ±12 dB (±9 dB no presence).
-    tsBass.setLowShelf (sr, 150.0, (bass - 5.0) * 2.4);
-    tsMid.setPeak (sr, 500.0, (mid - 5.0) * 2.4, 0.7);
-    tsTreble.setHighShelf (sr, 1800.0, (treble - 5.0) * 2.4);
-    tsPresence.setHighShelf (sr, 4500.0, (pres - 5.0) * 1.8);
+    tsBass[lane].setLowShelf (sr, 150.0, (bass - 5.0) * 2.4);
+    tsMid[lane].setPeak (sr, 500.0, (mid - 5.0) * 2.4, 0.7);
+    tsTreble[lane].setHighShelf (sr, 1800.0, (treble - 5.0) * 2.4);
+    tsPresence[lane].setHighShelf (sr, 4500.0, (pres - 5.0) * 1.8);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::createParameterLayout()
@@ -232,24 +232,29 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { "autoEco", 1 }, "Auto Eco", true));
 
-    // Painel do amp: GAIN empurra o sinal para dentro do capture (como o
-    // gain do amp real); tone stack + presence pós-modelo; MASTER na saída
-    // da seção do amp.
-    layout.add (std::make_unique<FloatParam> (
-        juce::ParameterID { kParamAmpGain, 1 }, "Amp Gain",
-        juce::NormalisableRange<float> (-20.0f, 20.0f, 0.1f), 0.0f, dB));
+    // Painel do amp POR LANE (até 3 rigs em paralelo): GAIN empurra o sinal
+    // para dentro do capture; tone stack + presence pós-modelo; MASTER na
+    // saída da lane. Lane 1 mantém os ids legados.
     auto zeroToTen = juce::NormalisableRange<float> (0.0f, 10.0f, 0.1f);
-    layout.add (std::make_unique<FloatParam> (
-        juce::ParameterID { kParamAmpBass, 1 }, "Bass", zeroToTen, 5.0f));
-    layout.add (std::make_unique<FloatParam> (
-        juce::ParameterID { kParamAmpMid, 1 }, "Mid", zeroToTen, 5.0f));
-    layout.add (std::make_unique<FloatParam> (
-        juce::ParameterID { kParamAmpTreble, 1 }, "Treble", zeroToTen, 5.0f));
-    layout.add (std::make_unique<FloatParam> (
-        juce::ParameterID { kParamAmpPresence, 1 }, "Presence", zeroToTen, 5.0f));
-    layout.add (std::make_unique<FloatParam> (
-        juce::ParameterID { kParamAmpMaster, 1 }, "Amp Master",
-        juce::NormalisableRange<float> (-20.0f, 10.0f, 0.1f), 0.0f, dB));
+    for (int r = 0; r < 3; ++r)
+    {
+        const auto prefix = r == 0 ? juce::String ("amp") : "amp" + juce::String (r + 1);
+        const auto label = r == 0 ? juce::String ("Amp ") : "Amp " + juce::String (r + 1) + " ";
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { prefix + "Gain", 1 }, label + "Gain",
+            juce::NormalisableRange<float> (-20.0f, 20.0f, 0.1f), 0.0f, dB));
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { prefix + "Bass", 1 }, label + "Bass", zeroToTen, 5.0f));
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { prefix + "Mid", 1 }, label + "Mid", zeroToTen, 5.0f));
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { prefix + "Treble", 1 }, label + "Treble", zeroToTen, 5.0f));
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { prefix + "Presence", 1 }, label + "Presence", zeroToTen, 5.0f));
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { prefix + "Master", 1 }, label + "Master",
+            juce::NormalisableRange<float> (-20.0f, 10.0f, 0.1f), 0.0f, dB));
+    }
 
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { kParamGateOn, 1 }, "Gate On", true));
@@ -340,9 +345,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
     layout.add (std::make_unique<FloatParam> (
         juce::ParameterID { kParamCabAir, 1 }, "Cab Air", zeroTen, 0.0f));
 
-    // cabs paralelos (1..3), com blend/low cut/high cut/phase POR slot
+    // rigs paralelos (1..3 pares AMP+CAB) — "cabCount" mantém o id legado
+    // mas agora conta RIGS; blend do Mixer + low/high cut/phase POR lane
     layout.add (std::make_unique<juce::AudioParameterInt> (
-        juce::ParameterID { "cabCount", 1 }, "Cab Count", 1, maxCabSlots, 1));
+        juce::ParameterID { "cabCount", 1 }, "Rig Count", 1, maxRigs, 1));
     for (int s = 0; s < maxCabSlots; ++s)
     {
         const auto n = juce::String (s + 1);
@@ -417,12 +423,16 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pAmpOn = apvts.getRawParameterValue (kParamAmpOn);
     pAmpEco = apvts.getRawParameterValue ("ampEco");
     pAutoEco = apvts.getRawParameterValue ("autoEco");
-    pAmpGain = apvts.getRawParameterValue (kParamAmpGain);
-    pAmpBass = apvts.getRawParameterValue (kParamAmpBass);
-    pAmpMid = apvts.getRawParameterValue (kParamAmpMid);
-    pAmpTreble = apvts.getRawParameterValue (kParamAmpTreble);
-    pAmpPresence = apvts.getRawParameterValue (kParamAmpPresence);
-    pAmpMaster = apvts.getRawParameterValue (kParamAmpMaster);
+    for (int r = 0; r < maxRigs; ++r)
+    {
+        const auto prefix = r == 0 ? juce::String ("amp") : "amp" + juce::String (r + 1);
+        pAmpGain[r] = apvts.getRawParameterValue (prefix + "Gain");
+        pAmpBass[r] = apvts.getRawParameterValue (prefix + "Bass");
+        pAmpMid[r] = apvts.getRawParameterValue (prefix + "Mid");
+        pAmpTreble[r] = apvts.getRawParameterValue (prefix + "Treble");
+        pAmpPresence[r] = apvts.getRawParameterValue (prefix + "Presence");
+        pAmpMaster[r] = apvts.getRawParameterValue (prefix + "Master");
+    }
     pGateOn = apvts.getRawParameterValue (kParamGateOn);
     pGateThresh = apvts.getRawParameterValue (kParamGateThresh);
     pGateRelease = apvts.getRawParameterValue (kParamGateRelease);
@@ -483,8 +493,11 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
 GuitarRigNAMProcessor::~GuitarRigNAMProcessor()
 {
     loaderPool.removeAllJobs (true, 5000);
-    delete pendingModel.exchange (nullptr);
-    delete retiredModel.exchange (nullptr);
+    for (int r = 0; r < maxRigs; ++r)
+    {
+        delete pendingModels[r].exchange (nullptr);
+        delete retiredModels[r].exchange (nullptr);
+    }
 }
 
 void GuitarRigNAMProcessor::prepareLoadedModel (LoadedModel& lm, double hostRate, int blockSize) const
@@ -544,13 +557,19 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     }
 
     // Força o recálculo dos filtros no novo sample rate e zera os estados.
-    tsCachedBass = -1.0f;
+    for (int r = 0; r < maxRigs; ++r)
+    {
+        tsCachedBass[r] = -1.0f;
+        tsBass[r].reset();
+        tsMid[r].reset();
+        tsTreble[r].reset();
+        tsPresence[r].reset();
+    }
     odCachedTone = -1.0f;
     eqCachedLow = -99.0f;
     airCached = -1.0f;
     revCachedDecay = -1.0f;
-    for (auto* f : { &tsBass, &tsMid, &tsTreble, &tsPresence, &odHp, &odToneLp,
-                     &eqLowF, &eqMidF, &eqHighF, &airF })
+    for (auto* f : { &odHp, &odToneLp, &eqLowF, &eqMidF, &eqHighF, &airF })
         f->reset();
     odHp.setHighPass (sampleRate, 120.0, 0.707);
 
@@ -590,20 +609,25 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     wetScratch.setSize (1, samplesPerBlock);
 
     // prepareToPlay não é concorrente com processBlock; pode alocar/tocar nos
-    // modelos ativo e pendente (o loader não toca no pendente após publicar).
-    if (activeModel != nullptr)
-        prepareLoadedModel (*activeModel, sampleRate, samplesPerBlock);
-
-    if (auto* p = pendingModel.load())
-        prepareLoadedModel (*p, sampleRate, samplesPerBlock);
-
-    if (activeModel != nullptr)
-        setLatencySamples (activeModel->latencySamples);
+    // modelos ativos e pendentes (o loader não toca no pendente após publicar).
+    int maxLatency = 0;
+    for (int r = 0; r < maxRigs; ++r)
+    {
+        if (activeModels[r] != nullptr)
+        {
+            prepareLoadedModel (*activeModels[r], sampleRate, samplesPerBlock);
+            maxLatency = juce::jmax (maxLatency, activeModels[r]->latencySamples);
+        }
+        if (auto* p = pendingModels[r].load())
+            prepareLoadedModel (*p, sampleRate, samplesPerBlock);
+    }
+    setLatencySamples (maxLatency);
 }
 
 void GuitarRigNAMProcessor::releaseResources()
 {
-    delete retiredModel.exchange (nullptr);
+    for (int r = 0; r < maxRigs; ++r)
+        delete retiredModels[r].exchange (nullptr);
 }
 
 bool GuitarRigNAMProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -630,12 +654,25 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     const int numIn = getTotalNumInputChannels();
     const int numOut = getTotalNumOutputChannels();
 
-    if (auto* p = pendingModel.exchange (nullptr))
+    for (int r = 0; r < maxRigs; ++r)
     {
-        retiredModel.store (activeModel.release());
-        activeModel.reset (p);
-        modelIsActive.store (true);
-        resamplingActive.store (activeModel->resampler != nullptr);
+        if (auto* p = pendingModels[r].exchange (nullptr))
+        {
+            retiredModels[r].store (activeModels[r].release());
+            if (p->model == nullptr)
+            {
+                // sentinela de "descarregar lane": publica um LoadedModel vazio
+                delete p;
+                modelIsActive[r].store (false);
+                resamplingActive[r].store (false);
+            }
+            else
+            {
+                activeModels[r].reset (p);
+                modelIsActive[r].store (true);
+                resamplingActive[r].store (activeModels[r]->resampler != nullptr);
+            }
+        }
     }
 
     const float inGain = juce::Decibels::decibelsToGain (pInputGain->load());
@@ -1130,11 +1167,18 @@ void GuitarRigNAMProcessor::processModFx (float* io, int n)
 
 void GuitarRigNAMProcessor::processAmpAndCabs (juce::AudioBuffer<float>& buffer, float* io, int n)
 {
-    // ---- amp NAM (com resampler quando o SR do capture difere do host):
-    //      GAIN -> modelo -> tone stack (B/M/T/Pres) -> MASTER
-    if (activeModel != nullptr && pAmpOn->load() > 0.5f)
+    // ---- até 3 lanes AMP+CAB em paralelo, sempre em dupla (capture + IR),
+    //      somadas no Mixer: por lane, GAIN -> modelo NAM (resampler se
+    //      preciso) -> tone stack -> MASTER -> IR -> LC/HC/fase -> blend.
+    const bool ampOn = pAmpOn->load() > 0.5f;
+    const bool cabOn = pCabOn->load() > 0.5f;
+    const int count = juce::jlimit (1, (int) maxRigs, (int) pCabCount->load());
+
+    auto processAmpLane = [this] (int r, float* lane, int n)
     {
-        buffer.applyGain (0, 0, n, juce::Decibels::decibelsToGain (pAmpGain->load()));
+        auto& lm = *activeModels[r];
+        juce::FloatVectorOperations::multiply (
+            lane, juce::Decibels::decibelsToGain (pAmpGain[r]->load()), n);
 
         float* scratch = monoScratch.getWritePointer (0);
         const int maxChunk = monoScratch.getNumSamples();
@@ -1144,73 +1188,84 @@ void GuitarRigNAMProcessor::processAmpAndCabs (juce::AudioBuffer<float>& buffer,
         for (int pos = 0; pos < n; pos += maxChunk)
         {
             const int len = juce::jmin (maxChunk, n - pos);
-            float* in = io + pos;
+            float* in = lane + pos;
 
-            if (activeModel->resampler != nullptr)
-                activeModel->resampler->ProcessBlock (&in, &scratch, len, activeModel->func);
+            if (lm.resampler != nullptr)
+                lm.resampler->ProcessBlock (&in, &scratch, len, lm.func);
             else
-                activeModel->model->process (&in, &scratch, len);
+                lm.model->process (&in, &scratch, len);
 
-            juce::FloatVectorOperations::copy (io + pos, scratch, len);
+            juce::FloatVectorOperations::copy (lane + pos, scratch, len);
         }
 
-        updateToneStackIfNeeded();
+        updateToneStackIfNeeded (r);
         for (int i = 0; i < n; ++i)
-            io[i] = tsPresence.process (tsTreble.process (tsMid.process (tsBass.process (io[i]))));
+            lane[i] = tsPresence[r].process (tsTreble[r].process (
+                tsMid[r].process (tsBass[r].process (lane[i]))));
 
-        buffer.applyGain (0, 0, n, juce::Decibels::decibelsToGain (pAmpMaster->load()));
+        juce::FloatVectorOperations::multiply (
+            lane, juce::Decibels::decibelsToGain (pAmpMaster[r]->load()), n);
+    };
+
+    // Fallback raríssimo (bloco maior que o preparado): processa só a lane 1
+    // in-place, sem mix — mantém áudio sem tocar em buffers pequenos demais.
+    if (n > cabDryBuf.getNumSamples())
+    {
+        if (ampOn && activeModels[0] != nullptr)
+            processAmpLane (0, io, n);
+        return;
     }
 
-    // ---- cabs em paralelo (até 3 IRs -> mixer de blend por slot)
-    if (pCabOn->load() > 0.5f && n <= cabDryBuf.getNumSamples())
+    juce::FloatVectorOperations::copy (cabDryBuf.getWritePointer (0), io, n);
+    cabAccBuf.clear (0, 0, n);
+
+    for (int r = 0; r < count; ++r)
     {
-        const int count = juce::jlimit (1, (int) maxCabSlots, (int) pCabCount->load());
+        float* lane = cabSlotBuf.getWritePointer (0);
+        juce::FloatVectorOperations::copy (lane, cabDryBuf.getReadPointer (0), n);
 
-        juce::FloatVectorOperations::copy (cabDryBuf.getWritePointer (0), io, n);
-        cabAccBuf.clear (0, 0, n);
+        if (ampOn && activeModels[r] != nullptr)
+            processAmpLane (r, lane, n);
 
-        for (int s = 0; s < count; ++s)
+        if (cabOn)
         {
-            float* slot = cabSlotBuf.getWritePointer (0);
-            juce::FloatVectorOperations::copy (slot, cabDryBuf.getReadPointer (0), n);
-
-            if (irLoadedFlags[s].load() && convolutions[s].getCurrentIRSize() > 0)
+            if (irLoadedFlags[r].load() && convolutions[r].getCurrentIRSize() > 0)
             {
-                juce::dsp::AudioBlock<float> block (&slot, 1, (size_t) n);
+                juce::dsp::AudioBlock<float> block (&lane, 1, (size_t) n);
                 juce::dsp::ProcessContextReplacing<float> ctx (block);
-                convolutions[s].process (ctx);
+                convolutions[r].process (ctx);
             }
 
-            updateCabSlotFilters (s);
-            const bool lcOn = pCabLowCut[s]->load() > 22.0f;
-            const bool hcOn = pCabHighCut[s]->load() < 19000.0f;
+            updateCabSlotFilters (r);
+            const bool lcOn = pCabLowCut[r]->load() > 22.0f;
+            const bool hcOn = pCabHighCut[r]->load() < 19000.0f;
             if (lcOn || hcOn)
                 for (int i = 0; i < n; ++i)
                 {
-                    float v = slot[i];
-                    if (lcOn) v = cabLc[s].process (v);
-                    if (hcOn) v = cabHc[s].process (v);
-                    slot[i] = v;
+                    float v = lane[i];
+                    if (lcOn) v = cabLc[r].process (v);
+                    if (hcOn) v = cabHc[r].process (v);
+                    lane[i] = v;
                 }
-
-            // blend por slot (+ inversão de fase)
-            const float g = (pCabBlend[s]->load() / 100.0f)
-                            * (pCabPhase[s]->load() > 0.5f ? -1.0f : 1.0f);
-            if (g != 0.0f)
-                juce::FloatVectorOperations::addWithMultiply (
-                    cabAccBuf.getWritePointer (0), slot, g, n);
         }
 
-        juce::FloatVectorOperations::copy (io, cabAccBuf.getReadPointer (0), n);
-        buffer.applyGain (0, 0, n, juce::Decibels::decibelsToGain (pCabLevel->load()));
+        // Mixer: blend por lane (+ inversão de fase)
+        const float g = (pCabBlend[r]->load() / 100.0f)
+                        * (pCabPhase[r]->load() > 0.5f ? -1.0f : 1.0f);
+        if (g != 0.0f)
+            juce::FloatVectorOperations::addWithMultiply (
+                cabAccBuf.getWritePointer (0), lane, g, n);
+    }
 
-        // AIR: shelf de agudos pós-mix
-        if (pCabAir->load() > 0.05f)
-        {
-            updateAirIfNeeded();
-            for (int i = 0; i < n; ++i)
-                io[i] = airF.process (io[i]);
-        }
+    juce::FloatVectorOperations::copy (io, cabAccBuf.getReadPointer (0), n);
+    buffer.applyGain (0, 0, n, juce::Decibels::decibelsToGain (pCabLevel->load()));
+
+    // AIR: shelf de agudos pós-mix (global)
+    if (cabOn && pCabAir->load() > 0.05f)
+    {
+        updateAirIfNeeded();
+        for (int i = 0; i < n; ++i)
+            io[i] = airF.process (io[i]);
     }
 }
 
@@ -1313,11 +1368,14 @@ void GuitarRigNAMProcessor::setChainOrder (const juce::StringArray& ids)
 }
 
 //==============================================================================
-void GuitarRigNAMProcessor::loadModelAsync (const juce::File& file)
+void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
 {
+    if (lane < 0 || lane >= maxRigs)
+        return;
+
     loading.store (true);
 
-    loaderPool.addJob ([this, file]
+    loaderPool.addJob ([this, lane, file]
     {
         auto lm = std::make_unique<LoadedModel>();
         juce::String error;
@@ -1387,67 +1445,105 @@ void GuitarRigNAMProcessor::loadModelAsync (const juce::File& file)
 
         {
             const juce::ScopedLock sl (modelInfoLock);
-            modelName = file.getFileNameWithoutExtension();
-            modelPath = file.getFullPathName();
-            modelExpectedSampleRate = lm->modelSampleRate;
-            modelArchLabel = archLabel;
+            modelNames[lane] = file.getFileNameWithoutExtension();
+            modelPaths[lane] = file.getFullPathName();
+            modelExpectedSampleRates[lane] = lm->modelSampleRate;
+            modelArchLabels[lane] = archLabel;
             loadError.clear();
         }
 
         const int latency = lm->latencySamples;
 
-        delete retiredModel.exchange (nullptr);
-        delete pendingModel.exchange (lm.release());
+        delete retiredModels[lane].exchange (nullptr);
+        delete pendingModels[lane].exchange (lm.release());
 
         juce::MessageManager::callAsync ([this, latency]
         {
-            setLatencySamples (latency);
+            setLatencySamples (juce::jmax (getLatencySamples(), latency));
         });
 
         loading.store (false);
     });
 }
 
-void GuitarRigNAMProcessor::setModelPair (const juce::File& normal, const juce::File& eco)
+void GuitarRigNAMProcessor::setModelPair (int lane, const juce::File& normal, const juce::File& eco)
 {
+    if (lane < 0 || lane >= maxRigs)
+        return;
+
     {
         const juce::ScopedLock sl (modelInfoLock);
-        modelPathStd = normal.getFullPathName();
-        modelPathEco = eco.existsAsFile() ? eco.getFullPathName() : juce::String();
+        modelPathsStd[lane] = normal.getFullPathName();
+        modelPathsEco[lane] = eco.existsAsFile() ? eco.getFullPathName() : juce::String();
     }
 
     const bool wantEco = pAmpEco->load() > 0.5f && eco.existsAsFile();
-    loadModelAsync (wantEco ? eco : normal);
+    loadModelAsync (lane, wantEco ? eco : normal);
 }
 
-juce::String GuitarRigNAMProcessor::getModelPathNormal() const
+int GuitarRigNAMProcessor::firstFreeModelLane() const
 {
+    const int count = getRigCount();
     const juce::ScopedLock sl (modelInfoLock);
-    return modelPathStd;
+    for (int r = 0; r < count; ++r)
+        if (modelPaths[r].isEmpty())
+            return r;
+    return -1;
 }
 
-juce::String GuitarRigNAMProcessor::getModelPathEco() const
+int GuitarRigNAMProcessor::getRigCount() const
 {
-    const juce::ScopedLock sl (modelInfoLock);
-    return modelPathEco;
+    return juce::jlimit (1, (int) maxRigs, (int) pCabCount->load());
 }
 
-juce::String GuitarRigNAMProcessor::getModelArchLabel() const
+bool GuitarRigNAMProcessor::isModelFileLoaded (const juce::String& fullPath) const
 {
+    const int count = getRigCount();
     const juce::ScopedLock sl (modelInfoLock);
-    return modelArchLabel;
+    for (int r = 0; r < count; ++r)
+        if (modelPaths[r] == fullPath)
+            return true;
+    return false;
 }
 
-juce::String GuitarRigNAMProcessor::getModelName() const
+juce::String GuitarRigNAMProcessor::getModelPathNormal (int lane) const
 {
+    if (lane < 0 || lane >= maxRigs)
+        return {};
     const juce::ScopedLock sl (modelInfoLock);
-    return modelName;
+    return modelPathsStd[lane];
 }
 
-juce::String GuitarRigNAMProcessor::getModelPath() const
+juce::String GuitarRigNAMProcessor::getModelPathEco (int lane) const
 {
+    if (lane < 0 || lane >= maxRigs)
+        return {};
     const juce::ScopedLock sl (modelInfoLock);
-    return modelPath;
+    return modelPathsEco[lane];
+}
+
+juce::String GuitarRigNAMProcessor::getModelArchLabel (int lane) const
+{
+    if (lane < 0 || lane >= maxRigs)
+        return {};
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelArchLabels[lane];
+}
+
+juce::String GuitarRigNAMProcessor::getModelName (int lane) const
+{
+    if (lane < 0 || lane >= maxRigs)
+        return {};
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelNames[lane];
+}
+
+juce::String GuitarRigNAMProcessor::getModelPath (int lane) const
+{
+    if (lane < 0 || lane >= maxRigs)
+        return {};
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelPaths[lane];
 }
 
 juce::String GuitarRigNAMProcessor::getLoadError() const
@@ -1456,10 +1552,12 @@ juce::String GuitarRigNAMProcessor::getLoadError() const
     return loadError;
 }
 
-double GuitarRigNAMProcessor::getModelExpectedSampleRate() const
+double GuitarRigNAMProcessor::getModelExpectedSampleRate (int lane) const
 {
+    if (lane < 0 || lane >= maxRigs)
+        return -1.0;
     const juce::ScopedLock sl (modelInfoLock);
-    return modelExpectedSampleRate;
+    return modelExpectedSampleRates[lane];
 }
 
 //==============================================================================
@@ -1539,9 +1637,14 @@ void GuitarRigNAMProcessor::updateCabSlotFilters (int slot)
 juce::ValueTree GuitarRigNAMProcessor::captureState()
 {
     auto state = apvts.copyState();
-    state.setProperty (kStateModelPath, getModelPath(), nullptr);
-    state.setProperty ("modelPathStd", getModelPathNormal(), nullptr);
-    state.setProperty ("modelPathEco", getModelPathEco(), nullptr);
+    for (int r = 0; r < maxRigs; ++r)
+    {
+        // lane 1 mantém as chaves legadas (sem número)
+        const auto suffix = r == 0 ? juce::String() : juce::String (r + 1);
+        state.setProperty (kStateModelPath + suffix, getModelPath (r), nullptr);
+        state.setProperty ("modelPathStd" + suffix, getModelPathNormal (r), nullptr);
+        state.setProperty ("modelPathEco" + suffix, getModelPathEco (r), nullptr);
+    }
     for (int s = 0; s < maxCabSlots; ++s)
         state.setProperty ("irPath" + juce::String (s + 1), getIrPath (s), nullptr);
     state.setProperty ("chainOrder", getChainOrder().joinIntoString (","), nullptr);
@@ -1556,18 +1659,23 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
 
     apvts.replaceState (state);
 
-    // par ECO: formato novo tem modelPathStd/Eco; legado só modelPath
-    const juce::File modelFile (state.getProperty (kStateModelPath, "").toString());
-    const juce::File stdFile (state.getProperty ("modelPathStd",
-                                                 modelFile.getFullPathName()).toString());
-    const juce::File ecoFile (state.getProperty ("modelPathEco", "").toString());
+    // por lane: par ECO (formato novo tem modelPathStd/Eco; legado só
+    // modelPath). Lane 1 usa as chaves legadas sem número.
+    for (int r = 0; r < maxRigs; ++r)
     {
-        const juce::ScopedLock sl (modelInfoLock);
-        modelPathStd = stdFile.existsAsFile() ? stdFile.getFullPathName() : juce::String();
-        modelPathEco = ecoFile.existsAsFile() ? ecoFile.getFullPathName() : juce::String();
+        const auto suffix = r == 0 ? juce::String() : juce::String (r + 1);
+        const juce::File modelFile (state.getProperty (kStateModelPath + suffix, "").toString());
+        const juce::File stdFile (state.getProperty ("modelPathStd" + suffix,
+                                                     modelFile.getFullPathName()).toString());
+        const juce::File ecoFile (state.getProperty ("modelPathEco" + suffix, "").toString());
+        {
+            const juce::ScopedLock sl (modelInfoLock);
+            modelPathsStd[r] = stdFile.existsAsFile() ? stdFile.getFullPathName() : juce::String();
+            modelPathsEco[r] = ecoFile.existsAsFile() ? ecoFile.getFullPathName() : juce::String();
+        }
+        if (modelFile.existsAsFile())
+            loadModelAsync (r, modelFile);
     }
-    if (modelFile.existsAsFile())
-        loadModelAsync (modelFile);
 
     for (int s = 0; s < maxCabSlots; ++s)
     {

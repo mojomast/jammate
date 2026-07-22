@@ -87,25 +87,27 @@ public:
 class ChainView : public juce::Component
 {
 public:
-    ChainView (GuitarRigNAMProcessor&, std::function<void()> onLoadModel,
+    ChainView (GuitarRigNAMProcessor&, std::function<void (int)> onLoadModel,
                std::function<void (int)> onLoadIr);
 
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    // drag-and-drop de reordenação (amp+cabs são âncora fixa)
+    // drag-and-drop de reordenação (rigs+mixer são âncora fixa)
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
 
-    void setAmpImage (juce::Image);
-    void setCabImage (juce::Image);
+    void setAmpImage (int lane, juce::Image);
+    void setCabImage (int lane, juce::Image);
     void refreshDynamicText();
 
     static constexpr int chainHeight = 580;
 
 private:
-    int cabCardWidth() const;
+    static constexpr int maxRigs = GuitarRigNAMProcessor::maxRigs;
+
+    int rigBlockWidth() const;
     void updateLayout();
 
     // entradas da cadeia na ordem visual (efeito ou bloco amp+cabs)
@@ -134,9 +136,11 @@ private:
 
     GuitarRigNAMProcessor& processor;
 
-    juce::Rectangle<int> ioInB, gateB, odB, ampB, cabB, eqB, delayB, revB, ioOutB;
+    juce::Rectangle<int> ioInB, gateB, odB, eqB, delayB, revB, ioOutB;
     juce::Rectangle<int> compB, preEqB;
-    juce::Image ampImage, cabImage;
+    // rigs paralelos: um par amp+cab por lane + o card Mixer que soma tudo
+    juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs], mixerB;
+    juce::Image ampImages[maxRigs], cabImages[maxRigs];
 
     // knobs / LEDs / botões
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
@@ -161,21 +165,24 @@ private:
     juce::int64 lastTapMs = 0;
     void applyTapTempo();
     std::unique_ptr<KnobComponent> odDriveKnob, odToneKnob, odLevelKnob;
-    std::unique_ptr<KnobComponent> ampGainKnob, ampBassKnob, ampMidKnob,
-        ampTrebleKnob, ampPresKnob, ampMasterKnob;
-    // cabs paralelos: controles por slot + add/remove; AIR global
+    // amp POR LANE (knobs próprios por rig)
+    std::unique_ptr<KnobComponent> ampGainKnob[maxRigs], ampBassKnob[maxRigs],
+        ampMidKnob[maxRigs], ampTrebleKnob[maxRigs], ampPresKnob[maxRigs],
+        ampMasterKnob[maxRigs];
+    juce::TextButton loadButtons[maxRigs];
+    // cab POR LANE (LC/HC/fase/TROCAR); blend fica no card Mixer
     std::unique_ptr<KnobComponent> cabAirKnob;
-    std::unique_ptr<KnobComponent> cabBlendKnob[GuitarRigNAMProcessor::maxCabSlots];
-    std::unique_ptr<KnobComponent> cabLcKnob[GuitarRigNAMProcessor::maxCabSlots];
-    std::unique_ptr<KnobComponent> cabHcKnob[GuitarRigNAMProcessor::maxCabSlots];
-    juce::TextButton cabPhaseChips[GuitarRigNAMProcessor::maxCabSlots];
-    juce::TextButton cabIrButtons[GuitarRigNAMProcessor::maxCabSlots];
-    juce::TextButton cabAddButton { "+" }, cabRemoveButton { "-" };
-    int lastCabCount = 0;
+    std::unique_ptr<KnobComponent> cabBlendKnob[maxRigs]; // no Mixer
+    std::unique_ptr<KnobComponent> cabLcKnob[maxRigs];
+    std::unique_ptr<KnobComponent> cabHcKnob[maxRigs];
+    juce::TextButton cabPhaseChips[maxRigs];
+    juce::TextButton cabIrButtons[maxRigs];
+    // Mixer: soma das lanes; +/- adiciona/remove um par AMP+CAB inteiro
+    juce::TextButton rigAddButton { "+" }, rigRemoveButton { "-" };
+    int lastRigCount = 0;
     std::unique_ptr<KnobComponent> eqLowKnob, eqMidKnob, eqHighKnob;
     std::unique_ptr<KnobComponent> delayTimeKnob, delayFbKnob, delayMixKnob;
     std::unique_ptr<KnobComponent> revDecayKnob, revMixKnob, revPreKnob;
-    juce::TextButton loadButton { "TROCAR CAPTURE NAM" };
     juce::TextButton ecoChip { "ECO" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ecoAtt;
 
@@ -213,7 +220,7 @@ private:
     void timerCallback() override;
     void analyseTuner();
     void refreshSidecarImages();
-    void chooseModelFile();
+    void chooseModelFile (int lane);
     void chooseIrFile (int slot);
     void saveCurrentPreset();
     void beginPresetNameEdit();
@@ -259,9 +266,11 @@ private:
     int tunerStringIndex = -1;
     int tunerTick = 0;
 
-    // sidecars de imagem
-    juce::String loadedModelPath, loadedIrPath;
-    bool ampImageLoaded = false, cabImageLoaded = false;
+    // sidecars de imagem (por lane de rig)
+    juce::String loadedModelPaths[GuitarRigNAMProcessor::maxRigs];
+    juce::String loadedIrPaths[GuitarRigNAMProcessor::maxRigs];
+    bool ampImagesLoaded[GuitarRigNAMProcessor::maxRigs] = {};
+    bool cabImagesLoaded[GuitarRigNAMProcessor::maxRigs] = {};
 
     float inMeterDb = -80.0f, outMeterDb = -80.0f;
 

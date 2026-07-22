@@ -50,35 +50,60 @@ public:
     void setStateInformation (const void*, int) override;
 
     //==========================================================================
-    // Modelo NAM (message thread)
+    // Modelos NAM — até 3 rigs AMP+CAB em paralelo (um capture por lane),
+    // somados no card Mixer. (message thread)
 
-    void loadModelAsync (const juce::File& file);
+    static constexpr int maxRigs = 3;
+
+    void loadModelAsync (int lane, const juce::File& file);
     bool isLoadingModel() const noexcept { return loading.load(); }
-    juce::String getModelName() const;
-    juce::String getModelPath() const;
+    juce::String getModelName (int lane) const;
+    juce::String getModelPath (int lane) const;
     juce::String getLoadError() const;
-    double getModelExpectedSampleRate() const;
-    bool hasModelLoaded() const noexcept { return modelIsActive.load(); }
-    /// true quando o modelo ativo roda via resampler (SR do capture != host).
-    bool isResampling() const noexcept { return resamplingActive.load(); }
+    double getModelExpectedSampleRate (int lane) const;
+    bool hasModelLoaded (int lane) const noexcept
+    {
+        return lane >= 0 && lane < maxRigs && modelIsActive[lane].load();
+    }
+    bool anyModelLoaded() const noexcept
+    {
+        for (int r = 0; r < maxRigs; ++r)
+            if (modelIsActive[r].load())
+                return true;
+        return false;
+    }
+    bool isResampling (int lane) const noexcept
+    {
+        return lane >= 0 && lane < maxRigs && resamplingActive[lane].load();
+    }
+    /// Primeira lane ativa sem capture; -1 se todas ocupadas.
+    int firstFreeModelLane() const;
+    /// Número de rigs (pares amp+cab) ativos.
+    int getRigCount() const;
+    /// true se o arquivo está carregado em QUALQUER lane ativa.
+    bool isModelFileLoaded (const juce::String& fullPath) const;
 
     //==========================================================================
-    // ECO: par de arquivos do mesmo capture (normal + versão mais leve).
-    // O chip ECO/auto-ECO troca qual dos dois está carregado.
+    // ECO: par de arquivos do mesmo capture (normal + versão mais leve),
+    // por lane. O chip ECO/auto-ECO troca qual dos dois está carregado.
 
-    /// Define o par normal/eco (eco pode ser vazio) e carrega o apropriado
-    /// conforme o parâmetro ampEco atual.
-    void setModelPair (const juce::File& normal, const juce::File& eco);
-    juce::String getModelPathNormal() const;
-    juce::String getModelPathEco() const;
-    bool hasEcoVariant() const { return getModelPathEco().isNotEmpty(); }
-    /// "V1", "V2" ou "" (arquitetura do capture carregado).
-    juce::String getModelArchLabel() const;
+    void setModelPair (int lane, const juce::File& normal, const juce::File& eco);
+    juce::String getModelPathNormal (int lane) const;
+    juce::String getModelPathEco (int lane) const;
+    bool hasEcoVariant() const
+    {
+        for (int r = 0; r < maxRigs; ++r)
+            if (getModelPathEco (r).isNotEmpty())
+                return true;
+        return false;
+    }
+    /// "V1", "V2" ou "" (arquitetura do capture da lane).
+    juce::String getModelArchLabel (int lane) const;
 
     //==========================================================================
-    // Cab IR — até 3 slots em paralelo (message thread)
+    // Cab IR — um por lane de rig (message thread)
 
-    static constexpr int maxCabSlots = 3;
+    static constexpr int maxCabSlots = maxRigs;
 
     void loadIrAsync (int slot, const juce::File& file);
     juce::String getIrName (int slot) const;
@@ -178,12 +203,12 @@ private:
     juce::int64 savedFingerprint = 0;            // baseline do preset atual
     std::atomic<bool> baselinePending { false }; // aguardando load assíncrono
 
-    // Troca RT-safe (mesmo protocolo da Fase 2, agora com LoadedModel):
-    std::unique_ptr<LoadedModel> activeModel;            // só thread de áudio
-    std::atomic<LoadedModel*> pendingModel { nullptr };  // loader -> áudio
-    std::atomic<LoadedModel*> retiredModel { nullptr };  // áudio -> loader/dtor
-    std::atomic<bool> modelIsActive { false };
-    std::atomic<bool> resamplingActive { false };
+    // Troca RT-safe por lane (protocolo pending/retired):
+    std::unique_ptr<LoadedModel> activeModels[maxRigs];       // só thread de áudio
+    std::atomic<LoadedModel*> pendingModels[maxRigs] = {};    // loader -> áudio
+    std::atomic<LoadedModel*> retiredModels[maxRigs] = {};    // áudio -> loader/dtor
+    std::atomic<bool> modelIsActive[maxRigs] = {};
+    std::atomic<bool> resamplingActive[maxRigs] = {};
 
     std::atomic<double> hostSampleRate { 48000.0 };
     std::atomic<int> preparedBlockSize { 512 };
@@ -192,12 +217,11 @@ private:
     std::atomic<bool> loading { false };
 
     mutable juce::CriticalSection modelInfoLock;
-    juce::String modelName, modelPath, loadError;        // sob modelInfoLock
-    juce::String modelPathStd, modelPathEco;             // par ECO, sob modelInfoLock
-    juce::String modelArchLabel;                         // "V1"/"V2", sob modelInfoLock
-    juce::String irName, irPath;                         // sob modelInfoLock
+    juce::String modelNames[maxRigs], modelPaths[maxRigs], loadError;   // sob modelInfoLock
+    juce::String modelPathsStd[maxRigs], modelPathsEco[maxRigs];        // par ECO
+    juce::String modelArchLabels[maxRigs];                              // "V1"/"V2"
+    double modelExpectedSampleRates[maxRigs] = { -1.0, -1.0, -1.0 };
     juce::String currentPresetName;                      // sob modelInfoLock
-    double modelExpectedSampleRate = -1.0;               // sob modelInfoLock
 
     juce::AudioBuffer<float> monoScratch;
 
@@ -262,12 +286,14 @@ private:
     std::atomic<float>* pAmpOn = nullptr;
     std::atomic<float>* pAmpEco = nullptr;
     std::atomic<float>* pAutoEco = nullptr;
-    std::atomic<float>* pAmpGain = nullptr;
-    std::atomic<float>* pAmpBass = nullptr;
-    std::atomic<float>* pAmpMid = nullptr;
-    std::atomic<float>* pAmpTreble = nullptr;
-    std::atomic<float>* pAmpPresence = nullptr;
-    std::atomic<float>* pAmpMaster = nullptr;
+    // knobs do amp POR LANE (lane 0 usa os ids legados "ampGain" etc.;
+    // lanes 1/2 usam "amp2Gain"/"amp3Gain" etc.)
+    std::atomic<float>* pAmpGain[maxRigs] = {};
+    std::atomic<float>* pAmpBass[maxRigs] = {};
+    std::atomic<float>* pAmpMid[maxRigs] = {};
+    std::atomic<float>* pAmpTreble[maxRigs] = {};
+    std::atomic<float>* pAmpPresence[maxRigs] = {};
+    std::atomic<float>* pAmpMaster[maxRigs] = {};
     std::atomic<float>* pGateOn = nullptr;
     std::atomic<float>* pGateThresh = nullptr;
     std::atomic<float>* pGateRelease = nullptr;
@@ -328,14 +354,16 @@ private:
         float z1 = 0.0f, z2 = 0.0f;
     };
 
-    void updateToneStackIfNeeded();
+    void updateToneStackIfNeeded (int lane);
     void updateOdIfNeeded();
     void updateEqIfNeeded();
     void updateAirIfNeeded();
 
-    Biquad tsBass, tsMid, tsTreble, tsPresence;
-    float tsCachedBass = -1.0f, tsCachedMid = -1.0f,
-          tsCachedTreble = -1.0f, tsCachedPresence = -1.0f;
+    Biquad tsBass[maxRigs], tsMid[maxRigs], tsTreble[maxRigs], tsPresence[maxRigs];
+    float tsCachedBass[maxRigs] = { -1.0f, -1.0f, -1.0f };
+    float tsCachedMid[maxRigs] = { -1.0f, -1.0f, -1.0f };
+    float tsCachedTreble[maxRigs] = { -1.0f, -1.0f, -1.0f };
+    float tsCachedPresence[maxRigs] = { -1.0f, -1.0f, -1.0f };
 
     // Overdrive (pré-amp): HP -> clip (por variação) -> tone LP -> pós-filtro
     Biquad odHp, odToneLp, odPost;

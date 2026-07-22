@@ -430,9 +430,7 @@ void StoreOverlay::timerCallback()
 
 void StoreOverlay::updateRigStatuses()
 {
-    const auto modelPath = processor.getModelPath();
-    // IRs: qualquer slot ativo conta como "no rig"
-
+    // captures e IRs: qualquer lane/slot ativa conta como "no rig"
     for (auto* card : cards)
     {
         if (card->getStatus() == ToneCardComponent::Status::downloading)
@@ -442,7 +440,8 @@ void StoreOverlay::updateRigStatuses()
         if (file == juce::File())
             continue;
 
-        const bool inRig = file.getFullPathName() == modelPath || processor.isIrFileLoaded (file.getFullPathName());
+        const bool inRig = processor.isModelFileLoaded (file.getFullPathName())
+                           || processor.isIrFileLoaded (file.getFullPathName());
         const auto wanted = inRig ? ToneCardComponent::Status::inRig
                                   : ToneCardComponent::Status::add;
         if (card->getStatus() != wanted)
@@ -650,6 +649,9 @@ void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
 {
     writeModelMeta (mainFile, chosen);
 
+    // lane destino: primeira lane livre; todas ocupadas -> substitui a 1ª
+    const int lane = juce::jmax (0, processor.firstFreeModelLane());
+
     // par ECO: mesma variação (nome), tamanho mais leve mais próximo
     const Tone3000Client::Model* partner = nullptr;
     if (const auto it = modelsCache.find (toneId); it != modelsCache.end())
@@ -667,7 +669,7 @@ void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
 
     if (partner == nullptr)
     {
-        processor.setModelPair (mainFile, {});
+        processor.setModelPair (lane, mainFile, {});
         return;
     }
 
@@ -675,21 +677,24 @@ void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
     const auto ecoLocal = Tone3000Client::localFileForModel (*partner, "nam", ecoBase);
     if (ecoLocal.existsAsFile())
     {
-        processor.setModelPair (mainFile, ecoLocal);
+        processor.setModelPair (lane, mainFile, ecoLocal);
         return;
     }
 
     // baixa o par em silêncio; enquanto isso o principal já toca
     // (captura o processor por ponteiro — ele sobrevive ao editor/overlay)
-    processor.setModelPair (mainFile, {});
+    processor.setModelPair (lane, mainFile, {});
     const auto partnerCopy = *partner;
     client.downloadModel (partnerCopy, "nam", ecoBase, [] (int) {},
-        [proc = &processor, mainFile, partnerCopy] (juce::File ecoFile, juce::String error)
+        [proc = &processor, lane, mainFile, partnerCopy] (juce::File ecoFile, juce::String error)
         {
             if (error.isNotEmpty() || ! ecoFile.existsAsFile())
                 return; // sem par eco — chip fica desabilitado
             writeModelMeta (ecoFile, partnerCopy);
-            proc->setModelPair (mainFile, ecoFile);
+            // o usuário pode ter trocado a lane nesse meio-tempo — só
+            // completa o par se o principal ainda estiver nela
+            if (proc->getModelPathNormal (lane) == mainFile.getFullPathName())
+                proc->setModelPair (lane, mainFile, ecoFile);
         });
 }
 
@@ -831,7 +836,8 @@ void StoreOverlay::refreshLibrary()
                 if (ci.gear == "ir")
                     processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), ci.localFile);
                 else
-                    processor.loadModelAsync (ci.localFile);
+                    processor.setModelPair (juce::jmax (0, processor.firstFreeModelLane()),
+                                            ci.localFile, {});
                 // Deferido: refreshLibrary() destrói o cartão que originou o
                 // clique; não podemos deletá-lo dentro do próprio onClick.
                 auto* self = this; // MSVC: 'this' em init-capture de lambda aninhada resolve errado
@@ -856,7 +862,9 @@ void StoreOverlay::refreshLibrary()
     };
 
     for (const auto& f : Tone3000Client::capturesDir().findChildFiles (juce::File::findFiles, false, "*.nam"))
-        addLocal (f, "amp", "NAM", processor.getModelPath());
+        addLocal (f, "amp", "NAM",
+                  processor.isModelFileLoaded (f.getFullPathName()) ? f.getFullPathName()
+                                                                    : juce::String());
     for (const auto& f : Tone3000Client::irsDir().findChildFiles (juce::File::findFiles, false,
                                                                   "*.wav;*.aif;*.aiff;*.flac"))
         addLocal (f, "ir", "IR", processor.isIrFileLoaded (f.getFullPathName()) ? f.getFullPathName() : juce::String());
