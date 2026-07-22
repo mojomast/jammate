@@ -137,8 +137,9 @@ public:
     enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock, comp, preEq, mod,
                                pitch, looper, limiter, extPlugin,
                                wah, harm, octaver, ringmod, bitcrush, slowgear,
-                               exciter, deesser, tape, console, analyzer };
-    static constexpr int numChainFx = 24;
+                               exciter, deesser, tape, console, analyzer,
+                               extPlugin2, extPlugin3 };
+    static constexpr int numChainFx = 26;
     static constexpr int chainMaxSlots = 32; // expansível para efeitos futuros
 
     /// Ordem atual como ids ("gate", "od", "amp", "eq", "delay", "reverb").
@@ -173,27 +174,39 @@ public:
     float getLimiterGrDb() const noexcept { return limGrDb.load(); }
 
     //==========================================================================
-    // Slot de plugin VST3 externo (hosting JUCE). Toda a gestão acontece na
-    // message thread; a troca da instância no áudio usa o mesmo protocolo
-    // pending/retired dos modelos NAM.
+    // Slots de plugin VST3 externo (hosting JUCE) — até 3 na cadeia. Toda a
+    // gestão acontece na message thread; a troca da instância no áudio usa o
+    // mesmo protocolo pending/retired dos modelos NAM.
+
+    static constexpr int maxExtSlots = 3;
 
     /// Carrega um .vst3 do disco (message thread). stateToRestore opcional
     /// aplica o estado salvo do plugin após a instanciação.
-    void loadExternalPluginAsync (const juce::File& file,
+    void loadExternalPluginAsync (int slot, const juce::File& file,
                                   const juce::MemoryBlock* stateToRestore = nullptr);
     /// Descarrega o plugin do slot (message thread).
-    void clearExternalPlugin();
-    bool hasExternalPlugin() const noexcept { return extLoaded.load(); }
-    juce::String getExternalPluginName() const;
-    juce::String getExternalPluginPath() const;
+    void clearExternalPlugin (int slot);
+    bool hasExternalPlugin (int slot) const noexcept
+    {
+        return slot >= 0 && slot < maxExtSlots && extLoaded[slot].load();
+    }
+    juce::String getExternalPluginName (int slot) const;
+    juce::String getExternalPluginPath (int slot) const;
     /// Instância ativa — SÓ para a message thread criar o painel do plugin.
     /// Feche o painel antes de qualquer troca (onExternalPluginWillChange).
-    juce::AudioPluginInstance* getExternalInstance() const noexcept { return extUiInstance.load(); }
-    /// Chamado (message thread) antes de trocar/descartar a instância —
-    /// o editor usa para fechar a janela do painel do plugin.
-    std::function<void()> onExternalPluginWillChange;
-    /// Coleta a instância aposentada (chamar periodicamente na message thread).
-    void collectExternalRetired() { delete extRetired.exchange (nullptr); }
+    juce::AudioPluginInstance* getExternalInstance (int slot) const noexcept
+    {
+        return slot >= 0 && slot < maxExtSlots ? extUiInstance[slot].load() : nullptr;
+    }
+    /// Chamado (message thread) com o slot, antes de trocar/descartar a
+    /// instância — o editor usa para fechar a janela do painel do plugin.
+    std::function<void (int)> onExternalPluginWillChange;
+    /// Coleta instâncias aposentadas (chamar periodicamente na message thread).
+    void collectExternalRetired()
+    {
+        for (auto& r : extRetired)
+            delete r.exchange (nullptr);
+    }
 
     /// true quando o estado atual difere do último preset salvo/carregado.
     bool isPresetDirty();
@@ -338,7 +351,7 @@ private:
     void processPitchFx (float* io, int n);
     void processLooperFx (float* io, int n);
     void processLimiterFx (float* io, int n);
-    void processExtFx (float* io, int n);
+    void processExtFx (int slot, float* io, int n);
     void processWahFx (float* io, int n);
     void processHarmFx (float* io, int n);
     void processOctaverFx (float* io, int n);
@@ -655,19 +668,19 @@ private:
     std::atomic<float>* pLooperOn = nullptr;
     std::atomic<float>* pLooperLevel = nullptr;
 
-    // ---- Slot VST3 externo (hosting)
+    // ---- Slots VST3 externos (hosting), um conjunto por slot
     juce::AudioPluginFormatManager extFormatManager;      // VST3 registrado no ctor
-    std::unique_ptr<juce::AudioPluginInstance> extActive; // só thread de áudio
-    std::atomic<juce::AudioPluginInstance*> extPending { nullptr };
-    std::atomic<juce::AudioPluginInstance*> extRetired { nullptr };
-    std::atomic<juce::AudioPluginInstance*> extUiInstance { nullptr }; // p/ o painel (message thread)
-    std::atomic<bool> extLoaded { false };
-    std::atomic<bool> extUnloadRequest { false };
-    juce::String extName, extPath;                        // sob modelInfoLock
+    std::unique_ptr<juce::AudioPluginInstance> extActive[maxExtSlots]; // só thread de áudio
+    std::atomic<juce::AudioPluginInstance*> extPending[maxExtSlots] = {};
+    std::atomic<juce::AudioPluginInstance*> extRetired[maxExtSlots] = {};
+    std::atomic<juce::AudioPluginInstance*> extUiInstance[maxExtSlots] = {}; // p/ o painel
+    std::atomic<bool> extLoaded[maxExtSlots] = {};
+    std::atomic<bool> extUnloadRequest[maxExtSlots] = {};
+    juce::String extName[maxExtSlots], extPath[maxExtSlots]; // sob modelInfoLock
     juce::AudioBuffer<float> extBuf;                      // mono -> estéreo p/ o hóspede
     juce::MidiBuffer extMidi;
-    std::atomic<float>* pExtOn = nullptr;
-    std::atomic<float>* pExtMix = nullptr;
+    std::atomic<float>* pExtOn[maxExtSlots] = {};
+    std::atomic<float>* pExtMix[maxExtSlots] = {};
 
     // ---- Limiter (pós-cadeia; brickwall do JUCE)
     juce::dsp::Limiter<float> outLimiter;

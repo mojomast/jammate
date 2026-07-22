@@ -92,8 +92,8 @@ class ChainView : public juce::Component,
 public:
     ChainView (GuitarRigNAMProcessor&, std::function<void (int)> onLoadModel,
                std::function<void (int)> onLoadIr,
-               std::function<void()> onLoadExtPlugin,
-               std::function<void()> onOpenExtPluginUi);
+               std::function<void (int)> onLoadExtPlugin,
+               std::function<void (int)> onOpenExtPluginUi);
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -187,7 +187,8 @@ private:
     GuitarRigNAMProcessor& processor;
 
     juce::Rectangle<int> ioInB, gateB, odB, eqB, delayB, revB, ioOutB;
-    juce::Rectangle<int> compB, preEqB, pitchB, looperB, limB, extB;
+    juce::Rectangle<int> compB, preEqB, pitchB, looperB, limB;
+    juce::Rectangle<int> extB[GuitarRigNAMProcessor::maxExtSlots];
     juce::Rectangle<int> wahB, harmB, octB, rmB, bcB, sgB, excB, dsB, tapeB, cnsB, anB;
     // rigs paralelos: um par amp+cab por lane + o card Mixer que soma tudo
     juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs], mixerB;
@@ -196,7 +197,8 @@ private:
     // knobs / LEDs / botões
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
     LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed, compLed, preEqLed,
-        pitchLed, looperLed, limLed, extLed;
+        pitchLed, looperLed, limLed;
+    LedButton extLed[GuitarRigNAMProcessor::maxExtSlots];
     LedButton wahLed, harmLed, octLed, rmLed, bcLed, sgLed, excLed, dsLed, tapeLed, cnsLed,
         anLed;
     std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob, gateHoldKnob;
@@ -243,9 +245,11 @@ private:
     std::unique_ptr<KnobComponent> looperLevelKnob;
     std::unique_ptr<KnobComponent> limCeilKnob, limRelKnob;
     juce::TextButton looperRecButton, looperPlayButton, looperClearButton, looperExportButton;
-    // slot de plugin VST3 externo
-    std::unique_ptr<KnobComponent> extMixKnob;
-    juce::TextButton extLoadButton, extUiButton, extRemoveButton;
+    // slots de plugin VST3 externo (até 3 na cadeia)
+    std::unique_ptr<KnobComponent> extMixKnob[GuitarRigNAMProcessor::maxExtSlots];
+    juce::TextButton extLoadButton[GuitarRigNAMProcessor::maxExtSlots],
+        extUiButton[GuitarRigNAMProcessor::maxExtSlots],
+        extRemoveButton[GuitarRigNAMProcessor::maxExtSlots];
     // cards P4 (um efeito por card)
     std::unique_ptr<KnobComponent> wahFreqKnob, wahRangeKnob, wahResKnob;
     std::unique_ptr<KnobComponent> sgSensKnob, sgRiseKnob;
@@ -267,7 +271,8 @@ private:
 
     using Attachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     std::unique_ptr<Attachment> gateAtt, odAtt, ampAtt, cabAtt, eqAtt, delayAtt, revAtt,
-        compAtt, preEqAtt, pitchAtt, looperAtt, limAtt, extAtt;
+        compAtt, preEqAtt, pitchAtt, looperAtt, limAtt;
+    std::unique_ptr<Attachment> extAtt[GuitarRigNAMProcessor::maxExtSlots];
     std::unique_ptr<Attachment> wahAtt, harmAtt, octAtt, rmAtt, bcAtt, sgAtt, excAtt,
         dsAtt, tapeAtt, cnsAtt, anAtt;
     std::unique_ptr<Attachment> cabPhaseAtt[GuitarRigNAMProcessor::maxCabSlots];
@@ -298,9 +303,10 @@ private:
     void refreshSidecarImages();
     void chooseModelFile (int lane);
     void chooseIrFile (int slot);
-    void chooseExtPluginFile();
-    void openExtPluginWindow();
-    void closeExtPluginWindow();
+    void chooseExtPluginFile (int slot);
+    void openExtPluginWindow (int slot);
+    void closeExtPluginWindow (int slot);
+    void closeAllExtPluginWindows();
     void saveCurrentPreset();
     void beginPresetNameEdit();
     void showPresetMenu();
@@ -329,8 +335,8 @@ private:
     std::unique_ptr<juce::FileChooser> fileChooser;
     std::unique_ptr<StoreOverlay> storeOverlay;
 
-    // janela flutuante com o painel do plugin VST3 hospedado
-    std::unique_ptr<juce::DocumentWindow> extWindow;
+    // janelas flutuantes com os painéis dos plugins VST3 hospedados
+    std::unique_ptr<juce::DocumentWindow> extWindow[GuitarRigNAMProcessor::maxExtSlots];
 
     // afinador
     juce::TextButton tunerToggle { "AFINADOR" };

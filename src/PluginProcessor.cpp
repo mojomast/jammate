@@ -464,12 +464,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
     layout.add (std::make_unique<BoolParam> (
         juce::ParameterID { "anOn", 1 }, "Analyzer On", true));
 
-    // slot de plugin VST3 externo
-    layout.add (std::make_unique<BoolParam> (
-        juce::ParameterID { "extOn", 1 }, "Ext Plugin On", true));
-    layout.add (std::make_unique<FloatParam> (
-        juce::ParameterID { "extMix", 1 }, "Ext Plugin Mix",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 100.0f, pct));
+    // slots de plugin VST3 externo (slot 1 mantém os ids legados)
+    for (int s = 0; s < 3; ++s)
+    {
+        const auto prefix = s == 0 ? juce::String ("ext") : "ext" + juce::String (s + 1);
+        const auto label = s == 0 ? juce::String ("Ext Plugin ")
+                                  : "Ext Plugin " + juce::String (s + 1) + " ";
+        layout.add (std::make_unique<BoolParam> (
+            juce::ParameterID { prefix + "On", 1 }, label + "On", true));
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { prefix + "Mix", 1 }, label + "Mix",
+            juce::NormalisableRange<float> (0.0f, 100.0f, 1.0f), 100.0f, pct));
+    }
 
     // limiter de saída (brickwall)
     layout.add (std::make_unique<BoolParam> (
@@ -638,8 +644,12 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     pLimOn = apvts.getRawParameterValue ("limOn");
     pLimCeiling = apvts.getRawParameterValue ("limCeiling");
     pLimRelease = apvts.getRawParameterValue ("limRelease");
-    pExtOn = apvts.getRawParameterValue ("extOn");
-    pExtMix = apvts.getRawParameterValue ("extMix");
+    for (int s = 0; s < maxExtSlots; ++s)
+    {
+        const auto prefix = s == 0 ? juce::String ("ext") : "ext" + juce::String (s + 1);
+        pExtOn[s] = apvts.getRawParameterValue (prefix + "On");
+        pExtMix[s] = apvts.getRawParameterValue (prefix + "Mix");
+    }
 
     pWahOn = apvts.getRawParameterValue ("wahOn");
     pWahMode = apvts.getRawParameterValue ("wahMode");
@@ -730,9 +740,12 @@ GuitarRigNAMProcessor::~GuitarRigNAMProcessor()
         delete pendingModels[r].exchange (nullptr);
         delete retiredModels[r].exchange (nullptr);
     }
-    delete extPending.exchange (nullptr);
-    delete extRetired.exchange (nullptr);
-    extActive.reset();
+    for (int s = 0; s < maxExtSlots; ++s)
+    {
+        delete extPending[s].exchange (nullptr);
+        delete extRetired[s].exchange (nullptr);
+        extActive[s].reset();
+    }
 
     recActive.store (nullptr);
     recWriter.reset();
@@ -882,15 +895,16 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     limCachedRelease = -1.0f;
     limGrDb.store (0.0f);
 
-    // slot VST3 externo: buffer estéreo + (re)prepara instâncias vivas
+    // slots VST3 externos: buffer estéreo + (re)prepara instâncias vivas
     extBuf.setSize (2, samplesPerBlock);
     extMidi.ensureSize (64);
-    for (auto* inst : { extActive.get(), extPending.load() })
-        if (inst != nullptr)
-        {
-            inst->setPlayConfigDetails (2, 2, sampleRate, samplesPerBlock);
-            inst->prepareToPlay (sampleRate, samplesPerBlock);
-        }
+    for (int s = 0; s < maxExtSlots; ++s)
+        for (auto* inst : { extActive[s].get(), extPending[s].load() })
+            if (inst != nullptr)
+            {
+                inst->setPlayConfigDetails (2, 2, sampleRate, samplesPerBlock);
+                inst->prepareToPlay (sampleRate, samplesPerBlock);
+            }
 
     wetScratchR.setSize (1, samplesPerBlock);
     stereoExtra.setSize (1, samplesPerBlock);
@@ -1019,7 +1033,9 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
                 case ChainFx::pitch:    processPitchFx (io, n); break;
                 case ChainFx::looper:   processLooperFx (io, n); break;
                 case ChainFx::limiter:  processLimiterFx (io, n); break;
-                case ChainFx::extPlugin: processExtFx (io, n); break;
+                case ChainFx::extPlugin:  processExtFx (0, io, n); break;
+                case ChainFx::extPlugin2: processExtFx (1, io, n); break;
+                case ChainFx::extPlugin3: processExtFx (2, io, n); break;
                 case ChainFx::wah:      processWahFx (io, n); break;
                 case ChainFx::harm:     processHarmFx (io, n); break;
                 case ChainFx::octaver:  processOctaverFx (io, n); break;
@@ -2137,24 +2153,24 @@ void GuitarRigNAMProcessor::toggleAB()
         abSlots[abCurrent] = abSlots[1 - abCurrent].createCopy(); // 1ª vez: B parte de A
 }
 
-void GuitarRigNAMProcessor::processExtFx (float* io, int n)
+void GuitarRigNAMProcessor::processExtFx (int slot, float* io, int n)
 {
     // troca RT-safe da instância hospedada (mesmo protocolo dos modelos NAM)
-    if (auto* p = extPending.exchange (nullptr))
+    if (auto* p = extPending[slot].exchange (nullptr))
     {
-        extRetired.store (extActive.release());
-        extActive.reset (p);
-        extUiInstance.store (extActive.get());
-        extLoaded.store (true);
+        extRetired[slot].store (extActive[slot].release());
+        extActive[slot].reset (p);
+        extUiInstance[slot].store (extActive[slot].get());
+        extLoaded[slot].store (true);
     }
-    if (extUnloadRequest.exchange (false))
+    if (extUnloadRequest[slot].exchange (false))
     {
-        extUiInstance.store (nullptr);
-        extRetired.store (extActive.release());
-        extLoaded.store (false);
+        extUiInstance[slot].store (nullptr);
+        extRetired[slot].store (extActive[slot].release());
+        extLoaded[slot].store (false);
     }
 
-    if (extActive == nullptr || pExtOn->load() <= 0.5f)
+    if (extActive[slot] == nullptr || pExtOn[slot]->load() <= 0.5f)
         return;
     if (n > extBuf.getNumSamples())
         return;
@@ -2165,9 +2181,9 @@ void GuitarRigNAMProcessor::processExtFx (float* io, int n)
     extBuf.copyFrom (1, 0, io, n);
     juce::AudioBuffer<float> view (extBuf.getArrayOfWritePointers(), 2, n);
     extMidi.clear();
-    extActive->processBlock (view, extMidi);
+    extActive[slot]->processBlock (view, extMidi);
 
-    const float mix = pExtMix->load() / 100.0f;
+    const float mix = pExtMix[slot]->load() / 100.0f;
     const float* l = extBuf.getReadPointer (0);
     const float* r = extBuf.getReadPointer (1);
     float* extra = stereoExtra.getWritePointer (0);
@@ -2178,12 +2194,12 @@ void GuitarRigNAMProcessor::processExtFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::loadExternalPluginAsync (const juce::File& file,
+void GuitarRigNAMProcessor::loadExternalPluginAsync (int slot, const juce::File& file,
                                                      const juce::MemoryBlock* stateToRestore)
 {
     // message thread. Descobrir os tipos dentro do .vst3 carrega o módulo —
     // rápido o suficiente para um clique explícito do usuário.
-    if (! file.exists())
+    if (slot < 0 || slot >= maxExtSlots || ! file.exists())
         return;
 
     collectExternalRetired();
@@ -2197,9 +2213,7 @@ void GuitarRigNAMProcessor::loadExternalPluginAsync (const juce::File& file,
         const juce::ScopedLock sl (modelInfoLock);
         loadError = juce::String (juce::CharPointer_UTF8 (
                         "N\xc3\xa3o achei um plugin VST3 v\xc3\xa1lido em "))
-                    + file.getFileName()
-                    + " [fmts=" + juce::String (extFormatManager.getNumFormats())
-                    + " dir=" + (file.isDirectory() ? "1" : "0") + "]";
+                    + file.getFileName();
         return;
     }
 
@@ -2208,7 +2222,7 @@ void GuitarRigNAMProcessor::loadExternalPluginAsync (const juce::File& file,
 
     extFormatManager.createPluginInstanceAsync (
         *types[0], hostSampleRate.load(), preparedBlockSize.load(),
-        [this, state, path = file.getFullPathName()]
+        [this, slot, state, path = file.getFullPathName()]
         (std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
         {
             loading.store (false);
@@ -2228,47 +2242,54 @@ void GuitarRigNAMProcessor::loadExternalPluginAsync (const juce::File& file,
 
             {
                 const juce::ScopedLock sl (modelInfoLock);
-                extName = instance->getName();
-                extPath = path;
+                extName[slot] = instance->getName();
+                extPath[slot] = path;
                 loadError.clear();
             }
 
             if (onExternalPluginWillChange)
-                onExternalPluginWillChange(); // fecha o painel da instância antiga
+                onExternalPluginWillChange (slot); // fecha o painel da instância antiga
 
             collectExternalRetired();
-            delete extPending.exchange (instance.release());
+            delete extPending[slot].exchange (instance.release());
         });
 }
 
-void GuitarRigNAMProcessor::clearExternalPlugin()
+void GuitarRigNAMProcessor::clearExternalPlugin (int slot)
 {
     // message thread
+    if (slot < 0 || slot >= maxExtSlots)
+        return;
+
     if (onExternalPluginWillChange)
-        onExternalPluginWillChange();
+        onExternalPluginWillChange (slot);
 
     {
         const juce::ScopedLock sl (modelInfoLock);
-        extName.clear();
-        extPath.clear();
+        extName[slot].clear();
+        extPath[slot].clear();
     }
 
     collectExternalRetired();
-    delete extPending.exchange (nullptr); // pendente nunca chegou ao áudio
-    extUnloadRequest.store (true);
-    extLoaded.store (false); // UI não espera o próximo bloco de áudio
+    delete extPending[slot].exchange (nullptr); // pendente nunca chegou ao áudio
+    extUnloadRequest[slot].store (true);
+    extLoaded[slot].store (false); // UI não espera o próximo bloco de áudio
 }
 
-juce::String GuitarRigNAMProcessor::getExternalPluginName() const
+juce::String GuitarRigNAMProcessor::getExternalPluginName (int slot) const
 {
+    if (slot < 0 || slot >= maxExtSlots)
+        return {};
     const juce::ScopedLock sl (modelInfoLock);
-    return extName;
+    return extName[slot];
 }
 
-juce::String GuitarRigNAMProcessor::getExternalPluginPath() const
+juce::String GuitarRigNAMProcessor::getExternalPluginPath (int slot) const
 {
+    if (slot < 0 || slot >= maxExtSlots)
+        return {};
     const juce::ScopedLock sl (modelInfoLock);
-    return extPath;
+    return extPath[slot];
 }
 
 double GuitarRigNAMProcessor::getLooperSeconds() const noexcept
@@ -2447,6 +2468,8 @@ juce::String GuitarRigNAMProcessor::fxToString (ChainFx fx)
         case ChainFx::tape:     return "tape";
         case ChainFx::console:  return "console";
         case ChainFx::analyzer: return "analyzer";
+        case ChainFx::extPlugin2: return "ext2";
+        case ChainFx::extPlugin3: return "ext3";
     }
     return "amp";
 }
@@ -2480,7 +2503,8 @@ int GuitarRigNAMProcessor::canonicalRank (int fx)
                                      ChainFx::preEq, ChainFx::ampBlock, ChainFx::bitcrush,
                                      ChainFx::eq, ChainFx::exciter, ChainFx::deesser,
                                      ChainFx::mod, ChainFx::tape, ChainFx::delay,
-                                     ChainFx::reverb, ChainFx::extPlugin, ChainFx::console,
+                                     ChainFx::reverb, ChainFx::extPlugin, ChainFx::extPlugin2,
+                                     ChainFx::extPlugin3, ChainFx::console,
                                      ChainFx::analyzer, ChainFx::limiter, ChainFx::looper };
     for (int i = 0; i < (int) std::size (canon); ++i)
         if ((int) canon[i] == fx)
@@ -2833,16 +2857,22 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
     state.setProperty ("chainOrder", getChainOrder().joinIntoString (","), nullptr);
     state.setProperty (kStatePresetName, getCurrentPresetName(), nullptr);
 
-    // slot VST3 externo: caminho + estado interno do plugin (base64)
-    state.setProperty ("extPluginPath", getExternalPluginPath(), nullptr);
-    if (includeExtPluginState)
-        if (auto* inst = extUiInstance.load(); inst != nullptr && extLoaded.load())
-        {
-            juce::MemoryBlock blob;
-            inst->getStateInformation (blob);
-            if (blob.getSize() > 0)
-                state.setProperty ("extPluginState", blob.toBase64Encoding(), nullptr);
-        }
+    // slots VST3 externos: caminho + estado interno do plugin (base64);
+    // slot 1 mantém as chaves legadas (sem número)
+    for (int s = 0; s < maxExtSlots; ++s)
+    {
+        const auto suffix = s == 0 ? juce::String() : juce::String (s + 1);
+        state.setProperty ("extPluginPath" + suffix, getExternalPluginPath (s), nullptr);
+        if (includeExtPluginState)
+            if (auto* inst = extUiInstance[s].load(); inst != nullptr && extLoaded[s].load())
+            {
+                juce::MemoryBlock blob;
+                inst->getStateInformation (blob);
+                if (blob.getSize() > 0)
+                    state.setProperty ("extPluginState" + suffix,
+                                       blob.toBase64Encoding(), nullptr);
+            }
+    }
     return state;
 }
 
@@ -2885,30 +2915,33 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
     setChainOrder (juce::StringArray::fromTokens (
         state.getProperty ("chainOrder", "gate,od,amp,eq,delay,reverb").toString(), ",", ""));
 
-    // slot VST3 externo: recarrega (com o estado salvo) ou limpa
+    // slots VST3 externos: recarrega (com o estado salvo) ou limpa;
+    // slot 1 usa as chaves legadas sem número
+    for (int s = 0; s < maxExtSlots; ++s)
     {
-        const juce::File extFile (state.getProperty ("extPluginPath", "").toString());
+        const auto suffix = s == 0 ? juce::String() : juce::String (s + 1);
+        const juce::File extFile (state.getProperty ("extPluginPath" + suffix, "").toString());
         if (extFile.exists())
         {
             juce::MemoryBlock blob;
-            const auto b64 = state.getProperty ("extPluginState", "").toString();
+            const auto b64 = state.getProperty ("extPluginState" + suffix, "").toString();
             if (b64.isNotEmpty())
                 blob.fromBase64Encoding (b64);
 
-            if (extFile.getFullPathName() == getExternalPluginPath() && hasExternalPlugin())
+            if (extFile.getFullPathName() == getExternalPluginPath (s) && hasExternalPlugin (s))
             {
                 // mesmo plugin já carregado: só re-aplica o estado
-                if (auto* inst = extUiInstance.load(); inst != nullptr && blob.getSize() > 0)
+                if (auto* inst = extUiInstance[s].load(); inst != nullptr && blob.getSize() > 0)
                     inst->setStateInformation (blob.getData(), (int) blob.getSize());
             }
             else
             {
-                loadExternalPluginAsync (extFile, blob.getSize() > 0 ? &blob : nullptr);
+                loadExternalPluginAsync (s, extFile, blob.getSize() > 0 ? &blob : nullptr);
             }
         }
-        else if (hasExternalPlugin())
+        else if (hasExternalPlugin (s))
         {
-            clearExternalPlugin();
+            clearExternalPlugin (s);
         }
     }
 

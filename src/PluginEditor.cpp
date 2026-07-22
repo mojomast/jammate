@@ -280,8 +280,8 @@ void PillButton::paintButton (juce::Graphics& g, bool isHighlighted, bool)
 //==============================================================================
 ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoadModel,
                       std::function<void (int)> onLoadIr,
-                      std::function<void()> onLoadExtPlugin,
-                      std::function<void()> onOpenExtPluginUi)
+                      std::function<void (int)> onLoadExtPlugin,
+                      std::function<void (int)> onOpenExtPluginUi)
     : processor (p)
 {
     auto& apvts = processor.apvts;
@@ -432,7 +432,28 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     makeKnob (looperLevelKnob, "looperLevel", "LOOP", formatDb);
     makeKnob (limCeilKnob, "limCeiling", "CEIL", formatDb);
     makeKnob (limRelKnob, "limRelease", "REL", formatMs);
-    makeKnob (extMixKnob, "extMix", "MIX", formatPct);
+    // slots de plugin VST3 externo
+    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+    {
+        const auto prefix = s == 0 ? juce::String ("ext") : "ext" + juce::String (s + 1);
+        makeKnob (extMixKnob[s], (prefix + "Mix").toRawUTF8(), "MIX", formatPct);
+
+        extLoadButton[s].setButtonText ("CARREGAR VST3");
+        extLoadButton[s].setTooltip (juce::String (juce::CharPointer_UTF8 (
+            "Escolher um plugin .vst3 por categoria (Dragonfly, Airwindows, Zam\xe2\x80\xa6)")));
+        extLoadButton[s].onClick = [onLoadExtPlugin, s] { onLoadExtPlugin (s); };
+        extUiButton[s].setButtonText ("PAINEL");
+        extUiButton[s].setTooltip ("Abrir a interface do plugin hospedado");
+        extUiButton[s].onClick = [onOpenExtPluginUi, s] { onOpenExtPluginUi (s); };
+        extRemoveButton[s].setButtonText ("REMOVER");
+        extRemoveButton[s].setTooltip ("Esvaziar o slot");
+        extRemoveButton[s].onClick = [this, s] { processor.clearExternalPlugin (s); };
+        for (auto* b : { &extLoadButton[s], &extUiButton[s], &extRemoveButton[s] })
+        {
+            b->setMouseClickGrabsKeyboardFocus (false);
+            addAndMakeVisible (*b);
+        }
+    }
 
     // cards P4 — um efeito por card
     makeKnob (wahFreqKnob, "wahFreq", "FREQ", formatHz);
@@ -460,22 +481,6 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     makeKnob (tapeRollKnob, "tapeRoll", "ROLL", formatHz);
     makeKnob (cnsAmtKnob, "cnsAmt", "GLUE", formatTen);
 
-    // slot de plugin VST3 externo
-    extLoadButton.setButtonText ("CARREGAR VST3");
-    extLoadButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Escolher um plugin .vst3 do disco (Dragonfly, LSP, Airwindows\xe2\x80\xa6)")));
-    extLoadButton.onClick = std::move (onLoadExtPlugin);
-    extUiButton.setButtonText ("PAINEL");
-    extUiButton.setTooltip ("Abrir a interface do plugin hospedado");
-    extUiButton.onClick = std::move (onOpenExtPluginUi);
-    extRemoveButton.setButtonText ("REMOVER");
-    extRemoveButton.setTooltip ("Esvaziar o slot");
-    extRemoveButton.onClick = [this] { processor.clearExternalPlugin(); };
-    for (auto* b : { &extLoadButton, &extUiButton, &extRemoveButton })
-    {
-        b->setMouseClickGrabsKeyboardFocus (false);
-        addAndMakeVisible (*b);
-    }
 
     // botões do looper (textos dinâmicos em refreshDynamicText)
     {
@@ -532,7 +537,14 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     looperLed.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Liga/desliga a escuta do loop (a grava\xc3\xa7\xc3\xa3o continua)")));
     makeLed (limLed, "limOn", limAtt);
-    makeLed (extLed, "extOn", extAtt);
+    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+    {
+        const auto prefix = s == 0 ? juce::String ("ext") : "ext" + juce::String (s + 1);
+        extAtt[s] = std::make_unique<Attachment> (apvts, prefix + "On", extLed[s]);
+        extLed[s].setTooltip (juce::String (juce::CharPointer_UTF8 ("Liga/desliga o m\xc3\xb3""dulo")));
+        extLed[s].setMouseClickGrabsKeyboardFocus (false);
+        addAndMakeVisible (extLed[s]);
+    }
     makeLed (wahLed, "wahOn", wahAtt);
     makeLed (harmLed, "harmOn", harmAtt);
     makeLed (octLed, "octOn", octAtt);
@@ -652,7 +664,8 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     tip (looperLevelKnob, "Volume do loop na mistura");
     tip (limCeilKnob, "Teto do limiter \xe2\x80\x94 nada passa deste n\xc3\xadvel");
     tip (limRelKnob, "Tempo de recupera\xc3\xa7\xc3\xa3o ap\xc3\xb3s limitar");
-    tip (extMixKnob, "Mistura do plugin hospedado com o sinal seco");
+    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+        tip (extMixKnob[s], "Mistura do plugin hospedado com o sinal seco");
     tip (wahFreqKnob, "Frequ\xc3\xaancia base do wah (posi\xc3\xa7\xc3\xa3o do pedal no modo Manual)");
     tip (wahRangeKnob, "Quanto o envelope/LFO varre a partir do FREQ");
     tip (wahResKnob, "Resson\xc3\xa2ncia do filtro (o \"quack\")");
@@ -834,15 +847,16 @@ void ChainView::refreshDynamicText()
         looperExportButton.setEnabled (hasLoop && st != LS::recording);
     }
 
-    // slot VST3
+    // slots VST3
+    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
     {
-        const bool hasExt = processor.hasExternalPlugin();
+        const bool hasExt = processor.hasExternalPlugin (s);
         const auto loadText = hasExt ? juce::String ("TROCAR VST3")
                                      : juce::String ("CARREGAR VST3");
-        if (extLoadButton.getButtonText() != loadText)
-            extLoadButton.setButtonText (loadText);
-        extUiButton.setEnabled (hasExt);
-        extRemoveButton.setEnabled (hasExt);
+        if (extLoadButton[s].getButtonText() != loadText)
+            extLoadButton[s].setButtonText (loadText);
+        extUiButton[s].setEnabled (hasExt);
+        extRemoveButton[s].setEnabled (hasExt);
     }
 
     // cards desligados: esmaece knobs/botões (o LED fica aceso p/ religar)
@@ -898,7 +912,9 @@ juce::Array<juce::Component*> ChainView::componentsForFx (const juce::String& id
     if (id == "looper") return { &looperLed, looperLevelKnob.get(), &looperRecButton, &looperPlayButton,
                                  &looperClearButton, &looperExportButton };
     if (id == "limiter") return { &limLed, limCeilKnob.get(), limRelKnob.get() };
-    if (id == "ext")    return { &extLed, extMixKnob.get(), &extLoadButton, &extUiButton, &extRemoveButton };
+    if (id == "ext")    return { &extLed[0], extMixKnob[0].get(), &extLoadButton[0], &extUiButton[0], &extRemoveButton[0] };
+    if (id == "ext2")   return { &extLed[1], extMixKnob[1].get(), &extLoadButton[1], &extUiButton[1], &extRemoveButton[1] };
+    if (id == "ext3")   return { &extLed[2], extMixKnob[2].get(), &extLoadButton[2], &extUiButton[2], &extRemoveButton[2] };
     if (id == "wah")    return { &wahLed, wahFreqKnob.get(), wahRangeKnob.get(), wahResKnob.get(), &wahModeButton };
     if (id == "harm")   return { &harmLed, harmMixKnob.get(), harmLevelKnob.get(), &harmKeyButton,
                                  &harmScaleButton, &harmIntervalButton };
@@ -928,6 +944,8 @@ const char* ChainView::onParamIdForFx (const juce::String& id) const
     if (id == "looper") return "looperOn";
     if (id == "limiter") return "limOn";
     if (id == "ext") return "extOn";
+    if (id == "ext2") return "ext2On";
+    if (id == "ext3") return "ext3On";
     if (id == "wah") return "wahOn";
     if (id == "harm") return "harmOn";
     if (id == "octaver") return "octOn";
@@ -955,7 +973,9 @@ juce::String ChainView::fxDisplayName (const juce::String& id)
     if (id == "pitch") return "Pitch";
     if (id == "looper") return "Looper";
     if (id == "limiter") return "Limiter";
-    if (id == "ext") return "Plugin VST3";
+    if (id == "ext") return "Plugin VST3 1";
+    if (id == "ext2") return "Plugin VST3 2";
+    if (id == "ext3") return "Plugin VST3 3";
     if (id == "wah") return "Wah";
     if (id == "harm") return "Harmonizer";
     if (id == "octaver") return "Octaver";
@@ -997,7 +1017,7 @@ void ChainView::showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea)
         { "Pitch",                 { "pitch", "harm" } },
         { "Modula\xc3\xa7\xc3\xa3o & Cor", { "mod", "exciter", "deesser", "tape", "console" } },
         { "Amb\xc3\xaancia",       { "delay", "reverb" } },
-        { "Extras",                { "ext", "looper", "analyzer" } },
+        { "Extras",                { "ext", "ext2", "ext3", "looper", "analyzer" } },
     };
 
     const auto order = processor.getChainOrder();
@@ -1248,9 +1268,14 @@ std::pair<juce::Rectangle<int>, juce::String> ChainView::dropTargetAt (const juc
     }
     if (isVst3File (file))
     {
-        if (! extB.isEmpty())
-            return { extB, "vst3" };
-        return { {}, "vst3" }; // card na gaveta: carrega mesmo assim
+        // slot sob o cursor; senão o primeiro slot vazio visível; senão o 1º
+        for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+            if (! extB[s].isEmpty() && extB[s].contains (pos))
+                return { extB[s], "vst3:" + juce::String (s) };
+        for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+            if (! extB[s].isEmpty() && ! processor.hasExternalPlugin (s))
+                return { extB[s], "vst3:" + juce::String (s) };
+        return { extB[0], "vst3:0" };
     }
     return { {}, {} };
 }
@@ -1288,8 +1313,9 @@ void ChainView::filesDropped (const juce::StringArray& files, int x, int y)
         else if (action.startsWith ("ir:"))
             processor.loadIrAsync (action.fromFirstOccurrenceOf (":", false, false).getIntValue(),
                                    juce::File (f));
-        else if (action == "vst3")
-            processor.loadExternalPluginAsync (juce::File (f));
+        else if (action.startsWith ("vst3:"))
+            processor.loadExternalPluginAsync (
+                action.fromFirstOccurrenceOf (":", false, false).getIntValue(), juce::File (f));
     }
     repaint();
 }
@@ -1333,8 +1359,8 @@ void ChainView::mouseUp (const juce::MouseEvent&)
 
 int ChainView::effectCardWidth (const juce::String& id) const
 {
-    if (id == "eq" || id == "preeq" || id == "looper" || id == "ext" || id == "harm"
-        || id == "analyzer")
+    if (id == "eq" || id == "preeq" || id == "looper" || id == "harm" || id == "analyzer"
+        || id == "ext" || id == "ext2" || id == "ext3")
         return 176;
     return 132;
 }
@@ -1352,7 +1378,9 @@ juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
     if (id == "pitch") return pitchB;
     if (id == "looper") return looperB;
     if (id == "limiter") return limB;
-    if (id == "ext") return extB;
+    if (id == "ext") return extB[0];
+    if (id == "ext2") return extB[1];
+    if (id == "ext3") return extB[2];
     if (id == "wah") return wahB;
     if (id == "harm") return harmB;
     if (id == "octaver") return octB;
@@ -1383,9 +1411,10 @@ void ChainView::resized()
     // gaveta: zera as caixas e esconde os componentes de efeitos fora da
     // cadeia; os presentes reaparecem ao serem posicionados abaixo
     static const char* allFxIds[] = { "gate", "comp", "od", "preeq", "eq", "mod", "delay",
-                                      "reverb", "pitch", "looper", "limiter", "ext", "wah",
-                                      "harm", "octaver", "ringmod", "bitcrush", "slowgear",
-                                      "exciter", "deesser", "tape", "console", "analyzer" };
+                                      "reverb", "pitch", "looper", "limiter", "ext", "ext2",
+                                      "ext3", "wah", "harm", "octaver", "ringmod", "bitcrush",
+                                      "slowgear", "exciter", "deesser", "tape", "console",
+                                      "analyzer" };
     const auto chain = processor.getChainOrder();
     for (auto* id : allFxIds)
     {
@@ -1393,7 +1422,8 @@ void ChainView::resized()
         for (auto* c : componentsForFx (id))
             c->setVisible (present);
     }
-    gateB = odB = eqB = delayB = revB = compB = preEqB = pitchB = looperB = limB = extB = {};
+    gateB = odB = eqB = delayB = revB = compB = preEqB = pitchB = looperB = limB = {};
+    extB[0] = extB[1] = extB[2] = {};
     wahB = harmB = octB = rmB = bcB = sgB = excB = dsB = tapeB = cnsB = anB = {};
 
     // posiciona os cartões seguindo a ordem dinâmica da cadeia
@@ -1445,7 +1475,9 @@ void ChainView::resized()
             else if (id == "pitch") pitchB = box;
             else if (id == "looper") looperB = box;
             else if (id == "limiter") limB = box;
-            else if (id == "ext") extB = box;
+            else if (id == "ext") extB[0] = box;
+            else if (id == "ext2") extB[1] = box;
+            else if (id == "ext3") extB[2] = box;
             else if (id == "wah") wahB = box;
             else if (id == "harm") harmB = box;
             else if (id == "octaver") octB = box;
@@ -1523,14 +1555,16 @@ void ChainView::resized()
         harmLevelKnob->setBounds (harmB.getCentreX() + 6, harmB.getY() + 130, 46, 46 + 26);
     }
 
-    // slot VST3: MIX + botões CARREGAR/PAINEL/REMOVER empilhados
+    // slots VST3: MIX + botões CARREGAR/PAINEL/REMOVER empilhados
+    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
     {
-        extLed.setBounds (extB.getRight() - 12 - 18, extB.getY() + 10, 18, 18);
-        extMixKnob->setBounds (extB.getCentreX() - 23, extB.getY() + 92, 46, 46 + 26);
-        const int bx = extB.getX() + 12, bw = extB.getWidth() - 24;
-        extLoadButton.setBounds (bx, extB.getBottom() - 12 - 24 - 60, bw, 24);
-        extUiButton.setBounds (bx, extB.getBottom() - 12 - 24 - 30, bw, 24);
-        extRemoveButton.setBounds (bx, extB.getBottom() - 12 - 24, bw, 24);
+        const auto& b = extB[s];
+        extLed[s].setBounds (b.getRight() - 12 - 18, b.getY() + 10, 18, 18);
+        extMixKnob[s]->setBounds (b.getCentreX() - 23, b.getY() + 92, 46, 46 + 26);
+        const int bx = b.getX() + 12, bw = b.getWidth() - 24;
+        extLoadButton[s].setBounds (bx, b.getBottom() - 12 - 24 - 60, bw, 24);
+        extUiButton[s].setBounds (bx, b.getBottom() - 12 - 24 - 30, bw, 24);
+        extRemoveButton[s].setBounds (bx, b.getBottom() - 12 - 24, bw, 24);
     }
 
     // looper: LOOP (nível) + grade de botões 2x2
@@ -1954,23 +1988,26 @@ void ChainView::paint (juce::Graphics& g)
         }
     }
 
-    // ---- slot de plugin VST3 externo
-    if (! extB.isEmpty())
+    // ---- slots de plugin VST3 externo
+    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
     {
-        drawPedalFrame (g, extB, "Plugin VST3", {});
+        const auto& b = extB[s];
+        if (b.isEmpty())
+            continue;
+        drawPedalFrame (g, b, "Plugin VST3 " + juce::String (s + 1), {});
 
-        const auto extName = processor.getExternalPluginName();
+        const auto extName = processor.getExternalPluginName (s);
         g.setFont (ui::monoFont (8.0f));
         g.setColour (ui::accent);
         g.drawText (juce::CharPointer_UTF8 ("HOSTING \xc2\xb7 VST3"),
-                    extB.getX() + 12, extB.getY() + 32, 140, 11,
+                    b.getX() + 12, b.getY() + 32, 140, 11,
                     juce::Justification::centredLeft);
         g.setFont (ui::uiFont (13.0f, true));
         g.setColour (extName.isNotEmpty() ? ui::textBright : ui::textMuted);
         g.drawFittedText (extName.isNotEmpty()
                               ? extName
                               : juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 slot vazio \xe2\x80\x94")),
-                          extB.getX() + 12, extB.getY() + 48, extB.getWidth() - 24, 34,
+                          b.getX() + 12, b.getY() + 48, b.getWidth() - 24, 34,
                           juce::Justification::topLeft, 2);
     }
 
@@ -2404,7 +2441,9 @@ void ChainView::paint (juce::Graphics& g)
                              : draggingId == "pitch" ? juce::String ("Pitch")
                              : draggingId == "looper" ? juce::String ("Looper")
                              : draggingId == "limiter" ? juce::String ("Limiter")
-                             : draggingId == "ext" ? juce::String ("Plugin VST3")
+                             : draggingId == "ext" ? juce::String ("Plugin VST3 1")
+                             : draggingId == "ext2" ? juce::String ("Plugin VST3 2")
+                             : draggingId == "ext3" ? juce::String ("Plugin VST3 3")
                              : draggingId == "wah" ? juce::String ("Wah")
                              : draggingId == "harm" ? juce::String ("Harmonizer")
                              : draggingId == "octaver" ? juce::String ("Octaver")
@@ -2591,15 +2630,15 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     chainView = std::make_unique<ChainView> (processor,
                                              [this] (int lane) { chooseModelFile (lane); },
                                              [this] (int slot) { chooseIrFile (slot); },
-                                             [this] { chooseExtPluginFile(); },
-                                             [this] { openExtPluginWindow(); });
+                                             [this] (int slot) { chooseExtPluginFile (slot); },
+                                             [this] (int slot) { openExtPluginWindow (slot); });
 
     // fecha o painel do plugin hospedado antes de qualquer troca/descarte
     processor.onExternalPluginWillChange =
-        [safe = juce::Component::SafePointer<RigContent> (this)]
+        [safe = juce::Component::SafePointer<RigContent> (this)] (int slot)
         {
             if (safe != nullptr)
-                safe->closeExtPluginWindow();
+                safe->closeExtPluginWindow (slot);
         };
     chainViewport.setViewedComponent (chainView.get(), false);
     chainViewport.setScrollBarsShown (false, true);
@@ -2617,7 +2656,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 [safe = juce::Component::SafePointer<RigContent> (this), extFlag]
                 {
                     if (safe != nullptr)
-                        safe->processor.loadExternalPluginAsync (juce::File (extFlag));
+                        safe->processor.loadExternalPluginAsync (0, juce::File (extFlag));
                 });
     }
 
@@ -2641,7 +2680,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 RigContent::~RigContent()
 {
     processor.onExternalPluginWillChange = nullptr;
-    closeExtPluginWindow();
+    closeAllExtPluginWindows();
     setLookAndFeel (nullptr);
 }
 
@@ -3230,10 +3269,11 @@ void RigContent::chooseModelFile (int lane)
                               });
 }
 
-void RigContent::chooseExtPluginFile()
+void RigContent::chooseExtPluginFile (int slot)
 {
-    // menu rápido: lista os .vst3 da pasta padrão do sistema (sem escanear/
-    // instanciar nada — só nomes de arquivo) + opção de procurar no disco
+    // Menu por CATEGORIA: lista os .vst3 instalados no sistema (só nomes de
+    // arquivo, sem escanear/instanciar), agrupados pelo catálogo de
+    // recomendados (plugins/README.md) + "Outros" + procurar no disco.
     const juce::File vst3Dir ("C:\\Program Files\\Common Files\\VST3");
     juce::Array<juce::File> found;
     if (vst3Dir.isDirectory())
@@ -3241,18 +3281,73 @@ void RigContent::chooseExtPluginFile()
                                                      false, "*.vst3"))
             found.add (f);
 
+    struct Category { const char* title; std::initializer_list<const char*> keys; };
+    static const Category categories[] = {
+        { "Reverb & Amb\xc3\xaancia",  { "dragonfly", "valhalla", "supermassive", "reverb" } },
+        { "Cole\xc3\xa7\xc3\xa3o Airwindows", { "airwindows", "airwin" } },
+        { "Est\xc3\xba""dio (LSP)",     { "lsp" } },
+        { "Pedais & Din\xc3\xa2mica (Zam)", { "zam", "zamaudio" } },
+        { "Amp sims",                   { "bias", "amplitube", "guitar rig", "th-u",
+                                          "stormblade", "neural" } },
+    };
+
     juce::PopupMenu menu;
     menu.setLookAndFeel (&lookAndFeel);
-    const auto current = processor.getExternalPluginPath();
+    const auto current = processor.getExternalPluginPath (slot);
+    juce::Array<bool> used;
+    used.insertMultiple (0, false, found.size());
+
+    auto matches = [] (const juce::String& lowerName,
+                       std::initializer_list<const char*> keys)
+    {
+        for (auto* k : keys)
+            if (lowerName.contains (k))
+                return true;
+        return false;
+    };
+
+    for (const auto& cat : categories)
+    {
+        bool any = false;
+        for (int i = 0; i < found.size(); ++i)
+            if (! used[i] && matches (found[i].getFileName().toLowerCase(), cat.keys))
+                any = true;
+        if (! any)
+            continue;
+
+        menu.addSectionHeader (juce::String (juce::CharPointer_UTF8 (cat.title)));
+        for (int i = 0; i < found.size(); ++i)
+            if (! used[i] && matches (found[i].getFileName().toLowerCase(), cat.keys))
+            {
+                menu.addItem (i + 1, found[i].getFileNameWithoutExtension(), true,
+                              found[i].getFullPathName() == current);
+                used.set (i, true);
+            }
+    }
+
+    bool anyOther = false;
     for (int i = 0; i < found.size(); ++i)
-        menu.addItem (i + 1, found[i].getFileNameWithoutExtension(), true,
-                      found[i].getFullPathName() == current);
-    if (! found.isEmpty())
-        menu.addSeparator();
+        if (! used[i])
+            anyOther = true;
+    if (anyOther)
+    {
+        menu.addSectionHeader ("Outros");
+        for (int i = 0; i < found.size(); ++i)
+            if (! used[i])
+                menu.addItem (i + 1, found[i].getFileNameWithoutExtension(), true,
+                              found[i].getFullPathName() == current);
+    }
+
+    if (found.isEmpty())
+        menu.addItem (9998, juce::String (juce::CharPointer_UTF8 (
+                          "Nenhum VST3 instalado \xe2\x80\x94 rode plugins\\instalar-plugins.ps1")),
+                      false);
+
+    menu.addSeparator();
     menu.addItem (9000, juce::String (juce::CharPointer_UTF8 ("Procurar arquivo\xe2\x80\xa6")));
 
     menu.showMenuAsync (juce::PopupMenu::Options(),
-        [safe = juce::Component::SafePointer<RigContent> (this), found] (int result)
+        [safe = juce::Component::SafePointer<RigContent> (this), found, slot] (int result)
         {
             if (safe == nullptr || result == 0)
                 return;
@@ -3260,12 +3355,14 @@ void RigContent::chooseExtPluginFile()
 
             if (result >= 1 && result <= found.size())
             {
-                self->processor.loadExternalPluginAsync (found[result - 1]);
+                self->processor.loadExternalPluginAsync (slot, found[result - 1]);
                 return;
             }
+            if (result != 9000)
+                return;
 
             // procurar no disco
-            auto initialDir = juce::File (self->processor.getExternalPluginPath())
+            auto initialDir = juce::File (self->processor.getExternalPluginPath (slot))
                                   .getParentDirectory();
             if (! initialDir.isDirectory())
                 initialDir = juce::File ("C:\\Program Files\\Common Files\\VST3");
@@ -3278,11 +3375,11 @@ void RigContent::chooseExtPluginFile()
                 juce::FileBrowserComponent::openMode
                     | juce::FileBrowserComponent::canSelectFiles
                     | juce::FileBrowserComponent::canSelectDirectories,
-                [safe] (const juce::FileChooser& fc)
+                [safe, slot] (const juce::FileChooser& fc)
                 {
                     const auto file = fc.getResult();
                     if (safe != nullptr && file.exists())
-                        safe->processor.loadExternalPluginAsync (file);
+                        safe->processor.loadExternalPluginAsync (slot, file);
                 });
         });
 }
@@ -3319,29 +3416,36 @@ private:
     std::function<void()> onClose;
 };
 
-void RigContent::openExtPluginWindow()
+void RigContent::openExtPluginWindow (int slot)
 {
-    auto* inst = processor.getExternalInstance();
-    if (inst == nullptr || ! processor.hasExternalPlugin())
+    auto* inst = processor.getExternalInstance (slot);
+    if (inst == nullptr || ! processor.hasExternalPlugin (slot))
         return;
 
-    if (extWindow != nullptr)
+    if (extWindow[slot] != nullptr)
     {
-        extWindow->toFront (true);
+        extWindow[slot]->toFront (true);
         return;
     }
 
-    extWindow = std::make_unique<ExtPluginWindow> (
-        *inst, [safe = juce::Component::SafePointer<RigContent> (this)]
+    extWindow[slot] = std::make_unique<ExtPluginWindow> (
+        *inst, [safe = juce::Component::SafePointer<RigContent> (this), slot]
         {
             if (safe != nullptr)
-                safe->closeExtPluginWindow();
+                safe->closeExtPluginWindow (slot);
         });
 }
 
-void RigContent::closeExtPluginWindow()
+void RigContent::closeExtPluginWindow (int slot)
 {
-    extWindow.reset();
+    if (slot >= 0 && slot < GuitarRigNAMProcessor::maxExtSlots)
+        extWindow[slot].reset();
+}
+
+void RigContent::closeAllExtPluginWindows()
+{
+    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+        extWindow[s].reset();
 }
 
 void RigContent::chooseIrFile (int slot)
