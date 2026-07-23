@@ -1,13 +1,13 @@
 #include "DrumEngine.h"
 
 //============================================================================
-// Biblioteca de fabrica do modulo Bateria: grooves + viradas por genero.
-// TUDO e 1 compasso (16 steps). fill=true => virada. spec: vozes por | ,
-// K bumbo S caixa H chimbal P pedal R ride C crash T tom1 U tom2 F surdo;
-// ! acento, . ghost, faixa "0-14/2". Acentos nos nomes usam \xNN (UTF-8).
+// Factory library of the Drums module: grooves + fills by genre.
+// EVERYTHING is 1 bar (16 steps). fill=true => fill. spec: voices split by | ,
+// K kick S snare H hat P pedal R ride C crash T tom1 U tom2 F floor tom;
+// ! accent, . ghost, range "0-14/2".
 //
-// Parte dos grooves/viradas vem do GROOVE MIDI DATASET (Google Magenta),
-// licenca CC BY 4.0 - ver THIRD_PARTY.md (credito obrigatorio).
+// Part of the grooves/fills comes from the GROOVE MIDI DATASET (Google Magenta),
+// CC BY 4.0 license - see THIRD_PARTY.md (attribution required).
 
 namespace drum
 {
@@ -114,7 +114,7 @@ const std::vector<Groove>& library()
         { "COUNTRY", "Bakersfield", 120, 0, false, "S:0,2,4!,6,8,10,12!,14|K:0,8|R:0-14/2" },
         { "COUNTRY", "Rockabilly", 150, 40, false, "H:0-14/2,0!,4!,8!,12!|S:4!,12!|K:0,8" },
         { "COUNTRY", "Ballad country", 76, 0, false, "H:0-14/2|S:8!|K:0,8" },
-        // ===== BRASIL =====
+        // ===== BRAZIL =====
         { "BRAZIL", "Samba (kit)", 100, 0, false, "H:0-15,0!,3!,6!,10!,13!|K:0,4!,8,12!|S:2.,5.,10.,15." },
         { "BRAZIL", "Crossed samba", 104, 0, false, "R:0,1,3,4,6,8,9,11,12,14|K:0,4!,8,12!|S:2.,7.,13." },
         { "BRAZIL", "Bossa nova (1st)", 126, 0, false, "S:0,6,12|K:0,6,8,14|P:4,12|H:0-14/2." },
@@ -130,7 +130,7 @@ const std::vector<Groove>& library()
         { "BRAZIL", "Coco", 116, 0, false, "H:0-14/2,0!|K:0,3,8,11|S:4,12" },
         { "BRAZIL", "Ciranda", 100, 0, false, "S:0,4!,8,12!|K:0,8|H:0-14/2" },
         { "BRAZIL", "Crossed bossa", 132, 0, false, "R:0-14/2|S:0,3,6,10,13|K:0,6,8,14|P:4,12" },
-        // ===== LATINO =====
+        // ===== LATIN =====
         { "LATIN", "Bolero", 92, 0, false, "R:0-14/2|S:4,8.,12|K:0,8|U:6,14" },
         { "LATIN", "Cha-cha", 116, 0, false, "R:0-14/2|S:4,12|K:0,8|U:7,15" },
         { "LATIN", "Songo", 106, 0, false, "R:0,3,6,8,11,14|S:2.,5,7.,10.,13|K:4,12|T:9" },
@@ -162,7 +162,7 @@ const std::vector<Groove>& library()
         { "HIP-HOP", "Neo soul", 84, 18, false, "H:0-15,0!,8!|S:4!,12!,7.,11.|K:0,6,10" },
         { "HIP-HOP", "Boom bap 16", 92, 12, false, "H:0-15,0!|S:4!,12!,7.|K:0,6,10" },
         { "HIP-HOP", "Memphis", 76, 0, false, "H:0-15|S:8!|K:0,3,6,11" },
-        // ===== ELETR\xc3\x94NICO =====
+        // ===== ELECTRONIC =====
         { "ELECTRONIC", "House", 124, 0, false, "K:0,4,8,12|H:2!,6!,10!,14!|S:4,12|P:0-12/4" },
         { "ELECTRONIC", "Techno", 132, 0, false, "K:0,4,8,12|H:2,6,10,14|R:0-12/4.|S:4" },
         { "ELECTRONIC", "Drum'n'bass", 174, 0, false, "K:0,10|S:4!,12!|H:0-15,0!,4!,8!,12!" },
@@ -185,7 +185,7 @@ const std::vector<Groove>& library()
         { "WORLD", "Flamenco (buleria)", 200, 0, false, "S:0,3,6,8,10,12,15|K:0,8|H:0-14/2" },
         { "WORLD", "Gnawa", 92, 0, false, "F:0,3,6,10,13|S:4,12|K:0,8" },
         { "WORLD", "Klezmer", 140, 0, false, "H:0-14/2|S:2,6,10,14|K:0,4,8,12" },
-        // ===== GERAL =====
+        // ===== GENERAL =====
         { "GENERAL", "Pickup (1 note)", 0, 0, true, "S:15!" },
         { "GENERAL", "Double pickup", 0, 0, true, "S:14,15!" },
         { "GENERAL", "Tom pickup", 0, 0, true, "U:14|F:15!" },
@@ -219,7 +219,7 @@ const std::vector<Groove>& library()
         { "GENERAL", "Linear", 0, 0, true, "K:0,3,6|S:1,4,7,10,13|H:2,5,8,11,14|F:15!" },
         // ===== FUNK =====
         { "FUNK", "Linear funk", 0, 0, true, "K:0|S:1|H:2|K:3|S:4|F:5|K:6|S:7|H:8|K:9|S:10|F:11|K:12|S:13,14,15!" },
-        // ===== GERAL =====
+        // ===== GENERAL =====
         { "GENERAL", "Paradiddle", 0, 0, true, "S:0!,2,3,5,7|T:4!,6|U:8!,10,11|F:12!,14,15" },
         { "GENERAL", "Powerfill", 0, 0, true, "S:0!,1,2,3|T:4!,5,6,7|U:8!,9,10,11|F:12!,13,14,15" },
         { "GENERAL", "Kick and snare", 0, 0, true, "S:0,3,6,9,12!|K:1,2,4,5,7,8,10,11,13,14,15" },
@@ -228,7 +228,7 @@ const std::vector<Groove>& library()
         { "GENERAL", "Offbeats", 0, 0, true, "S:2,6,10,14|K:0,4,8,12" },
         // ===== FUNK =====
         { "FUNK", "Funk chop", 0, 0, true, "S:0!,3,6.,7,9,10.,12!,14|K:1,8" },
-        // ===== GERAL =====
+        // ===== GENERAL =====
         { "GENERAL", "Crescendo", 0, 0, true, "S:0.,2.,4.,6.,8,10,12!,13!,14!,15!" },
         // ===== BLUES =====
         { "BLUES", "Shuffle fill", 0, 50, true, "S:0,2,4!,8,10,12!|F:14,15" },
@@ -236,7 +236,7 @@ const std::vector<Groove>& library()
         { "JAZZ", "Jazz trade", 0, 55, true, "R:0,2|S:4.,6.|R:8,10|S:12,13,14,15" },
         // ===== FUNK =====
         { "FUNK", "Second line fill", 0, 20, true, "S:0.,3,4!,7.,10,12!,14.|F:8,15" },
-        // ===== BRASIL =====
+        // ===== BRAZIL =====
         { "BRAZIL", "Bossa fill", 0, 0, true, "S:0,3,6,10,12|K:0,8|F:14,15" },
         { "BRAZIL", "Samba fill", 0, 0, true, "S:0,1,3,4,5,7,8,9,11,12!,13,15|K:0,4,8,12" },
         { "BRAZIL", "Telecoteco", 0, 0, true, "S:0!,3,6,10!,13|K:0,4,8,12" },
@@ -245,13 +245,13 @@ const std::vector<Groove>& library()
         { "METAL", "Double bass fill", 0, 0, true, "K:0-15|S:0,4,8,12!|C:0" },
         { "METAL", "Final blast", 0, 0, true, "S:8-14/2!|K:9-15/2" },
         { "METAL", "Short blast", 0, 0, true, "S:0-6/2!|K:1-7/2" },
-        // ===== GERAL =====
+        // ===== GENERAL =====
         { "GENERAL", "Break and resume", 0, 0, true, "C:0!|K:0|S:12,13,14,15!" },
         // ===== FUNK =====
         { "FUNK", "Purdie fill", 0, 55, true, "S:2.,4!,6.,8.,10!,12,14." },
         // ===== REGGAE/SKA =====
         { "REGGAE/SKA", "Reggae drop fill", 0, 12, true, "S:8!,9,10,11|F:12,13,14,15!" },
-        // ===== BRASIL =====
+        // ===== BRAZIL =====
         { "BRAZIL", "Baiao 1", 95, 0, false, "K:0.,3,8,11|S:3.,6.,11.,14.|H:0.,2,4.,6!,8.,9.,10,12.,13.,14|P:8." },
         { "BRAZIL", "Brazilian 1", 92, 0, false, "K:0.,1,3,5,7,9,12,14|S:0!,1!,3!,5!,7!,9!,10,12!,14!|F:3!,9!,12!,14!" },
         { "BRAZIL", "Bossa 1", 127, 0, false, "K:0.,6.,8.,14.|S:0.,2.,8.,12.|P:4,12|R:0,2,4.,6.,8,10.,12,14." },
@@ -295,7 +295,7 @@ const std::vector<Groove>& library()
         { "COUNTRY", "Country 14", 114, 0, true, "K:8|S:10,11,12,13,14!|R:8" },
         { "COUNTRY", "Country 15", 114, 0, true, "K:8|S:10,11,12,13,14!" },
         { "COUNTRY", "Country 16", 114, 0, true, "K:8|S:10,11.,12,13,14!" },
-        // ===== ELETR\xc3\x94NICO =====
+        // ===== ELECTRONIC =====
         { "ELECTRONIC", "Disco 1", 120, 0, false, "K:0,2.,4,8,12|S:4,5.,7.,10.,12,15.|H:2!,4,6,8.,10,12,14|P:0,4.|C:0" },
         { "ELECTRONIC", "Breakbeat 1", 170, 0, false, "K:0|S:0.,15.|H:0" },
         { "ELECTRONIC", "Disco 2", 120, 0, false, "K:0!,4!,8!,12!|S:4!,12!|H:0,1,2,3,5,6,7,8,9,10,11,13,14,15" },
@@ -357,7 +357,7 @@ const std::vector<Groove>& library()
         { "HIP-HOP", "Hiphop 20", 100, 0, true, "K:3,4!,9.|S:14!,15!|P:0,12!|R:4!|U:0,2,3!|F:1,2!" },
         { "HIP-HOP", "Hiphop 21", 100, 0, true, "K:0.,1,15.|S:4.,5.,6!,7,9!,10.,11.,12.,13!|P:8|T:3!,8!|U:2!" },
         { "HIP-HOP", "Hiphop 22", 100, 0, true, "K:10.,12|S:0!,1!,2!,3,4,6,8!,10!,15.|H:5!|T:13!,14!" },
-        // ===== LATINO =====
+        // ===== LATIN =====
         { "LATIN", "Afrocuban 1", 105, 0, false, "K:3.,6.,11.|S:2,5.,7,9.,10.|P:0,4,8,12|R:0!,4!,8!,12!|T:12,14" },
         { "LATIN", "Samba 1", 116, 0, false, "K:0.|S:0.|P:14.|R:0|F:12" },
         { "LATIN", "Reggaeton", 90, 0, false, "K:0,12|S:11,14|H:0" },
@@ -518,7 +518,7 @@ const std::vector<Groove>& library()
         { "WORLD", "Afrobeat 8", 85, 0, false, "K:0!,2!,6!,7,10!,13!|S:4!,9!,12!|H:0!,2!,4!,6!,7!,10!,13!|P:4" },
         { "WORLD", "Afrobeat 9", 110, 0, false, "K:0,3,11,15.|S:5.,6.,7,12!,13!,15.|P:2,4.,6.,8.,12|R:0!,2.,4.,6,8.,10.,12,14." },
 
-        // ===== METAL (bloco extra: subgêneros e técnicas) =====
+        // ===== METAL (extra block: subgenres and techniques) =====
         { "METAL", "Bomb blast", 200, 0, false, "S:0-14/2!|K:0-14/2!|R:0-14/2" },
         { "METAL", "Hammer blast", 220, 0, false, "S:0-15!|K:0-15|R:0-14/2" },
         { "METAL", "Gravity (kick 4)", 240, 0, false, "S:0-15!|K:0,4,8,12|C:0" },
@@ -539,7 +539,7 @@ const std::vector<Groove>& library()
         { "METAL", "Grindcore", 250, 0, false, "S:0-15!|K:0-15|C:0" },
         { "METAL", "Fast skank", 200, 0, false, "H:0-14/2|S:2!,6!,10!,14!|K:0,8" },
         { "METAL", "Metalcore chug", 120, 0, false, "R:0-14/2,0!,8!|C:0|S:4!,12!|K:0,2,3,8,10,11,15" },
-        // viradas de metal
+        // metal fills
         { "METAL", "Double bass roll", 0, 0, true, "K:0-15|S:12!,13,14,15|C:0" },
         { "METAL", "Toms + double kick", 0, 0, true, "T:0,2|U:4,6|F:8,10|S:12,13,14,15!|K:1,3,5,7,9,11,13" },
         { "METAL", "Blast fill", 0, 0, true, "S:0-14/2!|K:1-15/2|C:0" },
@@ -552,7 +552,7 @@ const std::vector<Groove>& library()
         { "METAL", "Flam on toms", 0, 0, true, "T:0.,0,4.,4|U:8.,8|F:12.,12,14,15!" },
         { "METAL", "Double kick outro", 0, 0, true, "K:0-15|C:0!|S:15!" },
 
-        // ===== METAL (portado do midi-drums, fsecada01, MIT — ver THIRD_PARTY.md) =====
+        // ===== METAL (ported from midi-drums, fsecada01, MIT - see THIRD_PARTY.md) =====
         { "METAL", "Heavy verse", 150, 0, false, "H:0-14/2|S:4,12|K:0,3,8" },
         { "METAL", "Death verse (blast)", 200, 0, false, "H:0,8|S:1-15/2|K:0-14/2" },
         { "METAL", "Power verse", 160, 0, false, "R:0,4,8,12|S:4,6.,12|K:0,4,8,12" },
@@ -566,43 +566,43 @@ const std::vector<Groove>& library()
         { "METAL", "Tom roll (metal)", 0, 0, true, "S:0,3,6,9,12|U:2,4,8,10,14|F:1,5,7,11,13,15" },
         { "METAL", "Outro descent", 0, 0, true, "U:4|F:0,12|S:8|C:15!" },
 
-        // ===== METAL PROG/DJENT — métricas ímpares (num/den nos 2 últimos campos) =====
-        // 7/8 (14 steps · agrupamento 2+2+3). Colcheia = 2 steps; pulso nas pares.
+        // ===== METAL PROG/DJENT - odd meters (num/den in the last 2 fields) =====
+        // 7/8 (14 steps, grouping 2+2+3). Eighth = 2 steps; pulse on even steps.
         { "METAL", "Djent 7/8 (2+2+3)",  150, 0, false, "R:0-12/2|S:4!,10!|K:0,1,6,8,9", 7, 8 },
         { "METAL", "Djent 7/8 chug",     160, 0, false, "R:0-12/2|S:8!|K:0,2,4,6,10,12", 7, 8 },
         { "METAL", "Prog 7/8 (Tool)",    130, 0, false, "H:0-12/2|S:4,10|K:0,6,8", 7, 8 },
         { "METAL", "Thall 7/8",          170, 0, false, "R:0-12/2|C:0!|S:4!,10!|K:0,1,3,6,8,11", 7, 8 },
         { "METAL", "Blast 7/8",          200, 0, false, "S:0-12/2!|K:1-13/2|C:0", 7, 8 },
-        // 5/8 (10 steps · 2+3)
+        // 5/8 (10 steps, 2+3)
         { "METAL", "Djent 5/8 (2+3)",    155, 0, false, "R:0-8/2|S:4!|K:0,1,6,8", 5, 8 },
         { "METAL", "Prog 5/8",           140, 0, false, "H:0-8/2|S:4|K:0,3,6", 5, 8 },
-        // 9/8 (18 steps · 3+3+3 composto)
+        // 9/8 (18 steps, 3+3+3 compound)
         { "METAL", "Djent 9/8 (3+3+3)",  148, 0, false, "R:0-16/2|S:6!,12!|K:0,3,8,9,14", 9, 8 },
         { "METAL", "Prog 9/8 (Meshuggah)",120, 0, false, "R:0,6,12|H:2,4,8,10,14,16|S:6,12|K:0,8", 9, 8 },
         { "METAL", "Slam 9/8",            96, 0, false, "H:0-16/2|C:0,6,12|S:6!,12!|K:0,3,8,9,14,15", 9, 8 },
-        // 6/8 (12 steps · 3+3)
+        // 6/8 (12 steps, 3+3)
         { "METAL", "Gallop 6/8",         168, 0, false, "H:0-10/2|S:6!|K:0,3,6,9", 6, 8 },
         { "METAL", "Doom 6/8",            66, 0, false, "R:0-10/2|C:0!|S:6!|K:0!,8", 6, 8 },
-        // 11/8 (22 steps · 4+4+4+4+4+2)
+        // 11/8 (22 steps, 4+4+4+4+4+2)
         { "METAL", "Prog 11/8",          138, 0, false, "H:0-20/2|S:8!,16!|K:0,6,12,18", 11, 8 },
         { "METAL", "Djent 11/8 (3+3+3+2)",150, 0, false, "R:0-20/2|S:6!,12!|K:0,1,8,9,16,17", 11, 8 },
-        // 5/4 (20 steps). Semínima = 4 steps; backbeat em 2 e 4 (steps 4 e 12).
+        // 5/4 (20 steps). Quarter = 4 steps; backbeat on 2 and 4 (steps 4 and 12).
         { "METAL", "Djent 5/4",          132, 0, false, "R:0-18/2|S:4!,12!|K:0,1,7,8,10,16,17", 5, 4 },
         { "METAL", "Prog 5/4 (Dream Theater)",144, 0, false, "H:0-18/2|S:4,12|K:0,6,8,14,16", 5, 4 },
         { "METAL", "Half-time 5/4",       88, 0, false, "R:0-18/2|C:0|S:8!|K:0,1,2,10,11,12", 5, 4 },
         { "METAL", "Breakdown 5/4",       92, 0, false, "C:0,8,16|S:4!,12!|K:0,6,8,14,16", 5, 4 },
-        // 7/4 (28 steps). Backbeat em 2,4,6 (steps 4,12,20).
+        // 7/4 (28 steps). Backbeat on 2,4,6 (steps 4,12,20).
         { "METAL", "Djent 7/4",          128, 0, false, "R:0-26/2|S:4!,12!,20!|K:0,1,8,9,16,17,24", 7, 4 },
         { "METAL", "Prog 7/4",           140, 0, false, "H:0-26/2|S:4,12,20|K:0,6,8,14,16,22,24", 7, 4 },
-        // viradas em métrica ímpar
+        // fills in odd meters
         { "METAL", "Fill 7/8 descent",     0, 0, true,  "T:0,2|U:4,6|F:8,10|S:12!,13", 7, 8 },
         { "METAL", "Fill 5/4 double kick", 0, 0, true,  "K:0-14|S:16!,17,18,19|C:0", 5, 4 },
         { "METAL", "Fill 9/8 blast",       0, 0, true,  "S:0-16/2!|K:1-17/2|C:0", 9, 8 },
         { "METAL", "Fill 7/4 toms",        0, 0, true,  "T:0,2,8,10|U:4,6,12,14|F:16,18,20,22|S:24!,25,26,27", 7, 4 },
         { "METAL", "Fill 6/8 gravity",     0, 0, true,  "S:0-10!|K:0,4,8|C:0", 6, 8 },
 
-        // ===== EXPANSÃO — mais grooves por gênero (biblioteca massiva) =====
-        // ROCK / PROG ROCK (inclui métricas ímpares tipo Rush/Genesis/Yes)
+        // ===== EXPANSION - more grooves per genre (massive library) =====
+        // ROCK / PROG ROCK (includes odd meters a la Rush/Genesis/Yes)
         { "ROCK", "Prog rock 7/8",      132, 0, false, "H:0-12/2|S:4,10|K:0,6,8", 7, 8 },
         { "ROCK", "Prog rock 5/4",      120, 0, false, "H:0-18/2|S:4,12|K:0,8,10,16", 5, 4 },
         { "ROCK", "Rush 7/4",           128, 0, false, "H:0-26/2|S:4,12,20|K:0,8,16,22", 7, 4 },
@@ -628,17 +628,17 @@ const std::vector<Groove>& library()
         { "HIP-HOP", "Boom bap",         90, 0, false, "H:0-14/2|S:4!,12!|K:0,6,8,10" },
         { "HIP-HOP", "Trap hi-hat roll",140, 0, false, "H:0-15,6,7,14,15|S:8!|K:0,10,11" },
         { "HIP-HOP", "Lo-fi swing",      82, 40, false,"H:0-14/2|S:4,12|K:0,7,8" },
-        // ELETRÔNICO
+        // ELECTRONIC
         { "ELECTRONIC", "House 4/4",  124, 0, false, "H:2,6,10,14|P:0-14/2|S:4,12|K:0,4,8,12" },
         { "ELECTRONIC", "Techno drive",130, 0, false, "H:2,6,10,14|S:4,12|K:0,4,8,12|C:0" },
         { "ELECTRONIC", "Drum & bass", 174, 0, false, "H:0-14/2|S:4!,12!|K:0,10" },
         { "ELECTRONIC", "Breakbeat",   136, 0, false, "H:0-14/2|S:4!,10,12!|K:0,3,8" },
         { "ELECTRONIC", "IDM 7/8",     150, 0, false, "H:0-12/2|S:4,10|K:0,2,6,8,12", 7, 8 },
-        // BRASIL
+        // BRAZIL
         { "BRAZIL", "Samba-rock",       104, 0, false, "H:0-15|S:2.,6.,10.,14.|F:4,12|K:0,3,8,11" },
         { "BRAZIL", "Baiao",      110, 0, false, "F:0,3,8,11|S:4,12|K:0,8|H:0-14/2" },
         { "BRAZIL", "Maracatu",          96, 0, false, "F:0,4,8,12|S:2,6,10,14|K:0,8|C:0" },
-        // LATINO
+        // LATIN
         { "LATIN", "Songo",            100, 0, false, "R:0-14/2|S:2.,6,10.,14|F:4,12|K:0,8" },
         { "LATIN", "Bolero 3/4",        90, 0, false, "H:0-10/2|S:4|K:0,8", 3, 4 },
         // REGGAE/SKA
@@ -657,7 +657,7 @@ const std::vector<Groove>& library()
 
 juce::StringArray genres()
 {
-    // ordem fixa; so entram os generos que tem entradas
+    // fixed order; only genres that have entries are included
     static const char* const kOrder[] = { "ROCK", "POP", "PUNK", "METAL", "FUNK", "SOUL/GOSPEL", "BLUES", "JAZZ", "COUNTRY", "BRAZIL", "LATIN", "REGGAE/SKA", "HIP-HOP", "ELECTRONIC", "WORLD", "GENERAL" };
     juce::StringArray out;
     for (auto* g : kOrder)
