@@ -5,6 +5,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+class KnobComponent;   // ribbon da guitarra (topo da bateria) — def. em PluginEditor.h
+
 //==============================================================================
 // Faixa fina da bateria mostrada no TOPO da tela da guitarra (fase 20): play/
 // pausa + BPM + os 4 compassos da seção que toca em mini-pentagrama com o
@@ -164,6 +166,14 @@ private:
 
     GuitarRigNAMProcessor& processor;
     DrumEngine& engine;
+
+    // ---- ribbon da guitarra no TOPO da bateria (fase 20): amp + pedais ativos
+    juce::OwnedArray<KnobComponent> gtrKnobs;   // knobs reais (ligados ao APVTS)
+    juce::TextButton gtrOpenBtn { juce::CharPointer_UTF8 ("abrir guitarra \xe2\xa4\xa2") };
+    void setupGuitarRibbon();
+public:
+    std::function<void()> onClose;   // "abrir guitarra" -> volta para a cadeia
+private:
 
     juce::TextButton closeButton { juce::CharPointer_UTF8 ("\xe2\x9c\x95") };
     juce::TextButton playButton;

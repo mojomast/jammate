@@ -1,16 +1,19 @@
 #include "DrumOverlay.h"
 
 #include "LookAndFeel.h"
+#include "PluginEditor.h"   // KnobComponent (ribbon da guitarra)
 
 //==============================================================================
 // Layout fixo dentro do conteúdo 1100×700 do editor (v4: a pauta é a track).
+// O topo (0..gtrRibH) é o ribbon da guitarra; o módulo começa em headerY.
 namespace
 {
+constexpr int gtrRibH = 66;   // faixa da guitarra no topo
 constexpr int margin = 26;
-constexpr int headerY = 12, headerH = 34;
-constexpr int tabsY = 52, tabsH = 26;
-constexpr int barHeadsY = 80, barHeadsH = 30;
-constexpr int scoreY = 114, scoreH = 294;
+constexpr int headerY = 12 + gtrRibH, headerH = 34;
+constexpr int tabsY = 52 + gtrRibH, tabsH = 26;
+constexpr int barHeadsY = 80 + gtrRibH, barHeadsH = 30;
+constexpr int scoreY = 114 + gtrRibH, scoreH = 294 - gtrRibH;
 constexpr int libY = 414;                                 // topo do navegador/grade
 constexpr int gridY = 418, gridH = 226;                   // grade no lugar da lib
 constexpr int sourceY = 648, sourceH = 32;
@@ -391,6 +394,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
         refreshAll();
     };
     setupGenerator();
+    setupGuitarRibbon();
 
     // navegador em colunas: abas GROOVES / VIRADAS (coluna do meio)
     for (auto* c : { &tabGrooves, &tabViradas })
@@ -648,6 +652,38 @@ void DrumOverlay::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colour (0xfb101318));
 
+    // ---- ribbon da guitarra (topo): fundo + rótulos ----
+    {
+        juce::Rectangle<float> rib (0.0f, 0.0f, (float) getWidth(), (float) gtrRibH);
+        g.setColour (juce::Colour (0xff141a20));
+        g.fillRect (rib);
+        g.setColour (ui::accentDark.withAlpha (0.35f));
+        g.drawLine (0.0f, (float) gtrRibH, (float) getWidth(), (float) gtrRibH, 1.0f);
+
+        g.setColour (ui::textBright);
+        g.setFont (ui::uiFont (12.0f, true));
+        g.drawText ("GUITARRA", margin, 12, 90, 14, juce::Justification::centredLeft);
+        g.setColour (ui::textFaint);
+        g.setFont (ui::uiFont (8.5f));
+        g.drawText (juce::String (juce::CharPointer_UTF8 ("amp + pedais ativos")),
+                    margin, 28, 90, 12, juce::Justification::centredLeft);
+
+        // nomes dos grupos acima dos knobs (amp: knobs 0..5; OD: 6..8)
+        if (gtrKnobs.size() >= 9)
+        {
+            g.setFont (ui::monoFont (8.0f, true));
+            auto grp = [&] (const juce::String& t, int a, int b, juce::Colour c)
+            {
+                const int x0g = gtrKnobs[a]->getX();
+                const int x1g = gtrKnobs[b]->getRight();
+                g.setColour (c);
+                g.drawText (t, x0g, 1, x1g - x0g, 9, juce::Justification::centred);
+            };
+            grp (juce::String (juce::CharPointer_UTF8 ("AMP \xc2\xb7 EVH 5150")), 0, 5, juce::Colour (0xffe0b072));
+            grp ("OVERDRIVE", 6, 8, ui::accent);
+        }
+    }
+
     auto area = getLocalBounds().reduced (margin, 0);
 
     g.setColour (ui::green);
@@ -762,6 +798,19 @@ void DrumOverlay::resized()
     gridChip.setBounds (x0 + 726, headerY + 3, 62, 28);
     genChip.setBounds (x0 + 792, headerY + 3, 60, 28);
     editChip.setBounds (x0 + 856, headerY + 3, 72, 28);
+
+    // ---- ribbon da guitarra (topo): knobs amp + OD ligados ao APVTS
+    {
+        const int ky = 11, kw = 28, kh = 54;
+        int gx = margin + 96;
+        for (int i = 0; i < gtrKnobs.size(); ++i)
+        {
+            gtrKnobs[i]->setBounds (gx, ky, kw, kh);
+            gx += kw + 4;
+            if (i == 5) gx += 22;   // separa AMP | OVERDRIVE
+        }
+        gtrOpenBtn.setBounds (W - margin - 116, (gtrRibH - 26) / 2, 116, 26);
+    }
 
     // abas de seção
     {
@@ -1680,6 +1729,29 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
 
 //==============================================================================
 // ---- Gerador de grooves (fase 19) ------------------------------------------
+void DrumOverlay::setupGuitarRibbon()
+{
+    auto& apvts = processor.apvts;
+    struct K { const char* id; const char* lbl; };
+    static const K knobs[] = {
+        { "ampGain", "GAIN" }, { "ampBass", "BASS" }, { "ampMid", "MID" },
+        { "ampTreble", "TREB" }, { "ampPresence", "PRES" }, { "ampMaster", "MASTER" },
+        { "odDrive", "DRIVE" }, { "odTone", "TONE" }, { "odLevel", "LVL" }
+    };
+    for (auto& k : knobs)
+    {
+        auto* kn = new KnobComponent (apvts, k.id, k.lbl,
+                                      [] (float v) { return juce::String (v, 1); });
+        gtrKnobs.add (kn);
+        addAndMakeVisible (*kn);
+    }
+
+    gtrOpenBtn.getProperties().set ("chip", true);
+    gtrOpenBtn.setMouseClickGrabsKeyboardFocus (false);
+    gtrOpenBtn.onClick = [this] { if (onClose) onClose(); else setVisible (false); };
+    addAndMakeVisible (gtrOpenBtn);
+}
+
 void DrumOverlay::setupGenerator()
 {
     for (auto* b : { &genGenreBox, &genStyleBox, &genDrummerBox })
