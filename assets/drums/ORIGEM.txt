@@ -1,0 +1,13 @@
+Samples de bateria embutidos no PedalForge NAM (sampler interno do
+módulo Bateria).
+
+Kit: GMRockKit — "A Sampled 5pc Pearl DX Series Drumkit"
+Autores: Glen MacArthur / Sebastian Moors
+Licença: GPL (compatível com o AGPLv3 deste projeto)
+Fonte: repositório oficial do Hydrogen drum machine
+  https://github.com/hydrogen-music/hydrogen/tree/main/data/drumkits/GMRockKit
+
+Seleção: 3 camadas de velocity por voz (ghost = *-Soft, normal = *-Med,
+acento = *-Hardest; no chimbal o acento usa HatSemiOpen-Hard para soar
+aberto). Arquivos renomeados para drum_<voz>_<camada>.wav, sem
+modificação no áudio.

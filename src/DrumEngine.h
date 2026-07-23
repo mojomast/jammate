@@ -88,6 +88,11 @@ public:
     void patternFromString (const juce::String&);
     void setPattern (const juce::uint8 p[drum::numVoices][drum::numSteps]);
 
+    /// Decodifica os samples embutidos do GMRockKit (GPL — ver
+    /// assets/drums/ORIGEM.txt) — chamar UMA vez, na message thread, antes
+    /// do áudio começar. Sem eles o sampler cai na síntese (som de trabalho).
+    void loadEmbeddedSamples();
+
 private:
     void fireStep (int step, int sampleOffset,
                    juce::AudioPluginInstance* vst, juce::MidiBuffer& midi);
@@ -105,13 +110,26 @@ private:
     struct PendingOff { int note = -1; int samplesLeft = 0; };
     PendingOff pendingOffs[64];
 
-    // ---- sampler interno (síntese leve, sem samples externos) ---------------
+    // ---- sampler interno: samples reais embutidos (GMRockKit) com 3
+    // camadas de velocity por voz; síntese leve como fallback -----------------
+    struct Layer
+    {
+        juce::AudioBuffer<float> buf;  // 1 ou 2 canais
+        double rate = 44100.0;
+    };
+    Layer sampleLayers[drum::numVoices][3];  // [voz][ghost/normal/acento]
+    std::atomic<bool> samplesReady { false };
+
     struct SynthVoice
     {
         int type = -1;       // índice drum::Voice, 9 = clique fraco, 10 = forte
         bool active = false;
         int delay = 0;       // amostras até o ataque
-        double t = 0.0;      // segundos desde o ataque
+        const Layer* layer = nullptr; // sample em uso (null = síntese)
+        double pos = 0.0;    // posição no sample
+        bool fading = false; // choke: fade rápido em vez de corte seco
+        float fadeGain = 1.0f;
+        double t = 0.0;      // segundos desde o ataque (síntese)
         double phase = 0.0;
         float hpState = 0.0f;
         juce::uint32 noise = 22222;
@@ -121,5 +139,5 @@ private:
     SynthVoice svoices[maxSynthVoices];
     std::atomic<bool> anyVoiceActive { false };
 
-    float synthSample (SynthVoice&) const; // avança 1 amostra da voz
+    float synthSample (SynthVoice&) const; // avança 1 amostra da voz (fallback)
 };

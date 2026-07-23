@@ -627,6 +627,9 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "GuitarRigNAM", createParameterLayout())
 {
+    // samples do kit interno da bateria (antes do áudio começar)
+    drumEngine.loadEmbeddedSamples();
+
     pInputGain = apvts.getRawParameterValue (kParamInputGain);
     pOutputGain = apvts.getRawParameterValue (kParamOutputGain);
     pAmpOn = apvts.getRawParameterValue (kParamAmpOn);

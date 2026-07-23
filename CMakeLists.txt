@@ -62,13 +62,41 @@ juce_add_plugin(GuitarRigNAM
     NEEDS_MIDI_OUTPUT FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
-# Fontes do design (OFL) embutidas no binário.
+# Fontes do design (OFL) + samples de bateria GMRockKit (GPL, ver
+# assets/drums/ORIGEM.txt) embutidos no binário.
 juce_add_binary_data(GuitarRigAssets
     SOURCES
         assets/fonts/SpaceGrotesk-Regular.ttf
         assets/fonts/SpaceGrotesk-Bold.ttf
         assets/fonts/JetBrainsMono-Regular.ttf
-        assets/fonts/JetBrainsMono-Bold.ttf)
+        assets/fonts/JetBrainsMono-Bold.ttf
+        assets/drums/drum_kick_1.wav
+        assets/drums/drum_kick_2.wav
+        assets/drums/drum_kick_3.wav
+        assets/drums/drum_snare_1.wav
+        assets/drums/drum_snare_2.wav
+        assets/drums/drum_snare_3.wav
+        assets/drums/drum_hat_1.wav
+        assets/drums/drum_hat_2.wav
+        assets/drums/drum_hat_3.wav
+        assets/drums/drum_hatpedal_1.wav
+        assets/drums/drum_hatpedal_2.wav
+        assets/drums/drum_hatpedal_3.wav
+        assets/drums/drum_ride_1.wav
+        assets/drums/drum_ride_2.wav
+        assets/drums/drum_ride_3.wav
+        assets/drums/drum_crash_1.wav
+        assets/drums/drum_crash_2.wav
+        assets/drums/drum_crash_3.wav
+        assets/drums/drum_tom1_1.wav
+        assets/drums/drum_tom1_2.wav
+        assets/drums/drum_tom1_3.wav
+        assets/drums/drum_tom2_1.wav
+        assets/drums/drum_tom2_2.wav
+        assets/drums/drum_tom2_3.wav
+        assets/drums/drum_floor_1.wav
+        assets/drums/drum_floor_2.wav
+        assets/drums/drum_floor_3.wav)
 
 target_sources(GuitarRigNAM
     PRIVATE

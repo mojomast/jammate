@@ -1,5 +1,8 @@
 #include "DrumEngine.h"
 
+#include <BinaryData.h>
+#include <juce_audio_formats/juce_audio_formats.h>
+
 namespace drum
 {
 
@@ -112,8 +115,60 @@ double DrumEngine::stepLenSamples (int stepIdx) const
     return (stepIdx % 2 == 0) ? base * (1.0 + sw) : base * (1.0 - sw);
 }
 
+void DrumEngine::loadEmbeddedSamples()
+{
+    // message thread, uma vez, antes do áudio. Decodifica os WAVs do
+    // GMRockKit embutidos no binário (3 camadas de velocity por voz).
+    struct Item { const char* data; int size; };
+    using namespace BinaryData;
+    static const Item items[drum::numVoices][3] = {
+        { { drum_kick_1_wav, drum_kick_1_wavSize }, { drum_kick_2_wav, drum_kick_2_wavSize }, { drum_kick_3_wav, drum_kick_3_wavSize } },
+        { { drum_snare_1_wav, drum_snare_1_wavSize }, { drum_snare_2_wav, drum_snare_2_wavSize }, { drum_snare_3_wav, drum_snare_3_wavSize } },
+        { { drum_hat_1_wav, drum_hat_1_wavSize }, { drum_hat_2_wav, drum_hat_2_wavSize }, { drum_hat_3_wav, drum_hat_3_wavSize } },
+        { { drum_hatpedal_1_wav, drum_hatpedal_1_wavSize }, { drum_hatpedal_2_wav, drum_hatpedal_2_wavSize }, { drum_hatpedal_3_wav, drum_hatpedal_3_wavSize } },
+        { { drum_ride_1_wav, drum_ride_1_wavSize }, { drum_ride_2_wav, drum_ride_2_wavSize }, { drum_ride_3_wav, drum_ride_3_wavSize } },
+        { { drum_crash_1_wav, drum_crash_1_wavSize }, { drum_crash_2_wav, drum_crash_2_wavSize }, { drum_crash_3_wav, drum_crash_3_wavSize } },
+        { { drum_tom1_1_wav, drum_tom1_1_wavSize }, { drum_tom1_2_wav, drum_tom1_2_wavSize }, { drum_tom1_3_wav, drum_tom1_3_wavSize } },
+        { { drum_tom2_1_wav, drum_tom2_1_wavSize }, { drum_tom2_2_wav, drum_tom2_2_wavSize }, { drum_tom2_3_wav, drum_tom2_3_wavSize } },
+        { { drum_floor_1_wav, drum_floor_1_wavSize }, { drum_floor_2_wav, drum_floor_2_wavSize }, { drum_floor_3_wav, drum_floor_3_wavSize } },
+    };
+
+    juce::AudioFormatManager fm;
+    fm.registerBasicFormats();
+    bool allOk = true;
+
+    for (int v = 0; v < drum::numVoices; ++v)
+        for (int l = 0; l < 3; ++l)
+        {
+            auto stream = std::make_unique<juce::MemoryInputStream> (
+                items[v][l].data, (size_t) items[v][l].size, false);
+            std::unique_ptr<juce::AudioFormatReader> reader (
+                fm.createReaderFor (std::move (stream)));
+            if (reader == nullptr || reader->lengthInSamples <= 0)
+            {
+                allOk = false;
+                continue;
+            }
+            auto& layer = sampleLayers[v][l];
+            const int len = (int) juce::jmin<juce::int64> (reader->lengthInSamples,
+                                                           (juce::int64) reader->sampleRate * 6);
+            layer.buf.setSize ((int) juce::jmin (2u, reader->numChannels), len);
+            reader->read (&layer.buf, 0, len, 0, true, reader->numChannels > 1);
+            layer.rate = reader->sampleRate;
+        }
+
+    samplesReady.store (allOk);
+}
+
 void DrumEngine::trigger (int synthType, float vel, int delaySamples)
 {
+    // chimbal: fechado/pedal cortam o aberto (choke com fade de ~15 ms
+    // para não estalar)
+    if (synthType == drum::hat || synthType == drum::hatPedal)
+        for (auto& v : svoices)
+            if (v.active && (v.type == drum::hat || v.type == drum::hatPedal))
+                v.fading = true;
+
     // rouba a voz mais antiga se o pool encher (32 é folga para 9 vozes)
     SynthVoice* slot = nullptr;
     double oldest = -1.0;
@@ -128,6 +183,19 @@ void DrumEngine::trigger (int synthType, float vel, int delaySamples)
     slot->delay = juce::jmax (0, delaySamples);
     slot->vel = vel;
     slot->noise = 0x9e3779b9u + (juce::uint32) (synthType * 7919);
+
+    // sample real (quando embutido): camada por velocity — ghost/normal/acento
+    if (synthType < drum::numVoices && samplesReady.load())
+    {
+        const int layerIdx = vel > 0.9f ? 2 : vel > 0.5f ? 1 : 0;
+        const auto& layer = sampleLayers[synthType][layerIdx];
+        if (layer.buf.getNumSamples() > 0)
+        {
+            slot->layer = &layer;
+            // as camadas já carregam a dinâmica; só um trim leve no ghost
+            slot->vel = vel > 0.5f ? 1.0f : 0.75f;
+        }
+    }
     anyVoiceActive.store (true);
 }
 
@@ -240,7 +308,7 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
     if (vst != nullptr)
         vst->processBlock (out, midi);
 
-    // ---- ...e o sintetizador interno (vozes + clique) soma por cima
+    // ---- ...e o sampler interno (samples reais/síntese + clique) soma por cima
     bool any = false;
     float* L = out.getWritePointer (0);
     float* R = out.getWritePointer (1);
@@ -257,12 +325,50 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
         const float gl = juce::jmin (1.0f, 1.0f - pan);
         const float gr = juce::jmin (1.0f, 1.0f + pan);
 
-        for (int i = 0; i < n && v.active; ++i)
+        if (v.layer != nullptr)
         {
-            if (v.delay > 0) { --v.delay; continue; }
-            const float s = synthSample (v);
-            L[i] += s * gl;
-            R[i] += s * gr;
+            // sample real: interpolação linear + resample pela razão de taxas
+            const auto& buf = v.layer->buf;
+            const float* sl = buf.getReadPointer (0);
+            const float* sr2 = buf.getNumChannels() > 1 ? buf.getReadPointer (1) : sl;
+            const bool stereo = buf.getNumChannels() > 1;
+            const double ratio = v.layer->rate / sr;
+            const int len = buf.getNumSamples();
+
+            for (int i = 0; i < n && v.active; ++i)
+            {
+                if (v.delay > 0) { --v.delay; continue; }
+                const int i0 = (int) v.pos;
+                if (i0 >= len - 1)
+                {
+                    v.active = false;
+                    break;
+                }
+                const float frac = (float) (v.pos - i0);
+                const float a = sl[i0] + (sl[i0 + 1] - sl[i0]) * frac;
+                const float b = sr2[i0] + (sr2[i0 + 1] - sr2[i0]) * frac;
+                const float gain = v.vel * v.fadeGain;
+                // sample estéreo já traz a imagem do kit; mono usa o pan
+                L[i] += (stereo ? a : a * gl) * gain;
+                R[i] += (stereo ? b : b * gr) * gain;
+                v.pos += ratio;
+                if (v.fading)
+                {
+                    v.fadeGain *= 0.9975f;
+                    if (v.fadeGain < 0.002f)
+                        v.active = false;
+                }
+            }
+        }
+        else
+        {
+            for (int i = 0; i < n && v.active; ++i)
+            {
+                if (v.delay > 0) { --v.delay; continue; }
+                const float s = synthSample (v);
+                L[i] += s * gl;
+                R[i] += s * gr;
+            }
         }
     }
     anyVoiceActive.store (any);
