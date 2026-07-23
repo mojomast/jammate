@@ -107,6 +107,7 @@ target_sources(GuitarRigNAM
         src/StoreOverlay.cpp
         src/DrumEngine.cpp
         src/DrumLibrary.cpp
+        src/DrumGenerator.cpp
         src/DrumOverlay.cpp)
 
 # Fontes usam literais UTF-8; sem /utf-8 o MSVC assume codepage 1252 e
