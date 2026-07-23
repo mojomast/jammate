@@ -51,6 +51,25 @@
   .score-wrap svg { display:block; }
   .drop-zone { position:absolute; top:0; bottom:0; border-radius:7px; }
   .drop-zone.dragover { background:rgba(255,150,60,.10); box-shadow:inset 0 0 0 1.5px var(--glow); }
+  .chip.on { background:rgba(51,201,214,.14); border-color:var(--accent-dark); color:var(--accent); }
+  .bar-head .bh-grip { font-family:var(--mono); font-size:9px; color:var(--text-muted); margin-left:auto; }
+  .bar-head[draggable=true] { cursor:grab; }
+  .bar-head.editing { cursor:default; }
+
+  /* GRADE de edição (16 steps do compasso selecionado) */
+  .grade { background:#0c0e11; border:1px solid var(--accent-dark); border-radius:11px; padding:9px 12px; overflow-x:auto; }
+  .grade .gtitle { font-family:var(--mono); font-size:9px; letter-spacing:.14em; color:var(--accent); margin-bottom:7px; }
+  .grade .gtitle b { color:var(--text-bright); }
+  table.seq { border-collapse:separate; border-spacing:3px; }
+  .seq th { font-family:var(--ui); font-weight:700; font-size:10px; color:var(--text-dim); text-align:right; padding-right:10px; white-space:nowrap; }
+  .seq td.step { width:40px; height:18px; border-radius:5px; cursor:pointer; background:rgba(255,255,255,.045); }
+  .seq td.step.beat { background:rgba(255,255,255,.08); }
+  .seq td.step:hover { outline:1px solid var(--border-hover); }
+  .seq td.step.v1 { background:var(--accent-dark); }
+  .seq td.step.v2 { background:var(--glow); }
+  .seq td.step.vg { background:rgba(51,201,214,.3); }
+  .seq td.gap { width:9px; background:transparent; cursor:default; }
+  .seq .cnt { font-family:var(--mono); font-size:8px; color:var(--text-muted); text-align:center; }
 
   /* ===== NAVEGADOR EM COLUNAS (Miller columns, inspirado no DrumGroovePro) ===== */
   .browser { display:flex; gap:8px; height:224px; }
@@ -115,9 +134,9 @@
 
 <div class="wrap">
   <header>
-    <div class="eyebrow">PedalForge NAM · bateria · ideias do DrumGroovePro + midi-drums</div>
-    <h1>Navegador em colunas + humanização</h1>
-    <p class="lede">Inspirado no <b>DrumGroovePro</b> (GPLv3 — pode ser usado e creditado): a biblioteca vira um <b>navegador em colunas</b> — Gênero → Grooves/Viradas → lista → <b>preview</b> com a partitura grande, arrasto para a pauta e <b>humanização</b> (velocity, micro-timing, round-robin). Mockup funcional: navegue, selecione, arraste.</p>
+    <div class="eyebrow">PedalForge NAM · bateria · edição + navegador</div>
+    <h1>Botão EDIÇÃO: editar ou montar</h1>
+    <p class="lede">O botão <b>EDIÇÃO</b> troca o que o clique/arraste faz na pauta. <b>Ligado</b> → clicar edita as notas e a <b>GRADE</b> de 16 steps aparece para o compasso selecionado. <b>Desligado (montar)</b> → você arrasta o <b>compasso inteiro</b> pela pauta para reposicionar ou copiar. E o <b>ARRASTAR</b> da biblioteca (groove → pauta) funciona <b>em qualquer um dos modos</b>. Mockup funcional: ligue a edição, clique nas notas, ou desligue e arraste um compasso sobre o outro.</p>
   </header>
 
   <div class="window">
@@ -129,13 +148,20 @@
       <div class="ed-head">
         <span class="led"></span><span class="ed-title">BATERIA</span>
         <button class="chip play on" id="playBtn">▶ TOCAR</button>
-        <span class="ed-sub">104 BPM · 4/4 · SEÇÃO A</span>
-        <span class="ed-sub" style="margin-left:auto">arraste da lista/preview para um compasso ↓</span>
+        <button class="chip" id="editBtn" title="Liga: clique edita as notas + grade. Desliga: arraste o compasso inteiro">EDIÇÃO</button>
+        <span class="ed-sub" id="modeLabel">MONTAR · arraste o compasso p/ reposicionar · arraste um groove da lista</span>
+        <span class="ed-sub" style="margin-left:auto">104 BPM · 4/4 · SEÇÃO A</span>
       </div>
 
       <div class="score-stage">
         <div class="bar-heads" id="barHeads"></div>
         <div class="score-wrap" id="scoreWrap"><svg id="score" role="img" aria-label="Pauta de 4 compassos"></svg></div>
+      </div>
+
+      <!-- GRADE de edição (aparece só com EDIÇÃO ligada) -->
+      <div class="grade" id="gradePanel" style="display:none">
+        <div class="gtitle">GRADE · editando compasso <b id="gradeBar">1</b> · clique: vazio → toque → acento → ghost</div>
+        <table class="seq" id="grid"></table>
       </div>
 
       <!-- ===== NAVEGADOR EM COLUNAS ===== -->
@@ -223,7 +249,9 @@ const LIB=[
 const GENRES=[...new Set(LIB.map(x=>x.g))];
 let curGenre='ROCK', curKind='groove', selItem=0;
 let song=[{bars:[{name:'Básico',pat:makePat(LIB[0].d)},{name:'Básico',pat:makePat(LIB[0].d)},null,null]}];
-let selBar=0;
+let selBar=0, editMode=false;
+const GRID=['crash','hat','ride','tom1','tom2','snare','floor','kick','hp'];
+const VN={crash:'Crash',hat:'Chimbal',ride:'Ride',tom1:'Tom 1',tom2:'Tom 2',snare:'Caixa',floor:'Surdo',kick:'Bumbo',hp:'P. Chimbal'};
 function makePat(d){const p={};VOICES.forEach(v=>p[v.id]=new Array(NSTEPS).fill(0));if(d)for(const id in d)d[id].forEach(([s,val])=>{if(p[id])p[id][s]=val;});return p;}
 
 function miniScore(pat,w,h){
@@ -291,16 +319,53 @@ function renderBarHeads(){
   const wrap=document.getElementById('scoreWrap');wrap.querySelectorAll('.drop-zone').forEach(z=>z.remove());
   const scale=(document.getElementById('score').getBoundingClientRect().width/SCORE_W)||1;
   song[0].bars.forEach((bar,b)=>{
-    const h=document.createElement('div');h.className='bar-head'+(b===selBar?' sel':'')+(bar?'':' empty');
+    const h=document.createElement('div');
+    h.className='bar-head'+(b===selBar?' sel':'')+(bar?'':' empty')+(editMode?' editing':'');
     h.style.left=(bX0(b)*scale)+'px';h.style.width=((bX1(b)-bX0(b))*scale)+'px';
-    h.innerHTML=`<span class="bh-num">${b+1}</span><span class="bh-name"></span>`;
+    // MONTAR (edição off): o cabeçalho arrasta o compasso inteiro
+    const grip=(!editMode&&bar)?'<span class="bh-grip">⠿</span>':'';
+    h.innerHTML=`<span class="bh-num">${b+1}</span><span class="bh-name"></span>${grip}`;
     h.querySelector('.bh-name').textContent=bar?bar.name:'vazio';
-    h.onclick=()=>{selBar=b;drawScore();};
+    h.onclick=()=>{selBar=b;drawScore();buildGrade();};
+    if(!editMode&&bar){
+      h.draggable=true;
+      h.addEventListener('dragstart',e=>e.dataTransfer.setData('text/plain','bar:'+b));
+    }
     hs.appendChild(h);
     const z=document.createElement('div');z.className='drop-zone';z.style.left=(bX0(b)*scale)+'px';z.style.width=((bX1(b)-bX0(b))*scale)+'px';
     z.ondragover=e=>{e.preventDefault();z.classList.add('dragover');};z.ondragleave=()=>z.classList.remove('dragover');
-    z.ondrop=e=>{e.preventDefault();z.classList.remove('dragover');const i=+e.dataTransfer.getData('text/plain');if(LIB[i]){song[0].bars[b]={name:LIB[i].n,pat:makePat(LIB[i].d)};selBar=b;drawScore();}};
+    z.ondrop=e=>{e.preventDefault();z.classList.remove('dragover');
+      const data=e.dataTransfer.getData('text/plain');
+      if(data.startsWith('bar:')){ // copia um compasso inteiro sobre outro
+        const src=+data.slice(4), sb=song[0].bars[src];
+        if(sb) song[0].bars[b]={name:sb.name,pat:JSON.parse(JSON.stringify(sb.pat))};
+      } else { const i=+data; if(LIB[i]) song[0].bars[b]={name:LIB[i].n,pat:makePat(LIB[i].d)}; }
+      selBar=b;drawScore();buildGrade();
+    };
     wrap.appendChild(z);
+  });
+}
+
+/* GRADE de edição do compasso selecionado */
+function buildGrade(){
+  const panel=document.getElementById('gradePanel');
+  panel.style.display=editMode?'block':'none';
+  if(!editMode) return;
+  document.getElementById('gradeBar').textContent=selBar+1;
+  const tbl=document.getElementById('grid');tbl.innerHTML='';
+  if(!song[0].bars[selBar]) song[0].bars[selBar]={name:'novo',pat:makePat()};
+  const pat=song[0].bars[selBar].pat;
+  const cnt=tbl.insertRow();cnt.appendChild(document.createElement('th'));
+  for(let s=0;s<NSTEPS;s++){ if(s>0&&s%4===0){const g=cnt.insertCell();g.className='gap';}
+    const c=cnt.insertCell();c.className='cnt';c.textContent=s%4===0?String(s/4+1):(s%2===0?'&':'·'); }
+  GRID.forEach(id=>{
+    const row=tbl.insertRow();const th=document.createElement('th');th.textContent=VN[id];row.appendChild(th);
+    for(let s=0;s<NSTEPS;s++){ if(s>0&&s%4===0){const g=row.insertCell();g.className='gap';}
+      const c=row.insertCell();c.className='step'+(s%4===0?' beat':'');
+      const val=pat[id][s]; if(val===1)c.classList.add('v1');else if(val===2)c.classList.add('v2');else if(val===3)c.classList.add('vg');
+      c.onclick=()=>{pat[id][s]=(pat[id][s]+1)%4;drawScore();buildGrade();};
+      row.appendChild(c);
+    }
   });
 }
 
@@ -355,6 +420,32 @@ function renderPreview(){
 }
 document.querySelectorAll('.ltab').forEach(t=>t.onclick=()=>{curKind=t.dataset.k;const f=LIB.findIndex(x=>x.g===curGenre&&x.k===curKind);if(f>=0)selItem=f;renderList();renderPreview();});
 document.getElementById('playBtn').onclick=e=>e.target.classList.toggle('on');
+
+/* modo EDIÇÃO */
+document.getElementById('editBtn').addEventListener('click',()=>{
+  editMode=!editMode;
+  document.getElementById('editBtn').classList.toggle('on',editMode);
+  document.getElementById('modeLabel').textContent=editMode
+    ? 'EDITAR · clique nas notas da pauta ou na grade abaixo'
+    : 'MONTAR · arraste o compasso p/ reposicionar · arraste um groove da lista';
+  drawScore();buildGrade();
+});
+/* clicar na pauta edita as notas quando EDIÇÃO está ligada */
+document.getElementById('score').addEventListener('mousedown',e=>{
+  if(!editMode)return;
+  const svg=document.getElementById('score');const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;
+  const p=pt.matrixTransform(svg.getScreenCTM().inverse());
+  let gs=-1;for(let s=0;s<NSTEPS*BARS;s++)if(Math.abs(p.x-xOf(s))<=STEP_W/2){gs=s;break;}
+  if(gs<0)return;
+  let best=7,voice=null;VOICES.forEach(v=>{const d=Math.abs(p.y-yOf(v.pos));if(d<best){best=d;voice=v;}});
+  if(!voice)return;
+  const b=Math.floor(gs/NSTEPS);selBar=b;
+  if(!song[0].bars[b])song[0].bars[b]={name:'novo',pat:makePat()};
+  const pat=song[0].bars[b].pat,s=gs%NSTEPS;
+  pat[voice.id][s]=(pat[voice.id][s]+1)%4;
+  drawScore();buildGrade();
+});
 window.addEventListener('resize',()=>{renderBarHeads();renderPreview();});
-renderGenreCol();renderList();renderPreview();drawScore();
+renderGenreCol();renderList();renderPreview();drawScore();buildGrade();
+if(location.hash==='#edit')document.getElementById('editBtn').click();
 </script>
