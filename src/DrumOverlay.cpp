@@ -211,12 +211,25 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     { engine.level.store ((float) levelSlider.getValue()); };
     addAndMakeVisible (levelSlider);
 
-    for (auto* c : { &clickChip, &countChip, &followChip, &gridChip, &saveChip })
+    for (auto* c : { &clickChip, &countChip, &followChip, &gridChip, &editChip, &saveChip })
     {
         c->getProperties().set ("chip", true);
         c->setMouseClickGrabsKeyboardFocus (false);
         addAndMakeVisible (*c);
     }
+    editChip.getProperties().set ("chipActive", editMode);
+    editChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "EDITAR: clique na pauta edita as notas. "
+        "MONTAR (desligado): arraste o compasso inteiro p/ reposicionar/copiar")));
+    editChip.onClick = [this]
+    {
+        editMode = ! editMode;
+        editChip.getProperties().set ("chipActive", editMode);
+        editChip.repaint();
+        scoreView.setMouseCursor (editMode ? juce::MouseCursor::NormalCursor
+                                           : juce::MouseCursor::DraggingHandCursor);
+        scoreView.repaint();
+    };
     clickChip.onClick = [this]
     {
         engine.clickOn.store (! engine.clickOn.load());
@@ -524,6 +537,7 @@ void DrumOverlay::resized()
     countChip.setBounds (x0 + 552, headerY + 3, 96, 28);
     followChip.setBounds (x0 + 652, headerY + 3, 70, 28);
     gridChip.setBounds (x0 + 726, headerY + 3, 62, 28);
+    editChip.setBounds (x0 + 792, headerY + 3, 72, 28);
 
     // abas de seção
     {
@@ -982,6 +996,16 @@ int DrumOverlay::ScoreView::barAtX (int x) const { return owner.barAtXlocal (x);
 void DrumOverlay::ScoreView::mouseDown (const juce::MouseEvent& e)
 {
     owner.computeBarLayout (getWidth());
+    downBar = owner.barAtXlocal (e.x);
+
+    // MONTAR: só seleciona; o arrasto do compasso começa no mouseDrag
+    if (! owner.editMode)
+    {
+        if (downBar >= 0) { owner.selBar = downBar; owner.refreshAll(); }
+        return;
+    }
+
+    // EDITAR: acha step/voz e edita a nota
     int bb = -1, ss = -1;
     for (int b = 0; b < drum::barsPerSection && bb < 0; ++b)
         for (int s = 0; s < owner.barLay[b].steps; ++s)
@@ -1018,6 +1042,17 @@ void DrumOverlay::ScoreView::mouseDown (const juce::MouseEvent& e)
         owner.gridView.repaint();
 }
 
+void DrumOverlay::ScoreView::mouseDrag (const juce::MouseEvent& e)
+{
+    if (owner.editMode || downBar < 0 || e.getDistanceFromDragStart() < 6)
+        return;
+    const int srcG = owner.curSection * drum::barsPerSection + downBar;
+    if (! owner.engine.barUsed[srcG].load())
+        return;   // compasso vazio: nada a arrastar
+    if (auto* dnd = juce::DragAndDropContainer::findParentDragContainerFor (this))
+        dnd->startDragging ("bar:" + juce::String (srcG), this);
+}
+
 void DrumOverlay::ScoreView::itemDragMove (const SourceDetails& d)
 {
     const int b = owner.barAtXlocal (d.localPosition.getX());
@@ -1037,8 +1072,25 @@ void DrumOverlay::ScoreView::itemDropped (const SourceDetails& d)
     repaint();
     if (b < 0)
         return;
-    owner.applyGrooveToBar (d.description.toString(),
-                            owner.curSection * drum::barsPerSection + b);
+    const int dstG = owner.curSection * drum::barsPerSection + b;
+    const auto desc = d.description.toString();
+
+    // arrasto de um compasso inteiro (montar): copia pattern + métrica
+    if (desc.startsWith ("bar:"))
+    {
+        const int srcG = desc.substring (4).getIntValue();
+        if (srcG != dstG)
+        {
+            owner.engine.setMeter (dstG, owner.engine.meterNum (srcG),
+                                   owner.engine.meterDen (srcG));
+            owner.engine.barFromString (owner.engine.barToString (srcG), dstG);
+            owner.engine.barNames[dstG] = owner.engine.barNames[srcG];
+            owner.selBar = b;
+            owner.refreshAll();
+        }
+        return;
+    }
+    owner.applyGrooveToBar (desc, dstG);
 }
 
 //==============================================================================

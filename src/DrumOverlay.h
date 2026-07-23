@@ -36,6 +36,7 @@ private:
         explicit ScoreView (DrumOverlay& o) : owner (o) {}
         void paint (juce::Graphics&) override;
         void mouseDown (const juce::MouseEvent&) override;
+        void mouseDrag (const juce::MouseEvent&) override;   // montar: arrasta o compasso
 
         bool isInterestedInDragSource (const SourceDetails&) override { return true; }
         void itemDragEnter (const SourceDetails& d) override { itemDragMove (d); }
@@ -46,7 +47,7 @@ private:
     private:
         int barAtX (int x) const; // 0..3 dentro da seção, -1 fora
         DrumOverlay& owner;
-        int dragOverBar = -1;
+        int dragOverBar = -1, downBar = -1;
         friend class DrumOverlay;
     };
 
@@ -131,6 +132,7 @@ private:
     juce::Slider swingSlider, levelSlider;
     juce::TextButton clickChip { "CLICK" }, countChip { "CONTAGEM" };
     juce::TextButton followChip { "SEGUIR" }, gridChip { "GRADE" };
+    juce::TextButton editChip { juce::CharPointer_UTF8 ("EDI\xc3\x87\xc3\x83O") };
     juce::TextButton saveChip { "SALVAR COMPASSO" };
 
     juce::OwnedArray<juce::TextButton> sectionTabs;
@@ -161,6 +163,7 @@ private:
     int selBar = 0;       // compasso selecionado dentro da seção (0..3)
     bool followOn = true;
     bool gridOn = false;
+    bool editMode = true;  // true = editar notas (clique); false = montar (arrasta compasso)
     juce::String currentGenre { "ROCK" };
     int currentKind = 0;   // 0 tudo · 1 grooves · 2 viradas
 
