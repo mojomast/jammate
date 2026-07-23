@@ -7,8 +7,8 @@
 #include "StoreOverlay.h"
 
 //==============================================================================
-// Slider rotativo com "trava" no valor default (snap quando o arrasto passa
-// perto dele, como um detent físico).
+// Rotary slider with a "detent" at the default value (snaps when the drag
+// passes near it, like a physical detent).
 class SnapSlider : public juce::Slider
 {
 public:
@@ -24,7 +24,7 @@ public:
 };
 
 //==============================================================================
-// Knob + label + valor, conforme Knob.dc.html v2 (gauge accent).
+// Knob + label + value, per Knob.dc.html v2 (gauge accent).
 class KnobComponent : public juce::Component
 {
 public:
@@ -45,7 +45,7 @@ private:
 };
 
 //==============================================================================
-// LED de bypass (aceso = módulo ativo), clicável.
+// Bypass LED (lit = module active), clickable.
 class LedButton : public juce::Button
 {
 public:
@@ -54,13 +54,13 @@ public:
 };
 
 //==============================================================================
-// Medidor horizontal IN/OUT/CPU do top bar.
+// Horizontal IN/OUT/CPU meter in the top bar.
 class LevelMeter : public juce::Component
 {
 public:
-    /// modo nível (dB) — fração calculada de -60..0, com peak-hold
+    /// level mode (dB) - fraction computed from -60..0, with peak-hold
     void setLevel (float newLevelDb);
-    /// modo fração direta (CPU)
+    /// direct fraction mode (CPU)
     void setFraction (float f, juce::Colour c);
     void paint (juce::Graphics&) override;
 
@@ -68,12 +68,12 @@ private:
     float fraction = 0.0f;
     bool solid = false;
     juce::Colour solidColour;
-    float peakFrac = 0.0f; // marcador de pico (segura ~1.5 s e decai)
+    float peakFrac = 0.0f; // peak marker (holds ~1.5 s then decays)
     int peakHoldTicks = 0;
 };
 
 //==============================================================================
-// Pill do preset no top bar (dot + texto centrado), clicável.
+// Preset pill in the top bar (dot + centered text), clickable.
 class PillButton : public juce::Button
 {
 public:
@@ -84,8 +84,8 @@ public:
 };
 
 //==============================================================================
-// A cadeia de sinal rolável: Input → Gate → OD → Amp → Cab → EQ → Delay →
-// Reverb → Output, com cartões nas métricas do design v2.
+// The scrollable signal chain: Input -> Gate -> OD -> Amp -> Cab -> EQ -> Delay ->
+// Reverb -> Output, with cards at the design v2 metrics.
 class ChainView : public juce::Component,
                   public juce::FileDragAndDropTarget
 {
@@ -98,8 +98,8 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    // drag-and-drop de reordenação (rigs+mixer são âncora fixa) + pan pelo
-    // fundo + roda do mouse rolando a cadeia
+    // reordering drag-and-drop (rigs+mixer are a fixed anchor) + pan via the
+    // background + mouse wheel scrolling the chain
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
@@ -107,7 +107,7 @@ public:
     void mouseExit (const juce::MouseEvent&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
 
-    // drag-and-drop de arquivos: .nam no amp, IR no cab, .vst3 no slot
+    // file drag-and-drop: .nam on the amp, IR on the cab, .vst3 on the slot
     bool isInterestedInFileDrag (const juce::StringArray& files) override;
     void filesDropped (const juce::StringArray& files, int x, int y) override;
     void fileDragMove (const juce::StringArray& files, int x, int y) override;
@@ -125,55 +125,55 @@ private:
     int rigBlockWidth() const;
     void updateLayout();
 
-    // entradas da cadeia na ordem visual (efeito ou bloco amp+cabs)
+    // chain entries in visual order (effect or amp+cabs block)
     struct ChainEntry
     {
-        juce::String id;             // "gate".."reverb" ou "amp"
-        juce::Rectangle<int> box;    // amp: união amp..cabs
+        juce::String id;             // "gate".."reverb" or "amp"
+        juce::Rectangle<int> box;    // amp: union amp..cabs
     };
     std::vector<ChainEntry> orderedEntries() const;
     juce::Rectangle<int> boxForFx (const juce::String& id) const;
     int effectCardWidth (const juce::String& id) const;
 
-    // estado do arrasto
+    // drag state
     juce::String draggingId;
     int dragGrabDx = 0;
     float dragMouseX = -1.0f;
     int dropIndex = -1;
-    juce::String lastOrderSeen;      // relayout quando a ordem muda por preset
+    juce::String lastOrderSeen;      // relayout when the order changes via preset
 
-    // gaveta de efeitos: a cadeia mostra só o que está em uso
-    juce::Rectangle<int> addFxB;     // botão "+ EFEITO" no fim da cadeia
-    /// insertIndex >= 0 insere na posição exata; -1 = posição canônica
+    // effects drawer: the chain shows only what is in use
+    juce::Rectangle<int> addFxB;     // "+ EFFECT" button at the end of the chain
+    /// insertIndex >= 0 inserts at the exact position; -1 = canonical position
     void showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea);
     void removeFxFromChain (const juce::String& id);
-    /// Relayout imediato (fora do timer) após mudar a cadeia — o layout
-    /// nunca fica defasado sob o mouse do usuário.
+    /// Immediate relayout (outside the timer) after changing the chain - the layout
+    /// never lags behind under the user's mouse.
     void applyChainRelayout();
-    /// "+" nos conectores entre cards: {hotspot, índice de inserção}
+    /// "+" on the connectors between cards: {hotspot, insertion index}
     std::vector<std::pair<juce::Rectangle<int>, int>> insertSpots() const;
     juce::Array<juce::Component*> componentsForFx (const juce::String& id);
     juce::String onParamIdForFx (const juce::String& id) const;
     static juce::String fxDisplayName (const juce::String& id);
-    /// "ext"->0, "ext2".."ext8"->1..7; -1 para qualquer outro id.
+    /// "ext"->0, "ext2".."ext8"->1..7; -1 for any other id.
     static int extSlotForId (const juce::String& id);
     static juce::Rectangle<int> removeHotspot (juce::Rectangle<int> cardBox)
     {
         return { cardBox.getRight() - 12 - 18 - 6 - 14, cardBox.getY() + 12, 14, 14 };
     }
 
-    // pan da cadeia arrastando o fundo
+    // pan the chain by dragging the background
     bool panning = false;
     juce::Point<int> panStartMouse, panStartView;
 
-    // microinterações: hover nos "+" e "✕"; alvo do drop de arquivo
-    juce::Rectangle<int> hoverHotspot;   // "+"/"✕" sob o mouse
-    juce::Rectangle<int> dropHighlight;  // card alvo do arquivo arrastado
-    /// destino do arquivo em (x,y): {rect do alvo, "nam:lane"/"ir:slot"/"vst3"}
+    // microinteractions: hover on the "+" and "x"; file drop target
+    juce::Rectangle<int> hoverHotspot;   // "+"/"x" under the mouse
+    juce::Rectangle<int> dropHighlight;  // card targeted by the dragged file
+    /// file destination at (x,y): {target rect, "nam:lane"/"ir:slot"/"vst3"}
     std::pair<juce::Rectangle<int>, juce::String> dropTargetAt (const juce::String& file,
                                                                 int x, int y) const;
 
-    // analisador de espectro (card)
+    // spectrum analyzer (card)
     juce::dsp::FFT anFft { 11 }; // 2048
     std::array<float, 4096> anFftBuf {};
     static constexpr int anNumBands = 24;
@@ -192,11 +192,11 @@ private:
     juce::Rectangle<int> compB, preEqB, pitchB, looperB, limB;
     juce::Rectangle<int> extB[GuitarRigNAMProcessor::maxExtSlots];
     juce::Rectangle<int> wahB, harmB, octB, rmB, bcB, sgB, excB, dsB, tapeB, cnsB, anB;
-    // rigs paralelos: um par amp+cab por lane + o card Mixer que soma tudo
+    // parallel rigs: one amp+cab pair per lane + the Mixer card that sums everything
     juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs], mixerB;
     juce::Image ampImages[maxRigs], cabImages[maxRigs];
 
-    // knobs / LEDs / botões
+    // knobs / LEDs / buttons
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
     LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed, compLed, preEqLed,
         pitchLed, looperLed, limLed;
@@ -208,14 +208,14 @@ private:
     std::unique_ptr<KnobComponent> preEqLowKnob, preEqMidKnob, preEqHighKnob;
     juce::TextButton compPresetChips[3]; // Clean / Country / Lead
 
-    // seletores de variação (modelo/marca) nos cartões
+    // variation selectors (model/brand) on the cards
     juce::TextButton odTypeButton, compTypeButton, delayTypeButton, revTypeButton,
         modTypeButton, delayDivButton, pitchTypeButton;
     juce::TextButton wahModeButton, harmKeyButton, harmScaleButton, harmIntervalButton;
     void setupTypeButton (juce::TextButton&, const char* paramId, const juce::String& tooltip);
     void refreshTypeButtons();
 
-    // cartão Mod + tap tempo do delay
+    // Mod card + delay tap tempo
     juce::Rectangle<int> modB;
     LedButton modLed;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> modAtt;
@@ -224,35 +224,35 @@ private:
     juce::int64 lastTapMs = 0;
     void applyTapTempo();
     std::unique_ptr<KnobComponent> odDriveKnob, odToneKnob, odLevelKnob;
-    // amp POR LANE (knobs próprios por rig)
+    // amp PER LANE (its own knobs per rig)
     std::unique_ptr<KnobComponent> ampGainKnob[maxRigs], ampBassKnob[maxRigs],
         ampMidKnob[maxRigs], ampTrebleKnob[maxRigs], ampPresKnob[maxRigs],
         ampMasterKnob[maxRigs];
     juce::TextButton loadButtons[maxRigs];
-    // cab POR LANE (LC/HC/fase/TROCAR); blend fica no card Mixer
+    // cab PER LANE (LC/HC/phase/CHANGE); blend lives in the Mixer card
     std::unique_ptr<KnobComponent> cabAirKnob;
-    std::unique_ptr<KnobComponent> cabBlendKnob[maxRigs]; // no Mixer
+    std::unique_ptr<KnobComponent> cabBlendKnob[maxRigs]; // in the Mixer
     std::unique_ptr<KnobComponent> cabLcKnob[maxRigs];
     std::unique_ptr<KnobComponent> cabHcKnob[maxRigs];
     juce::TextButton cabPhaseChips[maxRigs];
     juce::TextButton cabIrButtons[maxRigs];
-    // Mixer: soma das lanes; +/- adiciona/remove um par AMP+CAB inteiro
+    // Mixer: sum of the lanes; +/- adds/removes an entire AMP+CAB pair
     juce::TextButton rigAddButton { "+" }, rigRemoveButton { "-" };
     int lastRigCount = 0;
     std::unique_ptr<KnobComponent> eqLowKnob, eqMidKnob, eqHighKnob;
     std::unique_ptr<KnobComponent> delayTimeKnob, delayFbKnob, delayMixKnob;
     std::unique_ptr<KnobComponent> revDecayKnob, revMixKnob, revPreKnob;
-    // P3: pitch, looper e limiter
+    // P3: pitch, looper and limiter
     std::unique_ptr<KnobComponent> pitchMixKnob, pitchLevelKnob;
     std::unique_ptr<KnobComponent> looperLevelKnob;
     std::unique_ptr<KnobComponent> limCeilKnob, limRelKnob;
     juce::TextButton looperRecButton, looperPlayButton, looperClearButton, looperExportButton;
-    // slots de plugin VST3 externo (até 3 na cadeia)
+    // external VST3 plugin slots (up to 3 in the chain)
     std::unique_ptr<KnobComponent> extMixKnob[GuitarRigNAMProcessor::maxExtSlots];
     juce::TextButton extLoadButton[GuitarRigNAMProcessor::maxExtSlots],
         extUiButton[GuitarRigNAMProcessor::maxExtSlots],
         extRemoveButton[GuitarRigNAMProcessor::maxExtSlots];
-    // cards P4 (um efeito por card)
+    // P4 cards (one effect per card)
     std::unique_ptr<KnobComponent> wahFreqKnob, wahRangeKnob, wahResKnob;
     std::unique_ptr<KnobComponent> sgSensKnob, sgRiseKnob;
     std::unique_ptr<KnobComponent> octSubKnob, octDirectKnob, octToneKnob;
@@ -266,7 +266,7 @@ private:
     juce::TextButton ecoChip { "ECO" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ecoAtt;
 
-    // cache do badge V1/V2 dos IRs (lido do sidecar .meta)
+    // cache of the IRs' V1/V2 badge (read from the .meta sidecar)
     juce::String cabArchCache[GuitarRigNAMProcessor::maxCabSlots];
     juce::String cabArchPathSeen[GuitarRigNAMProcessor::maxCabSlots];
     juce::String archBadgeForIr (int slot);
@@ -283,7 +283,7 @@ private:
 };
 
 //==============================================================================
-// Canvas lógico fixo 1100×700 escalado pelo editor.
+// Fixed logical canvas 1100x700 scaled by the editor.
 class DrumOverlay;
 class DrumRibbon;
 
@@ -325,54 +325,54 @@ private:
 
     // top bar
     LevelMeter inMeter, outMeter, cpuMeter;
-    juce::TextButton audioButton { juce::String (juce::CharPointer_UTF8 ("\xc3\x81udio")) };
+    juce::TextButton audioButton { "Audio" };
     juce::TextButton storeButton { "Tone Store" };
     juce::TextButton prevButton { "<" }, nextButton { ">" };
-    juce::TextButton saveButton { "SALVAR" };
+    juce::TextButton saveButton { "SAVE" };
     PillButton presetPill;
-    juce::TextEditor presetNameEditor;   // edição inline do nome (sem diálogo)
-    int saveFlashTicks = 0;              // feedback "Salvo" no botão
+    juce::TextEditor presetNameEditor;   // inline name editing (no dialog)
+    int saveFlashTicks = 0;              // "Saved" feedback on the button
     bool focusGrabbed = false;
     bool presetDirtyCached = false;
     juce::TooltipWindow tooltipWindow { this, 600 };
 
-    // cadeia
+    // chain
     juce::Viewport chainViewport;
     std::unique_ptr<ChainView> chainView;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
     std::unique_ptr<StoreOverlay> storeOverlay;
 
-    // módulo Bateria (overlay + janela do painel do VST de bateria)
+    // Drums module (overlay + drum VST panel window)
     std::unique_ptr<DrumOverlay> drumOverlay;
-    std::unique_ptr<DrumRibbon> drumRibbon;   // faixa no topo (acompanhar a bateria)
-    juce::TextButton drumButton { "Bateria" };
+    std::unique_ptr<DrumRibbon> drumRibbon;   // top ribbon (follow along with the drums)
+    juce::TextButton drumButton { "Drums" };
     std::unique_ptr<juce::DocumentWindow> drumVstWindow;
 
-    // janelas flutuantes com os painéis dos plugins VST3 hospedados
+    // floating windows with the hosted VST3 plugins' panels
     std::unique_ptr<juce::DocumentWindow> extWindow[GuitarRigNAMProcessor::maxExtSlots];
 
-    // afinador
-    juce::TextButton tunerToggle { "AFINADOR" };
+    // tuner
+    juce::TextButton tunerToggle { "TUNER" };
     bool isTunerOn() const;
 
-    // modo performance (palco): esconde a cadeia, mostra o essencial grande
+    // performance mode (stage): hides the chain, shows the essentials large
     bool perfMode = false;
-    juce::TextButton perfChip { "PALCO" };
+    juce::TextButton perfChip { "STAGE" };
     void setPerfMode (bool shouldBeOn);
     void paintPerformanceView (juce::Graphics&);
 
-    // mute do afinador (silencia a saída enquanto afina)
+    // tuner mute (silences the output while tuning)
     juce::TextButton muteChip { "MUTE" };
     bool tunerMuteWanted = false;
 
-    // gravador rápido (WAV da saída) + A/B de rigs
+    // quick recorder (output WAV) + rig A/B
     juce::TextButton recChip { juce::CharPointer_UTF8 ("\xe2\x97\x8f REC") };
     juce::int64 recStartMs = 0;
     int recSavedTicks = 0;
     juce::TextButton abButton { "A" };
 
-    // auto-ECO (troca para o capture leve quando a CPU estoura)
+    // auto-ECO (switches to the light capture when CPU spikes)
     juce::TextButton autoEcoChip { "AUTO-ECO" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoEcoAtt;
     int cpuHighTicks = 0;
@@ -384,14 +384,14 @@ private:
     int tunerStringIndex = -1;
     int tunerTick = 0;
 
-    // sidecars de imagem (por lane de rig)
+    // image sidecars (per rig lane)
     juce::String loadedModelPaths[GuitarRigNAMProcessor::maxRigs];
     juce::String loadedIrPaths[GuitarRigNAMProcessor::maxRigs];
     bool ampImagesLoaded[GuitarRigNAMProcessor::maxRigs] = {};
     bool cabImagesLoaded[GuitarRigNAMProcessor::maxRigs] = {};
 
     float inMeterDb = -80.0f, outMeterDb = -80.0f;
-    int clipTicks = 0; // "CLIP" aceso no medidor OUT após pico >= 0 dBFS
+    int clipTicks = 0; // "CLIP" lit on the OUT meter after a peak >= 0 dBFS
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RigContent)
 };

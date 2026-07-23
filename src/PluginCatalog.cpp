@@ -7,41 +7,41 @@ namespace plugcat
 
 const std::vector<Entry>& entries()
 {
-    // Versões PINADAS — atualizar aqui (e no plugins/README.md) ao subir.
-    // REGRA (pedido do usuário): SÓ entra plugin com zip portátil de download
-    // DIRETO — instala extraindo o .vst3 e desinstala apagando o arquivo,
-    // sem instalador. Projetos que só publicam .exe (BYOD, Chow*, GuitarML,
-    // Valentine) ou download por site ficam de fora. checkBundle aceita
-    // wildcard (*).
+    // PINNED versions - update here (and in plugins/README.md) when bumping.
+    // RULE (user's request): ONLY plugins with a portable DIRECT-download zip
+    // are included - install by extracting the .vst3 and uninstall by deleting
+    // the file, no installer. Projects that only ship an .exe (BYOD, Chow*,
+    // GuitarML, Valentine) or download via a website are left out. checkBundle
+    // accepts a wildcard (*).
     static const std::vector<Entry> list = {
-        // ---- coleções (já validadas no pacote offline do repo)
-        { "dragonfly", "Dragonfly Reverb", "Reverb & Ambi\xc3\xaancia", "GPLv3", "3.2.10",
+        // ---- collections (already validated in the repo's offline bundle)
+        { "dragonfly", "Dragonfly Reverb", "Reverb & Ambience", "GPLv3", "3.2.10",
           "https://github.com/michaelwillis/dragonfly-reverb/releases/download/3.2.10/dragonfly-reverb-3.2.10-win64.zip",
           "https://michaelwillis.github.io/dragonfly-reverb/",
           "DragonflyPlateReverb.vst3", 21 },
-        { "airwindows", "Airwindows Consolidated", "Cole\xc3\xa7\xc3\xa3o Airwindows", "MIT", "2026-07-19",
+        { "airwindows", "Airwindows Consolidated", "Airwindows Collection", "MIT", "2026-07-19",
           "https://github.com/baconpaul/airwin2rack/releases/download/DAWPlugin/AirwindowsConsolidated-2026-07-19-e4c4ca2-Windows.zip",
           "https://github.com/baconpaul/airwin2rack",
           "Airwindows Consolidated.vst3", 13 },
-        { "zam", "Zam Plugins", "Pedais & Din\xc3\xa2mica (Zam)", "GPLv2+", "4.5",
+        { "zam", "Zam Plugins", "Pedals & Dynamics (Zam)", "GPLv2+", "4.5",
           "https://github.com/zamaudio/zam-plugins/releases/download/4.5/zam-plugins-4.5-win64.zip",
           "https://www.zamaudio.com/",
           "ZamTube.vst3", 122 },
 
-        // ---- pedais open source (zip: instala direto, sem admin)
-        { "aidax", "AIDA-X (player neural)", "Neural / captures", "GPLv3", "1.1.0",
+        // ---- open source pedals (zip: installs directly, no admin)
+        { "aidax", "AIDA-X (neural player)", "Neural / captures", "GPLv3", "1.1.0",
           "https://github.com/AidaDSP/AIDA-X/releases/download/1.1.0/AIDA-X-1.1.0-win64.zip",
           "https://github.com/AidaDSP/AIDA-X", "AIDA-X.vst3", 7 },
-        { "fire", "Fire (distor\xc3\xa7\xc3\xa3o multibanda)", "Drives & Pedais", "GPLv3", "1.5.0",
+        { "fire", "Fire (multiband distortion)", "Drives & Pedals", "GPLv3", "1.5.0",
           "https://github.com/jerryuhoo/Fire/releases/download/v1.5.0/Fire-1.5.0-Windows.zip",
           "https://github.com/jerryuhoo/Fire", "Fire.vst3", 7 },
-        { "wolfshaper", "Wolf Shaper (waveshaper)", "Drives & Pedais", "GPLv3", "1.0.2",
+        { "wolfshaper", "Wolf Shaper (waveshaper)", "Drives & Pedals", "GPLv3", "1.0.2",
           "https://github.com/wolf-plugins/wolf-shaper/releases/download/v1.0.2/wolf-shaper-v1.0.2%2B20230515144200-windows-x64.zip",
           "https://github.com/wolf-plugins/wolf-shaper", "wolf-shaper.vst3", 5 },
-        { "peakeater", "PeakEater (clipper)", "Drives & Pedais", "GPLv3", "0.8.2",
+        { "peakeater", "PeakEater (clipper)", "Drives & Pedals", "GPLv3", "0.8.2",
           "https://github.com/vvvar/PeakEater/releases/download/v0.8.2/peakeater-v0.8.2-Windows-x86_64.zip",
           "https://github.com/vvvar/PeakEater", "peakeater.vst3", 4 },
-        { "surgefx", "Surge XT Effects (multi-fx)", "Reverb & Ambi\xc3\xaancia", "GPLv3", "1.3.4",
+        { "surgefx", "Surge XT Effects (multi-fx)", "Reverb & Ambience", "GPLv3", "1.3.4",
           "https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-win64-1.3.4-pluginsonly.zip",
           "https://surge-synthesizer.github.io/",
           "Surge XT Effects.vst3", 49, "Surge XT Effects.vst3" },
@@ -87,7 +87,7 @@ juce::String installedVersion (const Entry& e)
     const auto v = parsed.getProperty (e.id, "");
     if (v.isObject())
         return v.getProperty ("version", "").toString();
-    return v.toString(); // formato antigo: só a versão
+    return v.toString(); // old format: just the version
 }
 
 juce::StringArray installedBundles (const Entry& e)
@@ -122,7 +122,7 @@ static void writeManifest (const Entry& e, const juce::StringArray& bundles)
 
 bool canUninstall (const Entry& e)
 {
-    // só desinstalamos o que está na pasta do usuário (sistema exige admin)
+    // we only uninstall what's in the user folder (system requires admin)
     auto bundles = installedBundles (e);
     if (bundles.isEmpty())
         return dirHasBundle (userVst3Dir(), e.checkBundle);
@@ -135,7 +135,7 @@ bool canUninstall (const Entry& e)
 bool uninstall (const Entry& e, juce::String& error)
 {
     auto bundles = installedBundles (e);
-    if (bundles.isEmpty()) // sem manifesto: resolve o wildcard na pasta do usuário
+    if (bundles.isEmpty()) // no manifest: resolve the wildcard in the user folder
         for (const auto& f : userVst3Dir().findChildFiles (
                  juce::File::findFilesAndDirectories, false, e.checkBundle))
             bundles.add (f.getFileName());
@@ -149,23 +149,21 @@ bool uninstall (const Entry& e, juce::String& error)
         if (f.deleteRecursively())
             anyDeleted = true;
         else
-            anyFailed = true; // em uso? (módulo ainda carregado)
+            anyFailed = true; // in use? (module still loaded)
     }
 
     if (anyFailed)
     {
-        error = juce::String (juce::CharPointer_UTF8 (
-            "Arquivo em uso \xe2\x80\x94 remova o plugin dos slots e tente de novo"));
+        error = juce::String ("File in use - remove the plugin from the slots and try again");
         return false;
     }
     if (! anyDeleted)
     {
-        error = juce::String (juce::CharPointer_UTF8 (
-            "Instalado na pasta do sistema \xe2\x80\x94 remova pelo instalador/admin"));
+        error = juce::String ("Installed in the system folder - remove via the installer/admin");
         return false;
     }
 
-    // limpa o manifesto
+    // clears the manifest
     auto parsed = juce::JSON::parse (manifestFile().loadFileAsString());
     if (auto* obj = parsed.getDynamicObject())
     {
@@ -179,7 +177,7 @@ void installAsync (const Entry& entry,
                    std::function<void (int)> onProgress,
                    std::function<void (bool, juce::String)> onDone)
 {
-    static juce::ThreadPool pool { 1 }; // um download por vez
+    static juce::ThreadPool pool { 1 }; // one download at a time
 
     pool.addJob ([entry, onProgress, onDone]
     {
@@ -192,12 +190,12 @@ void installAsync (const Entry& entry,
             juce::MessageManager::callAsync ([onDone, ok, msg] { onDone (ok, msg); });
         };
 
-        // ---- download do zip oficial para um temporário
+        // ---- download the official zip to a temp file
         juce::WebInputStream stream (juce::URL (entry.url), false);
         stream.connect (nullptr);
         if (stream.getStatusCode() != 200)
         {
-            finish (false, "Falha no download (HTTP "
+            finish (false, "Download failed (HTTP "
                                + juce::String (stream.getStatusCode()) + ")");
             return;
         }
@@ -208,8 +206,7 @@ void installAsync (const Entry& entry,
             juce::FileOutputStream out (tempZip);
             if (! out.openedOk())
             {
-                finish (false, juce::String (juce::CharPointer_UTF8 (
-                                   "Sem acesso ao arquivo tempor\xc3\xa1rio")));
+                finish (false, juce::String ("No access to the temp file"));
                 return;
             }
             out.setPosition (0);
@@ -238,13 +235,13 @@ void installAsync (const Entry& entry,
             }
         }
 
-        // ---- extrai só os bundles .vst3 (com a subárvore) no dir do usuário
+        // ---- extract only the .vst3 bundles (with the subtree) into the user dir
         progress (92);
         juce::ZipFile zip (tempZip);
         const auto dest = userVst3Dir();
         dest.createDirectory();
         int extracted = 0;
-        juce::StringArray bundles; // nomes de topo, para o manifesto/desinstalar
+        juce::StringArray bundles; // top-level names, for the manifest/uninstall
 
         for (int i = 0; i < zip.getNumEntries(); ++i)
         {
@@ -252,7 +249,7 @@ void installAsync (const Entry& entry,
             if (e == nullptr || e->filename.endsWithChar ('/'))
                 continue;
 
-            // caminho relativo a partir do segmento "*.vst3"
+            // relative path starting from the "*.vst3" segment
             juce::StringArray parts = juce::StringArray::fromTokens (e->filename, "/", "");
             int bundleIdx = -1;
             for (int p = 0; p < parts.size(); ++p)
@@ -290,14 +287,13 @@ void installAsync (const Entry& entry,
 
         if (extracted == 0)
         {
-            finish (false, juce::String (juce::CharPointer_UTF8 (
-                               "O pacote n\xc3\xa3o continha bundles VST3")));
+            finish (false, juce::String ("The package contained no VST3 bundles"));
             return;
         }
 
         writeManifest (entry, bundles);
         finish (true, juce::String (juce::CharPointer_UTF8 (entry.name))
-                          + " " + entry.version + " instalado");
+                          + " " + entry.version + " installed");
     });
 }
 

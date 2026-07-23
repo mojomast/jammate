@@ -4,7 +4,7 @@ namespace drum
 {
 namespace
 {
-    // RNG barato e determinístico (xorshift) — semeado por chamada
+    // Cheap deterministic RNG (xorshift) - seeded per call
     struct Rng
     {
         juce::uint32 s;
@@ -15,7 +15,7 @@ namespace
         int range (int lo, int hi) { return hi <= lo ? lo : lo + (int) (next() % (juce::uint32) (hi - lo + 1)); }
     };
 
-    // agrupamento da métrica (compostos de 3 em 3) — igual à pauta
+    // Meter grouping (compound meters in threes) - same as the staff
     void groupsFor (int num, int den, int groups[8], int& n)
     {
         n = 0;
@@ -48,7 +48,7 @@ int generateBar (const GenParams& p, juce::uint8 out[numVoices][maxStepsPerBar])
     int groups[8], ng; groupsFor (p.num, p.den, groups, ng);
     int gStart[8] = {}; for (int i = 1; i < ng; ++i) gStart[i] = gStart[i - 1] + groups[i - 1];
 
-    // pulsos ("beats"): em compostos são os inícios de grupo; senão semínimas
+    // pulses ("beats"): in compound meters these are the group starts; otherwise quarter notes
     int beats[32], nb = 0;
     if (p.den == 8) { for (int i = 0; i < ng; ++i) beats[nb++] = gStart[i]; }
     else { const int per = (p.den == 2 ? 8 : 4); for (int s = 0; s < steps; s += per) beats[nb++] = s; }
@@ -61,7 +61,7 @@ int generateBar (const GenParams& p, juce::uint8 out[numVoices][maxStepsPerBar])
     const float cx = juce::jlimit (0.0f, 1.0f, p.complexity);
     const float dy = juce::jlimit (0.0f, 1.0f, p.dynamics);
 
-    //========================= VIRADA (papel = fill) =========================
+    //========================= FILL (role = fill) =========================
     if (rFill)
     {
         set (crash, 0, 2); set (kick, 0, 1);
@@ -74,13 +74,13 @@ int generateBar (const GenParams& p, juce::uint8 out[numVoices][maxStepsPerBar])
             else if (t < 0.80f) set (floorTom, s, 1);
             else                set (snare, s, s == steps - 1 ? 2 : 1);
         }
-        // Hoglan/Dee: rulo de bumbo no fim
+        // Hoglan/Dee: kick roll at the end
         if (eq (p.drummer, "hoglan") || eq (p.drummer, "dee"))
             for (int s = juce::jmax (0, steps - 4); s < steps; ++s) set (kick, s, 1);
         return steps;
     }
 
-    //========================= TIMEKEEPING (prato) ==========================
+    //========================= TIMEKEEPING (cymbal) ==========================
     int cym = hat; int sub = 2; bool halfTime = false;
     if (rChorus) cym = ride;
     if (mJazz) cym = ride;
@@ -88,16 +88,16 @@ int generateBar (const GenParams& p, juce::uint8 out[numVoices][maxStepsPerBar])
     if (mMetal && rBreak)                 halfTime = true;
     if (rBreak && !mMetal)                halfTime = true;
     if (mFunk) sub = (cx > 0.5f ? 1 : 2);
-    if (mRock && !rChorus && cx > 0.62f) sub = 1;   // hats em 16 às vezes
+    if (mRock && !rChorus && cx > 0.62f) sub = 1;   // 16th-note hats sometimes
 
     if (mJazz)
     {
-        // swing: ride "spang-a-lang" — semínima + a "e" dos tempos pares
+        // swing: ride "spang-a-lang" - quarter note + the "and" of even beats
         for (int i = 0; i < nb; ++i)
         {
             set (ride, beats[i], i == 0 ? 2 : 1);
-            if (i % 2 == 1) set (ride, beats[i] + 3, 1);          // o "a"
-            set (hatPedal, beats[i], (i % 2 == 1) ? 1 : 0);       // chimbal em 2 e 4
+            if (i % 2 == 1) set (ride, beats[i] + 3, 1);          // the "a"
+            set (hatPedal, beats[i], (i % 2 == 1) ? 1 : 0);       // hi-hat on 2 and 4
         }
     }
     else
@@ -106,7 +106,7 @@ int generateBar (const GenParams& p, juce::uint8 out[numVoices][maxStepsPerBar])
         for (int i = 0; i < ng; ++i) if (has (cym, gStart[i])) set (cym, gStart[i], 2);
     }
 
-    //============================= CAIXA (backbeat) =========================
+    //============================= SNARE (backbeat) =========================
     if (!mJazz)
     {
         if (halfTime)            set (snare, beats[juce::jmax (1, nb / 2)], 2);
@@ -114,7 +114,7 @@ int generateBar (const GenParams& p, juce::uint8 out[numVoices][maxStepsPerBar])
         else                     for (int i = 1; i < nb; i += 2) set (snare, beats[i], 2);
     }
 
-    //============================== BUMBO ===================================
+    //============================== KICK ===================================
     auto kickBeats = [&] { for (int i = 0; i < nb; ++i) set (kick, beats[i], 1); };
     auto kickGallop = [&] { for (int i = 0; i < nb; ++i) { set (kick, beats[i], 1); set (kick, beats[i] + 3, 1); } };
     auto kickDouble = [&] (int step) { for (int s = 0; s < steps; s += step) set (kick, s, 1); };
@@ -122,7 +122,7 @@ int generateBar (const GenParams& p, juce::uint8 out[numVoices][maxStepsPerBar])
     if (mMetal)
     {
         if      (eq (p.style, "death"))   { kickDouble (cx > 0.72f ? 1 : 2);        // double bass / blast
-                                            for (int s = 2; s < steps; s += 4) set (snare, s, 1); } // caixa offbeat (blast)
+                                            for (int s = 2; s < steps; s += 4) set (snare, s, 1); } // offbeat snare (blast)
         else if (eq (p.style, "thrash"))  kickGallop();
         else if (eq (p.style, "power"))   { kickBeats(); if (cx > 0.5f) for (int i = 0; i < nb; ++i) set (kick, beats[i] + 2, 1); }
         else if (eq (p.style, "doom"))    { set (kick, 0, 2); if (nb > 2) set (kick, beats[nb / 2], 2); }
@@ -152,7 +152,7 @@ int generateBar (const GenParams& p, juce::uint8 out[numVoices][maxStepsPerBar])
     }
     else kickBeats();
 
-    //====================== GHOSTS + ACENTOS (complexidade/dinâmica) =======
+    //====================== GHOSTS + ACCENTS (complexity/dynamics) =======
     if (!rFill && !mJazz && cx > 0.35f)
         for (int i = 0; i < nb; ++i)
         {
@@ -162,11 +162,11 @@ int generateBar (const GenParams& p, juce::uint8 out[numVoices][maxStepsPerBar])
         }
     if (dy > 0.4f) { set (kick, 0, has (kick, 0) ? 2 : out[kick][0]); }
 
-    //============================ REFRÃO: prato de ataque ==================
+    //============================ CHORUS: crash accent ==================
     if (rChorus) { set (crash, 0, 2); if (has (hat, 0)) set (hat, 0, 0); }
-    if (rBridge && has (hat, 0)) for (int s = 1; s < steps; s += 2) set (hat, s, 0); // ponte mais seca
+    if (rBridge && has (hat, 0)) for (int s = 1; s < steps; s += 2) set (hat, s, 0); // drier bridge
 
-    //=================== mini-virada eventual (fillFreq) ===================
+    //=================== occasional mini-fill (fillFreq) ===================
     if (!rFill && nb >= 2 && rng.chance (juce::jlimit (0.0f, 1.0f, p.fillFreq)))
     {
         const int b0 = beats[nb - 1];
@@ -175,32 +175,32 @@ int generateBar (const GenParams& p, juce::uint8 out[numVoices][maxStepsPerBar])
         set (floorTom, b0 + 2, 1); set (snare, steps - 1, 2);
     }
 
-    //============================ MODS de baterista ========================
+    //============================ drummer MODS ========================
     const auto& dr = p.drummer;
-    if (eq (dr, "hoglan"))            // double bass mecânico + flurry no fim
+    if (eq (dr, "hoglan"))            // mechanical double bass + flurry at the end
     {
         for (int s = 0; s < steps; s += 2) if (!has (kick, s)) if (rng.chance (0.6f)) set (kick, s, 1);
         for (int s = juce::jmax (0, steps - 3); s < steps; ++s) set (kick, s, 1);
     }
-    else if (eq (dr, "bonham"))       // tercinas/fantasmas antes do backbeat
+    else if (eq (dr, "bonham"))       // triplets/ghosts before the backbeat
     {
         for (int i = 1; i < nb; i += 2) { const int g = beats[i] - 1; if (!has (snare, g) && !has (kick, g)) set (snare, g, 3); }
         if (cx > 0.5f) for (int i = 0; i < nb; ++i) set (kick, beats[i] + 2, out[kick][juce::jlimit(0,steps-1,beats[i]+2)] ? out[kick][beats[i]+2] : (juce::uint8)1);
     }
-    else if (eq (dr, "weckl"))        // linear: nada simultâneo (mãos vs pés)
+    else if (eq (dr, "weckl"))        // linear: nothing simultaneous (hands vs feet)
     {
         for (int s = 0; s < steps; ++s) if (has (kick, s) && has (snare, s)) set (snare, s, 0);
         for (int s = 0; s < steps; ++s) if (has (kick, s) && has (cym, s) && rng.chance (0.6f)) set (cym, s, 0);
     }
-    else if (eq (dr, "chambers") || eq (dr, "porcaro"))  // ghosts de 16 no bolso
+    else if (eq (dr, "chambers") || eq (dr, "porcaro"))  // 16th-note ghosts in the pocket
     {
         for (int i = 0; i < nb; ++i) { const int a = beats[i] + 3; if (!has (snare, a) && !has (kick, a)) set (snare, a, 3); }
     }
-    else if (eq (dr, "roeder"))       // minimalista: rareia o prato
+    else if (eq (dr, "roeder"))       // minimalist: thins out the cymbal
     {
         for (int s = 0; s < steps; s += 2) if (has (cym, s) && rng.chance (0.4f)) set (cym, s, 0);
     }
-    else if (eq (dr, "dee"))          // velocidade: bumbo extra + acento torto
+    else if (eq (dr, "dee"))          // speed: extra kick + off-kilter accent
     {
         for (int i = 0; i < nb; ++i) if (rng.chance (0.5f)) set (kick, beats[i] + 2, 1);
     }
@@ -223,13 +223,13 @@ juce::StringArray genStyles (const juce::String& genre)
 const std::vector<GenDrummer>& genDrummers()
 {
     static const std::vector<GenDrummer> d = {
-        { "bonham",   "John Bonham",     "Tercinas \xc2\xb7 atr\xc3\xa1s do tempo" },
-        { "porcaro",  "Jeff Porcaro",    "Half-time shuffle \xc2\xb7 est\xc3\xba" "dio" },
+        { "bonham",   "John Bonham",     "Triplets \xc2\xb7 behind the beat" },
+        { "porcaro",  "Jeff Porcaro",    "Half-time shuffle \xc2\xb7 studio" },
         { "weckl",    "Dave Weckl",      "Linear \xc2\xb7 fusion" },
-        { "chambers", "Dennis Chambers", "Pocket de funk \xc2\xb7 chops" },
-        { "roeder",   "Jason Roeder",    "Sludge atmosf\xc3\xa9rico \xc2\xb7 minimal" },
-        { "dee",      "Mikkey Dee",      "Velocidade \xc2\xb7 pot\xc3\xaancia" },
-        { "hoglan",   "Gene Hoglan",     "Precis\xc3\xa3o mec\xc3\xa2nica \xc2\xb7 blast" },
+        { "chambers", "Dennis Chambers", "Funk pocket \xc2\xb7 chops" },
+        { "roeder",   "Jason Roeder",    "Atmospheric sludge \xc2\xb7 minimal" },
+        { "dee",      "Mikkey Dee",      "Speed \xc2\xb7 power" },
+        { "hoglan",   "Gene Hoglan",     "Mechanical precision \xc2\xb7 blast" },
     };
     return d;
 }

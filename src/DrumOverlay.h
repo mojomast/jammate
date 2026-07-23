@@ -5,20 +5,20 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-class KnobComponent;   // ribbon da guitarra (topo da bateria) — def. em PluginEditor.h
+class KnobComponent;   // guitar ribbon (top of the drums) - defined in PluginEditor.h
 
 //==============================================================================
-// Faixa fina da bateria mostrada no TOPO da tela da guitarra (fase 20): play/
-// pausa + BPM + os 4 compassos da seção que toca em mini-pentagrama com o
-// playhead andando, para o guitarrista acompanhar. Clicar (fora do play) abre
-// o módulo Bateria. Reusa o desenho meter-aware da pauta.
+// Thin drum strip shown at the TOP of the guitar screen (phase 20): play/
+// pause + BPM + the 4 bars of the playing section in a mini-staff with the
+// playhead moving, for the guitarist to follow along. Clicking (outside play)
+// opens the Drums module. Reuses the meter-aware staff drawing.
 class DrumRibbon : public juce::Component,
                    public juce::SettableTooltipClient,
                    private juce::Timer
 {
 public:
     explicit DrumRibbon (DrumEngine&);
-    std::function<void()> onOpen;    // clique (fora do play) -> abre a bateria
+    std::function<void()> onOpen;    // click (outside play) -> opens the drums
     void paint (juce::Graphics&) override;
     void resized() override;
     void mouseUp (const juce::MouseEvent&) override;
@@ -31,10 +31,10 @@ private:
 };
 
 //==============================================================================
-// Overlay do módulo Bateria — layout v4 ("a pauta é a track"):
-// a área central mostra os 4 compassos da seção em pentagrama corrido;
-// grooves de 1 compasso são ARRASTADOS da biblioteca direto para cima do
-// compasso na pauta; clique na pauta edita; seções em abas; grade opcional.
+// Drums module overlay - layout v4 ("the staff is the track"):
+// the central area shows the section's 4 bars on a continuous staff;
+// 1-bar grooves are DRAGGED from the library straight onto the bar on the
+// staff; clicking the staff edits; sections as tabs; optional grid.
 class DrumOverlay : public juce::Component,
                     public juce::DragAndDropContainer,
                     private juce::Timer
@@ -56,7 +56,7 @@ public:
 private:
     void timerCallback() override;
 
-    // ---- a pauta central (4 compassos, alvo de drag & drop, clique edita)
+    // ---- the central staff (4 bars, drag & drop target, click edits)
     class ScoreView : public juce::Component,
                       public juce::DragAndDropTarget
     {
@@ -64,7 +64,7 @@ private:
         explicit ScoreView (DrumOverlay& o) : owner (o) {}
         void paint (juce::Graphics&) override;
         void mouseDown (const juce::MouseEvent&) override;
-        void mouseDrag (const juce::MouseEvent&) override;   // montar: arrasta o compasso
+        void mouseDrag (const juce::MouseEvent&) override;   // assemble: drags the bar
 
         bool isInterestedInDragSource (const SourceDetails&) override { return true; }
         void itemDragEnter (const SourceDetails& d) override { itemDragMove (d); }
@@ -73,28 +73,28 @@ private:
         void itemDropped (const SourceDetails&) override;
 
     private:
-        int barAtX (int x) const; // 0..3 dentro da seção, -1 fora
+        int barAtX (int x) const; // 0..3 within the section, -1 outside
         DrumOverlay& owner;
         int dragOverBar = -1, downBar = -1;
         friend class DrumOverlay;
     };
 
-    // ---- cabeçalho de cada compasso (nº + groove + ✕), acima da pauta
+    // ---- header of each bar (number + groove + close), above the staff
     class BarHead : public juce::Component
     {
     public:
         int barInSec = 0;
-        juce::String title, meterText { "4/4" }, roleText { "Verso" };
-        int roleId = 1;              // 1..5 resolvido (p/ cor)
-        bool roleAuto = true;        // papel vindo do arco (não explícito)
+        juce::String title, meterText { "4/4" }, roleText { "Verse" };
+        int roleId = 1;              // 1..5 resolved (for color)
+        bool roleAuto = true;        // role coming from the arc (not explicit)
         bool selected = false, empty = true;
         std::function<void()> onSelect, onClear, onMeter, onRole;
-        juce::Rectangle<int> roleRect, meterRect, clearRect;  // zonas de clique
+        juce::Rectangle<int> roleRect, meterRect, clearRect;  // click zones
         void paint (juce::Graphics&) override;
         void mouseUp (const juce::MouseEvent&) override;
     };
 
-    // ---- grade opcional do compasso selecionado (16 steps)
+    // ---- optional grid for the selected bar (16 steps)
     class GridView : public juce::Component
     {
     public:
@@ -107,7 +107,7 @@ private:
         DrumOverlay& owner;
     };
 
-    // ---- linha da lista de grooves/viradas (arrastável) — coluna do meio
+    // ---- grooves/fills list row (draggable) - middle column
     class LibRow : public juce::Component
     {
     public:
@@ -121,7 +121,7 @@ private:
         bool dragging = false;
     };
 
-    // ---- painel de preview (coluna da direita): partitura grande + arrasto
+    // ---- preview pane (right column): large score + drag
     class PreviewPane : public juce::Component
     {
     public:
@@ -138,7 +138,7 @@ private:
     void rebuildBarHeads();
     void refreshAll();
 
-    // ---- layout meter-aware da pauta (fórmula de compasso por compasso) ----
+    // ---- meter-aware staff layout (time signature per bar) ----
     struct BarLayout
     {
         float notesX = 0, tsX = -1, width = 0;
@@ -154,69 +154,69 @@ private:
     int barAtXlocal (int x) const;
     void openMeterMenu (int barInSec, juce::Component* anchor);
     void openRoleMenu (int barInSec, juce::Component* anchor);
-    int resolveRole (int globalBar) const;   // 1..5 (auto vira arco pela posição)
+    int resolveRole (int globalBar) const;   // 1..5 (auto becomes an arc by position)
 
-    /// compasso global selecionado (curSection*4 + selBar)
+    /// selected global bar (curSection*4 + selBar)
     int selectedBar() const { return curSection * drum::barsPerSection + selBar; }
-    /// aplica um groove (por dragId "f:<índice>" ou "u:<arquivo>") num compasso
+    /// applies a groove (by dragId "f:<index>" or "u:<file>") to a bar
     void applyGrooveToBar (const juce::String& dragId, int globalBar);
     void saveUserGroove();
     static juce::File userGroovesDir();
     void syncTransportUi();
 
-    // morph: faixa da bateria (topo da guitarra) <-> tela cheia
-    float morphT = 1.0f, morphTarget = 1.0f;   // 0 = faixa, 1 = tela cheia
+    // morph: drum strip (top of the guitar) <-> full screen
+    float morphT = 1.0f, morphTarget = 1.0f;   // 0 = strip, 1 = full screen
     bool morphing = false;
     void applyMorph();
 public:
-    void closeAnimated();   // fecha com a animação de morph
+    void closeAnimated();   // closes with the morph animation
 private:
 
     GuitarRigNAMProcessor& processor;
     DrumEngine& engine;
 
-    // ---- ribbon da guitarra no TOPO da bateria (fase 20): amp + pedais ativos
-    juce::OwnedArray<KnobComponent> gtrKnobs;   // knobs reais (ligados ao APVTS)
-    juce::TextButton gtrOpenBtn { juce::CharPointer_UTF8 ("abrir guitarra \xe2\xa4\xa2") };
+    // ---- guitar ribbon at the TOP of the drums (phase 20): amp + active pedals
+    juce::OwnedArray<KnobComponent> gtrKnobs;   // real knobs (wired to the APVTS)
+    juce::TextButton gtrOpenBtn { juce::CharPointer_UTF8 ("open guitar \xe2\xa4\xa2") };
     void setupGuitarRibbon();
 public:
-    std::function<void()> onClose;   // "abrir guitarra" -> volta para a cadeia
+    std::function<void()> onClose;   // "open guitar" -> back to the chain
 private:
 
     juce::TextButton closeButton { juce::CharPointer_UTF8 ("\xe2\x9c\x95") };
     juce::TextButton playButton;
     juce::TextButton bpmDown { "-" }, bpmUp { "+" };
     juce::Slider swingSlider, levelSlider;
-    juce::TextButton clickChip { "CLICK" }, countChip { "CONTAGEM" };
-    juce::TextButton followChip { "SEGUIR" }, gridChip { "GRADE" };
-    juce::TextButton genChip { "GERAR" };
-    juce::TextButton editChip { juce::CharPointer_UTF8 ("EDI\xc3\x87\xc3\x83O") };
-    juce::TextButton saveChip { "SALVAR COMPASSO" };
+    juce::TextButton clickChip { "CLICK" }, countChip { "COUNT-IN" };
+    juce::TextButton followChip { "FOLLOW" }, gridChip { "GRID" };
+    juce::TextButton genChip { "GENERATE" };
+    juce::TextButton editChip { "EDIT" };
+    juce::TextButton saveChip { "SAVE BAR" };
 
     juce::OwnedArray<juce::TextButton> sectionTabs;
-    juce::TextButton addSectionBtn { juce::CharPointer_UTF8 ("+ SE\xc3\x87\xc3\x83O") };
-    juce::TextButton delSectionBtn { juce::CharPointer_UTF8 ("\xe2\x9c\x95 remover") };
+    juce::TextButton addSectionBtn { "+ SECTION" };
+    juce::TextButton delSectionBtn { juce::CharPointer_UTF8 ("\xe2\x9c\x95 remove") };
 
     juce::OwnedArray<BarHead> barHeads;
     ScoreView scoreView { *this };
 
-    // ---- navegador em colunas: Gênero | Grooves/Viradas | Preview
+    // ---- column browser: Genre | Grooves/Fills | Preview
     juce::Viewport genreVp;
     juce::Component genreContent;
     juce::OwnedArray<juce::TextButton> genreRows;
-    juce::TextButton tabGrooves { "GROOVES" }, tabViradas { "VIRADAS" };
+    juce::TextButton tabGrooves { "GROOVES" }, tabViradas { "FILLS" };
     juce::Viewport listVp;
     juce::Component listContent;
     juce::OwnedArray<LibRow> libRows;
     PreviewPane previewPane { *this };
     juce::TextButton applyBtn;
-    juce::Slider humVelSlider, humTimeSlider, humRRSlider;   // humanização
+    juce::Slider humVelSlider, humTimeSlider, humRRSlider;   // humanize
     juce::TextEditor saveNameEditor;
-    juce::TextButton saveConfirm { "SALVAR" };
-    // groove selecionado no preview
+    juce::TextButton saveConfirm { "SAVE" };
+    // groove selected in the preview
     juce::String selName, selDragId;
     int selBpm = 0;
-    int selNum = 4, selDen = 4;   // métrica do groove selecionado
+    int selNum = 4, selDen = 4;   // time signature of the selected groove
     bool selFill = false, selValid = false;
     juce::uint8 selPat[drum::numVoices][drum::maxStepsPerBar] = {};
     void rebuildGenreCol();
@@ -226,7 +226,7 @@ private:
 
     GridView gridView { *this };
 
-    // ---- Gerador (fase 19): mesma zona do navegador/grade -------------------
+    // ---- Generator (phase 19): same area as the browser/grid -------------------
     juce::ComboBox genGenreBox, genStyleBox, genDrummerBox;
     juce::Slider genComplex, genDynamics, genHuman, genFill, genSwing;
     juce::TextButton genOneBtn, genAllBtn;
@@ -239,18 +239,18 @@ private:
     juce::uint32 genSeedCtr = 1;
 
     juce::TextButton sourceChip;
-    juce::TextButton vstLoadButton { juce::CharPointer_UTF8 ("CARREGAR VST3\xe2\x80\xa6") };
-    juce::TextButton vstPanelButton { "PAINEL" };
-    juce::TextButton vstClearButton { "REMOVER" };
+    juce::TextButton vstLoadButton { juce::CharPointer_UTF8 ("LOAD VST3\xe2\x80\xa6") };
+    juce::TextButton vstPanelButton { "PANEL" };
+    juce::TextButton vstClearButton { "REMOVE" };
 
-    int curSection = 0;   // seção mostrada
-    int selBar = 0;       // compasso selecionado dentro da seção (0..3)
+    int curSection = 0;   // section shown
+    int selBar = 0;       // selected bar within the section (0..3)
     bool followOn = true;
     bool gridOn = false;
-    bool genOn = false;    // painel do gerador na zona do navegador
-    bool editMode = true;  // true = editar notas (clique); false = montar (arrasta compasso)
+    bool genOn = false;    // generator panel in the browser area
+    bool editMode = true;  // true = edit notes (click); false = assemble (drag bar)
     juce::String currentGenre { "ROCK" };
-    int currentKind = 1;   // 1 grooves · 2 viradas (abas da coluna do meio)
+    int currentKind = 1;   // 1 grooves, 2 fills (middle-column tabs)
 
     int lastUiBar = -2;
     bool lastHasVst = false;

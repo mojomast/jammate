@@ -84,7 +84,7 @@ void Tone3000Client::reloadConfig()
     const auto file = configFile();
     if (! file.existsAsFile())
     {
-        // Cria um template para o usuário preencher.
+        // Create a template for the user to fill in.
         file.replaceWithText (
             "{\n"
             "  \"publishable_key\": \"\",\n"
@@ -148,11 +148,11 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
         const auto challenge = base64url (hash.getRawData().getData(),
                                           hash.getRawData().getSize());
 
-        // Listener ANTES de abrir o navegador (evita corrida).
+        // Listener BEFORE opening the browser (avoids a race).
         juce::StreamingSocket server;
         if (! server.createListener (kCallbackPort, "127.0.0.1"))
         {
-            finish (false, "Porta " + juce::String (kCallbackPort) + " ocupada");
+            finish (false, "Port " + juce::String (kCallbackPort) + " is busy");
             return;
         }
 
@@ -171,10 +171,10 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
             juce::URL (authorizeUrl).launchInDefaultBrowser();
         });
 
-        // Espera o redirect (até 3 minutos). Navegadores abrem conexões
-        // especulativas vazias e pedem /favicon.ico antes do redirect real —
-        // essas são respondidas com 404 e IGNORADAS; só saímos do loop quando
-        // chegar um request com os parâmetros do callback OAuth.
+        // Waits for the redirect (up to 3 minutes). Browsers open empty
+        // speculative connections and request /favicon.ico before the real
+        // redirect - those get a 404 and are IGNORED; we only leave the loop
+        // when a request with the OAuth callback parameters arrives.
         juce::String request;
         const auto deadline = juce::Time::currentTimeMillis() + 180000;
 
@@ -213,7 +213,7 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
                 "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
                 "<html><body style=\"background:#141517;color:#e5e6e8;font-family:sans-serif;"
                 "display:flex;align-items:center;justify-content:center;height:100vh\">"
-                "<h2>Autorizado &mdash; volte ao PedalForge NAM.</h2></body></html>";
+                "<h2>Authorized &mdash; go back to PedalForge NAM.</h2></body></html>";
             conn->write (reply.toRawUTF8(), (int) reply.getNumBytesAsUTF8());
             conn->close();
             request = thisRequest;
@@ -224,11 +224,11 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
 
         if (request.isEmpty())
         {
-            finish (false, "Tempo esgotado aguardando o login");
+            finish (false, "Timed out waiting for login");
             return;
         }
 
-        // Extrai os query params da primeira linha: GET /callback?... HTTP/1.1
+        // Extracts the query params from the first line: GET /callback?... HTTP/1.1
         const auto firstLine = request.upToFirstOccurrenceOf ("\r\n", false, false);
         const auto query = firstLine.fromFirstOccurrenceOf ("?", false, false)
                                .upToFirstOccurrenceOf (" ", false, false);
@@ -243,10 +243,10 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
         }
 
         if (oauthError.isNotEmpty()) { finish (false, oauthError); return; }
-        if (returnedState != state) { finish (false, "state divergente (CSRF?)"); return; }
-        if (code.isEmpty()) { finish (false, "callback sem code"); return; }
+        if (returnedState != state) { finish (false, "state mismatch (CSRF?)"); return; }
+        if (code.isEmpty()) { finish (false, "callback without code"); return; }
 
-        // Troca o code por tokens.
+        // Exchanges the code for tokens.
         const juce::String form =
             "grant_type=authorization_code&code=" + urlEncode (code)
             + "&code_verifier=" + urlEncode (codeVerifier)
@@ -260,7 +260,7 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
 
         if (stream.getStatusCode() != 200)
         {
-            finish (false, "Troca de tokens falhou (HTTP "
+            finish (false, "Token exchange failed (HTTP "
                             + juce::String (stream.getStatusCode()) + ")");
             return;
         }
@@ -272,7 +272,7 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
 
         if (newAccess.isEmpty() || newRefresh.isEmpty())
         {
-            finish (false, "Resposta de token invalida");
+            finish (false, "Invalid token response");
             return;
         }
 
@@ -283,7 +283,7 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
         accessToken = newAccess;
         accessTokenExpiry = juce::Time::currentTimeMillis() + (juce::int64) (expiresIn * 1000.0) - 60000;
 
-        // Perfil (nome para o chip da UI).
+        // Profile (name for the UI chip).
         int status = 0;
         const auto userJson = apiGet ("/api/v1/user", status);
         if (status == 200)
@@ -299,7 +299,7 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
 }
 
 //==============================================================================
-// Chamadas autenticadas (pool thread)
+// Authenticated calls (pool thread)
 
 bool Tone3000Client::refreshAccessToken (juce::String& error)
 {
@@ -312,7 +312,7 @@ bool Tone3000Client::refreshAccessToken (juce::String& error)
 
     if (refresh.isEmpty())
     {
-        error = "Nao conectado";
+        error = "Not connected";
         return false;
     }
 
@@ -326,7 +326,7 @@ bool Tone3000Client::refreshAccessToken (juce::String& error)
 
     if (stream.getStatusCode() != 200)
     {
-        error = "Sessao expirada - reconecte sua conta";
+        error = "Session expired - reconnect your account";
         return false;
     }
 
@@ -394,7 +394,7 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
         if (architecture > 0)
             path += "&architecture=" + juce::String (architecture);
 
-        // Uma tentativa + um retry após refresh em caso de 401.
+        // One attempt + one retry after refresh on a 401.
         int status = 0;
         juce::String body;
         for (int attempt = 0; attempt < 2; ++attempt)
@@ -405,7 +405,7 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
             juce::String err;
             if (! refreshAccessToken (err))
             {
-                result.error = "Sessao expirada - reconecte sua conta";
+                result.error = "Session expired - reconnect your account";
                 deliver (std::move (result));
                 return;
             }
@@ -413,7 +413,7 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
 
         if (status != 200)
         {
-            result.error = "Sem conexao com TONE3000 (HTTP " + juce::String (status) + ")";
+            result.error = "No connection to TONE3000 (HTTP " + juce::String (status) + ")";
             deliver (std::move (result));
             return;
         }
@@ -441,7 +441,7 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
 
                 tone.hasA2 = (int) t.getProperty ("a2_models_count", 0) > 0;
 
-                // Só formatos que o GuitarRig consegue usar hoje.
+                // Only formats GuitarRig can use today.
                 if (tone.format == "nam" || tone.format == "ir")
                     result.tones.push_back (tone);
             }
@@ -483,9 +483,9 @@ void Tone3000Client::fetchImage (const juce::String& url, std::function<void (ju
         }
 
         if (img.isNull())
-            return; // formato não suportado (ex.: webp) — o cartão fica com o placeholder
+            return; // unsupported format (e.g. webp) - the card keeps the placeholder
 
-        // Reduz para ~2x a largura do cartão: memória e blit baratos.
+        // Downscale to ~2x the card width: cheap memory and blit.
         if (img.getWidth() > 560)
             img = img.rescaled (560, juce::jmax (1, juce::roundToInt (
                                           560.0 * img.getHeight() / img.getWidth())));
@@ -512,9 +512,9 @@ void Tone3000Client::listModels (int toneId,
             return;
         }
 
-        // ARMADILHA DA API: /models sem parâmetro retorna SÓ os modelos A1
-        // (para IRs, retorna os IRs). Os A2 exigem uma chamada separada com
-        // &architecture=2 — sem ela, a loja nunca vê (nem baixa) os A2.
+        // API PITFALL: /models without a parameter returns ONLY the A1 models
+        // (for IRs, it returns the IRs). A2 requires a separate call with
+        // &architecture=2 - without it, the store never sees (or downloads) the A2s.
         std::vector<Model> models;
         std::set<int> seenIds;
 
@@ -528,7 +528,7 @@ void Tone3000Client::listModels (int toneId,
                                           + "&page_size=50&page=" + juce::String (page)
                                           + extraQuery, status);
                 if (status != 200)
-                    return ! required; // a chamada extra pode falhar sem derrubar tudo
+                    return ! required; // the extra call may fail without bringing everything down
 
                 const auto json = juce::JSON::parse (body);
                 totalPages = (int) json.getProperty ("total_pages", 1);
@@ -551,20 +551,20 @@ void Tone3000Client::listModels (int toneId,
             return true;
         };
 
-        if (! fetchModels ({}, true)) // A1 (e IRs)
+        if (! fetchModels ({}, true)) // A1 (and IRs)
         {
-            deliver ({}, "Falha ao listar modelos");
+            deliver ({}, "Failed to list models");
             return;
         }
-        fetchModels ("&architecture=2", false); // A2 (chamada separada)
+        fetchModels ("&architecture=2", false); // A2 (separate call)
 
         if (models.empty())
         {
-            deliver ({}, "Tone sem modelos disponiveis");
+            deliver ({}, "Tone has no available models");
             return;
         }
 
-        // A2 primeiro, standard primeiro; ordem original como desempate.
+        // A2 first, standard first; original order as tiebreaker.
         std::stable_sort (models.begin(), models.end(),
                           [] (const Model& a, const Model& b)
                           {
@@ -586,8 +586,8 @@ juce::File Tone3000Client::localFileForModel (const Model& model, const juce::St
                          : (kind == "ir" ? juce::String (".wav") : juce::String (".nam"));
     const auto dir = kind == "ir" ? irsDir() : capturesDir();
 
-    // Nome legível (título do tone + variação), preservando maiúsculas e
-    // espaços; fallback: nome técnico do modelo.
+    // Readable name (tone title + variation), preserving capitals and
+    // spaces; fallback: the model's technical name.
     auto base = baseName.isNotEmpty()
                     ? juce::File::createLegalFileName (baseName).trim()
                     : sanitizeFilename (model.name.isNotEmpty() ? model.name : storageName);
@@ -647,9 +647,9 @@ void Tone3000Client::downloadModel (const Model& model, const juce::String& kind
 
         const auto modelUrl = model.url;
         const auto modelName = model.name;
-        const auto gear = kind; // "ir" -> IRs/, senão Captures/
+        const auto gear = kind; // "ir" -> IRs/, otherwise Captures/
 
-        // Download autenticado com progresso.
+        // Authenticated download with progress.
         juce::URL url (modelUrl);
         juce::WebInputStream stream (url, false);
         stream.withExtraHeaders ("Authorization: Bearer " + accessToken);
@@ -657,7 +657,7 @@ void Tone3000Client::downloadModel (const Model& model, const juce::String& kind
 
         if (stream.getStatusCode() != 200)
         {
-            fail ("Download falhou (HTTP " + juce::String (stream.getStatusCode()) + ")");
+            fail ("Download failed (HTTP " + juce::String (stream.getStatusCode()) + ")");
             return;
         }
 
@@ -667,7 +667,7 @@ void Tone3000Client::downloadModel (const Model& model, const juce::String& kind
         juce::FileOutputStream out (target);
         if (! out.openedOk())
         {
-            fail ("Nao foi possivel criar " + target.getFullPathName());
+            fail ("Could not create " + target.getFullPathName());
             return;
         }
 
@@ -699,7 +699,7 @@ void Tone3000Client::downloadModel (const Model& model, const juce::String& kind
         if (written <= 0)
         {
             target.deleteFile();
-            fail ("Download vazio");
+            fail ("Empty download");
             return;
         }
 

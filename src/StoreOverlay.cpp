@@ -16,7 +16,7 @@ juce::String gearLabel (const juce::String& gear)
     return gear.isEmpty() ? juce::String ("GEAR") : gear.toUpperCase();
 }
 
-// Rótulo dos chips de FILTRO ("" = sem filtro -> "Tudo").
+// Label for the FILTER chips ("" = no filter -> "All").
 juce::String gearChipLabel (const juce::String& gear)
 {
     if (gear == "amp") return "Amp";
@@ -24,17 +24,17 @@ juce::String gearChipLabel (const juce::String& gear)
     if (gear == "pedal") return "Pedal";
     if (gear == "full-rig") return "Full Rig";
     if (gear == "ir") return "IR";
-    return "Tudo";
+    return "All";
 }
 
-// Rótulo de tipo exibido NO CARTÃO (fallback: valor cru capitalizado, para
-// valores de gear que a API adicionar no futuro).
+// Type label shown ON THE CARD (fallback: raw capitalized value, for
+// gear values the API may add in the future).
 juce::String gearDisplay (const juce::String& gear)
 {
     if (gear.isEmpty())
         return "Gear";
     const auto known = gearChipLabel (gear);
-    if (known != "Tudo")
+    if (known != "All")
         return known;
     return gear.substring (0, 1).toUpperCase() + gear.substring (1);
 }
@@ -45,14 +45,14 @@ ToneCardComponent::ToneCardComponent (Info cardInfo, std::function<void (ToneCar
     : info (std::move (cardInfo))
 {
     addButton.getProperties().set ("outlineAccent", true);
-    addButton.setButtonText ("Adicionar");
+    addButton.setButtonText ("Add");
     addButton.onClick = [this, onAdd = std::move (onAdd)] { onAdd (*this); };
     addAndMakeVisible (addButton);
 
-    // ★ favorito (só para tones do TONE3000, não para arquivos locais)
+    // star favorite (only for TONE3000 tones, not local files)
     favButton.getProperties().set ("chip", true);
     favButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x86")));
-    favButton.setTooltip ("Favorito");
+    favButton.setTooltip ("Favorite");
     favButton.setMouseClickGrabsKeyboardFocus (false);
     favButton.onClick = [this]
     {
@@ -80,20 +80,20 @@ void ToneCardComponent::setStatus (Status s)
     switch (status)
     {
         case Status::add:
-            addButton.setButtonText ("Adicionar");
+            addButton.setButtonText ("Add");
             addButton.setEnabled (true);
             break;
         case Status::downloading:
-            addButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("Baixando\xe2\x80\xa6 "))
+            addButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("Downloading\xe2\x80\xa6 "))
                                      + juce::String (progress) + "%");
             addButton.setEnabled (false);
             break;
         case Status::inRig:
-            addButton.setButtonText ("No rig");
+            addButton.setButtonText ("In rig");
             addButton.setEnabled (false);
             break;
     }
-    // No estado "No rig" o visual verde é pintado no paint(); o botão some.
+    // In the "In rig" state the green visual is painted in paint(); the button disappears.
     addButton.setVisible (status != Status::inRig);
     repaint();
 }
@@ -102,7 +102,7 @@ void ToneCardComponent::setProgress (int pct)
 {
     progress = juce::jlimit (0, 100, pct);
     if (status == Status::downloading)
-        addButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("Baixando\xe2\x80\xa6 "))
+        addButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("Downloading\xe2\x80\xa6 "))
                                  + juce::String (progress) + "%");
     repaint();
 }
@@ -123,7 +123,7 @@ void ToneCardComponent::setLocalFile (const juce::File& file)
 void ToneCardComponent::resized()
 {
     addButton.setBounds (getLocalBounds().reduced (12).removeFromBottom (34));
-    favButton.setBounds (8, 8, 30, 26); // topo-esquerdo (badges NAM/A2 ficam à direita)
+    favButton.setBounds (8, 8, 30, 26); // top-left (NAM/A2 badges sit on the right)
 }
 
 void ToneCardComponent::paint (juce::Graphics& g)
@@ -136,7 +136,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
     g.setColour (juce::Colour (0xff303338));
     g.drawRoundedRectangle (b.reduced (0.5f), 12.0f, 1.0f);
 
-    // ---- header: imagem do tone, ou hachurado como placeholder (130 px)
+    // ---- header: tone image, or hatched as placeholder (130 px)
     auto header = getLocalBounds().withHeight (130);
     {
         g.saveState();
@@ -146,7 +146,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
 
         if (image.isValid())
         {
-            // preenche o header mantendo proporção (crop centralizado)
+            // fills the header keeping aspect ratio (centered crop)
             const float scale = juce::jmax ((float) getWidth() / (float) image.getWidth(),
                                             130.0f / (float) image.getHeight());
             const float dw = image.getWidth() * scale, dh = image.getHeight() * scale;
@@ -175,7 +175,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
             g.drawText (gearLabel (info.gear), header, juce::Justification::centred);
         }
 
-        // chip do tipo (topo esquerdo)
+        // type chip (top left)
         const auto typeText = gearDisplay (info.gear);
         g.setFont (ui::monoFont (9.0f, true));
         const int tw = 14 + 6 * typeText.length();
@@ -187,7 +187,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
         g.setColour (juce::Colour (0xffc8cace));
         g.drawText (typeText, typeChip, juce::Justification::centred);
 
-        // badges (topo direito): formato e, se houver modelos A2, "A2"
+        // badges (top right): format and, if there are A2 models, "A2"
         {
             float badgeX = b.getWidth() - 9.0f;
             auto drawBadge = [&] (const juce::String& text)
@@ -209,7 +209,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
                 drawBadge ("A2");
         }
 
-        // offline ok (base esquerda)
+        // offline ok (bottom left)
         if (info.offline && status != Status::downloading)
         {
             auto tag = juce::Rectangle<float> (9.0f, 130.0f - 9.0f - 17.0f, 74.0f, 17.0f);
@@ -223,7 +223,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
             g.drawText ("offline ok", tag.withTrimmedLeft (14.0f), juce::Justification::centred);
         }
 
-        // overlay de download com anel de progresso
+        // download overlay with progress ring
         if (status == Status::downloading)
         {
             g.setColour (juce::Colour (0xff0f1012).withAlpha (0.74f));
@@ -248,7 +248,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
         }
     }
 
-    // ---- corpo
+    // ---- body
     const int pad = 12;
     g.setFont (ui::uiFont (14.0f, true));
     g.setColour (juce::Colour (0xffe9eaec));
@@ -257,10 +257,10 @@ void ToneCardComponent::paint (juce::Graphics& g)
 
     g.setFont (ui::uiFont (11.0f));
     g.setColour (juce::Colour (0xff8a8d93));
-    g.drawText (info.creator.isNotEmpty() ? "por " + info.creator : juce::String ("arquivo local"),
+    g.drawText (info.creator.isNotEmpty() ? "by " + info.creator : juce::String ("local file"),
                 pad, 176, getWidth() - pad * 2, 14, juce::Justification::centredLeft);
 
-    // métricas (downloads / favoritos)
+    // metrics (downloads / favorites)
     if (info.downloads.isNotEmpty())
     {
         const int my = getHeight() - 12 - 34 - 24;
@@ -282,7 +282,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
         g.drawText (info.favorites, pad + 96, my, 60, 14, juce::Justification::centredLeft);
     }
 
-    // botão "No rig" ganha um check verde por cima do estilo desabilitado
+    // "In rig" button gets a green check over the disabled style
     if (status == Status::inRig)
     {
         auto btn = getLocalBounds().reduced (12).removeFromBottom (34).toFloat();
@@ -292,13 +292,13 @@ void ToneCardComponent::paint (juce::Graphics& g)
         g.drawRoundedRectangle (btn, 8.0f, 1.0f);
         g.setFont (ui::uiFont (12.5f, true));
         g.setColour (juce::Colour (0xff5fe0a0));
-        g.drawText ("No rig", btn, juce::Justification::centred);
+        g.drawText ("In rig", btn, juce::Justification::centred);
     }
 }
 
 //==============================================================================
-// Linha do gerenciador de plugins (aba Plugins): status + toggle
-// INSTALAR/DESINSTALAR com progresso, alimentada pelo catálogo embutido.
+// Plugin manager row (Plugins tab): status + INSTALL/UNINSTALL toggle
+// with progress, fed by the embedded catalog.
 class PluginCatalogRow : public juce::Component
 {
 public:
@@ -319,27 +319,25 @@ public:
         if (busy)
         {
             actionButton.setButtonText (uninstalling
-                                            ? juce::String (juce::CharPointer_UTF8 ("Removendo\xe2\x80\xa6"))
-                                            : juce::String (juce::CharPointer_UTF8 ("Baixando\xe2\x80\xa6 "))
+                                            ? juce::String (juce::CharPointer_UTF8 ("Removing\xe2\x80\xa6"))
+                                            : juce::String (juce::CharPointer_UTF8 ("Downloading\xe2\x80\xa6 "))
                                                   + juce::String (pct) + "%");
             actionButton.setEnabled (false);
         }
         else if (installed)
         {
             const bool possible = plugcat::canUninstall (entry);
-            actionButton.setButtonText ("DESINSTALAR");
+            actionButton.setButtonText ("UNINSTALL");
             actionButton.setEnabled (possible);
             actionButton.setTooltip (possible
-                ? juce::String ("Remove os arquivos do plugin")
-                : juce::String (juce::CharPointer_UTF8 (
-                      "Instalado na pasta do sistema \xe2\x80\x94 remova com o instalador/admin")));
+                ? juce::String ("Removes the plugin's files")
+                : juce::String ("Installed in the system folder - remove with the installer/admin"));
         }
         else
         {
-            actionButton.setButtonText ("INSTALAR");
+            actionButton.setButtonText ("INSTALL");
             actionButton.setEnabled (true);
-            actionButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
-                "Baixa do release oficial e instala sem administrador")));
+            actionButton.setTooltip (juce::String ("Downloads from the official release and installs without admin"));
         }
         repaint();
     }
@@ -372,8 +370,8 @@ public:
         {
             const auto instVer = plugcat::installedVersion (entry);
             info += dot + (instVer.isNotEmpty()
-                               ? "instalado (v" + instVer + ")"
-                               : juce::String ("instalado"));
+                               ? "installed (v" + instVer + ")"
+                               : juce::String ("installed"));
         }
         g.setFont (ui::monoFont (9.5f));
         g.setColour (ui::textFaint);
@@ -429,8 +427,8 @@ private:
             return;
         }
 
-        // DESINSTALAR: solta os slots que usam este plugin, espera o módulo
-        // descarregar e apaga os arquivos
+        // UNINSTALL: releases the slots using this plugin, waits for the module
+        // to unload and deletes the files
         auto bundles = plugcat::installedBundles (entry);
         if (bundles.isEmpty())
             bundles.add (entry.checkBundle);
@@ -450,7 +448,7 @@ private:
             {
                 if (safe == nullptr)
                     return;
-                safe->processor.collectExternalRetired(); // garante unload
+                safe->processor.collectExternalRetired(); // ensures unload
                 juce::String err;
                 if (! plugcat::uninstall (safe->entry, err))
                     safe->lastError = err;
@@ -488,7 +486,7 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     addAndMakeVisible (pluginsTab);
 
     searchBox.setTextToShowWhenEmpty (juce::String (juce::CharPointer_UTF8 (
-                                          "Buscar amps, pedais, criadores\xe2\x80\xa6")),
+                                          "Search amps, pedals, creators\xe2\x80\xa6")),
                                       ui::textMuted);
     searchBox.setFont (ui::uiFont (13.0f));
     searchBox.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff17181a));
@@ -503,15 +501,15 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     connectButton.onClick = [this]
     {
         connectButton.setEnabled (false);
-        connectButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("Aguardando login\xe2\x80\xa6")));
-        auto* self = this; // MSVC: 'this' em init-capture de lambda aninhada resolve errado
+        connectButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("Waiting for login\xe2\x80\xa6")));
+        auto* self = this; // MSVC: 'this' in a nested lambda init-capture resolves wrong
         client.connect ([safe = juce::Component::SafePointer<StoreOverlay> (self)] (bool ok, juce::String error)
         {
             if (safe == nullptr)
                 return;
             safe->connectButton.setEnabled (true);
-            safe->connectButton.setButtonText ("Conectar TONE3000");
-            safe->bannerError = ok ? juce::String() : "Falha ao conectar: " + error;
+            safe->connectButton.setButtonText ("Connect TONE3000");
+            safe->bannerError = ok ? juce::String() : "Failed to connect: " + error;
             safe->updateHeaderState();
             if (ok)
                 safe->doSearch (1);
@@ -522,7 +520,7 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     };
     addChildComponent (connectButton);
 
-    userChip.setTooltip ("Clique para desconectar");
+    userChip.setTooltip ("Click to disconnect");
     userChip.onClick = [this]
     {
         client.disconnect();
@@ -549,7 +547,7 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
         addAndMakeVisible (chip);
     }
 
-    // tags (multi-seleção; entram como termos da busca) e filtro A2
+    // tags (multi-select; enter as search terms) and A2 filter
     for (const auto* tag : { "metal", "clean", "vintage", "blues", "ambient" })
     {
         auto* chip = tagChips.add (new juce::TextButton (tag));
@@ -573,7 +571,7 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     favChip.getProperties().set ("chip", true);
     favChip.getProperties().set ("chipActive", false);
     favChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "S\xc3\xb3 os tones marcados com \xe2\x98\x85")));
+        "Only tones marked with \xe2\x98\x85")));
     favChip.onClick = [this]
     {
         favOnly = ! favOnly;
@@ -585,8 +583,7 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
 
     a2Chip.getProperties().set ("chip", true);
     a2Chip.getProperties().set ("chipActive", false);
-    a2Chip.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "S\xc3\xb3 tones com modelos da arquitetura A2 (mais eficientes)")));
+    a2Chip.setTooltip (juce::String ("Only tones with A2-architecture models (more efficient)"));
     a2Chip.onClick = [this]
     {
         a2Only = ! a2Only;
@@ -596,9 +593,9 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (a2Chip);
 
-    sortCombo.addItem ("Em alta", 1);
-    sortCombo.addItem ("Mais recentes", 2);
-    sortCombo.addItem ("Mais baixados", 3);
+    sortCombo.addItem ("Trending", 1);
+    sortCombo.addItem ("Newest", 2);
+    sortCombo.addItem ("Most downloaded", 3);
     sortCombo.setSelectedId (1, juce::dontSendNotification);
     sortCombo.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff14171b));
     sortCombo.setColour (juce::ComboBox::outlineColourId, juce::Colour (0xff23272c));
@@ -632,7 +629,7 @@ StoreOverlay::~StoreOverlay() = default;
 
 void StoreOverlay::visibilityChanged()
 {
-    // Status dos cartões só precisa acompanhar o rig com o store aberto.
+    // Card statuses only need to track the rig while the store is open.
     if (isVisible())
         startTimerHz (2);
     else
@@ -646,7 +643,7 @@ void StoreOverlay::timerCallback()
 
 void StoreOverlay::updateRigStatuses()
 {
-    // captures e IRs: qualquer lane/slot ativa conta como "no rig"
+    // captures and IRs: any active lane/slot counts as "in rig"
     for (auto* card : cards)
     {
         if (card->getStatus() == ToneCardComponent::Status::downloading)
@@ -714,7 +711,7 @@ void StoreOverlay::setTab (Tab newTab)
     libraryTab.repaint();
     pluginsTab.repaint();
 
-    // busca/filtros só fazem sentido nas abas do TONE3000
+    // search/filters only make sense on the TONE3000 tabs
     const bool toneTabs = tab != Tab::plugins;
     searchBox.setVisible (toneTabs);
     for (auto* chip : gearChips)
@@ -750,7 +747,7 @@ void StoreOverlay::setTab (Tab newTab)
 void StoreOverlay::refreshPluginsTab()
 {
     pluginRows.clear();
-    const int rowW = 4 * (252 + 16) - 16; // mesma largura útil do grid
+    const int rowW = 4 * (252 + 16) - 16; // same usable width as the grid
     int y = 0;
 
     for (const auto& e : plugcat::entries())
@@ -772,7 +769,7 @@ void StoreOverlay::updateHeaderState()
     userChip.setVisible (connected);
     userChip.setButtonText (client.getUsername().isNotEmpty()
                                 ? "@" + client.getUsername()
-                                : juce::String ("conectado"));
+                                : juce::String ("connected"));
 }
 
 juce::String StoreOverlay::formatCount (juce::int64 n) const
@@ -822,12 +819,12 @@ void StoreOverlay::toggleFavorite (ToneCardComponent& card)
 
 void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
 {
-    // filtro "Só ★" (client-side; a API não conhece nossos favoritos)
+    // "Only star" filter (client-side; the API doesn't know our favorites)
     if (favOnly && ! favIds.contains (juce::String (tone.id)))
         return;
 
-    // "Só A2": a API filtra com &architecture=2, mas deixa vazar tones sem
-    // nenhum modelo A2 (IRs, por exemplo) — reforço client-side
+    // "A2 only": the API filters with &architecture=2, but lets through tones with
+    // no A2 model (IRs, for example) - client-side reinforcement
     if (a2Only && ! tone.hasA2)
         return;
 
@@ -861,14 +858,14 @@ void StoreOverlay::startAddFlow (ToneCardComponent& card)
 {
     const int toneId = card.getInfo().toneId;
 
-    // Variações já em cache: sem chamada de API.
+    // Variations already cached: no API call.
     if (const auto it = modelsCache.find (toneId); it != modelsCache.end())
     {
         showModelChoices (card, it->second);
         return;
     }
 
-    // Feedback + guarda contra duplo clique enquanto lista os modelos.
+    // Feedback + guard against double-click while listing the models.
     card.setProgress (0);
     card.setStatus (ToneCardComponent::Status::downloading);
 
@@ -904,7 +901,7 @@ void StoreOverlay::showModelChoices (ToneCardComponent& card,
 
     juce::Component::SafePointer<ToneCardComponent> safe (&card);
 
-    // Vários modelos: menu de escolha ancorado no cartão.
+    // Several models: choice menu anchored to the card.
     juce::PopupMenu menu;
     menu.setLookAndFeel (&getLookAndFeel());
 
@@ -913,7 +910,7 @@ void StoreOverlay::showModelChoices (ToneCardComponent& card,
     {
         const auto& m = models[(size_t) i];
         juce::String label = m.name.isNotEmpty() ? m.name
-                                                 : "Modelo " + juce::String (m.id);
+                                                 : "Model " + juce::String (m.id);
         if (m.arch == "2") label += dot + "A2";
         else if (m.arch == "1") label += dot + "A1";
         if (m.size.isNotEmpty() && m.size != "standard")
@@ -929,7 +926,7 @@ void StoreOverlay::showModelChoices (ToneCardComponent& card,
                 return;
             if (result <= 0 || result > (int) models.size())
             {
-                safe->setStatus (ToneCardComponent::Status::add); // cancelado
+                safe->setStatus (ToneCardComponent::Status::add); // canceled
                 return;
             }
             startDownload (*safe, models[(size_t) (result - 1)]);
@@ -961,12 +958,12 @@ void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
 {
     writeModelMeta (mainFile, chosen);
 
-    // lane destino: primeira lane livre; todas ocupadas -> substitui a 1ª
+    // target lane: first free lane; all busy -> replaces the 1st
     const int lane = juce::jmax (0, processor.firstFreeModelLane());
 
-    // par ECO: mesma variação (nome) E mesma arquitetura, tamanho mais leve
-    // mais próximo (a lista agora tem A1+A2 com o mesmo nome — sem o guard
-    // de arquitetura o par podia cruzar A2 com A1)
+    // ECO pair: same variation (name) AND same architecture, closest lighter
+    // size (the list now has A1+A2 with the same name - without the architecture
+    // guard the pair could cross A2 with A1)
     const Tone3000Client::Model* partner = nullptr;
     if (const auto it = modelsCache.find (toneId); it != modelsCache.end())
     {
@@ -995,18 +992,18 @@ void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
         return;
     }
 
-    // baixa o par em silêncio; enquanto isso o principal já toca
-    // (captura o processor por ponteiro — ele sobrevive ao editor/overlay)
+    // downloads the pair silently; meanwhile the main one already plays
+    // (captures the processor by pointer - it outlives the editor/overlay)
     processor.setModelPair (lane, mainFile, {});
     const auto partnerCopy = *partner;
     client.downloadModel (partnerCopy, "nam", ecoBase, [] (int) {},
         [proc = &processor, lane, mainFile, partnerCopy] (juce::File ecoFile, juce::String error)
         {
             if (error.isNotEmpty() || ! ecoFile.existsAsFile())
-                return; // sem par eco — chip fica desabilitado
+                return; // no eco pair - chip stays disabled
             writeModelMeta (ecoFile, partnerCopy);
-            // o usuário pode ter trocado a lane nesse meio-tempo — só
-            // completa o par se o principal ainda estiver nela
+            // the user may have changed the lane meanwhile - only
+            // complete the pair if the main one is still on it
             if (proc->getModelPathNormal (lane) == mainFile.getFullPathName())
                 proc->setModelPair (lane, mainFile, ecoFile);
         });
@@ -1014,26 +1011,26 @@ void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
 
 void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client::Model& model)
 {
-    // Roteia por FORMATO (não por gear): existem tones com gear "cab"
-    // cujo formato é IR, por exemplo.
+    // Routes by FORMAT (not by gear): there are tones with gear "cab"
+    // whose format is IR, for example.
     const juce::String kind = card.getInfo().formatBadge == "IR" ? "ir" : "nam";
 
-    // Nome legível: "Título do tone - Variação"
+    // Readable name: "Tone title - Variation"
     juce::String baseName = card.getInfo().title;
     if (model.name.isNotEmpty() && model.name != baseName)
         baseName += " - " + model.name;
-    // A1 e A2 costumam ter a MESMA variação/nome — o sufixo evita que um
-    // sobrescreva o arquivo do outro
+    // A1 and A2 usually have the SAME variation/name - the suffix prevents one
+    // from overwriting the other's file
     if (model.arch == "2")
         baseName += " [A2]";
 
-    // Já baixado antes: carrega o arquivo local, sem gastar rede/API.
+    // Already downloaded before: loads the local file, without using network/API.
     if (const auto local = Tone3000Client::localFileForModel (model, kind, baseName);
         local.existsAsFile())
     {
         card.setLocalFile (local);
         card.setStatus (ToneCardComponent::Status::inRig);
-        // garante os sidecars mesmo sem re-download
+        // ensures the sidecars even without re-download
         client.saveImageSidecar (card.getInfo().imageUrl, local);
         if (kind == "ir")
         {
@@ -1069,11 +1066,11 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
                 repaint();
                 return;
             }
-            // Otimista: o timer de status corrige se o load falhar ou se
-            // outro item entrar no rig depois.
+            // Optimistic: the status timer corrects if the load fails or if
+            // another item enters the rig later.
             safe->setLocalFile (file);
             safe->setStatus (ToneCardComponent::Status::inRig);
-            // Foto do tone vira sidecar do arquivo (cartões do rig mostram).
+            // The tone photo becomes the file's sidecar (rig cards show it).
             client.saveImageSidecar (safe->getInfo().imageUrl, file);
             if (safe->getInfo().formatBadge == "IR")
             {
@@ -1095,7 +1092,7 @@ void StoreOverlay::doSearch (int page)
     searching = true;
     currentPage = page;
 
-    // tags ativas entram como termos extras da busca (o TONE3000 indexa tags)
+    // active tags enter as extra search terms (TONE3000 indexes tags)
     juce::String query = searchBox.getText().trim();
     for (const auto& tag : activeTags)
         query += " " + tag;
@@ -1108,8 +1105,8 @@ void StoreOverlay::doSearch (int page)
             auto* self = safe.getComponent();
             self->searching = false;
 
-            // Resultado chegou depois de trocar para a biblioteca — descarta
-            // (senão sobrescreve os cartões locais).
+            // Result arrived after switching to the library - discard
+            // (otherwise it overwrites the local cards).
             if (self->tab != Tab::explore)
                 return;
 
@@ -1156,9 +1153,9 @@ void StoreOverlay::refreshLibrary()
                 else
                     processor.setModelPair (juce::jmax (0, processor.firstFreeModelLane()),
                                             ci.localFile, {});
-                // Deferido: refreshLibrary() destrói o cartão que originou o
-                // clique; não podemos deletá-lo dentro do próprio onClick.
-                auto* self = this; // MSVC: 'this' em init-capture de lambda aninhada resolve errado
+                // Deferred: refreshLibrary() destroys the card that originated the
+                // click; we can't delete it inside its own onClick.
+                auto* self = this; // MSVC: 'this' in a nested lambda init-capture resolves wrong
                 juce::MessageManager::callAsync (
                     [safe = juce::Component::SafePointer<StoreOverlay> (self)]
                     {
@@ -1170,7 +1167,7 @@ void StoreOverlay::refreshLibrary()
         if (file.getFullPathName() == loadedPath)
             card->setStatus (ToneCardComponent::Status::inRig);
 
-        // foto salva como sidecar no download
+        // photo saved as a sidecar at download
         const juce::File sidecar (file.getFullPathName() + ".img");
         if (sidecar.existsAsFile())
             if (auto img = juce::ImageFileFormat::loadFrom (sidecar); img.isValid())
@@ -1242,7 +1239,7 @@ void StoreOverlay::resized()
         chip->setBounds (cx, 74, w, 28);
         cx += w + 9;
     }
-    cx += 48; // divisor + rótulo TAGS (pintados no paint)
+    cx += 48; // divider + TAGS label (painted in paint)
     for (auto* chip : tagChips)
     {
         const int w = 22 + 6 * chip->getButtonText().length();
@@ -1254,7 +1251,7 @@ void StoreOverlay::resized()
     favChip.setBounds (cx + 68, 74, 58, 28);
     sortCombo.setBounds (W - 22 - 150, 72, 150, 32);
 
-    // banner de erro
+    // error banner
     const int bannerY = 114;
     const bool banner = bannerError.isNotEmpty();
     retryButton.setVisible (banner);
@@ -1291,12 +1288,12 @@ void StoreOverlay::paint (juce::Graphics& g)
     g.setColour (juce::Colour (0xff24262a));
     g.fillRect (0, 64, W, 1);
 
-    // ---- rótulos dos filtros (só nas abas do TONE3000)
+    // ---- filter labels (only on the TONE3000 tabs)
     if (tab != Tab::plugins)
     {
         g.setFont (ui::monoFont (9.0f));
         g.setColour (ui::textMuted);
-        g.drawText ("TIPO", 22, 74, 40, 28, juce::Justification::centredLeft);
+        g.drawText ("TYPE", 22, 74, 40, 28, juce::Justification::centredLeft);
         if (! tagChips.isEmpty())
         {
             const int divX = tagChips.getFirst()->getX() - 48;
@@ -1311,16 +1308,16 @@ void StoreOverlay::paint (juce::Graphics& g)
         g.setFont (ui::monoFont (9.5f));
         g.setColour (ui::textFaint);
         g.drawText (juce::CharPointer_UTF8 (
-                        "Cat\xc3\xa1logo embutido \xc2\xb7 instala sem administrador em "
+                        "Embedded catalog \xc2\xb7 installs without admin in "
                         "%LOCALAPPDATA%\\Programs\\Common\\VST3 \xc2\xb7 "
-                        "registro em Documentos\\PedalForge NAM\\plugins.json"),
+                        "registry in Documents\\PedalForge NAM\\plugins.json"),
                     22, 74, W - 44, 28, juce::Justification::centredLeft);
     }
 
     g.setColour (juce::Colour (0xff1e2023));
     g.fillRect (0, 110, W, 1);
 
-    // ---- banner de erro
+    // ---- error banner
     if (bannerError.isNotEmpty())
     {
         auto banner = juce::Rectangle<float> (22.0f, 114.0f, (float) W - 44.0f, 36.0f);
@@ -1337,50 +1334,50 @@ void StoreOverlay::paint (juce::Graphics& g)
                     juce::Justification::centredLeft);
     }
 
-    // ---- estados vazios
+    // ---- empty states
     if (tab == Tab::explore)
     {
         if (! client.hasPublishableKey())
         {
             g.setFont (ui::uiFont (16.0f, true));
             g.setColour (juce::Colour (0xffc8cace));
-            g.drawText ("Configure sua chave da API TONE3000", 0, 240, W, 24,
+            g.drawText ("Set up your TONE3000 API key", 0, 240, W, 24,
                         juce::Justification::centred);
             g.setFont (ui::uiFont (12.5f));
             g.setColour (juce::Colour (0xff84878d));
             const auto steps =
-                juce::String ("1. Crie uma conta em tone3000.com e gere uma chave em Settings > API Keys\n")
-                + "2. Registre o redirect: " + Tone3000Client::redirectUri() + "\n"
-                + "3. Cole a chave (t3k_pub_...) em " + client.configFile().getFullPathName() + "\n"
-                + "4. Feche e abra o Tone Store novamente";
+                juce::String ("1. Create an account at tone3000.com and generate a key in Settings > API Keys\n")
+                + "2. Register the redirect: " + Tone3000Client::redirectUri() + "\n"
+                + "3. Paste the key (t3k_pub_...) in " + client.configFile().getFullPathName() + "\n"
+                + "4. Close and reopen the Tone Store";
             g.drawFittedText (steps, 120, 276, W - 240, 90, juce::Justification::centredTop, 5);
         }
         else if (! client.isConnected())
         {
             g.setFont (ui::uiFont (16.0f, true));
             g.setColour (juce::Colour (0xffc8cace));
-            g.drawText ("Conecte sua conta TONE3000 para explorar a biblioteca", 0, 250, W, 24,
+            g.drawText ("Connect your TONE3000 account to explore the library", 0, 250, W, 24,
                         juce::Justification::centred);
             g.setFont (ui::uiFont (12.5f));
             g.setColour (juce::Colour (0xff84878d));
-            g.drawText ("O login abre no seu navegador; volte aqui depois de autorizar.",
+            g.drawText ("Login opens in your browser; come back here after authorizing.",
                         0, 278, W, 20, juce::Justification::centred);
         }
         else if (cards.isEmpty() && ! searching)
         {
             g.setFont (ui::uiFont (16.0f, true));
             g.setColour (juce::Colour (0xffc8cace));
-            g.drawText ("Nenhum tone encontrado", 0, 250, W, 24, juce::Justification::centred);
+            g.drawText ("No tones found", 0, 250, W, 24, juce::Justification::centred);
             g.setFont (ui::uiFont (12.5f));
             g.setColour (juce::Colour (0xff84878d));
-            g.drawText ("Tente outros termos ou remova os filtros ativos.",
+            g.drawText ("Try other terms or remove the active filters.",
                         0, 278, W, 20, juce::Justification::centred);
         }
         else if (searching && cards.isEmpty())
         {
             g.setFont (ui::uiFont (14.0f, true));
             g.setColour (juce::Colour (0xff84878d));
-            g.drawText (juce::String (juce::CharPointer_UTF8 ("Buscando\xe2\x80\xa6")),
+            g.drawText (juce::String (juce::CharPointer_UTF8 ("Searching\xe2\x80\xa6")),
                         0, 250, W, 24, juce::Justification::centred);
         }
     }
@@ -1388,10 +1385,10 @@ void StoreOverlay::paint (juce::Graphics& g)
     {
         g.setFont (ui::uiFont (16.0f, true));
         g.setColour (juce::Colour (0xffc8cace));
-        g.drawText ("Sua biblioteca esta vazia", 0, 250, W, 24, juce::Justification::centred);
+        g.drawText ("Your library is empty", 0, 250, W, 24, juce::Justification::centred);
         g.setFont (ui::uiFont (12.5f));
         g.setColour (juce::Colour (0xff84878d));
-        g.drawText ("Baixe tones na aba Explorar ou copie arquivos .nam para "
+        g.drawText ("Download tones in the Explore tab or copy .nam files to "
                     + Tone3000Client::capturesDir().getFullPathName(),
                     60, 278, W - 120, 20, juce::Justification::centred);
     }

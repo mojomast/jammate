@@ -2,12 +2,12 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-// Paleta do design GuitarRig.dc.html v2 (claude.ai/design) — tema escuro
-// "glassy" com accent ciano.
+// Palette from the GuitarRig.dc.html v2 design (claude.ai/design) - dark
+// "glassy" theme with a cyan accent.
 namespace ui
 {
 inline const juce::Colour bg { 0xff0a0c0f };
-inline const juce::Colour bgTop { 0xff14181d };        // topo do radial da janela
+inline const juce::Colour bgTop { 0xff14181d };        // top of the window radial
 inline const juce::Colour chainTop { 0xff161b21 };
 inline const juce::Colour chainBottom { 0xff0a0c0f };
 inline const juce::Colour barTop { 0xff1c2127 };       // top bar / tuner bar
@@ -19,7 +19,7 @@ inline const juce::Colour ampBottom { 0xff101318 };
 inline const juce::Colour accent { 0xff33c9d6 };
 inline const juce::Colour accentDark { 0xff1c8f9a };
 inline const juce::Colour accentTextDark { 0xff08211f };
-inline const juce::Colour glowOrange { 0xffff963c };   // barra de brilho do amp
+inline const juce::Colour glowOrange { 0xffff963c };   // amp glow bar
 inline const juce::Colour text { 0xffeef2f6 };
 inline const juce::Colour textBright { 0xfff4f7fa };
 inline const juce::Colour textDim { 0xff99a1ab };
@@ -30,14 +30,14 @@ inline const juce::Colour yellow { 0xffe5c24a };
 inline const juce::Colour red { 0xffe0533a };
 inline const juce::Colour meterBg { 0xff0c0e11 };
 
-// bordas/preenchimentos translúcidos do tema glassy
+// translucent borders/fills of the glassy theme
 inline juce::Colour border()      { return juce::Colours::white.withAlpha (0.07f); }
 inline juce::Colour borderHover() { return juce::Colours::white.withAlpha (0.18f); }
 inline juce::Colour glass()       { return juce::Colours::white.withAlpha (0.03f); }
 inline juce::Colour glassHover()  { return juce::Colours::white.withAlpha (0.06f); }
 
-// Typefaces do design embutidos no binário (OFL): Space Grotesk (UI) e
-// JetBrains Mono (valores/labels técnicos).
+// Design typefaces embedded in the binary (OFL): Space Grotesk (UI) and
+// JetBrains Mono (technical values/labels).
 juce::Typeface::Ptr uiTypeface (bool bold);
 juce::Typeface::Ptr monoTypeface (bool bold);
 
@@ -52,8 +52,8 @@ inline juce::Font uiFont (float size, bool bold = false)
 }
 } // namespace ui
 
-// Knob conforme Knob.dc.html v2: arco de valor (gauge) accent de -135° a
-// +135°, tampa metálica interna e ponteiro accent com glow.
+// Knob per Knob.dc.html v2: accent value arc (gauge) from -135 to
+// +135 degrees, inner metallic cap and accent pointer with glow.
 class RigLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -81,7 +81,7 @@ public:
         const auto centre = area.getCentre();
         const float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
-        // gauge externo (270°)
+        // outer gauge (270 degrees)
         {
             const float stroke = juce::jmax (2.5f, d * 0.075f);
             const float r = d / 2.0f - stroke / 2.0f;
@@ -108,7 +108,7 @@ public:
             }
         }
 
-        // tampa interna
+        // inner cap
         {
             const auto inner = area.reduced (d * 0.15f);
             juce::ColourGradient grad (juce::Colour (0xff3d434c),
@@ -121,7 +121,7 @@ public:
             g.drawEllipse (inner, 1.0f);
         }
 
-        // ponteiro
+        // pointer
         {
             const auto transform = juce::AffineTransform::rotation (angle, centre.x, centre.y);
             juce::Path p;

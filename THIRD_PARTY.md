@@ -1,33 +1,32 @@
-# Créditos de terceiros — PedalForge NAM
+# Third-party credits — PedalForge NAM
 
-Este programa inclui material de terceiros. Abaixo, cada item com sua licença
-e a atribuição exigida. (O código do PedalForge NAM é AGPLv3; estes materiais
-mantêm as suas próprias licenças.)
+This program includes third-party material. Each item is listed below with its
+license and the required attribution. (PedalForge NAM's own code is AGPLv3;
+these materials keep their own licenses.)
 
-## Grooves e viradas da bateria — Groove MIDI Dataset
+## Drum grooves and fills — Groove MIDI Dataset
 
-Parte da biblioteca de grooves e viradas do **módulo Bateria** foi derivada do
-**Groove MIDI Dataset**, quantizada e adaptada para o formato interno de 1
-compasso.
+Part of the grooves-and-fills library of the **Drums module** was derived from
+the **Groove MIDI Dataset**, quantized and adapted to the internal 1-bar format.
 
-- **Fonte:** Groove MIDI Dataset — Google Magenta
+- **Source:** Groove MIDI Dataset — Google Magenta
   <https://magenta.tensorflow.org/datasets/groove>
-- **Licença:** Creative Commons Attribution 4.0 International (**CC BY 4.0**)
+- **License:** Creative Commons Attribution 4.0 International (**CC BY 4.0**)
   <https://creativecommons.org/licenses/by/4.0/>
-- **Atribuição:** "Groove MIDI Dataset" by Google LLC (Magenta), usado sob
-  CC BY 4.0. As patterns foram quantizadas para uma grade de semicolcheia e
-  remapeadas para 9 vozes; são obras derivadas.
+- **Attribution:** "Groove MIDI Dataset" by Google LLC (Magenta), used under
+  CC BY 4.0. The patterns were quantized to a sixteenth-note grid and remapped
+  to 9 voices; they are derivative works.
 
-## Grooves e viradas de metal — midi-drums
+## Metal grooves and fills — midi-drums
 
-Parte dos grooves e viradas de **metal** foi portada (posições e velocities)
-das definições de padrão do projeto **midi-drums**.
+Part of the **metal** grooves and fills was ported (positions and velocities)
+from the pattern definitions of the **midi-drums** project.
 
-- **Fonte:** midi-drums — fsecada01
+- **Source:** midi-drums — fsecada01
   <https://github.com/fsecada01/midi-drums>
-- **Licença:** MIT (declarada em `pyproject.toml` do projeto:
+- **License:** MIT (declared in the project's `pyproject.toml`:
   `license = { text = "MIT" }`)
-- **Atribuição / aviso MIT:**
+- **Attribution / MIT notice:**
 
   ```
   MIT License
@@ -53,31 +52,31 @@ das definições de padrão do projeto **midi-drums**.
   SOFTWARE.
   ```
 
-## Samples do kit interno da bateria — GMRockKit
+## Internal drum kit samples — GMRockKit
 
-O sampler interno da bateria usa os samples do **GMRockKit** (ver também
+The internal drum sampler uses the samples of **GMRockKit** (see also
 `assets/drums/ORIGEM.txt`).
 
 - **Kit:** GMRockKit — "A Sampled 5pc Pearl DX Series Drumkit"
-- **Autores:** Glen MacArthur / Sebastian Moors
-- **Licença:** GPL (compatível com o AGPLv3 deste projeto)
-- **Fonte:** repositório do Hydrogen
+- **Authors:** Glen MacArthur / Sebastian Moors
+- **License:** GPL (compatible with this project's AGPLv3)
+- **Source:** the Hydrogen repository
   <https://github.com/hydrogen-music/hydrogen/tree/main/data/drumkits/GMRockKit>
 
-## Tipografia
+## Typography
 
-- **Space Grotesk** e **JetBrains Mono** — SIL Open Font License 1.1 (OFL).
-  Ver `assets/fonts/*-OFL.txt`.
+- **Space Grotesk** and **JetBrains Mono** — SIL Open Font License 1.1 (OFL).
+  See `assets/fonts/*-OFL.txt`.
 
-## Plugins VST3 do catálogo embutido
+## Built-in VST3 plugin catalog
 
-O catálogo (Tone Store → aba Plugins) apenas **baixa dos releases oficiais** e
-extrai os `.vst3`; cada plugin mantém a sua licença (GPLv3, MIT, GPLv2+). Ver
-`plugins/README.md` para a lista, versões e fontes oficiais.
+The catalog (Tone Store → Plugins tab) only **downloads from the official
+releases** and extracts the `.vst3`; each plugin keeps its own license (GPLv3,
+MIT, GPLv2+). See `plugins/README.md` for the list, versions and official sources.
 
-## Ideias de interface
+## Interface ideas
 
-Conceitos de interface do módulo Bateria (navegador, humanização) foram
-inspirados no **DrumGroovePro** (InToEtherion, GPLv3) —
-<https://github.com/InToEtherion/DrumGroovePro>. Nenhum código foi copiado;
-apenas ideias, que não são cobertas por copyright.
+Some interface concepts of the Drums module (browser, humanization) were
+inspired by **DrumGroovePro** (InToEtherion, GPLv3) —
+<https://github.com/InToEtherion/DrumGroovePro>. No code was copied; only ideas,
+which are not covered by copyright.

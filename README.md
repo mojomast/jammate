@@ -1,201 +1,202 @@
 # 🎸 PedalForge NAM
 
-**Amp sim pessoal para guitarra** — Standalone + VST3, baseado em [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) (captures neurais de amplificadores reais) e JUCE 8, com loja integrada ao [TONE3000](https://www.tone3000.com).
+**Personal guitar amp sim** — Standalone + VST3, built on [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) (neural captures of real amps) and JUCE 8, with a store integrated with [TONE3000](https://www.tone3000.com).
 
-![Windows](https://img.shields.io/badge/Windows-10%2F11%20x64-0078d4) ![JUCE](https://img.shields.io/badge/JUCE-8.0.15-8bc34a) ![NAM](https://img.shields.io/badge/NAM%20Core-v0.5.4%20(A2)-33c9d6) ![Status](https://img.shields.io/badge/status-funcional%20%C2%B7%20em%20evolu%C3%A7%C3%A3o-33c9d6)
+![Windows](https://img.shields.io/badge/Windows-10%2F11%20x64-0078d4) ![JUCE](https://img.shields.io/badge/JUCE-8.0.15-8bc34a) ![NAM](https://img.shields.io/badge/NAM%20Core-v0.5.4%20(A2)-33c9d6) ![Status](https://img.shields.io/badge/status-functional%20%C2%B7%20evolving-33c9d6)
 
-![Tela principal](docs/screenshots/rig.png)
+![Main screen](docs/screenshots/rig.png)
 
 ---
 
-## 📊 Estado do projeto
+## 📊 Project status
 
-| Fase | Entrega | Status |
-|------|---------|--------|
-| 0 | Casco JUCE (Standalone + VST3), passthrough, ASIO | ✅ |
-| 1 | NAM Core integrado ao build (WHOLE_ARCHIVE, C++20) | ✅ |
-| 2 | Carregamento de captures `.nam` + DSP real, troca RT-safe | ✅ |
-| 3 | Resampler automático (Lanczos), Noise Gate, Cab IR, presets | ✅ |
-| 4 | Tone Store: OAuth PKCE + busca + downloads do TONE3000 | ✅ |
-| 5 | Design v2, cadeia de pedais completa, afinador, fotos, UX | ✅ |
+| Phase | Deliverable | Status |
+|-------|-------------|--------|
+| 0 | JUCE shell (Standalone + VST3), passthrough, ASIO | ✅ |
+| 1 | NAM Core integrated into the build (WHOLE_ARCHIVE, C++20) | ✅ |
+| 2 | Loading `.nam` captures + real DSP, RT-safe swap | ✅ |
+| 3 | Automatic resampler (Lanczos), Noise Gate, Cab IR, presets | ✅ |
+| 4 | Tone Store: OAuth PKCE + search + downloads from TONE3000 | ✅ |
+| 5 | Design v2, full pedalboard chain, tuner, photos, UX | ✅ |
 
-**Validação**: cada fase foi testada com guitarra real (Focusrite ASIO, 48 kHz, 128 samples) e testes headless do DSP (carregamento das arquiteturas A2/WaveNet/LSTM, resampling 48→44.1 kHz).
+**Validation**: each phase was tested with a real guitar (Focusrite ASIO, 48 kHz, 128 samples) and headless DSP tests (loading the A2/WaveNet/LSTM architectures, resampling 48→44.1 kHz).
 
-## ⚡ Funcionalidades
+## ⚡ Features
 
-- **Cadeia de sinal estilo pedaleira**: mostra só os efeitos em uso; 23 efeitos disponíveis na gaveta **`+ EFEITO`** (por categoria), todos reordenáveis por drag-and-drop
-- **Amp por capture neural**: qualquer `.nam` (arquiteturas A1/A2), com GAIN que satura o modelo como o amp real, tone stack B/M/T/Presence e Master
-- **Resampler automático**: captures rodam no sample rate que esperam, em qualquer sample rate da interface (~0,6 ms de latência, reportada ao host)
-- **Rigs paralelos**: até 3 pares **AMP+CAB** completos (capture + knobs próprios + IR por lane), sempre em dupla, somados no card **Mixer** (blend por rig + AIR global)
-- **Cab IR** por convolução (wav/aiff/flac, troca sem glitch), low/high cut e fase por lane
-- **Tone Store (TONE3000)**: login OAuth, busca com fotos, filtros por tipo/tags/arquitetura A2, escolha de variação (mics/canais), downloads com progresso, biblioteca offline, sem re-downloads
-- **Afinador** real (detecção de pitch NSDF) com liga/desliga
-- **Presets**: salvar em 1 clique, "Salvar como", indicador de modificado (•), presets de fábrica, navegação ◂ ▸
-- **Fotos** do amp/cabinete carregados nos cartões do rig
-- **UX**: knobs com trava no default, duplo-clique reseta, roda ajusta, Ctrl = fino, valor digitável; tooltips em tudo; atalhos (espaço, T, ←/→, Esc); medidores IN/OUT + CPU real
-- **Pitch/octaver, Looper (60 s, overdub, export WAV) e Limiter** com indicador de clip
-- **Variações por efeito** (Drive ×8, Comp ×4, Delay ×5, Reverb ×5, Mod ×6, Pitch ×5) com inspiração clássica e fonte de estudo documentadas em **[docs/EFEITOS.md](docs/EFEITOS.md)**
-- **Slot de plugin VST3 externo**: hospede qualquer efeito de terceiros na cadeia, com painel próprio, MIX e estado salvo nos presets
-- **Real-time safety**: zero alocação/locks/IO no caminho de áudio (regra inegociável do projeto)
+- **Pedalboard-style signal chain**: shows only the effects in use; 23 effects available in the **`+ EFFECT`** drawer (by category), all reorderable via drag-and-drop
+- **Neural-capture amp**: any `.nam` file (A1/A2 architectures), with a GAIN that saturates the model like the real amp, a B/M/T/Presence tone stack and Master
+- **Automatic resampler**: captures run at the sample rate they expect, at any interface sample rate (~0.6 ms latency, reported to the host)
+- **Parallel rigs**: up to 3 complete **AMP+CAB** pairs (capture + own knobs + per-lane IR), always in pairs, summed in the **Mixer** card (per-rig blend + global AIR)
+- **Cab IR** by convolution (wav/aiff/flac, glitch-free swap), low/high cut and phase per lane
+- **Tone Store (TONE3000)**: OAuth login, search with photos, filters by type/tags/A2 architecture, variation picker (mics/channels), downloads with progress, offline library, no re-downloads
+- **Real tuner** (NSDF pitch detection) with on/off
+- **Presets**: 1-click save, "Save as", modified indicator (•), factory presets, ◂ ▸ navigation
+- **Photos** of the loaded amp/cabinet on the rig cards
+- **UX**: knobs with a default detent, double-click resets, wheel adjusts, Ctrl = fine, type-in values; tooltips everywhere; shortcuts (space, T, ←/→, Esc); IN/OUT + real CPU meters
+- **Pitch/octaver, Looper (60 s, overdub, WAV export) and Limiter** with a clip indicator
+- **Per-effect variations** (Drive ×8, Comp ×4, Delay ×5, Reverb ×5, Mod ×6, Pitch ×5) with classic inspirations and study sources documented in **[docs/EFEITOS.md](docs/EFEITOS.md)**
+- **External VST3 plugin slot**: host any third-party effect in the chain, with its own panel, MIX and state saved in presets
+- **Real-time safety**: zero allocation/locks/IO in the audio path (a non-negotiable project rule)
 
-## 🖼️ Telas
+## 🖼️ Screens
 
-| Tone Store | Biblioteca offline |
+| Tone Store | Offline library |
 |---|---|
-| ![Tone Store](docs/screenshots/tone-store.png) | ![Biblioteca](docs/screenshots/biblioteca.png) |
+| ![Tone Store](docs/screenshots/tone-store.png) | ![Library](docs/screenshots/biblioteca.png) |
 
 ## 🔧 Build (Windows)
 
-Requisitos: VS 2022 (Build Tools ou Community) com C++, CMake ≥ 3.22, Git.
+Requirements: VS 2022 (Build Tools or Community) with C++, CMake ≥ 3.22, Git.
 
 ```powershell
-git clone <url-do-repo> GuitarRigNAM
+git clone <repo-url> GuitarRigNAM
 cd GuitarRigNAM
-# só o necessário para o build (references/ é opcional e pesado):
+# only what the build needs (references/ is optional and heavy):
 git submodule update --init --recursive third_party
 
 cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
 
-Artefatos em `build\GuitarRigNAM_artefacts\Release\` (`Standalone\PedalForge NAM.exe` e `VST3\PedalForge NAM.vst3`).
+Artifacts in `build\GuitarRigNAM_artefacts\Release\` (`Standalone\PedalForge NAM.exe` and `VST3\PedalForge NAM.vst3`).
 
-### ASIO (recomendado)
+### ASIO (recommended)
 
-O SDK da Steinberg não pode ser redistribuído. Baixe em <https://www.steinberg.net/asiosdk>, extraia para `third_party/asiosdk/` (deve existir `common/iasiodrv.h`) e reconfigure com:
+The Steinberg SDK cannot be redistributed. Download it from <https://www.steinberg.net/asiosdk>, extract it to `third_party/asiosdk/` (it must contain `common/iasiodrv.h`) and reconfigure with:
 
 ```powershell
 cmake -B build -G "Visual Studio 17 2022" -A x64 -DASIOSDK_DIR="$PWD\third_party\asiosdk"
 ```
 
-`third_party/asiosdk/` está no `.gitignore` e **nunca** entra no Git.
+`third_party/asiosdk/` is in `.gitignore` and **never** goes into Git.
 
-## 🔑 Configuração do TONE3000
+## 🔑 TONE3000 setup
 
-A API exige uma chave própria (grátis):
+The API requires your own key (free):
 
-1. Crie conta em [tone3000.com](https://www.tone3000.com) → Settings → API Keys
-2. Registre o redirect `http://localhost:53682/callback`
-3. Cole a chave (`t3k_pub_…`) em `Documentos\PedalForge NAM\tone3000.json` (o app cria o template)
-4. No app: Tone Store → **Conectar TONE3000**
+1. Create an account at [tone3000.com](https://www.tone3000.com) → Settings → API Keys
+2. Register the redirect `http://localhost:53682/callback`
+3. Paste the key (`t3k_pub_…`) into `Documents\PedalForge NAM\tone3000.json` (the app creates the template)
+4. In the app: Tone Store → **Connect TONE3000**
 
-> ⚠️ **Segurança**: `tone3000.json` guarda sua chave e o refresh token da sua conta. Ele vive em `Documentos\PedalForge NAM\` — **fora deste repositório** — e nunca deve ser commitado em lugar nenhum.
+> ⚠️ **Security**: `tone3000.json` holds your key and your account's refresh token. It lives in `Documents\PedalForge NAM\` — **outside this repository** — and must never be committed anywhere.
 
-## 📁 Estrutura
+## 📁 Structure
 
 ```
-src/                  código do plugin (processor, editor, store, cliente TONE3000)
-docs/EFEITOS.md       fontes/referências de cada efeito e variação
-assets/fonts/         Space Grotesk + JetBrains Mono (OFL, embutidas no binário)
-docs/screenshots/     telas do projeto
-references/           submódulos OPCIONAIS: projetos de referência p/ efeitos (ver references/README.md)
-third_party/JUCE            submódulo pinado em 8.0.15 (necessário p/ build)
-third_party/NeuralAmpModelerCore  submódulo pinado em v0.5.4, suporte A2 (necessário p/ build)
+src/                  plugin code (processor, editor, store, TONE3000 client)
+docs/EFEITOS.md       sources/references for each effect and variation
+assets/fonts/         Space Grotesk + JetBrains Mono (OFL, embedded in the binary)
+docs/screenshots/     project screenshots
+references/           OPTIONAL submodules: reference projects for effects (see references/README.md)
+third_party/JUCE            submodule pinned at 8.0.15 (required to build)
+third_party/NeuralAmpModelerCore  submodule pinned at v0.5.4, A2 support (required to build)
 ```
 
-Dados do usuário (fora do repo): `Documentos\PedalForge NAM\` — `Captures/`, `IRs/`, `Presets/`, `tone3000.json`.
+User data (outside the repo): `Documents\PedalForge NAM\` — `Captures/`, `IRs/`, `Presets/`, `tone3000.json`.
 
 ## 🗺️ Roadmap
 
-**Fase 6 — concluída:**
-- [x] Cabs paralelos: 1–3 slots de IR com blend, low/high cut e phase por cab + AIR global *(evoluiu para rigs AMP+CAB na fase 8)*
-- [x] Cadeia reordenável por **drag-and-drop** (arraste os cartões de efeito; amp+cabs são âncora fixa)
-- [x] Modo **ECO** (capture leve baixado junto) com **auto-ECO** em CPU > 90% + aviso ⚠ no medidor
-- [x] Badges **V1/V2** da arquitetura em amps e IRs
-- [x] Efeitos P1: compressor de pedal (presets Clean/Country/Lead), gate com hold+histerese de 6 dB, pré-EQ antes do NAM
+**Phase 6 — done:**
+- [x] Parallel cabs: 1–3 IR slots with blend, low/high cut and phase per cab + global AIR *(evolved into AMP+CAB rigs in phase 8)*
+- [x] Chain reorderable via **drag-and-drop** (drag the effect cards; amp+cabs are a fixed anchor)
+- [x] **ECO** mode (a light capture downloaded alongside) with **auto-ECO** at CPU > 90% + ⚠ warning on the meter
+- [x] Architecture **V1/V2** badges on amps and IRs
+- [x] P1 effects: pedal compressor (Clean/Country/Lead presets), gate with hold + 6 dB hysteresis, pre-EQ before the NAM
 
-**Fase 7 — efeitos P2 (concluída):**
-- [x] Variações por efeito no cartão: Drive ×6 (Boost/Screamer/Blues/Distortion/Fuzz/Heavy), Comp ×3, Delay ×4, Reverb ×4
-- [x] Delay: **TAP tempo** com subdivisões (1/4, 1/8, 1/8., 1/16), **Ping-Pong** estéreo e **trails**
-- [x] Reverbs Hall/Room/Plate/**Spring**, estéreo real e trails
-- [x] Cartão **Modulação**: Chorus, Phaser, Flanger e Tremolo harmônico
+**Phase 7 — P2 effects (done):**
+- [x] Per-effect variations on the card: Drive ×6 (Boost/Screamer/Blues/Distortion/Fuzz/Heavy), Comp ×3, Delay ×4, Reverb ×4
+- [x] Delay: **TAP tempo** with subdivisions (1/4, 1/8, 1/8., 1/16), stereo **Ping-Pong** and **trails**
+- [x] Hall/Room/Plate/**Spring** reverbs, true stereo and trails
+- [x] **Modulation** card: Chorus, Phaser, Flanger and harmonic Tremolo
 
-**Fase 8 — rigs paralelos AMP+CAB (concluída):**
-- [x] Arquitetura corrigida: cada lane paralela é um par **AMP+CAB** completo (capture NAM com knobs próprios + IR), não só IRs em paralelo
-- [x] Card **Mixer** dedicado: soma das lanes com blend por rig, AIR global e botões +/− que adicionam/removem o par inteiro (mín. 1, máx. 3)
-- [x] Visual em paralelo de verdade: lanes **empilhadas** com bus de divisão na entrada e bus de soma no Mixer (com 1 rig, mantém o card grande clássico)
+**Phase 8 — parallel AMP+CAB rigs (done):**
+- [x] Fixed architecture: each parallel lane is a complete **AMP+CAB** pair (NAM capture with its own knobs + IR), not just parallel IRs
+- [x] Dedicated **Mixer** card: sums the lanes with per-rig blend, global AIR and +/− buttons that add/remove the whole pair (min. 1, max. 3)
+- [x] Truly parallel visuals: **stacked** lanes with a split bus at the input and a sum bus at the Mixer (with 1 rig, keeps the classic big card)
 
-![Rigs paralelos](docs/screenshots/rigs-paralelos.png)
+![Parallel rigs](docs/screenshots/rigs-paralelos.png)
 
-**Fase 9 — efeitos P3 (concluída):**
-- [x] Cartão **Pitch**: octaver granular de 2 cabeças (Oitava ↓/↑, Quinta, Detune) com MIX/LEVEL — validado headless (440 Hz → 220/660/880 Hz)
-- [x] Cartão **Looper**: até 60 s, REC → fecha e toca → overdub, PLAY/STOP, LIMPAR e **export WAV** (`Documentos\PedalForge NAM\Loops`)
-- [x] Cartão **Limiter** brickwall no fim da cadeia com barra de gain reduction + aviso **CLIP** no medidor OUT
+**Phase 9 — P3 effects (done):**
+- [x] **Pitch** card: 2-head granular octaver (Octave ↓/↑, Fifth, Detune) with MIX/LEVEL — validated headless (440 Hz → 220/660/880 Hz)
+- [x] **Looper** card: up to 60 s, REC → closes and plays → overdub, PLAY/STOP, CLEAR and **WAV export** (`Documents\PedalForge NAM\Loops`)
+- [x] **Limiter** card: brickwall at the end of the chain with a gain-reduction bar + **CLIP** warning on the OUT meter
 
-![Efeitos P3](docs/screenshots/efeitos-p3.png)
+![P3 effects](docs/screenshots/efeitos-p3.png)
 
-**Fase 10 — variações extra + referências documentadas (concluída):**
-- [x] **[docs/EFEITOS.md](docs/EFEITOS.md)**: cada efeito e variação com a inspiração clássica, o projeto de referência estudado (`references/`) e a base da implementação; tooltips dos seletores citam as fontes
-- [x] Novas variações vindas da lista de referências: Drive **Valve** (Airwindows Tube, MIT) e **Metal** (Guitarix) · Comp **Squeezer** · Delay **Ducking** · Reverb **Shimmer** (oitava acima no wet) · Mod **Vibrato** e **Rotary** (Leslie) · Pitch **Quarta**
-- [x] Correção: Boost e Heavy Fuzz do Drive tinham menu mas caíam no som do Screamer — agora têm vozeamento e clip próprios
+**Phase 10 — extra variations + documented references (done):**
+- [x] **[docs/EFEITOS.md](docs/EFEITOS.md)**: each effect and variation with its classic inspiration, the reference project studied (`references/`) and the implementation basis; selector tooltips cite the sources
+- [x] New variations from the reference list: Drive **Valve** (Airwindows Tube, MIT) and **Metal** (Guitarix) · Comp **Squeezer** · Delay **Ducking** · Reverb **Shimmer** (octave up in the wet) · Mod **Vibrato** and **Rotary** (Leslie) · Pitch **Fourth**
+- [x] Fix: Drive's Boost and Heavy Fuzz had a menu but fell back to the Screamer voicing — now they have their own voicing and clipping
 
-**Fase 11 — slot de plugin VST3 externo (concluída):**
-- [x] Cartão **Plugin VST3** na cadeia: hospeda qualquer efeito VST3 do disco (Dragonfly, LSP, Airwindows, BIAS FX…) via hosting JUCE
-- [x] Botões CARREGAR/TROCAR, **PAINEL** (interface do plugin em janela própria) e REMOVER + knob MIX (dry/wet) + LED de bypass
-- [x] Troca de instância RT-safe (mesmo protocolo pending/retired dos modelos NAM); mono → estéreo para o hóspede com retorno estéreo via `stereoExtra`
-- [x] Caminho **e estado interno** do plugin salvos nos presets (base64), com restauração automática
-- [x] Testado com BIAS FX 2 (processamento + painel)
+**Phase 11 — external VST3 plugin slot (done):**
+- [x] **VST3 Plugin** card in the chain: hosts any VST3 effect from disk (Dragonfly, LSP, Airwindows, BIAS FX…) via JUCE hosting
+- [x] LOAD/CHANGE buttons, **PANEL** (the plugin's UI in its own window) and REMOVE + MIX knob (dry/wet) + bypass LED
+- [x] RT-safe instance swap (same pending/retired protocol as the NAM models); mono → stereo for the guest with stereo return via `stereoExtra`
+- [x] The plugin's **path and internal state** saved in presets (base64), with automatic restore
+- [x] Tested with BIAS FX 2 (processing + panel)
 
-**Fase 12 — cards P4: 10 efeitos novos, um card por efeito (concluída):**
-- [x] **Wah** (Auto/Manual/LFO) · **Slow Gear** (swell) · **Octaver** analógico · **Ring Mod** · **Bitcrusher** — lado pré-amp
-- [x] **Harmonizer diatônico**: detecta a nota tocada (autocorrelação) e canta a 3ª/5ª/6ª/oitava DENTRO do tom/escala escolhidos
-- [x] **Exciter** · **De-esser** · **Tape** (Airwindows ToTape, MIT) · **Console** glue (Airwindows Console, MIT) — lado pós-amp
-- [x] Cada efeito tem card próprio com controles dedicados (total: 23 cards na cadeia, todos reordenáveis)
-- [x] Slot VST3: botão CARREGAR virou menu com os plugins instalados no sistema + tabela de grátis recomendados em docs/EFEITOS.md
+**Phase 12 — P4 cards: 10 new effects, one card per effect (done):**
+- [x] **Wah** (Auto/Manual/LFO) · **Slow Gear** (swell) · analog **Octaver** · **Ring Mod** · **Bitcrusher** — pre-amp side
+- [x] **Diatonic Harmonizer**: detects the played note (autocorrelation) and sings the 3rd/5th/6th/octave WITHIN the chosen key/scale
+- [x] **Exciter** · **De-esser** · **Tape** (Airwindows ToTape, MIT) · **Console** glue (Airwindows Console, MIT) — post-amp side
+- [x] Each effect has its own card with dedicated controls (total: 23 cards in the chain, all reorderable)
+- [x] VST3 slot: the LOAD button became a menu with the plugins installed on the system + a table of recommended free ones in docs/EFEITOS.md
 
-**Fase 13 — UX: gaveta de efeitos + navegação (concluída):**
-- [x] A cadeia mostra **só os efeitos em uso**; **`+` em cada conector** adiciona um efeito naquela posição exata, e o botão tracejado **`+ EFEITO`** no fim insere na posição musicalmente certa — ambos abrem a gaveta por categorias (Dinâmica · Drive & Filtro · Pitch · Modulação & Cor · Ambiência · Extras)
-- [x] **✕** em cada card devolve o efeito pra gaveta (ajustes preservados); presets salvam a pedaleira montada
-- [x] Cards **desligados ficam esmaecidos** — o olho acha na hora o que está soando
-- [x] **Roda do mouse rola a cadeia** e **arrastar o fundo faz pan** (mãozinha), como numa DAW
+**Phase 13 — UX: effects drawer + navigation (done):**
+- [x] The chain shows **only the effects in use**; a **`+` on each connector** adds an effect at that exact position, and the dashed **`+ EFFECT`** button at the end inserts at the musically correct position — both open the drawer by category (Dynamics · Drive & Filter · Pitch · Modulation & Color · Ambience · Extras)
+- [x] **✕** on each card returns the effect to the drawer (settings preserved); presets save the assembled pedalboard
+- [x] **Disabled cards are dimmed** — your eye finds instantly what is sounding
+- [x] **Mouse wheel scrolls the chain** and **dragging the background pans** (hand cursor), like in a DAW
 
-![Gaveta de efeitos](docs/screenshots/gaveta-efeitos.png)
+![Effects drawer](docs/screenshots/gaveta-efeitos.png)
 
-**Fase 14 — modo palco (concluída):**
-- [x] Chip **PALCO** (ou tecla **F**): esconde a cadeia e mostra o essencial gigante — nome do preset (com indicador de modificado), capture carregado, **afinador grande** (nota + régua de cents, verde quando afinado) e dicas de atalhos
-- [x] No palco o afinador funciona mesmo com o chip AFINADOR desligado; clique nas laterais navega presets, no centro abre o menu; **Esc/F** volta a editar
+**Phase 14 — stage mode (done):**
+- [x] **STAGE** chip (or key **F**): hides the chain and shows the essentials huge — preset name (with modified indicator), loaded capture, a **big tuner** (note + cents ruler, green when in tune) and shortcut hints
+- [x] On stage the tuner works even with the TUNER chip off; clicking the sides navigates presets, the center opens the menu; **Esc/F** returns to editing
 
-![Modo palco](docs/screenshots/modo-palco.png)
+![Stage mode](docs/screenshots/modo-palco.png)
 
-**Fase 15 — roadmap fechado (concluída):**
-- [x] **Analisador de espectro**: card com FFT 2048 ao vivo (24 bandas log, 40 Hz–16 kHz)
-- [x] **Medidores com peak-hold** + microinterações (hover nos `+`/`✕`, cursor de mãozinha)
-- [x] **Drag-and-drop de arquivos**: arraste `.nam` no amp, IR no cab e `.vst3` no slot externo (com realce do alvo)
-- [x] **Afinador com MUTE** (silencia a saída enquanto afina) · delay/reverb estéreo (desde a fase 7)
-- [x] **Favoritos ★ no TONE3000** (persistidos + filtro "Só ★") · **A/B de rigs** (compara dois ajustes completos) · **Gravador rápido** (WAV 24-bit da saída em `Documentos\PedalForge NAM\Gravações`)
-- [x] Correções de UX: relayout imediato ao remover/adicionar cards (sem alvos defasados sob o mouse), relayout adiado durante arrasto de knob
+**Phase 15 — roadmap closed (done):**
+- [x] **Spectrum analyzer**: card with live 2048 FFT (24 log bands, 40 Hz–16 kHz)
+- [x] **Meters with peak-hold** + micro-interactions (hover on `+`/`✕`, hand cursor)
+- [x] **File drag-and-drop**: drop `.nam` on the amp, an IR on the cab and a `.vst3` on the external slot (with target highlight)
+- [x] **Tuner with MUTE** (silences the output while tuning) · stereo delay/reverb (since phase 7)
+- [x] **★ favorites on TONE3000** (persisted + "★ only" filter) · **rig A/B** (compares two complete setups) · **quick recorder** (24-bit WAV of the output in `Documents\PedalForge NAM\Recordings`)
+- [x] UX fixes: immediate relayout when removing/adding cards (no stale targets under the mouse), deferred relayout while dragging a knob
 
-**Fases 16–17 — plugins VST3 externos (concluídas):**
-- [x] **Até 8 slots** de plugin VST3 na cadeia (na prática o limite é a CPU); menu CARREGAR por categoria
-- [x] Catálogo **embutido** com 8 plugins open source (Dragonfly, Airwindows, Zam, AIDA-X, Fire, Wolf Shaper, PeakEater, Surge XT Effects): aba **Plugins** no Tone Store com toggle INSTALAR ⇄ DESINSTALAR, progresso e versões pinadas — **só download direto**: instala extraindo o .vst3 na pasta do usuário (sem admin) e desinstala apagando o arquivo, sem instalador
-- [x] `plugins/` no repo: script alternativo + cópia offline (32 MB) com licenças
-- [x] **Renomeado para PedalForge NAM** (evita confusão com o Guitar Rig da NI); dados antigos migram sozinhos
+**Phases 16–17 — external VST3 plugins (done):**
+- [x] **Up to 8 slots** of VST3 plugins in the chain (in practice the limit is CPU); LOAD menu by category
+- [x] **Built-in catalog** of 8 open-source plugins (Dragonfly, Airwindows, Zam, AIDA-X, Fire, Wolf Shaper, PeakEater, Surge XT Effects): a **Plugins** tab in the Tone Store with an INSTALL ⇄ UNINSTALL toggle, progress and pinned versions — **direct download only**: installs by extracting the .vst3 into the user folder (no admin) and uninstalls by deleting the file, no installer
+- [x] `plugins/` in the repo: an alternative script + offline copy (32 MB) with licenses
+- [x] **Renamed to PedalForge NAM** (avoids confusion with NI's Guitar Rig); old data migrates automatically
 
-**Fase 18 — módulo Bateria (em andamento):**
-- [x] Motor: sequencer sample-accurate no processBlock (2 compassos × 16 steps, 9 vozes, acento/ghost), swing, clique, contagem; barramento próprio somado no master (não passa pela cadeia da guitarra)
-- [x] Fontes de som: **sampler interno sintetizado** (funciona de fábrica) e **VST3 de bateria hospedado** (MIDI GM canal 10, protocolo pending/retired, painel em janela própria)
-- [x] UI v4 "a pauta é a track" (botão **Bateria** na top bar): a área central mostra a **seção inteira (4 compassos) em pentagrama corrido**; grooves de **1 compasso** são **arrastados da biblioteca direto para o compasso na pauta**; clique na pauta edita (vazio→toque→acento→ghost); seções em abas (**+ SEÇÃO** = +4 compassos); **SEGUIR** vira a página no play; chip **GRADE** abre a grade de 16 steps do compasso selecionado
-- [x] **Biblioteca massiva reorganizada**: ~460 grooves+viradas de fábrica; **cada gênero reúne seus grooves E suas viradas** (sub-filtro TUDO/GROOVES/VIRADAS; viradas com borda laranja); 16 gêneros incl. **SOUL/GOSPEL** e **GERAL** (viradas genéricas). Parte vem do **Groove MIDI Dataset** (Google Magenta, CC BY 4.0 — ver `THIRD_PARTY.md`), quantizado; jazz/blues do dataset ficam de fora (swing não cabe na grade reta). Cada card mostra **miniatura em partitura**; + **Meus compassos** (`Documentos\PedalForge NAM\compassos`)
-- [x] Timeline/BPM/swing/fonte salvos no preset (A/B incluso; formatos antigos migram)
-- [x] **Navegador em colunas** (estilo DrumGroovePro, GPLv3): Gênero (com contadores) | Grooves/Viradas | **Preview** com a partitura grande + "aplicar no compasso" + arrasto; **humanização** (velocity/micro-timing/round-robin) do kit interno; **botão EDIÇÃO** (editar notas ⇄ montar: arrastar o compasso inteiro para reposicionar/copiar)
-- [x] **Fórmula de compasso por compasso**: cada compasso pode ter métrica própria (4/4, 3/4, 2/4, 6/8, 12/8 + Custom); a fórmula é escrita só quando muda (convenção de partitura), a largura se ajusta ao nº de steps (motor com steps variáveis por compasso, teto 32) e as ligaduras agrupam por métrica (compostos de 3 em 3). Clicar na fórmula no cabeçalho do compasso abre o menu; a grade e o playhead acompanham. Salvo no preset.
-- [ ] Pendentes: saída MIDI externa, mini-mixer por peça, copiar compasso→compasso arrastando
-- Design aprovado: `docs/design/bateria-mockup.html`; dev flags `GUITARRIG_OPEN_DRUMS=1|play`
+**Phase 18 — Drums module (in progress):**
+- [x] Engine: sample-accurate sequencer in processBlock (2 bars × 16 steps, 9 voices, accent/ghost), swing, click, count-in; its own bus summed into the master (does not go through the guitar chain)
+- [x] Sound sources: **internal synthesized sampler** (works out of the box) and a **hosted drum VST3** (GM MIDI channel 10, pending/retired protocol, panel in its own window)
+- [x] UI v4 "the staff is the track" (**Drums** button in the top bar): the central area shows the **whole section (4 bars) on a continuous staff**; **1-bar** grooves are **dragged from the library straight onto the bar on the staff**; clicking the staff edits (empty→hit→accent→ghost); sections as tabs (**+ SECTION** = +4 bars); **FOLLOW** turns the page on play; the **GRID** chip opens the 16-step grid of the selected bar
+- [x] **Massive reorganized library**: ~460 factory grooves+fills; **each genre gathers its grooves AND its fills** (ALL/GROOVES/FILLS sub-filter; fills with an orange border); 16 genres incl. **SOUL/GOSPEL** and **GENERAL** (generic fills). Part comes from the **Groove MIDI Dataset** (Google Magenta, CC BY 4.0 — see `THIRD_PARTY.md`), quantized; the dataset's jazz/blues are left out (swing doesn't fit the straight grid). Each card shows a **notation thumbnail**; + **My bars** (`Documents\PedalForge NAM\compassos`)
+- [x] Timeline/BPM/swing/source saved in the preset (A/B included; old formats migrate)
+- [x] **Column browser** (DrumGroovePro style, GPLv3): Genre (with counts) | Grooves/Fills | **Preview** with the big notation + "apply to bar" + drag; **humanize** (velocity/micro-timing/round-robin) of the internal kit; **EDIT button** (edit notes ⇄ assemble: drag the whole bar to reposition/copy)
+- [x] **Per-bar time signature**: each bar can have its own meter (4/4, 3/4, 2/4, 6/8, 12/8 + Custom); the signature is written only when it changes (notation convention), the width adjusts to the number of steps (engine with variable steps per bar, cap 32) and the beams group by meter (compound in threes). Clicking the signature on the bar header opens the menu; the grid and playhead follow. Saved in the preset.
+- [x] **Groove generator** (ported from midi-drums, MIT): genre/style/drummer + parameters generate a bar honoring its time signature; per-bar role (Verse/Chorus/Bridge/Fill) drives the generation
+- [x] **Ribbons + morph**: each screen carries a live ribbon of the other at the top (drums ribbon on guitar with playhead; guitar ribbon on drums with amp + active pedals), and clicking morphs into the full screen
+- [ ] Pending: external MIDI output, per-piece mini-mixer, copy bar→bar by dragging
+- Approved design: `docs/design/`; dev flags `GUITARRIG_OPEN_DRUMS=1|play|meter|gen|genfill`
 
-**Próximos:**
-- [ ] Ideias futuras: minimapa da cadeia, MIDI learn, snapshot de cena por música
+**Next:**
+- [ ] Future ideas: chain minimap, MIDI learn, per-song scene snapshot
+- [ ] Full visual redesign (see `docs/design/redesign-brief.md`)
 
-## 🤝 Contribuindo
+## 🤝 Contributing
 
-Contribuições são bem-vindas! Leia o **[CONTRIBUTING.md](CONTRIBUTING.md)** (build, mapa do código, regras de real-time safety e armadilhas conhecidas do MSVC/JUCE) e use os templates de issue/PR. Itens não marcados do roadmap são um ótimo ponto de partida.
+Contributions are welcome! Read **[CONTRIBUTING.md](CONTRIBUTING.md)** (build, code map, real-time safety rules and known MSVC/JUCE pitfalls) and use the issue/PR templates. Unchecked roadmap items are a great starting point.
 
-*Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) (Portuguese; feel free to open issues in English).*
+## 📜 Licenses
 
-## 📜 Licenças
+This project is licensed under **[AGPLv3](LICENSE)** — required by using JUCE 8 in the open-source tier. Dependencies:
 
-Este projeto é licenciado sob a **[AGPLv3](LICENSE)** — exigência do uso do JUCE 8 no tier open source. Dependências:
-
-- **JUCE 8** — AGPLv3 (uso pessoal/open-source) · **NAM Core** — MIT · **AudioDSPTools** — Apache-2.0/MIT (ver repositório)
-- **Fontes** — SIL Open Font License (textos em `assets/fonts/`)
-- **ASIO SDK** — licença Steinberg (download manual, não redistribuído)
-- Captures/IRs baixados do TONE3000 têm licenças próprias por tone (CC/T3K) — respeite-as ao redistribuir timbres.
+- **JUCE 8** — AGPLv3 (personal/open-source use) · **NAM Core** — MIT · **AudioDSPTools** — Apache-2.0/MIT (see repository)
+- **Fonts** — SIL Open Font License (text in `assets/fonts/`)
+- **ASIO SDK** — Steinberg license (manual download, not redistributed)
+- Captures/IRs downloaded from TONE3000 have their own per-tone licenses (CC/T3K) — respect them when redistributing tones.

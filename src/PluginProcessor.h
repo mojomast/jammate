@@ -53,8 +53,8 @@ public:
     void setStateInformation (const void*, int) override;
 
     //==========================================================================
-    // Modelos NAM — até 3 rigs AMP+CAB em paralelo (um capture por lane),
-    // somados no card Mixer. (message thread)
+    // NAM models - up to 3 AMP+CAB rigs in parallel (one capture per lane),
+    // summed in the Mixer card. (message thread)
 
     static constexpr int maxRigs = 3;
 
@@ -79,16 +79,16 @@ public:
     {
         return lane >= 0 && lane < maxRigs && resamplingActive[lane].load();
     }
-    /// Primeira lane ativa sem capture; -1 se todas ocupadas.
+    /// First active lane without a capture; -1 if all are busy.
     int firstFreeModelLane() const;
-    /// Número de rigs (pares amp+cab) ativos.
+    /// Number of active rigs (amp+cab pairs).
     int getRigCount() const;
-    /// true se o arquivo está carregado em QUALQUER lane ativa.
+    /// true if the file is loaded in ANY active lane.
     bool isModelFileLoaded (const juce::String& fullPath) const;
 
     //==========================================================================
-    // ECO: par de arquivos do mesmo capture (normal + versão mais leve),
-    // por lane. O chip ECO/auto-ECO troca qual dos dois está carregado.
+    // ECO: pair of files from the same capture (normal + lighter version),
+    // per lane. The ECO/auto-ECO chip swaps which of the two is loaded.
 
     void setModelPair (int lane, const juce::File& normal, const juce::File& eco);
     juce::String getModelPathNormal (int lane) const;
@@ -100,11 +100,11 @@ public:
                 return true;
         return false;
     }
-    /// "A1", "A2" ou "" (arquitetura do capture da lane).
+    /// "A1", "A2" or "" (architecture of the lane's capture).
     juce::String getModelArchLabel (int lane) const;
 
     //==========================================================================
-    // Cab IR — um por lane de rig (message thread)
+    // Cab IR - one per rig lane (message thread)
 
     static constexpr int maxCabSlots = maxRigs;
 
@@ -115,9 +115,9 @@ public:
     {
         return slot >= 0 && slot < maxCabSlots && irLoadedFlags[slot].load();
     }
-    /// Primeiro slot vazio dentro do count atual; -1 se todos ocupados.
+    /// First empty slot within the current count; -1 if all are busy.
     int firstFreeIrSlot() const;
-    /// true se o arquivo está carregado em QUALQUER slot ativo.
+    /// true if the file is loaded in ANY active slot.
     bool isIrFileLoaded (const juce::String& fullPath) const;
     int getCabCount() const;
 
@@ -128,13 +128,13 @@ public:
     juce::Array<juce::File> getPresetFiles() const;
     void savePreset (const juce::File& file);
     void loadPreset (const juce::File& file);
-    /// delta = +1 / -1 navega pela lista ordenada de presets (com wrap).
+    /// delta = +1 / -1 navigates the sorted preset list (with wrap).
     void loadAdjacentPreset (int delta);
     juce::String getCurrentPresetName() const;
 
     //==========================================================================
-    // Cadeia reordenável: os efeitos podem mudar de posição; o bloco
-    // Amp+Cabs ("amp") é âncora fixa mas efeitos podem ficar antes/depois.
+    // Reorderable chain: effects can change position; the Amp+Cabs block
+    // ("amp") is a fixed anchor but effects can sit before/after.
 
     enum class ChainFx : int { gate = 0, od, eq, delay, reverb, ampBlock, comp, preEq, mod,
                                pitch, looper, limiter, extPlugin,
@@ -143,52 +143,52 @@ public:
                                extPlugin2, extPlugin3, extPlugin4, extPlugin5,
                                extPlugin6, extPlugin7, extPlugin8 };
     static constexpr int numChainFx = 31;
-    static constexpr int chainMaxSlots = 48; // expansível para efeitos futuros
+    static constexpr int chainMaxSlots = 48; // expandable for future effects
 
-    /// Ordem atual como ids ("gate", "od", "amp", "eq", "delay", "reverb").
+    /// Current order as ids ("gate", "od", "amp", "eq", "delay", "reverb").
     juce::StringArray getChainOrder() const;
-    /// Aplica nova ordem (message thread). Ids inválidos/faltantes são
-    /// normalizados: cada efeito aparece 1x e "amp" sempre presente.
+    /// Applies a new order (message thread). Invalid/missing ids are
+    /// normalized: each effect appears once and "amp" is always present.
     void setChainOrder (const juce::StringArray& ids);
 
     static juce::String fxToString (ChainFx);
-    static int fxFromString (const juce::String&); // -1 se desconhecido
-    /// Posição do efeito na ordem canônica (para inserir da gaveta no lugar certo).
+    static int fxFromString (const juce::String&); // -1 if unknown
+    /// Position of the effect in the canonical order (to insert from the drawer in the right place).
     static int canonicalRank (int fx);
     static int canonicalRank (const juce::String& id);
 
     //==========================================================================
-    // Looper (comandos do editor via atomics; transições aplicadas no
-    // processBlock — o buffer é pré-alocado, nada de alocação no áudio)
+    // Looper (editor commands via atomics; transitions applied in
+    // processBlock - the buffer is pre-allocated, no allocation on the audio thread)
 
     enum class LooperState : int { empty = 0, recording, playing, overdub, stopped };
     static constexpr int looperMaxSeconds = 60;
 
     LooperState getLooperState() const noexcept { return (LooperState) looperState.load(); }
-    /// 1 = REC/fecha/overdub · 2 = play/stop · 3 = limpar
+    /// 1 = REC/close/overdub, 2 = play/stop, 3 = clear
     void requestLooperCommand (int cmd) noexcept { looperCmd.store (cmd); }
     double getLooperSeconds() const noexcept;
     double getLooperPosSeconds() const noexcept;
-    /// Grava o loop atual em WAV (Documentos\PedalForge NAM\Loops). Message
-    /// thread; retorna o arquivo criado ou {} se não há loop.
+    /// Saves the current loop to WAV (Documents\PedalForge NAM\Loops). Message
+    /// thread; returns the created file or {} if there is no loop.
     juce::File exportLoopToWav() const;
 
-    /// Redução de ganho atual do limiter em dB (para o cartão).
+    /// Current limiter gain reduction in dB (for the card).
     float getLimiterGrDb() const noexcept { return limGrDb.load(); }
 
     //==========================================================================
-    // Slots de plugin VST3 externo (hosting JUCE) — até 3 na cadeia. Toda a
-    // gestão acontece na message thread; a troca da instância no áudio usa o
-    // mesmo protocolo pending/retired dos modelos NAM.
+    // External VST3 plugin slots (JUCE hosting) - up to 3 in the chain. All
+    // management happens on the message thread; swapping the audio instance uses
+    // the same pending/retired protocol as the NAM models.
 
-    // 8 slots em série — na prática o limite vira a CPU, não o número
+    // 8 slots in series - in practice the limit is CPU, not the count
     static constexpr int maxExtSlots = 8;
 
-    /// Carrega um .vst3 do disco (message thread). stateToRestore opcional
-    /// aplica o estado salvo do plugin após a instanciação.
+    /// Loads a .vst3 from disk (message thread). Optional stateToRestore
+    /// applies the plugin's saved state after instantiation.
     void loadExternalPluginAsync (int slot, const juce::File& file,
                                   const juce::MemoryBlock* stateToRestore = nullptr);
-    /// Descarrega o plugin do slot (message thread).
+    /// Unloads the plugin from the slot (message thread).
     void clearExternalPlugin (int slot);
     bool hasExternalPlugin (int slot) const noexcept
     {
@@ -196,16 +196,16 @@ public:
     }
     juce::String getExternalPluginName (int slot) const;
     juce::String getExternalPluginPath (int slot) const;
-    /// Instância ativa — SÓ para a message thread criar o painel do plugin.
-    /// Feche o painel antes de qualquer troca (onExternalPluginWillChange).
+    /// Active instance - ONLY for the message thread to create the plugin panel.
+    /// Close the panel before any swap (onExternalPluginWillChange).
     juce::AudioPluginInstance* getExternalInstance (int slot) const noexcept
     {
         return slot >= 0 && slot < maxExtSlots ? extUiInstance[slot].load() : nullptr;
     }
-    /// Chamado (message thread) com o slot, antes de trocar/descartar a
-    /// instância — o editor usa para fechar a janela do painel do plugin.
+    /// Called (message thread) with the slot, before swapping/discarding the
+    /// instance - the editor uses it to close the plugin panel window.
     std::function<void (int)> onExternalPluginWillChange;
-    /// Coleta instâncias aposentadas (chamar periodicamente na message thread).
+    /// Collects retired instances (call periodically on the message thread).
     void collectExternalRetired()
     {
         for (auto& r : extRetired)
@@ -214,10 +214,10 @@ public:
     }
 
     //==========================================================================
-    // Módulo Bateria (fase 18): sequencer + sampler interno no DrumEngine;
-    // opcionalmente um VST3 de bateria hospedado (mesmo protocolo
-    // pending/retired dos slots de efeito). A bateria toca num barramento
-    // próprio somado no master — nunca passa pela cadeia da guitarra.
+    // Drums module (phase 18): sequencer + internal sampler in DrumEngine;
+    // optionally a hosted drum VST3 (same pending/retired protocol as the
+    // effect slots). The drums play on their own bus summed into the master -
+    // they never pass through the guitar chain.
     DrumEngine drumEngine;
 
     void loadDrumPluginAsync (const juce::File&,
@@ -226,55 +226,55 @@ public:
     bool hasDrumPlugin() const noexcept { return drumLoaded.load(); }
     juce::String getDrumPluginName() const;
     juce::String getDrumPluginPath() const;
-    /// Instância ativa — SÓ para a message thread criar o painel.
+    /// Active instance - ONLY for the message thread to create the panel.
     juce::AudioPluginInstance* getDrumInstance() const noexcept
     {
         return drumUiInstance.load();
     }
-    /// Chamado (message thread) antes de trocar/descartar a instância da
-    /// bateria — o editor fecha a janela do painel.
+    /// Called (message thread) before swapping/discarding the drum
+    /// instance - the editor closes the panel window.
     std::function<void()> onDrumPluginWillChange;
 
-    /// true quando o estado atual difere do último preset salvo/carregado.
+    /// true when the current state differs from the last saved/loaded preset.
     bool isPresetDirty();
-    /// Chamado pelo editor a cada tick: consolida a baseline do preset depois
-    /// que um load assíncrono de modelo/IR termina.
+    /// Called by the editor each tick: consolidates the preset baseline after
+    /// an async model/IR load finishes.
     void settlePresetBaseline();
 
     juce::AudioProcessorValueTreeState apvts;
 
     std::atomic<float> inputPeak { 0.0f };
     std::atomic<float> outputPeak { 0.0f };
-    /// Fração do tempo de bloco gasta em processBlock (0..1), suavizada.
+    /// Fraction of the block time spent in processBlock (0..1), smoothed.
     std::atomic<float> cpuLoad { 0.0f };
 
     //==========================================================================
-    // Afinador: o processBlock grava o sinal de entrada num ring buffer; o
-    // editor lê o trecho mais recente para análise de pitch (corridas de
-    // leitura são benignas — no máximo distorcem uma análise descartável).
-    static constexpr int tunerRingSize = 8192; // potência de 2
+    // Tuner: processBlock writes the input signal to a ring buffer; the
+    // editor reads the most recent chunk for pitch analysis (read races are
+    // benign - at worst they distort a throwaway analysis).
+    static constexpr int tunerRingSize = 8192; // power of 2
     void readTunerBlock (float* dest, int numSamples) const;
 
-    /// Mute do afinador: silencia a SAÍDA (a detecção continua, o tap é
-    /// pré-cadeia). Setado pelo editor quando afinador ligado + chip MUTE.
+    /// Tuner mute: silences the OUTPUT (detection continues, the tap is
+    /// pre-chain). Set by the editor when the tuner is on + MUTE chip.
     void setTunerMuted (bool m) noexcept { tunerMute.store (m); }
 
     //==========================================================================
-    // Analisador de espectro: mesmo esquema do afinador — o card grava o
-    // sinal naquele ponto da cadeia; o editor lê e desenha o espectro.
-    static constexpr int analyzerRingSize = 4096; // potência de 2
+    // Spectrum analyzer: same scheme as the tuner - the card writes the
+    // signal at that point in the chain; the editor reads and draws the spectrum.
+    static constexpr int analyzerRingSize = 4096; // power of 2
     void readAnalyzerBlock (float* dest, int numSamples) const;
 
     //==========================================================================
-    // Gravador rápido: escreve a SAÍDA em WAV via ThreadedWriter (RT-safe).
-    // (message thread para start/stop)
+    // Quick recorder: writes the OUTPUT to WAV via ThreadedWriter (RT-safe).
+    // (message thread for start/stop)
     juce::File startRecording();
     void stopRecording();
     bool isRecording() const noexcept { return recActive.load() != nullptr; }
 
     //==========================================================================
-    // A/B: dois snapshots completos do estado; alternar salva o atual no
-    // slot ativo e carrega o outro. (message thread)
+    // A/B: two full state snapshots; toggling saves the current one into the
+    // active slot and loads the other. (message thread)
     void toggleAB();
     int getABIndex() const noexcept { return abCurrent; }
 
@@ -287,7 +287,7 @@ private:
     std::atomic<int> anWritePos { 0 };
     std::atomic<float>* pAnOn = nullptr;
 
-    juce::TimeSliceThread recThread { "gravador" };
+    juce::TimeSliceThread recThread { "recorder" };
     std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> recWriter;
     std::atomic<juce::AudioFormatWriter::ThreadedWriter*> recActive { nullptr };
 
@@ -301,38 +301,38 @@ private:
 
     using Resampler = dsp::ResamplingContainer<float, 1, 12>;
 
-    // Modelo + (opcional) resampler, montado por completo fora da thread de
-    // áudio e trocado como uma unidade.
+    // Model + (optional) resampler, fully assembled off the audio thread
+    // and swapped as a unit.
     struct LoadedModel
     {
         ~LoadedModel();
 
         std::unique_ptr<nam::DSP> model;
-        std::unique_ptr<Resampler> resampler;              // null se SR do host == SR do capture
-        std::function<void (float**, float**, int)> func;  // pré-construída (sem alocação no áudio)
+        std::unique_ptr<Resampler> resampler;              // null if host SR == capture SR
+        std::function<void (float**, float**, int)> func;  // pre-built (no allocation on the audio thread)
         double modelSampleRate = -1.0;
         int latencySamples = 0;
     };
 
-    /// (Re)prepara modelo e resampler para o SR/bloco atuais. Aloca — nunca
-    /// chamar na thread de áudio.
+    /// (Re)prepares model and resampler for the current SR/block. Allocates - never
+    /// call on the audio thread.
     void prepareLoadedModel (LoadedModel&, double hostRate, int blockSize) const;
 
     void applyState (juce::ValueTree state);
-    /// includeExtPluginState=false pula o getStateInformation do plugin
-    /// hospedado (o fingerprint de preset roda a 2 Hz — seria caro demais).
+    /// includeExtPluginState=false skips getStateInformation of the hosted
+    /// plugin (the preset fingerprint runs at 2 Hz - it would be too costly).
     juce::ValueTree captureState (bool includeExtPluginState = true);
     void setCurrentPresetName (const juce::String&);
     juce::int64 stateFingerprint();
     void createFactoryPresetsIfNeeded() const;
 
-    juce::int64 savedFingerprint = 0;            // baseline do preset atual
-    std::atomic<bool> baselinePending { false }; // aguardando load assíncrono
+    juce::int64 savedFingerprint = 0;            // baseline of the current preset
+    std::atomic<bool> baselinePending { false }; // awaiting async load
 
-    // Troca RT-safe por lane (protocolo pending/retired):
-    std::unique_ptr<LoadedModel> activeModels[maxRigs];       // só thread de áudio
-    std::atomic<LoadedModel*> pendingModels[maxRigs] = {};    // loader -> áudio
-    std::atomic<LoadedModel*> retiredModels[maxRigs] = {};    // áudio -> loader/dtor
+    // RT-safe swap per lane (pending/retired protocol):
+    std::unique_ptr<LoadedModel> activeModels[maxRigs];       // audio thread only
+    std::atomic<LoadedModel*> pendingModels[maxRigs] = {};    // loader -> audio
+    std::atomic<LoadedModel*> retiredModels[maxRigs] = {};    // audio -> loader/dtor
     std::atomic<bool> modelIsActive[maxRigs] = {};
     std::atomic<bool> resamplingActive[maxRigs] = {};
 
@@ -343,29 +343,29 @@ private:
     std::atomic<bool> loading { false };
 
     mutable juce::CriticalSection modelInfoLock;
-    juce::String modelNames[maxRigs], modelPaths[maxRigs], loadError;   // sob modelInfoLock
-    juce::String modelPathsStd[maxRigs], modelPathsEco[maxRigs];        // par ECO
+    juce::String modelNames[maxRigs], modelPaths[maxRigs], loadError;   // under modelInfoLock
+    juce::String modelPathsStd[maxRigs], modelPathsEco[maxRigs];        // ECO pair
     juce::String modelArchLabels[maxRigs];                              // "A1"/"A2"
     double modelExpectedSampleRates[maxRigs] = { -1.0, -1.0, -1.0 };
-    juce::String currentPresetName;                      // sob modelInfoLock
+    juce::String currentPresetName;                      // under modelInfoLock
 
     juce::AudioBuffer<float> monoScratch;
 
     juce::dsp::NoiseGate<float> noiseGate;
 
-    // cabs paralelos (filtros por slot ficam junto dos outros biquads, abaixo)
+    // parallel cabs (per-slot filters live with the other biquads, below)
     juce::dsp::Convolution convolutions[maxCabSlots];
     std::atomic<bool> irLoadedFlags[maxCabSlots] {};
-    juce::String irNames[maxCabSlots], irPaths[maxCabSlots]; // sob modelInfoLock
+    juce::String irNames[maxCabSlots], irPaths[maxCabSlots]; // under modelInfoLock
     juce::AudioBuffer<float> cabDryBuf, cabAccBuf, cabSlotBuf;
     void updateCabSlotFilters (int slot);
 
-    // ordem da cadeia (RT-safe: atomics lidos por entrada no processBlock)
+    // chain order (RT-safe: atomics read per entry in processBlock)
     std::atomic<int> chainOrder[chainMaxSlots] = {};
     std::atomic<int> chainLen { 0 };
     void writeDefaultChain();
 
-    // um módulo por função — chamados na ordem dinâmica pelo processBlock
+    // one module per function - called in dynamic order by processBlock
     void processGateFx (float* io, int n);
     void processOdFx (float* io, int n);
     void processEqFx (float* io, int n);
@@ -391,9 +391,9 @@ private:
     void processConsoleFx (float* io, int n);
     void processAnalyzerFx (float* io, int n);
 
-    // Gate "inteligente": follower de envelope com histerese de 6 dB
-    // (abre no threshold, só fecha 6 dB abaixo — preserva o sustain),
-    // hold configurável e release suave.
+    // "Smart" gate: envelope follower with 6 dB hysteresis
+    // (opens at the threshold, only closes 6 dB below - preserves sustain),
+    // configurable hold and smooth release.
     struct SmartGate
     {
         void prepare (double sampleRate);
@@ -413,7 +413,7 @@ private:
     int compCachedType = -1;
     void updatePreEqIfNeeded();
 
-    // variações de modelo por efeito (escolhidas no cartão)
+    // per-effect model variations (chosen on the card)
     std::atomic<float>* pOdType = nullptr;     // Screamer/Blues/Distortion/Fuzz
     std::atomic<float>* pCompType = nullptr;   // Dyna/Optical/Studio
     std::atomic<float>* pDelayType = nullptr;  // Digital/Analog/Tape
@@ -427,8 +427,8 @@ private:
     std::atomic<float>* pAmpOn = nullptr;
     std::atomic<float>* pAmpEco = nullptr;
     std::atomic<float>* pAutoEco = nullptr;
-    // knobs do amp POR LANE (lane 0 usa os ids legados "ampGain" etc.;
-    // lanes 1/2 usam "amp2Gain"/"amp3Gain" etc.)
+    // amp knobs PER LANE (lane 0 uses the legacy ids "ampGain" etc.;
+    // lanes 1/2 use "amp2Gain"/"amp3Gain" etc.)
     std::atomic<float>* pAmpGain[maxRigs] = {};
     std::atomic<float>* pAmpBass[maxRigs] = {};
     std::atomic<float>* pAmpMid[maxRigs] = {};
@@ -449,7 +449,7 @@ private:
     std::atomic<float>* pPreEqMid = nullptr;
     std::atomic<float>* pPreEqHigh = nullptr;
     std::atomic<float>* pCabOn = nullptr;
-    std::atomic<float>* pCabLevel = nullptr;   // legado (sem knob) — trim pós-mix
+    std::atomic<float>* pCabLevel = nullptr;   // legacy (no knob) - post-mix trim
     std::atomic<float>* pCabAir = nullptr;
     std::atomic<float>* pCabCount = nullptr;
     std::atomic<float>* pCabBlend[maxCabSlots] = {};
@@ -473,9 +473,9 @@ private:
     std::atomic<float>* pRevMix = nullptr;
     std::atomic<float>* pRevPre = nullptr;
 
-    // ---- tone stack do amp (pós-modelo): biquads próprios, sem alocação
-    // no caminho de áudio (coeficientes recalculados inline quando os
-    // parâmetros mudam — só aritmética).
+    // ---- amp tone stack (post-model): own biquads, no allocation
+    // on the audio path (coefficients recomputed inline when the
+    // parameters change - just arithmetic).
     struct Biquad
     {
         void setLowShelf (double sr, double freq, double dbGain);
@@ -507,32 +507,32 @@ private:
     float tsCachedTreble[maxRigs] = { -1.0f, -1.0f, -1.0f };
     float tsCachedPresence[maxRigs] = { -1.0f, -1.0f, -1.0f };
 
-    // Overdrive (pré-amp): HP -> clip (por variação) -> tone LP -> pós-filtro
+    // Overdrive (pre-amp): HP -> clip (per variation) -> tone LP -> post-filter
     Biquad odHp, odToneLp, odPost;
     float odCachedTone = -1.0f;
 
-    // filtros do caminho de feedback do delay (variações Analog/Tape)
+    // delay feedback path filters (Analog/Tape variations)
     Biquad delayFbLp, delayFbHp;
-    float delayDuckEnv = 0.0f; // follower do Ducking (repetições abaixam ao tocar)
+    float delayDuckEnv = 0.0f; // Ducking follower (repeats dip while you play)
 
-    // EQ pós-cab
+    // post-cab EQ
     Biquad eqLowF, eqMidF, eqHighF;
     float eqCachedLow = -99.0f, eqCachedMid = -99.0f, eqCachedHigh = -99.0f;
 
-    // AIR do cab (high shelf pós-mix)
+    // cab AIR (post-mix high shelf)
     Biquad airF;
     float airCached = -1.0f;
 
-    // low/high cut por slot de cab
+    // low/high cut per cab slot
     Biquad cabLc[maxCabSlots], cabHc[maxCabSlots];
     float cabLcCached[maxCabSlots] = { -1.0f, -1.0f, -1.0f };
     float cabHcCached[maxCabSlots] = { -1.0f, -1.0f, -1.0f };
 
-    // Pré-EQ (antes do NAM — muda como o amp satura)
+    // Pre-EQ (before the NAM - changes how the amp saturates)
     Biquad preEqLowF, preEqMidF, preEqHighF;
     float preEqCachedLow = -99.0f, preEqCachedMid = -99.0f, preEqCachedHigh = -99.0f;
 
-    // Delay / Reverb (pós-cadeia)
+    // Delay / Reverb (post-chain)
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLine { 96000 * 2 };
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayLineR { 96000 * 2 };
     juce::SmoothedValue<float> delaySmoothedSamples;
@@ -542,16 +542,16 @@ private:
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::None> preDelayLine { 96000 / 4 };
     juce::AudioBuffer<float> wetScratch, wetScratchR;
 
-    // conteúdo estéreo (diferença R-L) produzido por ping-pong/reverb;
-    // somado ao canal direito na montagem final do bloco
+    // stereo content (R-L difference) produced by ping-pong/reverb;
+    // summed into the right channel in the final block assembly
     juce::AudioBuffer<float> stereoExtra;
 
-    // modulações (cartão Mod)
-    juce::dsp::Chorus<float> chorusFx;   // Chorus e Flanger (delay/feedback distintos)
+    // modulations (Mod card)
+    juce::dsp::Chorus<float> chorusFx;   // Chorus and Flanger (different delay/feedback)
     juce::dsp::Phaser<float> phaserFx;
-    Biquad tremLp, tremHp;               // tremolo harmônico: bandas anti-fase
+    Biquad tremLp, tremHp;               // harmonic tremolo: anti-phase bands
     double tremPhase = 0.0;
-    double tremPhase2 = 0.0;             // rotary: corneta gira mais rápido que o tambor
+    double tremPhase2 = 0.0;             // rotary: horn spins faster than the drum
     int modCachedType = -1;
     float modCachedRate = -1.0f, modCachedDepth = -1.0f, modCachedMix = -1.0f;
     std::atomic<float>* pModOn = nullptr;
@@ -560,11 +560,11 @@ private:
     std::atomic<float>* pModDepth = nullptr;
     std::atomic<float>* pModMix = nullptr;
 
-    // spring reverb: bandpass no caminho wet
+    // spring reverb: bandpass on the wet path
     Biquad revSpringHp, revSpringLp;
 
-    // ---- cards P4 (um efeito por card, controles próprios) --------------
-    // Wah (Auto/Manual/LFO): bandpass ressonante varrido
+    // ---- P4 cards (one effect per card, own controls) --------------
+    // Wah (Auto/Manual/LFO): swept resonant bandpass
     Biquad wahBp;
     float wahEnv = 0.0f;
     double wahLfoPhase = 0.0;
@@ -575,13 +575,13 @@ private:
     std::atomic<float>* pWahRange = nullptr;
     std::atomic<float>* pWahRes = nullptr;
 
-    // Slow Gear: swell automático (ataque some, volume sobe devagar)
+    // Slow Gear: automatic swell (attack disappears, volume rises slowly)
     float sgEnv = 0.0f, sgGain = 1.0f, sgEnvPrev = 0.0f;
     std::atomic<float>* pSgOn = nullptr;
     std::atomic<float>* pSgSens = nullptr;
     std::atomic<float>* pSgRise = nullptr;
 
-    // Octaver analógico: flip-flop nos cruzamentos de zero + envelope
+    // Analog octaver: flip-flop at zero crossings + envelope
     bool octFlip = false;
     float octPrev = 0.0f, octEnv = 0.0f, octToneCached = -1.0f;
     Biquad octLp;
@@ -604,9 +604,9 @@ private:
     std::atomic<float>* pBcRate = nullptr;
     std::atomic<float>* pBcMix = nullptr;
 
-    // Harmonizer diatônico: detecção de pitch (autocorrelação decimada) +
-    // shifter granular com intervalo dentro da escala escolhida
-    // (harmShift declarado adiante, após a definição de PitchShifter)
+    // Diatonic harmonizer: pitch detection (decimated autocorrelation) +
+    // granular shifter with the interval inside the chosen scale
+    // (harmShift declared later, after the PitchShifter definition)
     static constexpr int harmDecimSize = 512;
     float harmDecim[harmDecimSize] = {};
     int harmDecimPos = 0;
@@ -621,14 +621,14 @@ private:
     std::atomic<float>* pHarmMix = nullptr;
     std::atomic<float>* pHarmLevel = nullptr;
 
-    // Exciter: harmônicos de agudos somados de volta
+    // Exciter: treble harmonics summed back in
     Biquad excHp;
     float excCachedFreq = -1.0f;
     std::atomic<float>* pExcOn = nullptr;
     std::atomic<float>* pExcFreq = nullptr;
     std::atomic<float>* pExcAmt = nullptr;
 
-    // De-esser/ressonância: corte dinâmico da banda áspera
+    // De-esser/resonance: dynamic cut of the harsh band
     Biquad dsBp;
     float dsEnv = 0.0f, dsCachedFreq = -1.0f;
     std::atomic<float>* pDsOn = nullptr;
@@ -636,7 +636,7 @@ private:
     std::atomic<float>* pDsSens = nullptr;
     std::atomic<float>* pDsAmt = nullptr;
 
-    // Tape: saturação + head bump + rolloff de agudos
+    // Tape: saturation + head bump + treble rolloff
     Biquad tapeBumpF, tapeRollF, tapeHpF;
     float tapeCachedBump = -99.0f, tapeCachedRoll = -1.0f;
     std::atomic<float>* pTapeOn = nullptr;
@@ -644,20 +644,20 @@ private:
     std::atomic<float>* pTapeBump = nullptr;
     std::atomic<float>* pTapeRoll = nullptr;
 
-    // Console: "cola" sutil (waveshape seno estilo Airwindows Console)
+    // Console: subtle "glue" (sine waveshape, Airwindows Console style)
     std::atomic<float>* pCnsOn = nullptr;
     std::atomic<float>* pCnsAmt = nullptr;
     // ---------------------------------------------------------------------
 
-    // ---- Pitch (cartão): shifter granular de 2 cabeças com crossfade
-    // seno/cosseno (potência constante) sobre um ring buffer fixo.
+    // ---- Pitch (card): 2-head granular shifter with sine/cosine crossfade
+    // (constant power) over a fixed ring buffer.
     struct PitchShifter
     {
         static constexpr int bufSize = 1 << 14; // 16384 (341 ms @ 48k)
         float buf[bufSize] = {};
         int w = 0;
         double ph = 0.0;
-        double win = 2400.0; // amostras da janela (50 ms @ 48k)
+        double win = 2400.0; // window samples (50 ms @ 48k)
 
         void prepare (double sr)
         {
@@ -679,49 +679,49 @@ private:
         void process (float* io, int n, double ratio, float mix, float outGain) noexcept;
     };
     PitchShifter pitchShift;
-    PitchShifter revShimmer; // oitava acima no wet do reverb (tipo Shimmer)
-    PitchShifter harmShift;  // segunda voz do Harmonizer (card P4)
+    PitchShifter revShimmer; // octave up in the reverb wet (Shimmer-like)
+    PitchShifter harmShift;  // Harmonizer second voice (P4 card)
     std::atomic<float>* pPitchOn = nullptr;
-    std::atomic<float>* pPitchType = nullptr;   // Oitava ↓ / Oitava ↑ / Quinta / Detune
+    std::atomic<float>* pPitchType = nullptr;   // Octave down / Octave up / Fifth / Detune
     std::atomic<float>* pPitchMix = nullptr;
     std::atomic<float>* pPitchLevel = nullptr;
 
-    // ---- Looper (buffer pré-alocado em prepareToPlay)
+    // ---- Looper (buffer pre-allocated in prepareToPlay)
     juce::AudioBuffer<float> loopBuf;
     std::atomic<int> looperState { 0 };  // LooperState
-    std::atomic<int> looperCmd { 0 };    // 0 = nada; ver requestLooperCommand
-    std::atomic<int> looperLen { 0 };    // amostras gravadas
+    std::atomic<int> looperCmd { 0 };    // 0 = none; see requestLooperCommand
+    std::atomic<int> looperLen { 0 };    // recorded samples
     std::atomic<int> looperPos { 0 };
     std::atomic<float>* pLooperOn = nullptr;
     std::atomic<float>* pLooperLevel = nullptr;
 
-    // ---- Slots VST3 externos (hosting), um conjunto por slot
-    juce::AudioPluginFormatManager extFormatManager;      // VST3 registrado no ctor
-    std::unique_ptr<juce::AudioPluginInstance> extActive[maxExtSlots]; // só thread de áudio
+    // ---- External VST3 slots (hosting), one set per slot
+    juce::AudioPluginFormatManager extFormatManager;      // VST3 registered in the ctor
+    std::unique_ptr<juce::AudioPluginInstance> extActive[maxExtSlots]; // audio thread only
     std::atomic<juce::AudioPluginInstance*> extPending[maxExtSlots] = {};
     std::atomic<juce::AudioPluginInstance*> extRetired[maxExtSlots] = {};
-    std::atomic<juce::AudioPluginInstance*> extUiInstance[maxExtSlots] = {}; // p/ o painel
+    std::atomic<juce::AudioPluginInstance*> extUiInstance[maxExtSlots] = {}; // for the panel
     std::atomic<bool> extLoaded[maxExtSlots] = {};
     std::atomic<bool> extUnloadRequest[maxExtSlots] = {};
-    juce::String extName[maxExtSlots], extPath[maxExtSlots]; // sob modelInfoLock
-    juce::AudioBuffer<float> extBuf;                      // mono -> estéreo p/ o hóspede
+    juce::String extName[maxExtSlots], extPath[maxExtSlots]; // under modelInfoLock
+    juce::AudioBuffer<float> extBuf;                      // mono -> stereo for the guest
     juce::MidiBuffer extMidi;
     std::atomic<float>* pExtOn[maxExtSlots] = {};
     std::atomic<float>* pExtMix[maxExtSlots] = {};
 
-    // ---- Bateria: instrumento VST3 hospedado + barramento próprio
-    std::unique_ptr<juce::AudioPluginInstance> drumActive; // só thread de áudio
+    // ---- Drums: hosted VST3 instrument + own bus
+    std::unique_ptr<juce::AudioPluginInstance> drumActive; // audio thread only
     std::atomic<juce::AudioPluginInstance*> drumPending { nullptr };
     std::atomic<juce::AudioPluginInstance*> drumRetired { nullptr };
     std::atomic<juce::AudioPluginInstance*> drumUiInstance { nullptr };
     std::atomic<bool> drumLoaded { false };
     std::atomic<bool> drumUnloadRequest { false };
-    juce::String drumVstName, drumVstPath;                // sob modelInfoLock
-    juce::AudioBuffer<float> drumBuf;                     // estéreo do kit
+    juce::String drumVstName, drumVstPath;                // under modelInfoLock
+    juce::AudioBuffer<float> drumBuf;                     // stereo from the kit
     juce::MidiBuffer drumMidi;
     void processDrums (juce::AudioBuffer<float>& buffer, int numOut, int n);
 
-    // ---- Limiter (pós-cadeia; brickwall do JUCE)
+    // ---- Limiter (post-chain; JUCE brickwall)
     juce::dsp::Limiter<float> outLimiter;
     float limCachedThresh = 99.0f, limCachedRelease = -1.0f;
     std::atomic<float> limGrDb { 0.0f };
