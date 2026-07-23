@@ -53,13 +53,16 @@ struct Groove
     int swing;          // 0..60 (%)
     bool fill;          // true = virada; false = groove
     const char* spec;
+    int num = 4;        // fórmula de compasso (padrão 4/4)
+    int den = 4;
 };
 
 const std::vector<Groove>& library();
 juce::StringArray genres(); // ordem de exibição dos gêneros com entradas
 
-/// Aplica o spec numa pattern de 1 compasso (zera antes).
-void parseSpec (const Groove&, juce::uint8 out[numVoices][stepsPerBar]);
+/// Aplica o spec numa pattern de 1 compasso (zera antes). out cobre até
+/// maxStepsPerBar (métricas maiores que 4/4 usam mais steps).
+void parseSpec (const Groove&, juce::uint8 out[numVoices][maxStepsPerBar]);
 
 } // namespace drum
 
@@ -117,8 +120,8 @@ public:
     // ---- persistência/edição (message thread; via atomics) ------------------
     juce::String barToString (int bar) const;             // dígitos "0123..." (steps do compasso)
     void barFromString (const juce::String&, int bar);    // marca barUsed
-    void setBarPattern (const juce::uint8 p[drum::numVoices][drum::stepsPerBar],
-                        int bar);                          // grooves da lib (16 steps)
+    void setBarPattern (const juce::uint8 p[drum::numVoices][drum::maxStepsPerBar],
+                        int bar);                          // preenche barSteps(bar) steps
     void clearBar (int bar);
 
     /// Decodifica os samples embutidos do GMRockKit (GPL — ver

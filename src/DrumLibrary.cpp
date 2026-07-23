@@ -565,6 +565,92 @@ const std::vector<Groove>& library()
         { "METAL", "Breakdown sincopado", 90, 0, false, "T:4|F:12|S:8!|K:0!,6,10" },
         { "METAL", "Tom roll (metal)", 0, 0, true, "S:0,3,6,9,12|U:2,4,8,10,14|F:1,5,7,11,13,15" },
         { "METAL", "Outro descida", 0, 0, true, "U:4|F:0,12|S:8|C:15!" },
+
+        // ===== METAL PROG/DJENT — métricas ímpares (num/den nos 2 últimos campos) =====
+        // 7/8 (14 steps · agrupamento 2+2+3). Colcheia = 2 steps; pulso nas pares.
+        { "METAL", "Djent 7/8 (2+2+3)",  150, 0, false, "R:0-12/2|S:4!,10!|K:0,1,6,8,9", 7, 8 },
+        { "METAL", "Djent 7/8 chug",     160, 0, false, "R:0-12/2|S:8!|K:0,2,4,6,10,12", 7, 8 },
+        { "METAL", "Prog 7/8 (Tool)",    130, 0, false, "H:0-12/2|S:4,10|K:0,6,8", 7, 8 },
+        { "METAL", "Thall 7/8",          170, 0, false, "R:0-12/2|C:0!|S:4!,10!|K:0,1,3,6,8,11", 7, 8 },
+        { "METAL", "Blast 7/8",          200, 0, false, "S:0-12/2!|K:1-13/2|C:0", 7, 8 },
+        // 5/8 (10 steps · 2+3)
+        { "METAL", "Djent 5/8 (2+3)",    155, 0, false, "R:0-8/2|S:4!|K:0,1,6,8", 5, 8 },
+        { "METAL", "Prog 5/8",           140, 0, false, "H:0-8/2|S:4|K:0,3,6", 5, 8 },
+        // 9/8 (18 steps · 3+3+3 composto)
+        { "METAL", "Djent 9/8 (3+3+3)",  148, 0, false, "R:0-16/2|S:6!,12!|K:0,3,8,9,14", 9, 8 },
+        { "METAL", "Prog 9/8 (Meshuggah)",120, 0, false, "R:0,6,12|H:2,4,8,10,14,16|S:6,12|K:0,8", 9, 8 },
+        { "METAL", "Slam 9/8",            96, 0, false, "H:0-16/2|C:0,6,12|S:6!,12!|K:0,3,8,9,14,15", 9, 8 },
+        // 6/8 (12 steps · 3+3)
+        { "METAL", "Gallop 6/8",         168, 0, false, "H:0-10/2|S:6!|K:0,3,6,9", 6, 8 },
+        { "METAL", "Doom 6/8",            66, 0, false, "R:0-10/2|C:0!|S:6!|K:0!,8", 6, 8 },
+        // 11/8 (22 steps · 4+4+4+4+4+2)
+        { "METAL", "Prog 11/8",          138, 0, false, "H:0-20/2|S:8!,16!|K:0,6,12,18", 11, 8 },
+        { "METAL", "Djent 11/8 (3+3+3+2)",150, 0, false, "R:0-20/2|S:6!,12!|K:0,1,8,9,16,17", 11, 8 },
+        // 5/4 (20 steps). Semínima = 4 steps; backbeat em 2 e 4 (steps 4 e 12).
+        { "METAL", "Djent 5/4",          132, 0, false, "R:0-18/2|S:4!,12!|K:0,1,7,8,10,16,17", 5, 4 },
+        { "METAL", "Prog 5/4 (Dream Theater)",144, 0, false, "H:0-18/2|S:4,12|K:0,6,8,14,16", 5, 4 },
+        { "METAL", "Half-time 5/4",       88, 0, false, "R:0-18/2|C:0|S:8!|K:0,1,2,10,11,12", 5, 4 },
+        { "METAL", "Breakdown 5/4",       92, 0, false, "C:0,8,16|S:4!,12!|K:0,6,8,14,16", 5, 4 },
+        // 7/4 (28 steps). Backbeat em 2,4,6 (steps 4,12,20).
+        { "METAL", "Djent 7/4",          128, 0, false, "R:0-26/2|S:4!,12!,20!|K:0,1,8,9,16,17,24", 7, 4 },
+        { "METAL", "Prog 7/4",           140, 0, false, "H:0-26/2|S:4,12,20|K:0,6,8,14,16,22,24", 7, 4 },
+        // viradas em métrica ímpar
+        { "METAL", "Fill 7/8 descida",     0, 0, true,  "T:0,2|U:4,6|F:8,10|S:12!,13", 7, 8 },
+        { "METAL", "Fill 5/4 double kick", 0, 0, true,  "K:0-14|S:16!,17,18,19|C:0", 5, 4 },
+        { "METAL", "Fill 9/8 blast",       0, 0, true,  "S:0-16/2!|K:1-17/2|C:0", 9, 8 },
+        { "METAL", "Fill 7/4 tons",        0, 0, true,  "T:0,2,8,10|U:4,6,12,14|F:16,18,20,22|S:24!,25,26,27", 7, 4 },
+        { "METAL", "Fill 6/8 gravity",     0, 0, true,  "S:0-10!|K:0,4,8|C:0", 6, 8 },
+
+        // ===== EXPANSÃO — mais grooves por gênero (biblioteca massiva) =====
+        // ROCK / PROG ROCK (inclui métricas ímpares tipo Rush/Genesis/Yes)
+        { "ROCK", "Prog rock 7/8",      132, 0, false, "H:0-12/2|S:4,10|K:0,6,8", 7, 8 },
+        { "ROCK", "Prog rock 5/4",      120, 0, false, "H:0-18/2|S:4,12|K:0,8,10,16", 5, 4 },
+        { "ROCK", "Rush 7/4",           128, 0, false, "H:0-26/2|S:4,12,20|K:0,8,16,22", 7, 4 },
+        { "ROCK", "Valsa rock 3/4",     116, 0, false, "H:0-10/2|S:4,8|K:0", 3, 4 },
+        { "ROCK", "Shuffle rock",       120, 33, false,"H:0-15|S:4,12|K:0,8" },
+        { "ROCK", "Arena half-time",     92, 0, false, "H:0-14/2|S:8!|K:0,10" },
+        { "ROCK", "Motorik (krautrock)",144, 0, false, "H:0-15|S:4,12|K:0,2,8,10" },
+        { "ROCK", "Stadium tom groove", 128, 0, false, "T:0,8|F:4,12|S:4!,12!|K:0,8" },
+        { "ROCK", "Fill rock crescendo",  0, 0, true,  "S:0,2,4,6,8,10,12,14!|K:0,4,8,12|C:0" },
+        // POP
+        { "POP", "Four-on-the-floor",   118, 0, false, "H:0-15|S:4,12|K:0,4,8,12" },
+        { "POP", "Dance pop clap",      120, 0, false, "H:0-14/2|S:4!,12!|P:0-14/2|K:0,4,8,12" },
+        { "POP", "Balada 6/8",           68, 0, false, "H:0-10/2|S:6|K:0,3", 6, 8 },
+        { "POP", "Sertanejo pop",       128, 0, false, "H:0-15|S:4,12|K:0,6,8,14" },
+        { "POP", "Fill pop simples",      0, 0, true,  "S:8,10,12,14!|K:0,4|C:0" },
+        // FUNK
+        { "FUNK", "Funk 16th ghost",     96, 0, false, "H:0-15|S:4!,12!,2.,6.,10.,14.|K:0,3,8,11" },
+        { "FUNK", "Purdie shuffle",      98, 50, false,"H:0-15|S:4!,12!,2.,6.,10.,14.|K:0,3,10" },
+        { "FUNK", "New Orleans second line",92,0,false,"S:0.,3!,6.,8,11!,14.|K:0,4,8,12|H:0-14/2" },
+        { "FUNK", "Funk 7/8",           104, 0, false, "H:0-12/2|S:4!,10!|K:0,3,6,8,12", 7, 8 },
+        { "FUNK", "Fill funk 16th",       0, 0, true,  "S:0,1,2,3,8,9,10,11|K:4,12|C:0" },
+        // HIP-HOP
+        { "HIP-HOP", "Boom bap",         90, 0, false, "H:0-14/2|S:4!,12!|K:0,6,8,10" },
+        { "HIP-HOP", "Trap hi-hat roll",140, 0, false, "H:0-15,6,7,14,15|S:8!|K:0,10,11" },
+        { "HIP-HOP", "Lo-fi swing",      82, 40, false,"H:0-14/2|S:4,12|K:0,7,8" },
+        // ELETRÔNICO
+        { "ELETR\xc3\x94NICO", "House 4/4",  124, 0, false, "H:2,6,10,14|P:0-14/2|S:4,12|K:0,4,8,12" },
+        { "ELETR\xc3\x94NICO", "Techno drive",130, 0, false, "H:2,6,10,14|S:4,12|K:0,4,8,12|C:0" },
+        { "ELETR\xc3\x94NICO", "Drum & bass", 174, 0, false, "H:0-14/2|S:4!,12!|K:0,10" },
+        { "ELETR\xc3\x94NICO", "Breakbeat",   136, 0, false, "H:0-14/2|S:4!,10,12!|K:0,3,8" },
+        { "ELETR\xc3\x94NICO", "IDM 7/8",     150, 0, false, "H:0-12/2|S:4,10|K:0,2,6,8,12", 7, 8 },
+        // BRASIL
+        { "BRASIL", "Samba-rock",       104, 0, false, "H:0-15|S:2.,6.,10.,14.|F:4,12|K:0,3,8,11" },
+        { "BRASIL", "Bai\xc3\xa3o",      110, 0, false, "F:0,3,8,11|S:4,12|K:0,8|H:0-14/2" },
+        { "BRASIL", "Maracatu",          96, 0, false, "F:0,4,8,12|S:2,6,10,14|K:0,8|C:0" },
+        // LATINO
+        { "LATINO", "Songo",            100, 0, false, "R:0-14/2|S:2.,6,10.,14|F:4,12|K:0,8" },
+        { "LATINO", "Bolero 3/4",        90, 0, false, "H:0-10/2|S:4|K:0,8", 3, 4 },
+        // REGGAE/SKA
+        { "REGGAE/SKA", "One drop",      76, 0, false, "H:0-14/2|S:8!|K:8" },
+        { "REGGAE/SKA", "Steppers",      80, 0, false, "H:0-14/2|S:8!|K:0,4,8,12" },
+        // JAZZ
+        { "JAZZ", "Jazz waltz 3/4",     160, 55, false,"R:0,4,6,8|H:4,8|S:4.|K:0", 3, 4 },
+        { "JAZZ", "Bossa jazz",          132, 0, false, "R:0-14/2|S:2.,6.,10.,14.|F:3,11|K:0,6,8,14" },
+        // WORLD
+        { "WORLD", "Odd 5/8 groove",    120, 0, false, "H:0-8/2|S:4|K:0,6", 5, 8 },
+        { "WORLD", "Balkan 7/8",        150, 0, false, "H:0-12/2|S:4,10|K:0,6,8", 7, 8 },
+        { "WORLD", "Afro 6/8 bell",     112, 0, false, "R:0,2,4,6,8,10|F:0,6|S:3,9|K:0,6", 6, 8 },
     };
     return lib;
 }

@@ -31,10 +31,10 @@ static int voiceForCode (const juce::String& code)
     return -1;
 }
 
-void parseSpec (const Groove& g, juce::uint8 out[numVoices][stepsPerBar])
+void parseSpec (const Groove& g, juce::uint8 out[numVoices][maxStepsPerBar])
 {
     for (int v = 0; v < numVoices; ++v)
-        for (int s = 0; s < stepsPerBar; ++s)
+        for (int s = 0; s < maxStepsPerBar; ++s)
             out[v][s] = 0;
 
     for (const auto& tok : juce::StringArray::fromTokens (g.spec, "|", ""))
@@ -69,7 +69,7 @@ void parseSpec (const Groove& g, juce::uint8 out[numVoices][stepsPerBar])
                 from = to = item.getIntValue();
 
             for (int s = from; s <= to; s += stride)
-                if (s >= 0 && s < stepsPerBar)
+                if (s >= 0 && s < maxStepsPerBar)
                     out[v][s] = val;
         }
     }
@@ -455,15 +455,14 @@ void DrumEngine::barFromString (const juce::String& str, int bar)
     barUsed[b].store (true);
 }
 
-void DrumEngine::setBarPattern (const juce::uint8 p[drum::numVoices][drum::stepsPerBar],
+void DrumEngine::setBarPattern (const juce::uint8 p[drum::numVoices][drum::maxStepsPerBar],
                                 int bar)
 {
     const int b = juce::jlimit (0, drum::maxBars - 1, bar);
-    const int steps = barSteps (b);   // grooves têm 16 steps; recorta/completa
+    const int steps = barSteps (b);   // preenche os steps do compasso; zera o resto
     for (int v = 0; v < drum::numVoices; ++v)
         for (int s = 0; s < drum::maxStepsPerBar; ++s)
-            pattern[b][v][s].store ((s < steps && s < drum::stepsPerBar) ? p[v][s]
-                                                                        : (juce::uint8) 0);
+            pattern[b][v][s].store (s < steps ? p[v][s] : (juce::uint8) 0);
     barUsed[b].store (true);
 }
 

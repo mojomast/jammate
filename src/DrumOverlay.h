@@ -166,8 +166,9 @@ private:
     // groove selecionado no preview
     juce::String selName, selDragId;
     int selBpm = 0;
+    int selNum = 4, selDen = 4;   // métrica do groove selecionado
     bool selFill = false, selValid = false;
-    juce::uint8 selPat[drum::numVoices][drum::stepsPerBar] = {};
+    juce::uint8 selPat[drum::numVoices][drum::maxStepsPerBar] = {};
     void rebuildGenreCol();
     void rebuildList();
     void selectEntry (const juce::String& dragId, const juce::String& name, bool fill);

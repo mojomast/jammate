@@ -61,13 +61,19 @@ constexpr bool staffIsHand[drum::numVoices] = { false, true, true, false, true, 
 // central: pauta de 5 linhas, cabeças (× pratos / elipse tambores), hastes
 // (↑ mãos, ↓ pés) e barras de ligação por tempo. Usado na miniatura dos cards.
 void drawMiniBar (juce::Graphics& g, juce::Rectangle<float> area,
-                  const juce::uint8 pat[drum::numVoices][drum::stepsPerBar])
+                  const juce::uint8 pat[drum::numVoices][drum::maxStepsPerBar],
+                  int num = 4, int den = 4)
 {
+    int steps = 16, groups[8], nGroups = 1;
+    meterGroups (num, den, steps, groups, nGroups);
+    // deslocamento inicial (em steps) de cada grupo
+    int gStart[8] = {}; for (int i = 1; i < nGroups; ++i) gStart[i] = gStart[i - 1] + groups[i - 1];
+
     const juce::Colour ink (0xffc4cdd6), dim (0xff3a424b);
     const float sp = (area.getHeight() - 4.0f) / 16.0f;   // posições -4..12
     auto yOf = [&] (float pos) { return area.getBottom() - 2.0f - (pos + 4.0f) * sp; };
     const float x0 = area.getX() + 4.0f;
-    const float sw = (area.getWidth() - 8.0f) / (float) drum::stepsPerBar;
+    const float sw = (area.getWidth() - 8.0f) / (float) steps;
     auto xOf = [&] (int s) { return x0 + (s + 0.5f) * sw; };
     const float hr = juce::jmax (1.7f, sp * 0.72f);       // raio da cabeça
 
@@ -75,10 +81,10 @@ void drawMiniBar (juce::Graphics& g, juce::Rectangle<float> area,
     g.setColour (dim);
     for (int i = 0; i <= 4; ++i)
         g.drawHorizontalLine ((int) yOf ((float) (i * 2)), area.getX(), area.getRight());
-    // separadores de tempo
+    // separadores de tempo (fronteiras de grupo da métrica)
     g.setColour (juce::Colours::white.withAlpha (0.045f));
-    for (int beat = 1; beat < 4; ++beat)
-        g.drawVerticalLine ((int) (x0 + beat * 4 * sw), yOf (9.0f), yOf (-2.0f));
+    for (int gi = 1; gi < nGroups; ++gi)
+        g.drawVerticalLine ((int) (x0 + gStart[gi] * sw), yOf (9.0f), yOf (-2.0f));
 
     auto drawHead = [&] (float x, float y, bool cross, int val)
     {
@@ -94,16 +100,17 @@ void drawMiniBar (juce::Graphics& g, juce::Rectangle<float> area,
 
     const float beamYH = yOf (12.0f), beamYF = yOf (-4.0f);
 
-    for (int beat = 0; beat < 4; ++beat)
+    for (int beat = 0; beat < nGroups; ++beat)
         for (int limb = 0; limb < 2; ++limb)
         {
             const bool up = (limb == 0);
+            const int gLen = groups[beat];
             struct Col { int s; float noteY; };
-            Col cols[4];
+            Col cols[8];
             int nc = 0;
-            for (int i = 0; i < 4; ++i)
+            for (int i = 0; i < gLen; ++i)
             {
-                const int s = beat * 4 + i;
+                const int s = gStart[beat] + i;
                 float ext = up ? -1.0e9f : 1.0e9f;
                 bool any = false;
                 for (int v = 0; v < drum::numVoices; ++v)
@@ -421,12 +428,14 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
         empty = ! engine.barUsed[b].load();
     if (empty && drum::library().size() > 1)
     {
-        juce::uint8 pat[drum::numVoices][drum::stepsPerBar];
-        drum::parseSpec (drum::library()[0], pat);
+        juce::uint8 pat[drum::numVoices][drum::maxStepsPerBar];
+        const auto& g0 = drum::library()[0];
+        drum::parseSpec (g0, pat);
         for (int b = 0; b < 3; ++b)
         {
+            engine.setMeter (b, g0.num, g0.den);
             engine.setBarPattern (pat, b);
-            engine.barNames[b] = juce::String (juce::CharPointer_UTF8 (drum::library()[0].name));
+            engine.barNames[b] = juce::String (juce::CharPointer_UTF8 (g0.name));
         }
     }
 
@@ -1092,7 +1101,7 @@ void DrumOverlay::ScoreView::mouseDown (const juce::MouseEvent& e)
     owner.selBar = bb;
     if (! owner.engine.barUsed[bar].load())
     {
-        juce::uint8 zero[drum::numVoices][drum::stepsPerBar] = {};
+        juce::uint8 zero[drum::numVoices][drum::maxStepsPerBar] = {};
         owner.engine.setBarPattern (zero, bar);
         owner.engine.barNames[bar] = "novo";
     }
@@ -1312,9 +1321,10 @@ void DrumOverlay::selectEntry (const juce::String& dragId, const juce::String& n
     selFill = fill;
     selValid = true;
     for (int v = 0; v < drum::numVoices; ++v)
-        for (int s = 0; s < drum::stepsPerBar; ++s)
+        for (int s = 0; s < drum::maxStepsPerBar; ++s)
             selPat[v][s] = 0;
     selBpm = 0;
+    selNum = 4; selDen = 4;
 
     if (dragId.startsWith ("f:"))
     {
@@ -1324,6 +1334,8 @@ void DrumOverlay::selectEntry (const juce::String& dragId, const juce::String& n
         {
             drum::parseSpec (lib[(size_t) i], selPat);
             selBpm = lib[(size_t) i].bpm;
+            selNum = lib[(size_t) i].num;
+            selDen = lib[(size_t) i].den;
         }
     }
     else if (dragId.startsWith ("u:"))
@@ -1361,8 +1373,9 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
     if (globalBar < 0 || globalBar >= engine.totalBars())
         return;
 
-    juce::uint8 pat[drum::numVoices][drum::stepsPerBar] = {};
+    juce::uint8 pat[drum::numVoices][drum::maxStepsPerBar] = {};
     juce::String name;
+    int gNum = 4, gDen = 4;   // métrica do groove (biblioteca pode ser ímpar)
 
     if (dragId.startsWith ("f:"))
     {
@@ -1373,6 +1386,7 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
         const auto& g = lib[(size_t) idx];
         drum::parseSpec (g, pat);
         name = juce::String (juce::CharPointer_UTF8 (g.name));
+        gNum = g.num; gDen = g.den;
     }
     else if (dragId.startsWith ("u:"))
     {
@@ -1390,14 +1404,17 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
                 ++i;
             }
         name = parsed.getProperty ("name", f.getFileNameWithoutExtension()).toString();
+        // compassos do usuário são gravados em 4/4 (16 steps)
     }
     else
         return;
 
     // aplica SÓ as notas — o BPM/swing da música não muda ao soltar um groove
     // (o valor no card é apenas uma sugestão; ajuste o tempo no transporte).
-    // Grooves da biblioteca são 4/4 (16 steps), então o compasso vira 4/4.
-    engine.setMeter (globalBar, 4, 4);
+    // A métrica do compasso passa a ser a do groove (grooves ímpares de
+    // prog/djent trazem 7/8, 5/4, etc.). setMeter ANTES de setBarPattern p/
+    // que barSteps() já reflita a nova métrica.
+    engine.setMeter (globalBar, gNum, gDen);
     engine.setBarPattern (pat, globalBar);
     engine.barNames[globalBar] = name;
 
@@ -1522,15 +1539,17 @@ void DrumOverlay::PreviewPane::paint (juce::Graphics& g)
     g.drawText (owner.selName, 14, 8, getWidth() - 150, 20, juce::Justification::centredLeft);
     g.setFont (ui::monoFont (9.0f));
     g.setColour (owner.selFill ? ui::glowOrange : ui::accent);
-    const auto tag = owner.selFill ? juce::String ("VIRADA")
-                                   : "GROOVE" + (owner.selBpm > 0 ? juce::String (" \xc2\xb7 ")
-                                                                        + juce::String (owner.selBpm) + " bpm"
-                                                                  : juce::String());
+    auto tag = owner.selFill ? juce::String ("VIRADA")
+                             : "GROOVE" + (owner.selBpm > 0 ? juce::String (" \xc2\xb7 ")
+                                                                  + juce::String (owner.selBpm) + " bpm"
+                                                            : juce::String());
+    if (owner.selNum != 4 || owner.selDen != 4)
+        tag += juce::String (" \xc2\xb7 ") + juce::String (owner.selNum) + "/" + juce::String (owner.selDen);
     g.drawText (juce::String (juce::CharPointer_UTF8 (tag.toRawUTF8())), getWidth() - 150, 9, 140, 16,
                 juce::Justification::centredRight);
 
     drawMiniBar (g, { 14.0f, 34.0f, (float) getWidth() - 28.0f, (float) getHeight() - 74.0f },
-                 owner.selPat);
+                 owner.selPat, owner.selNum, owner.selDen);
 
     g.setFont (ui::monoFont (9.0f));
     g.setColour (ui::textFaint);
@@ -1624,7 +1643,7 @@ void DrumOverlay::GridView::mouseDown (const juce::MouseEvent& e)
                 const int bar = owner.selectedBar();
                 if (! owner.engine.barUsed[bar].load())
                 {
-                    juce::uint8 zero[drum::numVoices][drum::stepsPerBar] = {};
+                    juce::uint8 zero[drum::numVoices][drum::maxStepsPerBar] = {};
                     owner.engine.setBarPattern (zero, bar);
                     owner.engine.barNames[bar] = "novo";
                     owner.rebuildBarHeads();
