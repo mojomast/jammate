@@ -55,9 +55,9 @@ private:
     {
     public:
         int barInSec = 0;
-        juce::String title;
+        juce::String title, meterText { "4/4" };
         bool selected = false, empty = true;
-        std::function<void()> onSelect, onClear;
+        std::function<void()> onSelect, onClear, onMeter;
         void paint (juce::Graphics&) override;
         void mouseUp (const juce::MouseEvent&) override;
     };
@@ -97,6 +97,22 @@ private:
     void rebuildGenreChips();
     void rebuildCards();
     void refreshAll();
+
+    // ---- layout meter-aware da pauta (fórmula de compasso por compasso) ----
+    struct BarLayout
+    {
+        float notesX = 0, tsX = -1, width = 0;
+        int steps = 16, num = 4, den = 4, nGroups = 4;
+        int groups[8] = { 4, 4, 4, 4, 0, 0, 0, 0 };
+        bool showTS = true;
+    };
+    BarLayout barLay[drum::barsPerSection];
+    float curStepW = 13.2f, curBeatPad = 5.0f, curBarPad = 20.0f, scoreTotalW = 0;
+    void computeBarLayout (int availW);
+    float stepXInBar (int b, int s) const;
+    int groupIndexInBar (int b, int s) const;
+    int barAtXlocal (int x) const;
+    void openMeterMenu (int barInSec, juce::Component* anchor);
 
     /// compasso global selecionado (curSection*4 + selBar)
     int selectedBar() const { return curSection * drum::barsPerSection + selBar; }

@@ -258,7 +258,7 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
                     uiStep.store (nextStep);
                     uiBar.store (playBar);
                     samplesToNext += stepLenSamples (nextStep);
-                    if (++nextStep >= drum::stepsPerBar)
+                    if (++nextStep >= barSteps (playBar))   // nº de steps deste compasso
                     {
                         nextStep = 0;
                         playBar = (playBar + 1) % total;
@@ -415,10 +415,11 @@ juce::String DrumEngine::barToString (int bar) const
     const int b = juce::jlimit (0, drum::maxBars - 1, bar);
     if (! barUsed[b].load())
         return {};
+    const int steps = barSteps (b);
     juce::String out;
-    out.preallocateBytes (drum::numVoices * drum::stepsPerBar + 8);
+    out.preallocateBytes (drum::numVoices * drum::maxStepsPerBar + 8);
     for (int v = 0; v < drum::numVoices; ++v)
-        for (int s = 0; s < drum::stepsPerBar; ++s)
+        for (int s = 0; s < steps; ++s)
             out << juce::String ((int) pattern[b][v][s].load());
     return out;
 }
@@ -431,14 +432,19 @@ void DrumEngine::barFromString (const juce::String& str, int bar)
         clearBar (b);
         return;
     }
+    const int steps = barSteps (b);   // a métrica já deve estar setada
     int i = 0;
     for (int v = 0; v < drum::numVoices; ++v)
-        for (int s = 0; s < drum::stepsPerBar; ++s)
+    {
+        for (int s = 0; s < steps; ++s)
         {
             const juce::juce_wchar c = i < str.length() ? str[i] : '0';
             pattern[b][v][s].store (c >= '0' && c <= '3' ? (juce::uint8) (c - '0') : 0);
             ++i;
         }
+        for (int s = steps; s < drum::maxStepsPerBar; ++s)
+            pattern[b][v][s].store (0);
+    }
     barUsed[b].store (true);
 }
 
@@ -446,9 +452,11 @@ void DrumEngine::setBarPattern (const juce::uint8 p[drum::numVoices][drum::steps
                                 int bar)
 {
     const int b = juce::jlimit (0, drum::maxBars - 1, bar);
+    const int steps = barSteps (b);   // grooves têm 16 steps; recorta/completa
     for (int v = 0; v < drum::numVoices; ++v)
-        for (int s = 0; s < drum::stepsPerBar; ++s)
-            pattern[b][v][s].store (p[v][s]);
+        for (int s = 0; s < drum::maxStepsPerBar; ++s)
+            pattern[b][v][s].store ((s < steps && s < drum::stepsPerBar) ? p[v][s]
+                                                                        : (juce::uint8) 0);
     barUsed[b].store (true);
 }
 
@@ -456,7 +464,14 @@ void DrumEngine::clearBar (int bar)
 {
     const int b = juce::jlimit (0, drum::maxBars - 1, bar);
     for (int v = 0; v < drum::numVoices; ++v)
-        for (int s = 0; s < drum::stepsPerBar; ++s)
+        for (int s = 0; s < drum::maxStepsPerBar; ++s)
             pattern[b][v][s].store (0);
     barUsed[b].store (false);
+}
+
+void DrumEngine::setMeter (int bar, int num, int den)
+{
+    const int b = juce::jlimit (0, drum::maxBars - 1, bar);
+    barNum[b].store (juce::jlimit (1, 16, num));
+    barDen[b].store (den);
 }

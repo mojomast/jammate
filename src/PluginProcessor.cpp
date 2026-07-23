@@ -3098,13 +3098,21 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
         const int nSec = juce::jlimit (1, drum::maxSections, drumEngine.numSections.load());
         state.setProperty ("drumNumSections", nSec, nullptr);
         for (int b = 0; b < nSec * drum::barsPerSection; ++b)
+        {
+            const auto sfx = juce::String (b + 1);
+            // métrica (só grava se não for 4/4, p/ não inchar o preset)
+            if (drumEngine.barNum[b].load() > 0 && ! (drumEngine.meterNum (b) == 4
+                                                      && drumEngine.meterDen (b) == 4))
+                state.setProperty ("drumMeter" + sfx,
+                                   juce::String (drumEngine.meterNum (b)) + "/"
+                                       + juce::String (drumEngine.meterDen (b)), nullptr);
             if (drumEngine.barUsed[b].load())
             {
-                const auto sfx = juce::String (b + 1);
                 state.setProperty ("drumBar" + sfx, drumEngine.barToString (b), nullptr);
                 if (drumEngine.barNames[b].isNotEmpty())
                     state.setProperty ("drumBarName" + sfx, drumEngine.barNames[b], nullptr);
             }
+        }
     }
     state.setProperty ("drumBpm", drumEngine.bpm.load(), nullptr);
     state.setProperty ("drumSwing", drumEngine.swingPct.load(), nullptr);
@@ -3239,6 +3247,10 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
             for (int b = 0; b < nSec * drum::barsPerSection; ++b)
             {
                 const auto sfx = juce::String (b + 1);
+                // métrica ANTES do pattern (barFromString usa barSteps)
+                const auto mt = state.getProperty ("drumMeter" + sfx, "4/4").toString();
+                drumEngine.setMeter (b, mt.upToFirstOccurrenceOf ("/", false, false).getIntValue(),
+                                     mt.fromFirstOccurrenceOf ("/", false, false).getIntValue());
                 drumEngine.barFromString (state.getProperty ("drumBar" + sfx, "").toString(), b);
                 drumEngine.barNames[b] =
                     state.getProperty ("drumBarName" + sfx, "").toString();

@@ -2687,6 +2687,11 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                     safe->drumOverlay->open();
                     if (flag == "play")
                         safe->processor.drumEngine.playing.store (true);
+                    if (flag == "meter")   // teste: 4/4, 3/4, 6/8, 7/8
+                    {
+                        auto& e = safe->processor.drumEngine;
+                        e.setMeter (2, 3, 4); e.setMeter (3, 6, 8);
+                    }
                 });
     }
 

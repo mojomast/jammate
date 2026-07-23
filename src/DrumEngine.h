@@ -21,10 +21,18 @@ namespace drum
 {
 
 constexpr int numVoices = 9;
-constexpr int stepsPerBar = 16;
+constexpr int stepsPerBar = 16;      // base 4/4 (resolução de semicolcheia)
+constexpr int maxStepsPerBar = 32;   // teto p/ métricas maiores (7/4=28, 5/4=20…)
 constexpr int barsPerSection = 4;
 constexpr int maxSections = 8;
 constexpr int maxBars = maxSections * barsPerSection; // 32
+
+/// Nº de steps (semicolcheias) de uma métrica num/den, limitado ao teto.
+inline int stepsForMeter (int num, int den) noexcept
+{
+    if (num < 1 || den < 1) return stepsPerBar;
+    return juce::jlimit (1, maxStepsPerBar, (int) juce::roundToInt (num * 16.0 / den));
+}
 
 enum Voice { kick = 0, snare, hat, hatPedal, ride, crash, tom1, tom2, floorTom };
 
@@ -70,9 +78,16 @@ public:
     bool isAudible() const noexcept { return playing.load() || anyVoiceActive.load(); }
 
     // ---- timeline compartilhada UI <-> áudio --------------------------------
-    std::atomic<juce::uint8> pattern[drum::maxBars][drum::numVoices][drum::stepsPerBar] = {};
+    std::atomic<juce::uint8> pattern[drum::maxBars][drum::numVoices][drum::maxStepsPerBar] = {};
     std::atomic<bool> barUsed[drum::maxBars] = {};  // false = silêncio
     std::atomic<int> numSections { 1 };             // seções ativas (×4 compassos)
+    // fórmula de compasso por compasso (0 = 4/4 padrão)
+    std::atomic<int> barNum[drum::maxBars] = {};
+    std::atomic<int> barDen[drum::maxBars] = {};
+    int meterNum (int bar) const noexcept { const int n = barNum[bar].load(); return n > 0 ? n : 4; }
+    int meterDen (int bar) const noexcept { const int d = barDen[bar].load(); return d > 0 ? d : 4; }
+    int barSteps (int bar) const noexcept { return drum::stepsForMeter (meterNum (bar), meterDen (bar)); }
+    void setMeter (int bar, int num, int den);
 
     std::atomic<float> bpm { 104.0f };
     std::atomic<float> swingPct { 0.0f };   // 0..60
@@ -96,10 +111,10 @@ public:
     }
 
     // ---- persistência/edição (message thread; via atomics) ------------------
-    juce::String barToString (int bar) const;             // 144 dígitos "0123..."
+    juce::String barToString (int bar) const;             // dígitos "0123..." (steps do compasso)
     void barFromString (const juce::String&, int bar);    // marca barUsed
     void setBarPattern (const juce::uint8 p[drum::numVoices][drum::stepsPerBar],
-                        int bar);
+                        int bar);                          // grooves da lib (16 steps)
     void clearBar (int bar);
 
     /// Decodifica os samples embutidos do GMRockKit (GPL — ver
