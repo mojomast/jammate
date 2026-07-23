@@ -220,7 +220,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     { engine.level.store ((float) levelSlider.getValue()); };
     addAndMakeVisible (levelSlider);
 
-    for (auto* c : { &clickChip, &countChip, &followChip, &gridChip, &editChip, &saveChip })
+    for (auto* c : { &clickChip, &countChip, &followChip, &gridChip, &genChip, &editChip, &saveChip })
     {
         c->getProperties().set ("chip", true);
         c->setMouseClickGrabsKeyboardFocus (false);
@@ -267,10 +267,23 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     gridChip.onClick = [this]
     {
         gridOn = ! gridOn;
+        if (gridOn) { genOn = false; genChip.getProperties().set ("chipActive", false); genChip.repaint(); }
         gridChip.getProperties().set ("chipActive", gridOn);
         gridChip.repaint();
         refreshAll();
     };
+    genChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Gerador de grooves: g\xc3\xaanero/estilo/baterista + par\xc3\xa2metros; "
+        "preenche 1 ou os 4 compassos (no lugar da biblioteca)")));
+    genChip.onClick = [this]
+    {
+        genOn = ! genOn;
+        if (genOn) { gridOn = false; gridChip.getProperties().set ("chipActive", false); gridChip.repaint(); }
+        genChip.getProperties().set ("chipActive", genOn);
+        genChip.repaint();
+        refreshAll();
+    };
+    setupGenerator();
 
     // navegador em colunas: abas GROOVES / VIRADAS (coluna do meio)
     for (auto* c : { &tabGrooves, &tabViradas })
@@ -581,6 +594,46 @@ void DrumOverlay::paint (juce::Graphics& g)
         g.drawText ("HUMANIZAR", humVelSlider.getX() - 76, humVelSlider.getY() - 2, 72, 12,
                     juce::Justification::centredRight);
     }
+
+    // rótulos do gerador
+    if (genOn)
+    {
+        auto title = [&] (const juce::String& t, int x)
+        {
+            g.setFont (ui::uiFont (9.0f, true));
+            g.setColour (ui::textFaint);
+            g.drawText (t, x, libY + 4, 220, 12, juce::Justification::centredLeft);
+        };
+        title ("FONTE", genGenreBox.getX());
+        title (juce::String (juce::CharPointer_UTF8 ("PAR\xc3\x82METROS")), genComplex.getX() - 96);
+        title ("GERAR", genOneBtn.getX());
+
+        auto fld = [&] (const juce::String& t, juce::Component& c)
+        {
+            g.setFont (ui::monoFont (7.5f));
+            g.setColour (ui::textMuted);
+            g.drawText (t, c.getX(), c.getY() - 11, c.getWidth(), 9, juce::Justification::centredLeft);
+        };
+        fld (juce::String (juce::CharPointer_UTF8 ("G\xc3\x8aNERO")), genGenreBox);
+        fld ("ESTILO", genStyleBox);
+        fld (juce::String (juce::CharPointer_UTF8 ("BATERISTA \xc2\xb7 opcional")), genDrummerBox);
+
+        g.setFont (ui::monoFont (8.5f));
+        g.setColour (ui::textDim);
+        const juce::String pn[] = { "Complexidade", juce::String (juce::CharPointer_UTF8 ("Din\xc3\xa2mica")),
+                             juce::String (juce::CharPointer_UTF8 ("Humaniza\xc3\xa7\xc3\xa3o")), "Viradas", "Swing" };
+        juce::Slider* ps[] = { &genComplex, &genDynamics, &genHuman, &genFill, &genSwing };
+        for (int i = 0; i < 5; ++i)
+            g.drawText (pn[i], ps[i]->getX() - 96, ps[i]->getY(), 92, ps[i]->getHeight(),
+                        juce::Justification::centredLeft);
+
+        g.setFont (ui::monoFont (8.5f));
+        g.setColour (ui::textMuted);
+        g.drawText (juce::CharPointer_UTF8 (
+            "L\xc3\xaa a f\xc3\xb3rmula de cada compasso \xc2\xb7 escreve na pauta acima"),
+            genOneBtn.getX(), genAllBtn.getBottom() + 6, genOneBtn.getWidth(), 14,
+            juce::Justification::centredLeft);
+    }
 }
 
 void DrumOverlay::resized()
@@ -598,7 +651,8 @@ void DrumOverlay::resized()
     countChip.setBounds (x0 + 552, headerY + 3, 96, 28);
     followChip.setBounds (x0 + 652, headerY + 3, 70, 28);
     gridChip.setBounds (x0 + 726, headerY + 3, 62, 28);
-    editChip.setBounds (x0 + 792, headerY + 3, 72, 28);
+    genChip.setBounds (x0 + 792, headerY + 3, 60, 28);
+    editChip.setBounds (x0 + 856, headerY + 3, 72, 28);
 
     // abas de seção
     {
@@ -649,6 +703,24 @@ void DrumOverlay::resized()
         humRRSlider.setBounds (hx + 2 * (hw + hg), libBottom - 26, hw, 22);
     }
     gridView.setBounds (margin, gridY, libW, gridH);
+
+    // gerador (mesma área): FONTE | PARÂMETROS | GERAR
+    {
+        const int fx = margin;                     // coluna FONTE
+        const int mx = margin + 350;               // coluna PARÂMETROS
+        const int gx = margin + 712;               // coluna GERAR
+        const int gw = (W - margin) - gx;
+        genGenreBox.setBounds   (fx, libY + 30, 150, 30);
+        genStyleBox.setBounds   (fx + 158, libY + 30, 172, 30);
+        genDrummerBox.setBounds (fx, libY + 82, 330, 30);
+
+        juce::Slider* ps[] = { &genComplex, &genDynamics, &genHuman, &genFill, &genSwing };
+        for (int i = 0; i < 5; ++i)
+            ps[i]->setBounds (mx + 96, libY + 24 + i * 34, 262, 22);
+
+        genOneBtn.setBounds (gx, libY + 40, gw, 46);
+        genAllBtn.setBounds (gx, libY + 96, gw, 58);
+    }
 
     sourceChip.setBounds (margin, sourceY, 150, sourceH);
     vstLoadButton.setBounds (margin + 158, sourceY, 140, sourceH);
@@ -729,7 +801,7 @@ void DrumOverlay::refreshAll()
     rebuildGenreCol();
     rebuildList();
 
-    const bool lib = ! gridOn;                 // biblioteca OU grade
+    const bool lib = ! gridOn && ! genOn;      // biblioteca, grade OU gerador
     const bool mine = currentGenre == "MEUS";
     genreVp.setVisible (lib);
     listVp.setVisible (lib);
@@ -744,6 +816,12 @@ void DrumOverlay::refreshAll()
     humTimeSlider.setVisible (humShow);
     humRRSlider.setVisible (humShow);
     gridView.setVisible (gridOn);
+
+    juce::Component* genComps[] = { &genGenreBox, &genStyleBox, &genDrummerBox,
+                                    &genComplex, &genDynamics, &genHuman, &genFill, &genSwing,
+                                    &genOneBtn, &genAllBtn };
+    for (auto* c : genComps)
+        c->setVisible (genOn);
 
     gridView.repaint();
     scoreView.repaint();
@@ -1420,6 +1498,130 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
 
     curSection = globalBar / drum::barsPerSection;
     selBar = globalBar % drum::barsPerSection;
+    refreshAll();
+}
+
+//==============================================================================
+// ---- Gerador de grooves (fase 19) ------------------------------------------
+void DrumOverlay::setupGenerator()
+{
+    for (auto* b : { &genGenreBox, &genStyleBox, &genDrummerBox })
+    {
+        b->setMouseClickGrabsKeyboardFocus (false);
+        addChildComponent (*b);
+    }
+    for (const auto& g : drum::genGenres())
+        genGenreBox.addItem (g, genGenreBox.getNumItems() + 1);
+    genGenreBox.setSelectedItemIndex (0, juce::dontSendNotification);
+    genGenreBox.onChange = [this] { rebuildGenStyles(); rebuildGenDrummers(); };
+
+    // 5 parâmetros 0..1
+    struct SP { juce::Slider* s; double def; } sps[] = {
+        { &genComplex, 0.65 }, { &genDynamics, 0.60 }, { &genHuman, 0.35 },
+        { &genFill, 0.20 },    { &genSwing, 0.00 } };
+    for (auto& sp : sps)
+    {
+        sp.s->setSliderStyle (juce::Slider::LinearHorizontal);
+        sp.s->setTextBoxStyle (juce::Slider::TextBoxRight, false, 48, 20);
+        sp.s->setRange (0.0, 1.0, 0.01);
+        sp.s->setValue (sp.def, juce::dontSendNotification);
+        sp.s->setColour (juce::Slider::trackColourId, ui::accent.withAlpha (0.7f));
+        sp.s->setMouseClickGrabsKeyboardFocus (false);
+        addChildComponent (*sp.s);
+    }
+    genFill.setColour (juce::Slider::trackColourId, ui::glowOrange.withAlpha (0.7f));
+
+    genOneBtn.setButtonText (juce::String (juce::CharPointer_UTF8 ("GERAR ESTE COMPASSO")));
+    genAllBtn.setButtonText (juce::String (juce::CharPointer_UTF8 ("PREENCHER OS 4 COMPASSOS")));
+    genOneBtn.getProperties().set ("chip", true);
+    genAllBtn.getProperties().set ("accent", true);
+    genOneBtn.setMouseClickGrabsKeyboardFocus (false);
+    genAllBtn.setMouseClickGrabsKeyboardFocus (false);
+    genOneBtn.onClick = [this] { generateOne(); };
+    genAllBtn.onClick = [this] { generateAll(); };
+    addChildComponent (genOneBtn);
+    addChildComponent (genAllBtn);
+
+    rebuildGenStyles();
+    rebuildGenDrummers();
+}
+
+void DrumOverlay::rebuildGenStyles()
+{
+    genStyleBox.clear (juce::dontSendNotification);
+    int id = 1;
+    for (const auto& s : drum::genStyles (genGenreBox.getText()))
+        genStyleBox.addItem (s, id++);
+    genStyleBox.setSelectedItemIndex (0, juce::dontSendNotification);
+}
+
+void DrumOverlay::rebuildGenDrummers()
+{
+    genDrummerBox.clear (juce::dontSendNotification);
+    genDrummerBox.addItem (juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x94 nenhum \xe2\x80\x94")), 1);
+    const auto& drs = drum::genDrummers();
+    const juce::String genre = genGenreBox.getText();
+    for (int i = 0; i < (int) drs.size(); ++i)
+    {
+        const bool fits = drum::drummerFitsGenre (drs[(size_t) i].id, genre);
+        auto label = juce::String (drs[(size_t) i].name);
+        if (! fits) label += juce::String (juce::CharPointer_UTF8 ("  \xc2\xb7 (outro g\xc3\xaanero)"));
+        genDrummerBox.addItem (label, i + 2);
+        genDrummerBox.setItemEnabled (i + 2, fits);
+    }
+    genDrummerBox.setSelectedId (1, juce::dontSendNotification);
+}
+
+void DrumOverlay::fillBarWithGen (int globalBar, const juce::String& role, juce::uint32 seed)
+{
+    if (globalBar < 0 || globalBar >= engine.totalBars())
+        return;
+
+    drum::GenParams gp;
+    gp.genre = genGenreBox.getText();
+    gp.style = genStyleBox.getText();
+    const int di = genDrummerBox.getSelectedId();
+    const auto& drs = drum::genDrummers();
+    if (di >= 2 && di - 2 < (int) drs.size())
+        gp.drummer = drs[(size_t) (di - 2)].id;
+    gp.role       = role;
+    gp.complexity = (float) genComplex.getValue();
+    gp.dynamics   = (float) genDynamics.getValue();
+    gp.fillFreq   = (float) genFill.getValue();
+    gp.num = engine.meterNum (globalBar);   // RESPEITA a fórmula do compasso
+    gp.den = engine.meterDen (globalBar);
+    gp.seed = seed;
+
+    juce::uint8 pat[drum::numVoices][drum::maxStepsPerBar];
+    drum::generateBar (gp, pat);
+    engine.setBarPattern (pat, globalBar);
+
+    auto nm = gp.style.substring (0, 1).toUpperCase() + gp.style.substring (1);
+    if (role == "fill") nm = "Virada " + nm;
+    engine.barNames[globalBar] = nm;
+
+    // humanização/swing dos parâmetros vão para o playback (atomics)
+    const float h = (float) genHuman.getValue();
+    engine.humanVel.store (juce::jlimit (0.0f, 1.0f, 0.15f + h * 0.5f));
+    engine.humanTime.store (juce::jlimit (0.0f, 1.0f, h * 0.45f));
+    engine.humanRR.store  (juce::jlimit (0.0f, 1.0f, 0.2f + h * 0.6f));
+    engine.swingPct.store ((float) genSwing.getValue() * 60.0f);
+}
+
+void DrumOverlay::generateOne()
+{
+    static const char* arc[] = { "verse", "chorus", "bridge", "fill" };
+    const int g = selectedBar();
+    fillBarWithGen (g, arc[selBar & 3], genSeedCtr++);
+    refreshAll();
+}
+
+void DrumOverlay::generateAll()
+{
+    static const char* arc[] = { "verse", "chorus", "bridge", "fill" };
+    const int base = curSection * drum::barsPerSection;
+    for (int i = 0; i < drum::barsPerSection; ++i)
+        fillBarWithGen (base + i, arc[i], genSeedCtr++);
     refreshAll();
 }
 

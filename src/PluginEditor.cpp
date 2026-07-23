@@ -2692,6 +2692,13 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                         auto& e = safe->processor.drumEngine;
                         e.setMeter (2, 3, 4); e.setMeter (3, 6, 8);
                     }
+                    if (flag == "gen" || flag == "genfill")  // teste do gerador (3º = 7/8)
+                    {
+                        safe->processor.drumEngine.setMeter (2, 7, 8);
+                        safe->drumOverlay->devOpenGenerator();
+                        if (flag == "genfill")
+                            safe->drumOverlay->devGenerateAll();
+                    }
                 });
     }
 

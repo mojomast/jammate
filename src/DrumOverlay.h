@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PluginProcessor.h"
+#include "DrumGenerator.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -24,6 +25,8 @@ public:
     std::function<void()> onChooseVst;
     std::function<void()> onOpenVstPanel;
     void refreshSourceRow();
+    void devOpenGenerator() { if (! genOn) genChip.triggerClick(); }  // dev flag
+    void devGenerateAll() { generateAll(); }                          // dev flag
 
 private:
     void timerCallback() override;
@@ -140,6 +143,7 @@ private:
     juce::Slider swingSlider, levelSlider;
     juce::TextButton clickChip { "CLICK" }, countChip { "CONTAGEM" };
     juce::TextButton followChip { "SEGUIR" }, gridChip { "GRADE" };
+    juce::TextButton genChip { "GERAR" };
     juce::TextButton editChip { juce::CharPointer_UTF8 ("EDI\xc3\x87\xc3\x83O") };
     juce::TextButton saveChip { "SALVAR COMPASSO" };
 
@@ -176,6 +180,18 @@ private:
 
     GridView gridView { *this };
 
+    // ---- Gerador (fase 19): mesma zona do navegador/grade -------------------
+    juce::ComboBox genGenreBox, genStyleBox, genDrummerBox;
+    juce::Slider genComplex, genDynamics, genHuman, genFill, genSwing;
+    juce::TextButton genOneBtn, genAllBtn;
+    void setupGenerator();
+    void rebuildGenStyles();
+    void rebuildGenDrummers();
+    void fillBarWithGen (int globalBar, const juce::String& role, juce::uint32 seed);
+    void generateOne();
+    void generateAll();
+    juce::uint32 genSeedCtr = 1;
+
     juce::TextButton sourceChip;
     juce::TextButton vstLoadButton { juce::CharPointer_UTF8 ("CARREGAR VST3\xe2\x80\xa6") };
     juce::TextButton vstPanelButton { "PAINEL" };
@@ -185,6 +201,7 @@ private:
     int selBar = 0;       // compasso selecionado dentro da seção (0..3)
     bool followOn = true;
     bool gridOn = false;
+    bool genOn = false;    // painel do gerador na zona do navegador
     bool editMode = true;  // true = editar notas (clique); false = montar (arrasta compasso)
     juce::String currentGenre { "ROCK" };
     int currentKind = 1;   // 1 grooves · 2 viradas (abas da coluna do meio)
