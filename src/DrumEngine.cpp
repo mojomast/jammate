@@ -177,6 +177,8 @@ void DrumEngine::trigger (int synthType, float vel, int delaySamples)
         {
             slot->layer = &layer;
             slot->vel = vel > 0.5f ? 1.0f : 0.75f;
+            // round-robin: micro-variação de afinação p/ não soar "metralhadora"
+            slot->rrPitch = 1.0f + nextRnd() * humanRR.load() * 0.03f;
         }
     }
     anyVoiceActive.store (true);
@@ -185,30 +187,35 @@ void DrumEngine::trigger (int synthType, float vel, int delaySamples)
 void DrumEngine::fireStep (int bar, int step, int sampleOffset,
                            juce::AudioPluginInstance* vst, juce::MidiBuffer& midi)
 {
+    const float hv = humanVel.load(), ht = humanTime.load();
     if (barUsed[bar].load())
         for (int v = 0; v < drum::numVoices; ++v)
         {
             const int val = pattern[bar][v][step].load();
             if (val == 0)
                 continue;
-            const float vel = val == 2 ? 1.0f : val == 3 ? 0.28f : 0.68f;
+            float vel = val == 2 ? 1.0f : val == 3 ? 0.28f : 0.68f;
+
+            // humanização: velocity e micro-timing (offset só p/ frente, RT-safe)
+            if (hv > 0.0f) vel = juce::jlimit (0.05f, 1.0f, vel * (1.0f + nextRnd() * hv * 0.35f));
+            int off = sampleOffset;
+            if (ht > 0.0f) off = juce::jmax (0, off + (int) (nextRnd() * ht * 0.018f * (float) sr));
 
             if (vst != nullptr)
             {
                 const int note = drum::gmNote[v];
                 midi.addEvent (juce::MidiMessage::noteOn (10, note,
-                                                          (juce::uint8) (vel * 127.0f)),
-                               sampleOffset);
+                                                          (juce::uint8) (vel * 127.0f)), off);
                 for (auto& o : pendingOffs)
                     if (o.note < 0)
                     {
                         o.note = note;
-                        o.samplesLeft = sampleOffset + (int) (0.25 * sr);
+                        o.samplesLeft = off + (int) (0.25 * sr);
                         break;
                     }
             }
             else
-                trigger (v, vel, sampleOffset);
+                trigger (v, vel, off);
         }
 
     if (clickOn.load() && step % 4 == 0)
@@ -322,7 +329,7 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
             const float* sl = buf.getReadPointer (0);
             const float* sr2 = buf.getNumChannels() > 1 ? buf.getReadPointer (1) : sl;
             const bool stereo = buf.getNumChannels() > 1;
-            const double ratio = v.layer->rate / sr;
+            const double ratio = v.layer->rate / sr * v.rrPitch;
             const int len = buf.getNumSamples();
 
             for (int i = 0; i < n && v.active; ++i)

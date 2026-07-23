@@ -11,9 +11,11 @@ constexpr int headerY = 12, headerH = 34;
 constexpr int tabsY = 52, tabsH = 26;
 constexpr int barHeadsY = 82, barHeadsH = 24;
 constexpr int scoreY = 108, scoreH = 300;
-constexpr int libY = 414, libChipsH = 25, libCardsH = 92; // biblioteca OU grade
+constexpr int libY = 414;                                 // topo do navegador/grade
 constexpr int gridY = 418, gridH = 226;                   // grade no lugar da lib
 constexpr int sourceY = 648, sourceH = 32;
+// navegador em colunas: Gênero | Grooves/Viradas | Preview
+constexpr int colGap = 8, genreColW = 150, listColW = 208, colRowH = 26;
 
 // geometria da pauta: 4 compassos × 16 steps na largura útil (~1048)
 // 4 compassos precisam caber em ~1038 px úteis: 64·stepW + 12·beatPad +
@@ -263,16 +265,15 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
         refreshAll();
     };
 
-    // sub-filtro Tudo/Grooves/Viradas (cada gênero tem os dois)
-    for (auto* c : { &kindTudo, &kindGroove, &kindVirada })
+    // navegador em colunas: abas GROOVES / VIRADAS (coluna do meio)
+    for (auto* c : { &tabGrooves, &tabViradas })
     {
         c->getProperties().set ("chip", true);
         c->setMouseClickGrabsKeyboardFocus (false);
         addChildComponent (*c);
     }
-    kindTudo.onClick   = [this] { currentKind = 0; refreshKindChips(); rebuildCards(); };
-    kindGroove.onClick = [this] { currentKind = 1; refreshKindChips(); rebuildCards(); };
-    kindVirada.onClick = [this] { currentKind = 2; refreshKindChips(); rebuildCards(); };
+    tabGrooves.onClick = [this] { currentKind = 1; rebuildList(); };
+    tabViradas.onClick = [this] { currentKind = 2; rebuildList(); };
     saveChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Guarda o compasso selecionado em Meus compassos "
         "(Documentos\\PedalForge NAM\\compassos)")));
@@ -330,10 +331,43 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
 
     addAndMakeVisible (scoreView);
 
-    cardsViewport.setViewedComponent (&cardsContent, false);
-    cardsViewport.setScrollBarsShown (false, true);
-    cardsViewport.setScrollBarThickness (7);
-    addAndMakeVisible (cardsViewport);
+    // colunas do navegador
+    genreVp.setViewedComponent (&genreContent, false);
+    genreVp.setScrollBarsShown (true, false);
+    genreVp.setScrollBarThickness (7);
+    addChildComponent (genreVp);
+    listVp.setViewedComponent (&listContent, false);
+    listVp.setScrollBarsShown (true, false);
+    listVp.setScrollBarThickness (7);
+    addChildComponent (listVp);
+    addChildComponent (previewPane);
+
+    applyBtn.getProperties().set ("outlineAccent", true);
+    applyBtn.setMouseClickGrabsKeyboardFocus (false);
+    applyBtn.onClick = [this]
+    {
+        if (selValid)
+            applyGrooveToBar (selDragId, selectedBar());
+    };
+    addChildComponent (applyBtn);
+
+    // humanização (kit interno): velocity, micro-timing, round-robin
+    struct HS { juce::Slider* s; std::atomic<float>* p; };
+    for (auto hs : { HS { &humVelSlider, &engine.humanVel },
+                     HS { &humTimeSlider, &engine.humanTime },
+                     HS { &humRRSlider, &engine.humanRR } })
+    {
+        hs.s->setSliderStyle (juce::Slider::LinearHorizontal);
+        hs.s->setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+        hs.s->setRange (0.0, 1.0, 0.01);
+        hs.s->setValue (hs.p->load(), juce::dontSendNotification);
+        hs.s->setColour (juce::Slider::trackColourId, ui::glowOrange.withAlpha (0.7f));
+        auto* p = hs.p;
+        auto* sl = hs.s;
+        hs.s->onValueChange = [p, sl] { p->store ((float) sl->getValue()); };
+        hs.s->setMouseClickGrabsKeyboardFocus (false);
+        addChildComponent (*hs.s);
+    }
 
     saveNameEditor.setFont (ui::monoFont (12.0f));
     saveNameEditor.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff0c0e11));
@@ -520,6 +554,24 @@ void DrumOverlay::paint (juce::Graphics& g)
     g.setColour (ui::textMuted);
     g.drawText ("VOLUME", getWidth() - margin - 130, sourceY - 10, 130, 10,
                 juce::Justification::centredLeft);
+
+    // rótulos da humanização
+    if (humVelSlider.isVisible())
+    {
+        g.setFont (ui::monoFont (7.5f));
+        g.setColour (ui::textMuted);
+        auto lbl = [&] (juce::Slider& s, const char* t)
+        {
+            auto b = s.getBounds();
+            g.drawText (t, b.getX(), b.getY() - 10, b.getWidth(), 9, juce::Justification::centred);
+        };
+        lbl (humVelSlider, "VELOCITY");
+        lbl (humTimeSlider, "TIMING");
+        lbl (humRRSlider, "R-ROBIN");
+        g.setColour (ui::textFaint);
+        g.drawText ("HUMANIZAR", humVelSlider.getX() - 76, humVelSlider.getY() - 2, 72, 12,
+                    juce::Justification::centredRight);
+    }
 }
 
 void DrumOverlay::resized()
@@ -562,27 +614,32 @@ void DrumOverlay::resized()
         h->setBounds (x0, barHeadsY, (int) (L.width + curStepW + 10.0f), barHeadsH - 2);
     }
 
-    // biblioteca (ou grade) na mesma área
+    // biblioteca (navegador em colunas) OU grade, na mesma área
     const int libW = W - 2 * margin;
+    const int libBottom = sourceY - 8;
+    const int libH = libBottom - libY;
     {
-        const int chipsPerRow = (genreChips.size() + 1) / 2;
-        for (int i = 0; i < genreChips.size(); ++i)
-        {
-            const int row = i / juce::jmax (1, chipsPerRow);
-            const int col = i % juce::jmax (1, chipsPerRow);
-            const int w = libW / juce::jmax (1, chipsPerRow);
-            genreChips[i]->setBounds (margin + col * w, libY + row * (libChipsH + 4),
-                                      w - 4, libChipsH);
-        }
-        const int subY = libY + 2 * (libChipsH + 4) + 2;
-        kindTudo.setBounds (margin, subY, 58, 20);
-        kindGroove.setBounds (margin + 62, subY, 82, 20);
-        kindVirada.setBounds (margin + 148, subY, 82, 20);
-        cardsViewport.setBounds (margin, subY + 26, libW, libCardsH + 10);
+        genreVp.setBounds (margin, libY, genreColW, libH);
+        const int listX = margin + genreColW + colGap;
+        const int tabW = (listColW - 4) / 2;
+        tabGrooves.setBounds (listX, libY, tabW, 24);
+        tabViradas.setBounds (listX + tabW + 4, libY, tabW, 24);
+        listVp.setBounds (listX, libY + 28, listColW, libH - 28);
+        const int prevX = listX + listColW + colGap;
+        const int prevW = (W - margin) - prevX;
+        previewPane.setBounds (prevX, libY, prevW, libH - 38);
+        applyBtn.setBounds (prevX, libBottom - 30, 190, 30);
+        // aba MEUS: campo de salvar à direita do "aplicar"
+        saveNameEditor.setBounds (prevX + 200, libBottom - 30, prevW - 200 - 72, 30);
+        saveConfirm.setBounds (W - margin - 66, libBottom - 30, 66, 30);
+        // humanização (não-MEUS): 3 sliders à direita
+        const int hw = 62, hg = 8;
+        const int hx = W - margin - (hw * 3 + hg * 2);
+        humVelSlider.setBounds (hx, libBottom - 26, hw, 22);
+        humTimeSlider.setBounds (hx + hw + hg, libBottom - 26, hw, 22);
+        humRRSlider.setBounds (hx + 2 * (hw + hg), libBottom - 26, hw, 22);
     }
     gridView.setBounds (margin, gridY, libW, gridH);
-
-    // salvar (aba MEUS): dentro da fileira de cards (rebuildCards posiciona)
 
     sourceChip.setBounds (margin, sourceY, 150, sourceH);
     vstLoadButton.setBounds (margin + 158, sourceY, 140, sourceH);
@@ -660,20 +717,25 @@ void DrumOverlay::refreshAll()
 {
     rebuildSectionTabs();
     rebuildBarHeads();
-    rebuildGenreChips();
-    rebuildCards();
+    rebuildGenreCol();
+    rebuildList();
 
-    const bool lib = ! gridOn;
-    for (auto* c : genreChips)
-        c->setVisible (lib);
-    cardsViewport.setVisible (lib);
+    const bool lib = ! gridOn;                 // biblioteca OU grade
+    const bool mine = currentGenre == "MEUS";
+    genreVp.setVisible (lib);
+    listVp.setVisible (lib);
+    previewPane.setVisible (lib);
+    tabGrooves.setVisible (lib && ! mine);
+    tabViradas.setVisible (lib && ! mine);
+    applyBtn.setVisible (lib && selValid);
+    saveNameEditor.setVisible (lib && mine);
+    saveConfirm.setVisible (lib && mine);
+    const bool humShow = lib && ! mine;
+    humVelSlider.setVisible (humShow);
+    humTimeSlider.setVisible (humShow);
+    humRRSlider.setVisible (humShow);
     gridView.setVisible (gridOn);
-    refreshKindChips();
-    if (! lib)
-    {
-        saveNameEditor.setVisible (false);
-        saveConfirm.setVisible (false);
-    }
+
     gridView.repaint();
     scoreView.repaint();
     repaint();
@@ -1146,102 +1208,78 @@ void DrumOverlay::openMeterMenu (int barInSec, juce::Component* anchor)
 }
 
 //==============================================================================
-// Biblioteca
-void DrumOverlay::refreshKindChips()
+// Navegador em colunas: Gênero | Grooves/Viradas | Preview
+void DrumOverlay::rebuildGenreCol()
 {
-    const bool show = ! gridOn && currentGenre != "MEUS";
-    juce::TextButton* chips[] = { &kindTudo, &kindGroove, &kindVirada };
-    for (int i = 0; i < 3; ++i)
-    {
-        chips[i]->setVisible (show);
-        chips[i]->getProperties().set ("chipActive", currentKind == i);
-        chips[i]->repaint();
-    }
-}
-
-void DrumOverlay::rebuildGenreChips()
-{
-    genreChips.clear();
+    genreRows.clear();
     auto names = drum::genres();
     names.add (juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x85 MEUS")));
-
+    const auto star = juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x85"));
+    int y = 0;
     for (const auto& n : names)
     {
-        auto* b = genreChips.add (new juce::TextButton (n));
-        b->getProperties().set ("chip", true);
-        const auto key = n.startsWith (juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x85")))
-                             ? juce::String ("MEUS") : n;
-        b->getProperties().set ("chipActive", key == currentGenre);
+        const auto key = n.startsWith (star) ? juce::String ("MEUS") : n;
+        int cnt = 0;
+        if (key == "MEUS")
+            cnt = userGroovesDir().findChildFiles (juce::File::findFiles, false, "*.json").size();
+        else
+            for (const auto& gg : drum::library())
+                if (juce::String (juce::CharPointer_UTF8 (gg.genre)) == key) ++cnt;
+
+        auto* b = genreRows.add (new juce::TextButton());
+        b->setButtonText (n + "  (" + juce::String (cnt) + ")");
+        b->setColour (juce::TextButton::buttonColourId,
+                      key == currentGenre ? ui::accentDark.withAlpha (0.22f) : juce::Colour (0));
+        b->setColour (juce::TextButton::buttonOnColourId, ui::accentDark.withAlpha (0.22f));
+        b->setColour (juce::TextButton::textColourOffId,
+                      key == currentGenre ? ui::accent : ui::textDim);
         b->setMouseClickGrabsKeyboardFocus (false);
-        b->onClick = [this, key]
-        {
-            currentGenre = key;
-            rebuildGenreChips();
-            refreshKindChips();
-            rebuildCards();
-        };
-        addAndMakeVisible (*b);
+        b->onClick = [this, key] { currentGenre = key; selValid = false; refreshAll(); };
+        genreContent.addAndMakeVisible (b);
+        b->setBounds (2, y, genreColW - 14, colRowH);
+        y += colRowH + 2;
     }
-    resized();
+    genreContent.setSize (genreColW, juce::jmax (y, 1));
+    genreVp.setViewPosition (0, 0);
 }
 
-void DrumOverlay::rebuildCards()
+void DrumOverlay::rebuildList()
 {
-    cards.clear();
-    const bool mine = currentGenre == "MEUS";
-    saveNameEditor.setVisible (false);
-    saveConfirm.setVisible (false);
+    libRows.clear();
+    tabGrooves.getProperties().set ("chipActive", currentKind == 1);
+    tabViradas.getProperties().set ("chipActive", currentKind == 2);
+    tabGrooves.repaint();
+    tabViradas.repaint();
 
-    int x = 0;
-    auto place = [&] (GrooveCard* c)
+    const bool mine = currentGenre == "MEUS";
+    int y = 0;
+    auto add = [&] (const juce::String& name, const juce::String& dragId, bool fill, bool del,
+                    std::function<void()> onDel)
     {
-        cardsContent.addAndMakeVisible (c);
-        c->setBounds (x, 0, 176, libCardsH - 6);
-        x += 176 + 8;
+        auto* r = libRows.add (new LibRow());
+        r->name = name;
+        r->dragId = dragId;
+        r->fill = fill;
+        r->deletable = del;
+        r->selected = (selValid && dragId == selDragId);
+        r->onSelect = [this, dragId, name, fill] { selectEntry (dragId, name, fill); };
+        r->onDelete = std::move (onDel);
+        listContent.addAndMakeVisible (r);
+        r->setBounds (0, y, listColW - 10, colRowH);
+        y += colRowH + 2;
     };
 
-    if (mine && ! gridOn)
+    if (mine)
     {
-        cardsContent.addAndMakeVisible (saveNameEditor);
-        cardsContent.addAndMakeVisible (saveConfirm);
-        saveNameEditor.setVisible (true);
-        saveConfirm.setVisible (true);
-        saveNameEditor.setBounds (0, 10, 200, 30);
-        saveConfirm.setBounds (206, 10, 78, 30);
-        x = 292;
-
-        for (const auto& f : userGroovesDir().findChildFiles (juce::File::findFiles,
-                                                              false, "*.json"))
+        for (const auto& f : userGroovesDir().findChildFiles (juce::File::findFiles, false, "*.json"))
         {
-            auto* c = cards.add (new GrooveCard());
             const auto parsed = juce::JSON::parse (f.loadFileAsString());
-            c->title = parsed.getProperty ("name", f.getFileNameWithoutExtension()).toString();
-            const int bpmV = (int) parsed.getProperty ("bpm", 0);
-            c->meta = bpmV > 0 ? juce::String (bpmV) + " bpm" : juce::String ("1 compasso");
-            c->dragId = "u:" + f.getFullPathName();
-            c->deletable = true;
-            {
-                const auto str = parsed.getProperty ("pattern", "").toString();
-                int k = 0;
-                for (int v = 0; v < drum::numVoices; ++v)
-                    for (int s = 0; s < drum::stepsPerBar; ++s)
-                    {
-                        const juce::juce_wchar ch = k < str.length() ? str[k] : '0';
-                        c->pat[v][s] = ch >= '0' && ch <= '3' ? (juce::uint8) (ch - '0') : 0;
-                        ++k;
-                    }
-                c->hasPat = str.isNotEmpty();
-            }
-            c->onLoad = [this, id = c->dragId] { applyGrooveToBar (id, selectedBar()); };
-            c->onDelete = [this, f]
-            {
-                f.deleteFile();
-                rebuildCards();
-            };
-            place (c);
+            const auto nm = parsed.getProperty ("name", f.getFileNameWithoutExtension()).toString();
+            add (nm, "u:" + f.getFullPathName(), false, true,
+                 [this, f] { f.deleteFile(); selValid = false; rebuildList(); updatePreview(); });
         }
     }
-    else if (! gridOn)
+    else
     {
         const auto& lib = drum::library();
         for (int i = 0; i < (int) lib.size(); ++i)
@@ -1249,28 +1287,73 @@ void DrumOverlay::rebuildCards()
             const auto& g = lib[(size_t) i];
             if (juce::String (juce::CharPointer_UTF8 (g.genre)) != currentGenre)
                 continue;
-            if (currentKind == 1 && g.fill)  continue;   // só grooves
-            if (currentKind == 2 && ! g.fill) continue;  // só viradas
-
-            auto* c = cards.add (new GrooveCard());
-            c->title = juce::String (juce::CharPointer_UTF8 (g.name));
-            c->fill = g.fill;
-            const auto dot = juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "));
-            c->meta = g.fill
-                          ? "virada" + dot + "1 compasso"
-                          : juce::String (g.bpm) + " bpm"
-                                + (g.swing > 0 ? dot + "sw " + juce::String (g.swing) + "%"
-                                               : juce::String());
-            c->dragId = "f:" + juce::String (i);
-            drum::parseSpec (g, c->pat);
-            c->hasPat = true;
-            c->onLoad = [this, id = c->dragId] { applyGrooveToBar (id, selectedBar()); };
-            place (c);
+            if (currentKind == 1 && g.fill)  continue;
+            if (currentKind == 2 && ! g.fill) continue;
+            add (juce::String (juce::CharPointer_UTF8 (g.name)), "f:" + juce::String (i),
+                 g.fill, false, nullptr);
         }
     }
+    listContent.setSize (listColW - 10, juce::jmax (y, 1));
+    listVp.setViewPosition (0, 0);
 
-    cardsContent.setSize (juce::jmax (x, 1), libCardsH - 6 + 10);
-    cardsViewport.setViewPosition (0, 0);
+    if (! selValid && ! libRows.isEmpty())        // seleciona o primeiro por padrão
+    {
+        auto* r = libRows[0];
+        selectEntry (r->dragId, r->name, r->fill);
+    }
+    else
+        updatePreview();
+}
+
+void DrumOverlay::selectEntry (const juce::String& dragId, const juce::String& name, bool fill)
+{
+    selDragId = dragId;
+    selName = name;
+    selFill = fill;
+    selValid = true;
+    for (int v = 0; v < drum::numVoices; ++v)
+        for (int s = 0; s < drum::stepsPerBar; ++s)
+            selPat[v][s] = 0;
+    selBpm = 0;
+
+    if (dragId.startsWith ("f:"))
+    {
+        const int i = dragId.substring (2).getIntValue();
+        const auto& lib = drum::library();
+        if (i >= 0 && i < (int) lib.size())
+        {
+            drum::parseSpec (lib[(size_t) i], selPat);
+            selBpm = lib[(size_t) i].bpm;
+        }
+    }
+    else if (dragId.startsWith ("u:"))
+    {
+        const auto parsed = juce::JSON::parse (juce::File (dragId.substring (2)).loadFileAsString());
+        selBpm = (int) parsed.getProperty ("bpm", 0);
+        const auto str = parsed.getProperty ("pattern", "").toString();
+        int k = 0;
+        for (int v = 0; v < drum::numVoices; ++v)
+            for (int s = 0; s < drum::stepsPerBar; ++s)
+            {
+                const juce::juce_wchar ch = k < str.length() ? str[k] : '0';
+                selPat[v][s] = ch >= '0' && ch <= '3' ? (juce::uint8) (ch - '0') : 0;
+                ++k;
+            }
+    }
+    for (auto* r : libRows)
+    {
+        const bool on = r->dragId == dragId;
+        if (r->selected != on) { r->selected = on; r->repaint(); }
+    }
+    updatePreview();
+}
+
+void DrumOverlay::updatePreview()
+{
+    applyBtn.setButtonText (juce::String (juce::CharPointer_UTF8 ("aplicar no compasso "))
+                            + juce::String (selectedBar() + 1));
+    applyBtn.setVisible (! gridOn && selValid);
+    previewPane.repaint();
 }
 
 void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
@@ -1356,71 +1439,115 @@ void DrumOverlay::saveUserGroove()
 }
 
 //==============================================================================
-void DrumOverlay::GrooveCard::paint (juce::Graphics& g)
+void DrumOverlay::LibRow::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat();
-    juce::ColourGradient grad (ui::cardTop, 0, 0, ui::cardBottom, 0, b.getHeight(), false);
-    g.setGradientFill (grad);
-    g.fillRoundedRectangle (b, 9.0f);
-    g.setColour (dragging ? ui::glowOrange.withAlpha (0.6f) : ui::border());
-    g.drawRoundedRectangle (b.reduced (0.5f), 9.0f, 1.0f);
-
-    // viradas: faixa laranja na esquerda (distingue de groove num relance)
+    if (selected)
+    {
+        g.setColour (ui::accent.withAlpha (0.14f));
+        g.fillRoundedRectangle (b, 6.0f);
+    }
+    else if (isMouseOver())
+    {
+        g.setColour (ui::glass());
+        g.fillRoundedRectangle (b, 6.0f);
+    }
+    // marcador: bolinha (groove) / traço laranja (virada)
     if (fill)
     {
         g.setColour (ui::glowOrange);
-        g.fillRoundedRectangle (1.5f, 6.0f, 2.5f, b.getHeight() - 12.0f, 1.2f);
+        g.fillRoundedRectangle (3.0f, 5.0f, 2.5f, b.getHeight() - 10.0f, 1.2f);
     }
-
-    g.setFont (ui::uiFont (11.5f, true));
-    g.setColour (ui::textBright);
-    g.drawText (title, 9, 3, getWidth() - 54, 15, juce::Justification::centredLeft);
-    g.setFont (ui::monoFont (8.0f));
-    g.setColour (ui::textMuted);
-    g.drawText (meta, getWidth() - 50, 3, 44, 15, juce::Justification::centredRight);
-
-    // miniatura em pentagrama do que vai ser colocado (antes de arrastar)
-    if (hasPat)
-        drawMiniBar (g, { 8.0f, 20.0f, getWidth() - 16.0f, getHeight() - 24.0f }, pat);
-
+    else
+    {
+        g.setColour (ui::accentDark);
+        g.fillEllipse (4.0f, b.getCentreY() - 2.0f, 4.0f, 4.0f);
+    }
+    g.setFont (ui::uiFont (12.0f, selected));
+    g.setColour (selected ? ui::accent : ui::textDim);
+    g.drawText (name, 14, 0, getWidth() - (deletable ? 30 : 18), getHeight(),
+                juce::Justification::centredLeft);
     if (deletable)
     {
-        g.setColour (ui::textMuted);
         g.setFont (ui::monoFont (11.0f));
-        g.drawText (juce::CharPointer_UTF8 ("\xc3\x97"), getWidth() - 17,
-                    getHeight() - 16, 13, 13, juce::Justification::centred);
+        g.setColour (ui::textMuted);
+        g.drawText (juce::CharPointer_UTF8 ("\xc3\x97"), getWidth() - 16, 0, 12, getHeight(),
+                    juce::Justification::centred);
     }
 }
 
-void DrumOverlay::GrooveCard::mouseDrag (const juce::MouseEvent& e)
+void DrumOverlay::LibRow::mouseDown (const juce::MouseEvent& e)
+{
+    dragging = false;
+    if (deletable && e.getPosition().x > getWidth() - 20)
+    {
+        if (onDelete) onDelete();
+        return;
+    }
+    if (onSelect) onSelect();
+}
+
+void DrumOverlay::LibRow::mouseDrag (const juce::MouseEvent& e)
 {
     if (dragging || e.getDistanceFromDragStart() < 6)
+        return;
+    if (deletable && e.getMouseDownPosition().x > getWidth() - 20)
         return;
     if (auto* dnd = juce::DragAndDropContainer::findParentDragContainerFor (this))
     {
         dragging = true;
-        repaint();
         dnd->startDragging (dragId, this);
     }
 }
 
-void DrumOverlay::GrooveCard::mouseUp (const juce::MouseEvent& e)
+//==============================================================================
+void DrumOverlay::PreviewPane::paint (juce::Graphics& g)
 {
-    const bool wasDragging = dragging;
-    dragging = false;
-    repaint();
-    if (wasDragging || e.getDistanceFromDragStart() >= 6)
-        return;
+    g.setColour (juce::Colour (0xff0c0e11));
+    g.fillRoundedRectangle (getLocalBounds().toFloat(), 10.0f);
+    g.setColour (ui::border());
+    g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 10.0f, 1.0f);
 
-    if (deletable && e.getPosition().x > getWidth() - 24
-        && e.getPosition().y > getHeight() - 20)
+    if (! owner.selValid)
     {
-        if (onDelete)
-            onDelete();
+        g.setFont (ui::monoFont (11.0f));
+        g.setColour (ui::textMuted);
+        g.drawText (juce::String (juce::CharPointer_UTF8 ("selecione um groove na lista")),
+                    getLocalBounds(), juce::Justification::centred);
         return;
     }
-    if (onLoad)
-        onLoad();
+
+    g.setFont (ui::uiFont (14.0f, true));
+    g.setColour (ui::textBright);
+    g.drawText (owner.selName, 14, 8, getWidth() - 150, 20, juce::Justification::centredLeft);
+    g.setFont (ui::monoFont (9.0f));
+    g.setColour (owner.selFill ? ui::glowOrange : ui::accent);
+    const auto tag = owner.selFill ? juce::String ("VIRADA")
+                                   : "GROOVE" + (owner.selBpm > 0 ? juce::String (" \xc2\xb7 ")
+                                                                        + juce::String (owner.selBpm) + " bpm"
+                                                                  : juce::String());
+    g.drawText (juce::String (juce::CharPointer_UTF8 (tag.toRawUTF8())), getWidth() - 150, 9, 140, 16,
+                juce::Justification::centredRight);
+
+    drawMiniBar (g, { 14.0f, 34.0f, (float) getWidth() - 28.0f, (float) getHeight() - 74.0f },
+                 owner.selPat);
+
+    g.setFont (ui::monoFont (9.0f));
+    g.setColour (ui::textFaint);
+    g.drawText (juce::String (juce::CharPointer_UTF8 (
+                    "\xe2\xa0\xbf arraste para a pauta, ou use \"aplicar\"")),
+                14, getHeight() - 26, getWidth() - 28, 14, juce::Justification::centredLeft);
+}
+
+void DrumOverlay::PreviewPane::mouseDrag (const juce::MouseEvent& e)
+{
+    if (dragging || ! owner.selValid || e.getDistanceFromDragStart() < 6)
+        return;
+    if (auto* dnd = juce::DragAndDropContainer::findParentDragContainerFor (this))
+    {
+        dragging = true;
+        dnd->startDragging (owner.selDragId, this);
+    }
 }
 
 //==============================================================================

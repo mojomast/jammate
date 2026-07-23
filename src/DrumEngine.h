@@ -92,6 +92,10 @@ public:
     std::atomic<float> bpm { 104.0f };
     std::atomic<float> swingPct { 0.0f };   // 0..60
     std::atomic<float> level { 0.8f };      // 0..1.5
+    // humanização (0..1): variação de velocity, micro-timing e round-robin
+    std::atomic<float> humanVel { 0.30f };
+    std::atomic<float> humanTime { 0.20f };
+    std::atomic<float> humanRR { 0.40f };
     std::atomic<bool> playing { false };
     std::atomic<bool> clickOn { false };
     std::atomic<bool> countInOn { false };
@@ -126,6 +130,12 @@ private:
                    juce::AudioPluginInstance* vst, juce::MidiBuffer& midi);
     void trigger (int synthType, float vel, int delaySamples);
     double stepLenSamples (int stepIdx) const;
+    float nextRnd() noexcept   // ruído barato [-1,1) — só thread de áudio
+    {
+        humRng ^= humRng << 13; humRng ^= humRng >> 17; humRng ^= humRng << 5;
+        return ((float) (humRng >> 9) / 4194304.0f) - 1.0f;
+    }
+    juce::uint32 humRng = 0x2545F491u;
 
     double sr = 48000.0;
     double samplesToNext = 0.0;
@@ -154,6 +164,7 @@ private:
         int delay = 0;
         const Layer* layer = nullptr; // sample em uso (null = síntese)
         double pos = 0.0;
+        float rrPitch = 1.0f; // round-robin: micro-variação de afinação
         bool fading = false; // choke: fade rápido em vez de corte seco
         float fadeGain = 1.0f;
         double t = 0.0;

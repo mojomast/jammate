@@ -3117,6 +3117,9 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
     state.setProperty ("drumBpm", drumEngine.bpm.load(), nullptr);
     state.setProperty ("drumSwing", drumEngine.swingPct.load(), nullptr);
     state.setProperty ("drumLevel", drumEngine.level.load(), nullptr);
+    state.setProperty ("drumHumVel", drumEngine.humanVel.load(), nullptr);
+    state.setProperty ("drumHumTime", drumEngine.humanTime.load(), nullptr);
+    state.setProperty ("drumHumRR", drumEngine.humanRR.load(), nullptr);
     state.setProperty ("drumClick", drumEngine.clickOn.load(), nullptr);
     state.setProperty ("drumCountIn", drumEngine.countInOn.load(), nullptr);
     state.setProperty ("drumUseVst", drumEngine.useVst.load(), nullptr);
@@ -3276,6 +3279,9 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
         drumEngine.bpm.store ((float) (double) state.getProperty ("drumBpm", 104.0));
         drumEngine.swingPct.store ((float) (double) state.getProperty ("drumSwing", 0.0));
         drumEngine.level.store ((float) (double) state.getProperty ("drumLevel", 0.8));
+        drumEngine.humanVel.store ((float) (double) state.getProperty ("drumHumVel", 0.3));
+        drumEngine.humanTime.store ((float) (double) state.getProperty ("drumHumTime", 0.2));
+        drumEngine.humanRR.store ((float) (double) state.getProperty ("drumHumRR", 0.4));
         drumEngine.clickOn.store ((bool) state.getProperty ("drumClick", false));
         drumEngine.countInOn.store ((bool) state.getProperty ("drumCountIn", false));
 

@@ -76,27 +76,35 @@ private:
         DrumOverlay& owner;
     };
 
-    // ---- card de groove (fonte do arrasto), com miniatura da partitura
-    class GrooveCard : public juce::Component
+    // ---- linha da lista de grooves/viradas (arrastável) — coluna do meio
+    class LibRow : public juce::Component
     {
     public:
-        juce::String title, meta, dragId;
-        bool deletable = false, fill = false;
-        juce::uint8 pat[drum::numVoices][drum::stepsPerBar] = {};
-        bool hasPat = false;
-        std::function<void()> onLoad, onDelete;
+        juce::String name, dragId;
+        bool fill = false, selected = false, deletable = false;
+        std::function<void()> onSelect, onDelete;
         void paint (juce::Graphics&) override;
+        void mouseDown (const juce::MouseEvent&) override;
         void mouseDrag (const juce::MouseEvent&) override;
-        void mouseUp (const juce::MouseEvent&) override;
-
     private:
+        bool dragging = false;
+    };
+
+    // ---- painel de preview (coluna da direita): partitura grande + arrasto
+    class PreviewPane : public juce::Component
+    {
+    public:
+        explicit PreviewPane (DrumOverlay& o) : owner (o) {}
+        void paint (juce::Graphics&) override;
+        void mouseDown (const juce::MouseEvent&) override { dragging = false; }
+        void mouseDrag (const juce::MouseEvent&) override;
+    private:
+        DrumOverlay& owner;
         bool dragging = false;
     };
 
     void rebuildSectionTabs();
     void rebuildBarHeads();
-    void rebuildGenreChips();
-    void rebuildCards();
     void refreshAll();
 
     // ---- layout meter-aware da pauta (fórmula de compasso por compasso) ----
@@ -142,15 +150,28 @@ private:
     juce::OwnedArray<BarHead> barHeads;
     ScoreView scoreView { *this };
 
-    juce::OwnedArray<juce::TextButton> genreChips;
-    // sub-filtro: cada gênero mostra seus grooves E viradas
-    juce::TextButton kindTudo { "TUDO" }, kindGroove { "GROOVES" }, kindVirada { "VIRADAS" };
-    void refreshKindChips();
-    juce::Viewport cardsViewport;
-    juce::Component cardsContent;
-    juce::OwnedArray<GrooveCard> cards;
+    // ---- navegador em colunas: Gênero | Grooves/Viradas | Preview
+    juce::Viewport genreVp;
+    juce::Component genreContent;
+    juce::OwnedArray<juce::TextButton> genreRows;
+    juce::TextButton tabGrooves { "GROOVES" }, tabViradas { "VIRADAS" };
+    juce::Viewport listVp;
+    juce::Component listContent;
+    juce::OwnedArray<LibRow> libRows;
+    PreviewPane previewPane { *this };
+    juce::TextButton applyBtn;
+    juce::Slider humVelSlider, humTimeSlider, humRRSlider;   // humanização
     juce::TextEditor saveNameEditor;
     juce::TextButton saveConfirm { "SALVAR" };
+    // groove selecionado no preview
+    juce::String selName, selDragId;
+    int selBpm = 0;
+    bool selFill = false, selValid = false;
+    juce::uint8 selPat[drum::numVoices][drum::stepsPerBar] = {};
+    void rebuildGenreCol();
+    void rebuildList();
+    void selectEntry (const juce::String& dragId, const juce::String& name, bool fill);
+    void updatePreview();
 
     GridView gridView { *this };
 
@@ -165,7 +186,7 @@ private:
     bool gridOn = false;
     bool editMode = true;  // true = editar notas (clique); false = montar (arrasta compasso)
     juce::String currentGenre { "ROCK" };
-    int currentKind = 0;   // 0 tudo · 1 grooves · 2 viradas
+    int currentKind = 1;   // 1 grooves · 2 viradas (abas da coluna do meio)
 
     int lastUiBar = -2;
     bool lastHasVst = false;
