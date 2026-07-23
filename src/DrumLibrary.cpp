@@ -551,6 +551,20 @@ const std::vector<Groove>& library()
         { "METAL", "Caixa metralhadora", 0, 0, true, "S:0-15!|K:0,8" },
         { "METAL", "Flam nos tons", 0, 0, true, "T:0.,0,4.,4|U:8.,8|F:12.,12,14,15!" },
         { "METAL", "Double kick outro", 0, 0, true, "K:0-15|C:0!|S:15!" },
+
+        // ===== METAL (portado do midi-drums, fsecada01, MIT — ver THIRD_PARTY.md) =====
+        { "METAL", "Heavy verse", 150, 0, false, "H:0-14/2|S:4,12|K:0,3,8" },
+        { "METAL", "Death verse (blast)", 200, 0, false, "H:0,8|S:1-15/2|K:0-14/2" },
+        { "METAL", "Power verse", 160, 0, false, "R:0,4,8,12|S:4,6.,12|K:0,4,8,12" },
+        { "METAL", "Doom verse", 70, 0, false, "R:0,4,8,12|H:4,12|S:4!,12!|K:0!,8!" },
+        { "METAL", "Prog verse", 130, 0, false, "H:1,2,4,5,7,8,10,11,13,14|S:4,11,12|K:0,3,6,9,12" },
+        { "METAL", "Heavy chorus", 150, 0, false, "R:0,4,8,12|S:4!,12!|K:0-14/2" },
+        { "METAL", "Power chorus", 160, 0, false, "R:6,14|C:0!,8!|S:4!,12!|K:0,2,4,6,8,10,12" },
+        { "METAL", "Doom chorus", 75, 0, false, "R:0-14/2|H:4,12|C:0!|S:4!,12!|K:0!,6,8!,14" },
+        { "METAL", "Death intro", 190, 0, false, "C:0!|S:4!,12!|K:0-14/2" },
+        { "METAL", "Breakdown sincopado", 90, 0, false, "T:4|F:12|S:8!|K:0!,6,10" },
+        { "METAL", "Tom roll (metal)", 0, 0, true, "S:0,3,6,9,12|U:2,4,8,10,14|F:1,5,7,11,13,15" },
+        { "METAL", "Outro descida", 0, 0, true, "U:4|F:0,12|S:8|C:15!" },
     };
     return lib;
 }

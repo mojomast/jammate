@@ -18,6 +18,41 @@ compasso.
   CC BY 4.0. As patterns foram quantizadas para uma grade de semicolcheia e
   remapeadas para 9 vozes; são obras derivadas.
 
+## Grooves e viradas de metal — midi-drums
+
+Parte dos grooves e viradas de **metal** foi portada (posições e velocities)
+das definições de padrão do projeto **midi-drums**.
+
+- **Fonte:** midi-drums — fsecada01
+  <https://github.com/fsecada01/midi-drums>
+- **Licença:** MIT (declarada em `pyproject.toml` do projeto:
+  `license = { text = "MIT" }`)
+- **Atribuição / aviso MIT:**
+
+  ```
+  MIT License
+
+  Copyright (c) fsecada01 (midi-drums)
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ```
+
 ## Samples do kit interno da bateria — GMRockKit
 
 O sampler interno da bateria usa os samples do **GMRockKit** (ver também
