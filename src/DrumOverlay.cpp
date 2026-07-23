@@ -9,13 +9,31 @@ namespace
 constexpr int margin = 26;
 constexpr int headerY = 12, headerH = 34;
 constexpr int tabsY = 52, tabsH = 26;
-constexpr int barHeadsY = 82, barHeadsH = 24;
-constexpr int scoreY = 108, scoreH = 300;
+constexpr int barHeadsY = 80, barHeadsH = 30;
+constexpr int scoreY = 114, scoreH = 294;
 constexpr int libY = 414;                                 // topo do navegador/grade
 constexpr int gridY = 418, gridH = 226;                   // grade no lugar da lib
 constexpr int sourceY = 648, sourceH = 32;
 // navegador em colunas: Gênero | Grooves/Viradas | Preview
 constexpr int colGap = 8, genreColW = 150, listColW = 208, colRowH = 26;
+
+// papel do compasso (1..5) — rótulo (UI) e chave (gerador)
+juce::String roleLabel (int r)
+{
+    switch (r)
+    {
+        case 2: return juce::String (juce::CharPointer_UTF8 ("Refr\xc3\xa3o"));
+        case 3: return "Ponte";
+        case 4: return "Breakdown";
+        case 5: return "Virada";
+        default: return "Verso";
+    }
+}
+const char* roleKey (int r)
+{
+    switch (r) { case 2: return "chorus"; case 3: return "bridge";
+                 case 4: return "breakdown"; case 5: return "fill"; default: return "verse"; }
+}
 
 // geometria da pauta: 4 compassos × 16 steps na largura útil (~1048)
 // 4 compassos precisam caber em ~1038 px úteis: 64·stepW + 12·beatPad +
@@ -336,11 +354,13 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
             engine.setMeter (g, engine.meterNum (src), engine.meterDen (src));
             engine.barFromString (engine.barToString (src), g); // "" limpa; respeita métrica
             engine.barNames[g] = engine.barNames[src];
+            engine.barRole[g] = engine.barRole[src];
         }
         for (int g = (n - 1) * drum::barsPerSection; g < n * drum::barsPerSection; ++g)
         {
             engine.clearBar (g);
             engine.barNames[g].clear();
+            engine.barRole[g] = 0;
         }
         engine.numSections.store (n - 1);
         curSection = juce::jmin (curSection, n - 2);
@@ -877,6 +897,9 @@ void DrumOverlay::rebuildBarHeads()
                                                            : juce::String ("editado")));
         h->selected = b == selBar;
         h->meterText = juce::String (engine.meterNum (g)) + "/" + juce::String (engine.meterDen (g));
+        h->roleId = resolveRole (g);
+        h->roleAuto = engine.barRole[g] == 0;
+        h->roleText = roleLabel (h->roleId);
         h->onSelect = [this, b]
         {
             selBar = b;
@@ -889,6 +912,7 @@ void DrumOverlay::rebuildBarHeads()
             refreshAll();
         };
         h->onMeter = [this, b, h] { selBar = b; openMeterMenu (b, h); };
+        h->onRole  = [this, b, h] { selBar = b; openRoleMenu (b, h); };
         addAndMakeVisible (*h);
     }
     resized();
@@ -905,30 +929,66 @@ void DrumOverlay::BarHead::paint (juce::Graphics& g)
     g.setColour (selected ? ui::accentDark : ui::border());
     g.drawRoundedRectangle (b, 7.0f, 1.0f);
 
-    const int xW = empty ? 0 : 18;   // largura do ✕
-    g.setFont (ui::uiFont (11.0f, true));
-    g.setColour (empty ? ui::textMuted : (selected ? ui::accent : ui::textDim));
-    g.drawText (title, 9, 0, getWidth() - 44 - xW, getHeight(), juce::Justification::centredLeft);
+    const int H = getHeight(), W = getWidth();
+    const int py = (H - 18) / 2;
+    const juce::juce_wchar caret = juce::CharPointer_UTF8 ("\xe2\x96\xbe")[0];
 
-    // fórmula de compasso (clicável) — abre o menu
-    g.setFont (ui::monoFont (10.0f, true));
-    g.setColour (meterText == "4/4" ? ui::textMuted : ui::accent);
-    g.drawText (meterText, getWidth() - 40 - xW, 0, 34, getHeight(), juce::Justification::centredRight);
+    auto pill = [&] (juce::Rectangle<int> r, const juce::String& txt, juce::Colour c,
+                     bool strong, bool mono)
+    {
+        g.setColour (c.withAlpha (0.11f)); g.fillRoundedRectangle (r.toFloat(), 5.0f);
+        g.setColour (c.withAlpha (strong ? 0.6f : 0.32f));
+        g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 5.0f, 1.0f);
+        g.setColour (strong ? c : c.withAlpha (0.85f));
+        g.setFont (mono ? ui::monoFont (9.5f, true) : ui::uiFont (9.5f, true));
+        g.drawText (txt, r.getX() + 7, r.getY(), r.getWidth() - 22, 18, juce::Justification::centredLeft);
+        g.setFont (ui::monoFont (7.0f));
+        g.drawText (juce::String::charToString (caret), r.getRight() - 13, r.getY(), 10, 18,
+                    juce::Justification::centred);
+    };
 
-    if (! empty)
+    // pill de PAPEL (esquerda) — cor por papel; mais fraco quando é "auto"
+    const juce::Colour rc = roleId == 3 ? ui::textDim : (roleId >= 4 ? ui::glowOrange : ui::accent);
+    const int rtw = juce::GlyphArrangement::getStringWidthInt (ui::uiFont (9.5f, true), roleText);
+    roleRect = { 6, py, rtw + 24, 18 };
+    pill (roleRect, roleText, rc, ! roleAuto, false);
+
+    // ✕ limpar (direita)
+    const bool showX = ! empty;
+    clearRect = showX ? juce::Rectangle<int> (W - 22, py, 16, 18) : juce::Rectangle<int>();
+    if (showX)
     {
         g.setFont (ui::monoFont (11.0f));
         g.setColour (ui::textMuted);
-        g.drawText (juce::CharPointer_UTF8 ("\xc3\x97"), getWidth() - 20, 0, 14, getHeight(),
-                    juce::Justification::centred);
+        g.drawText (juce::CharPointer_UTF8 ("\xc3\x97"), clearRect, juce::Justification::centred);
+    }
+
+    // pill de FÓRMULA (antes do ✕)
+    const bool odd = meterText != "4/4";
+    const juce::Colour mc = odd ? ui::accent : ui::textFaint;
+    const int mtw = juce::GlyphArrangement::getStringWidthInt (ui::monoFont (9.5f, true), meterText);
+    const int mpw = mtw + 24;
+    const int mrx = (showX ? clearRect.getX() : W - 6) - 6 - mpw;
+    meterRect = { mrx, py, mpw, 18 };
+    pill (meterRect, meterText, mc, odd, true);
+
+    // título (nº · groove) no meio, se couber
+    const int tx = roleRect.getRight() + 8;
+    const int tw = meterRect.getX() - 6 - tx;
+    if (tw > 24)
+    {
+        g.setFont (ui::uiFont (10.5f, false));
+        g.setColour (empty ? ui::textMuted : (selected ? ui::accent : ui::textDim));
+        g.drawText (title, tx, 0, tw, H, juce::Justification::centredLeft, true);
     }
 }
 
 void DrumOverlay::BarHead::mouseUp (const juce::MouseEvent& e)
 {
-    const int x = e.getPosition().x, w = getWidth();
-    if (! empty && x > w - 24)          { if (onClear) onClear(); return; }
-    if (x > w - 24 - 40 && x <= w - 24) { if (onMeter) onMeter(); return; }  // fórmula
+    const auto p = e.getPosition();
+    if (! empty && clearRect.contains (p)) { if (onClear)  onClear();  return; }
+    if (meterRect.contains (p))            { if (onMeter)  onMeter();  return; }
+    if (roleRect.contains (p))             { if (onRole)   onRole();   return; }
     if (onSelect) onSelect();
 }
 
@@ -1294,6 +1354,34 @@ void DrumOverlay::openMeterMenu (int barInSec, juce::Component* anchor)
     m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (anchor));
 }
 
+int DrumOverlay::resolveRole (int globalBar) const
+{
+    const int r = engine.barRole[globalBar];
+    if (r > 0) return r;
+    static const int arc[drum::barsPerSection] = { 1, 2, 3, 5 }; // verso/refrão/ponte/virada
+    return arc[globalBar % drum::barsPerSection];
+}
+
+void DrumOverlay::openRoleMenu (int barInSec, juce::Component* anchor)
+{
+    const int gb = curSection * drum::barsPerSection + barInSec;
+    auto set = [safe = juce::Component::SafePointer<DrumOverlay> (this)] (int g, int role)
+    {
+        if (safe == nullptr) return;
+        safe->engine.barRole[g] = role;
+        safe->refreshAll();
+    };
+
+    juce::PopupMenu m;
+    const int cur = engine.barRole[gb];
+    m.addItem (juce::String (juce::CharPointer_UTF8 ("Autom\xc3\xa1tico (pelo arco)")), true,
+               cur == 0, [set, gb] { set (gb, 0); });
+    m.addSeparator();
+    for (int r = 1; r <= 5; ++r)
+        m.addItem (roleLabel (r), true, cur == r, [set, gb, r] { set (gb, r); });
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (anchor));
+}
+
 //==============================================================================
 // Navegador em colunas: Gênero | Grooves/Viradas | Preview
 void DrumOverlay::rebuildGenreCol()
@@ -1610,18 +1698,16 @@ void DrumOverlay::fillBarWithGen (int globalBar, const juce::String& role, juce:
 
 void DrumOverlay::generateOne()
 {
-    static const char* arc[] = { "verse", "chorus", "bridge", "fill" };
     const int g = selectedBar();
-    fillBarWithGen (g, arc[selBar & 3], genSeedCtr++);
+    fillBarWithGen (g, roleKey (resolveRole (g)), genSeedCtr++);
     refreshAll();
 }
 
 void DrumOverlay::generateAll()
 {
-    static const char* arc[] = { "verse", "chorus", "bridge", "fill" };
     const int base = curSection * drum::barsPerSection;
     for (int i = 0; i < drum::barsPerSection; ++i)
-        fillBarWithGen (base + i, arc[i], genSeedCtr++);
+        fillBarWithGen (base + i, roleKey (resolveRole (base + i)), genSeedCtr++);
     refreshAll();
 }
 

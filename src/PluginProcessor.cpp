@@ -3106,6 +3106,8 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
                 state.setProperty ("drumMeter" + sfx,
                                    juce::String (drumEngine.meterNum (b)) + "/"
                                        + juce::String (drumEngine.meterDen (b)), nullptr);
+            if (drumEngine.barRole[b] > 0)   // 0 = auto (não grava)
+                state.setProperty ("drumBarRole" + sfx, drumEngine.barRole[b], nullptr);
             if (drumEngine.barUsed[b].load())
             {
                 state.setProperty ("drumBar" + sfx, drumEngine.barToString (b), nullptr);
@@ -3211,6 +3213,7 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
         {
             drumEngine.clearBar (b);
             drumEngine.barNames[b].clear();
+            drumEngine.barRole[b] = 0;
         }
 
         if (state.hasProperty ("drumSecPattern1"))
@@ -3257,6 +3260,7 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
                 drumEngine.barFromString (state.getProperty ("drumBar" + sfx, "").toString(), b);
                 drumEngine.barNames[b] =
                     state.getProperty ("drumBarName" + sfx, "").toString();
+                drumEngine.barRole[b] = (int) state.getProperty ("drumBarRole" + sfx, 0);
             }
         }
         else

@@ -111,6 +111,11 @@ public:
     // persistência; o áudio nunca lê)
     juce::String barNames[drum::maxBars];
 
+    // papel do compasso p/ o gerador — SÓ message thread. 0 = auto (segue o
+    // arco verso/refrão/ponte/virada pela posição); 1..5 = verso/refrão/ponte/
+    // breakdown/virada explícitos.
+    int barRole[drum::maxBars] = {};
+
     int totalBars() const noexcept
     {
         return juce::jlimit (1, drum::maxSections, numSections.load())

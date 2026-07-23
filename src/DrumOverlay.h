@@ -59,9 +59,12 @@ private:
     {
     public:
         int barInSec = 0;
-        juce::String title, meterText { "4/4" };
+        juce::String title, meterText { "4/4" }, roleText { "Verso" };
+        int roleId = 1;              // 1..5 resolvido (p/ cor)
+        bool roleAuto = true;        // papel vindo do arco (não explícito)
         bool selected = false, empty = true;
-        std::function<void()> onSelect, onClear, onMeter;
+        std::function<void()> onSelect, onClear, onMeter, onRole;
+        juce::Rectangle<int> roleRect, meterRect, clearRect;  // zonas de clique
         void paint (juce::Graphics&) override;
         void mouseUp (const juce::MouseEvent&) override;
     };
@@ -125,6 +128,8 @@ private:
     int groupIndexInBar (int b, int s) const;
     int barAtXlocal (int x) const;
     void openMeterMenu (int barInSec, juce::Component* anchor);
+    void openRoleMenu (int barInSec, juce::Component* anchor);
+    int resolveRole (int globalBar) const;   // 1..5 (auto vira arco pela posição)
 
     /// compasso global selecionado (curSection*4 + selBar)
     int selectedBar() const { return curSection * drum::barsPerSection + selBar; }
