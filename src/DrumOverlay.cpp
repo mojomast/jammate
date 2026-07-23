@@ -11,7 +11,7 @@ constexpr int headerY = 12, headerH = 34;
 constexpr int tabsY = 52, tabsH = 26;
 constexpr int barHeadsY = 82, barHeadsH = 24;
 constexpr int scoreY = 108, scoreH = 300;
-constexpr int libY = 420, libChipsH = 25, libCardsH = 82; // biblioteca OU grade
+constexpr int libY = 414, libChipsH = 25, libCardsH = 92; // biblioteca OU grade
 constexpr int gridY = 418, gridH = 226;                   // grade no lugar da lib
 constexpr int sourceY = 648, sourceH = 32;
 
@@ -40,6 +40,100 @@ constexpr bool staffXHead[drum::numVoices] = { false, false, true, true, true, t
                                                false, false, false };
 constexpr bool staffIsHand[drum::numVoices] = { false, true, true, false, true, true,
                                                 true, true, true };
+
+// Desenha 1 compasso em PENTAGRAMA dentro de `area` — mesma linguagem da pauta
+// central: pauta de 5 linhas, cabeças (× pratos / elipse tambores), hastes
+// (↑ mãos, ↓ pés) e barras de ligação por tempo. Usado na miniatura dos cards.
+void drawMiniBar (juce::Graphics& g, juce::Rectangle<float> area,
+                  const juce::uint8 pat[drum::numVoices][drum::stepsPerBar])
+{
+    const juce::Colour ink (0xffc4cdd6), dim (0xff3a424b);
+    const float sp = (area.getHeight() - 4.0f) / 16.0f;   // posições -4..12
+    auto yOf = [&] (float pos) { return area.getBottom() - 2.0f - (pos + 4.0f) * sp; };
+    const float x0 = area.getX() + 4.0f;
+    const float sw = (area.getWidth() - 8.0f) / (float) drum::stepsPerBar;
+    auto xOf = [&] (int s) { return x0 + (s + 0.5f) * sw; };
+    const float hr = juce::jmax (1.7f, sp * 0.72f);       // raio da cabeça
+
+    // 5 linhas da pauta (posições 0,2,4,6,8)
+    g.setColour (dim);
+    for (int i = 0; i <= 4; ++i)
+        g.drawHorizontalLine ((int) yOf ((float) (i * 2)), area.getX(), area.getRight());
+    // separadores de tempo
+    g.setColour (juce::Colours::white.withAlpha (0.045f));
+    for (int beat = 1; beat < 4; ++beat)
+        g.drawVerticalLine ((int) (x0 + beat * 4 * sw), yOf (9.0f), yOf (-2.0f));
+
+    auto drawHead = [&] (float x, float y, bool cross, int val)
+    {
+        g.setColour (val == 2 ? ui::glowOrange : val == 3 ? dim.brighter (0.45f) : ink);
+        if (cross)
+        {
+            g.drawLine (x - hr, y - hr, x + hr, y + hr, 1.0f);
+            g.drawLine (x - hr, y + hr, x + hr, y - hr, 1.0f);
+        }
+        else
+            g.fillEllipse (x - hr * 1.05f, y - hr * 0.8f, hr * 2.1f, hr * 1.6f);
+    };
+
+    const float beamYH = yOf (12.0f), beamYF = yOf (-4.0f);
+
+    for (int beat = 0; beat < 4; ++beat)
+        for (int limb = 0; limb < 2; ++limb)
+        {
+            const bool up = (limb == 0);
+            struct Col { int s; float noteY; };
+            Col cols[4];
+            int nc = 0;
+            for (int i = 0; i < 4; ++i)
+            {
+                const int s = beat * 4 + i;
+                float ext = up ? -1.0e9f : 1.0e9f;
+                bool any = false;
+                for (int v = 0; v < drum::numVoices; ++v)
+                {
+                    if (staffIsHand[v] != up)
+                        continue;
+                    const int val = pat[v][s];
+                    if (val == 0)
+                        continue;
+                    any = true;
+                    const float y = yOf (staffPos[v]);
+                    drawHead (xOf (s), y, staffXHead[v], val);
+                    ext = up ? juce::jmax (ext, y) : juce::jmin (ext, y);
+                }
+                if (any)
+                    cols[nc++] = { s, ext };
+            }
+            if (nc == 0)
+                continue;
+
+            const float beamY = up ? beamYH : beamYF;
+            auto stemX = [&] (int s) { return up ? xOf (s) + hr * 0.85f : xOf (s) - hr * 0.85f; };
+            g.setColour (ink);
+            for (int c = 0; c < nc; ++c)
+                g.drawLine (stemX (cols[c].s), cols[c].noteY + (up ? -1.5f : 1.5f),
+                            stemX (cols[c].s), beamY, 1.0f);
+
+            if (nc > 1)
+            {
+                const float y = up ? beamY : beamY - 2.0f;
+                g.fillRect (stemX (cols[0].s), y, stemX (cols[nc - 1].s) - stemX (cols[0].s), 2.0f);
+                for (int c = 0; c < nc - 1; ++c)
+                    if (cols[c + 1].s - cols[c].s == 1)
+                        g.fillRect (stemX (cols[c].s), up ? beamY + 3.0f : beamY - 5.0f,
+                                    stemX (cols[c + 1].s) - stemX (cols[c].s), 2.0f);
+            }
+            else
+            {
+                juce::Path flag;
+                const float x = stemX (cols[0].s), dir = up ? 1.0f : -1.0f;
+                flag.startNewSubPath (x, beamY);
+                flag.quadraticTo (x + 4.0f, beamY + 3.0f * dir, x + 2.0f, beamY + 8.0f * dir);
+                g.strokePath (flag, juce::PathStrokeType (1.0f));
+            }
+        }
+}
 
 // grade opcional
 constexpr int gridLabelW = 96;
@@ -990,7 +1084,6 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
 
     juce::uint8 pat[drum::numVoices][drum::stepsPerBar] = {};
     juce::String name;
-    int newBpm = 0, newSwing = -1;
 
     if (dragId.startsWith ("f:"))
     {
@@ -1001,8 +1094,6 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
         const auto& g = lib[(size_t) idx];
         drum::parseSpec (g, pat);
         name = juce::String (juce::CharPointer_UTF8 (g.name));
-        newBpm = g.bpm;
-        newSwing = g.swing;
     }
     else if (dragId.startsWith ("u:"))
     {
@@ -1020,22 +1111,17 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
                 ++i;
             }
         name = parsed.getProperty ("name", f.getFileNameWithoutExtension()).toString();
-        newBpm = (int) parsed.getProperty ("bpm", 0);
-        newSwing = (int) parsed.getProperty ("swing", -1);
     }
     else
         return;
 
+    // aplica SÓ as notas — o BPM/swing da música não muda ao soltar um groove
+    // (o valor no card é apenas uma sugestão; ajuste o tempo no transporte)
     engine.setBarPattern (pat, globalBar);
     engine.barNames[globalBar] = name;
-    if (newBpm > 0)
-        engine.bpm.store ((float) newBpm);
-    if (newSwing >= 0)
-        engine.swingPct.store ((float) newSwing);
 
     curSection = globalBar / drum::barsPerSection;
     selBar = globalBar % drum::barsPerSection;
-    syncTransportUi();
     refreshAll();
 }
 
@@ -1088,46 +1174,9 @@ void DrumOverlay::GrooveCard::paint (juce::Graphics& g)
     g.setColour (ui::textMuted);
     g.drawText (meta, getWidth() - 50, 3, 44, 15, juce::Justification::centredRight);
 
-    // miniatura da partitura: mostra o que vai ser colocado (antes de arrastar)
+    // miniatura em pentagrama do que vai ser colocado (antes de arrastar)
     if (hasPat)
-    {
-        const juce::Rectangle<float> sc (8.0f, 21.0f, getWidth() - 16.0f, getHeight() - 25.0f);
-        const juce::Colour mink (0xffb9c2cc), mdim (0xff353d46);
-        const float sp = (sc.getHeight() - 4.0f) / 11.0f;   // posições -1..10
-        auto yy = [&] (float pos) { return sc.getBottom() - 2.0f - (pos + 1.0f) * sp; };
-        const float sw = sc.getWidth() / (float) drum::stepsPerBar;
-
-        // 5 linhas da pauta (posições 0,2,4,6,8)
-        g.setColour (mdim);
-        for (int i = 0; i <= 4; ++i)
-            g.drawHorizontalLine ((int) yy ((float) (i * 2)), sc.getX(), sc.getRight());
-        // separadores de tempo
-        g.setColour (juce::Colours::white.withAlpha (0.05f));
-        for (int beat = 1; beat < 4; ++beat)
-            g.drawVerticalLine ((int) (sc.getX() + beat * 4 * sw), yy (10.5f), yy (-1.0f));
-
-        for (int s = 0; s < drum::stepsPerBar; ++s)
-        {
-            const float x = sc.getX() + (s + 0.5f) * sw;
-            for (int v = 0; v < drum::numVoices; ++v)
-            {
-                const int val = pat[v][s];
-                if (val == 0)
-                    continue;
-                const float y = yy (staffPos[v]);
-                g.setColour (val == 2 ? ui::glowOrange
-                                      : val == 3 ? mdim.brighter (0.3f) : mink);
-                if (staffXHead[v])
-                {
-                    const float r = 2.0f;
-                    g.drawLine (x - r, y - r, x + r, y + r, 1.0f);
-                    g.drawLine (x - r, y + r, x + r, y - r, 1.0f);
-                }
-                else
-                    g.fillEllipse (x - 2.1f, y - 1.6f, 4.2f, 3.2f);
-            }
-        }
-    }
+        drawMiniBar (g, { 8.0f, 20.0f, getWidth() - 16.0f, getHeight() - 24.0f }, pat);
 
     if (deletable)
     {
