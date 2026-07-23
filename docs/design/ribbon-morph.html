@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:'Space Grotesk';font-weight:400;src:url(../../assets/fonts/SpaceGrotesk-Regular.ttf) format('truetype');}
+@font-face{font-family:'Space Grotesk';font-weight:700;src:url(../../assets/fonts/SpaceGrotesk-Bold.ttf) format('truetype');}
+@font-face{font-family:'JetBrains Mono';font-weight:400;src:url(../../assets/fonts/JetBrainsMono-Regular.ttf) format('truetype');}
+@font-face{font-family:'JetBrains Mono';font-weight:700;src:url(../../assets/fonts/JetBrainsMono-Bold.ttf) format('truetype');}
+</style>
+<style>
+  :root{--accent:#33c9d6;--accentDark:#1c8f9a;--accentText:#08211f;--orange:#ff963c;--orangeDark:#c9702a;
+    --text:#eef2f6;--textDim:#99a1ab;--textFaint:#7c8590;--textMuted:#616b76;--green:#46e0a0;
+    --cardTop:#1f242b;--cardBot:#111419;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#05070a}
+  body{font-family:'Space Grotesk',sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:18px}
+  .mono{font-family:'JetBrains Mono',monospace}.up{text-transform:uppercase;letter-spacing:.12em}
+  .cap{width:1180px;margin:0 auto 10px;display:flex;gap:12px;align-items:center;color:var(--textFaint);font-size:12px}
+  .cap b{color:var(--text)}
+  .cap .btn{margin-left:auto;font-size:11px;padding:7px 14px;border-radius:8px;background:#12171d;border:1px solid #242b34;color:var(--textDim);cursor:pointer}
+
+  .stage{width:1180px;height:745px;margin:0 auto;position:relative;border-radius:11px;overflow:hidden;border:1px solid #1b2027;box-shadow:0 40px 120px rgba(0,0,0,.6)}
+  .screen{position:absolute;inset:0;transition:opacity .55s ease, transform .55s cubic-bezier(.5,0,.2,1);transform-origin:center 12%}
+  .stage.g .screen.guitar{opacity:1;transform:scale(1);z-index:2}
+  .stage.g .screen.drums {opacity:0;transform:scale(1.04);z-index:1;pointer-events:none}
+  .stage.d .screen.drums {opacity:1;transform:scale(1);z-index:2}
+  .stage.d .screen.guitar{opacity:0;transform:scale(1.04);z-index:1;pointer-events:none}
+
+  /* tela guitarra = screenshot real */
+  .screen.guitar{background-image:url('ribbon-morph-guitar.png');background-size:cover;background-position:top center}
+
+  /* ---------- ribbon da bateria (na guitarra) ---------- */
+  .ribDrum{position:absolute;left:26px;right:26px;top:50px;height:52px;display:flex;align-items:center;gap:13px;padding:0 15px;border-radius:11px;cursor:pointer;
+    background:linear-gradient(#171c22,#0e1216);border:1px solid #2a4a50;box-shadow:0 8px 26px rgba(0,0,0,.45),0 0 0 1px rgba(51,201,214,.12)}
+  .ribDrum .play{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:12px;flex:none;background:linear-gradient(var(--accent),var(--accentDark));color:var(--accentText);cursor:pointer;user-select:none}
+  .ribDrum .play.paused{background:#12171d;border:1px solid #2a4a50;color:var(--accent)}
+  .paused .playhead{animation-play-state:paused}
+  .ribDrum{cursor:pointer}
+  .ribDrum .lab{display:flex;flex-direction:column;line-height:1.1}
+  .ribDrum .lab b{font-size:12px}.ribDrum .lab span{font-size:9px;color:var(--textFaint)}
+  .ribDrum .bpm{display:flex;flex-direction:column;align-items:center;line-height:1}
+  .ribDrum .bpm b{font-size:15px}.ribDrum .bpm span{font-size:8px;color:var(--textFaint)}
+  .secs{display:flex;gap:5px}.sec{font-size:8px;padding:2px 8px;border-radius:12px;border:1px solid #262d36;color:var(--textDim)}
+  .sec.v{color:var(--accent);border-color:var(--accentDark)}.sec.f{color:var(--orange);border-color:rgba(255,150,60,.5)}
+  .miniStaff{flex:1;height:38px;position:relative;background:#0c1014;border:1px solid #1a2029;border-radius:8px;overflow:hidden}
+  .miniStaff svg{display:block;width:100%;height:38px}
+  .barmark{position:absolute;top:0;bottom:0;width:25%;left:25%;background:rgba(51,201,214,.09)}
+  .playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);box-shadow:0 0 8px var(--accent);left:2%;animation:ph 4s linear infinite}
+  @keyframes ph{from{left:1%}to{left:99%}}
+  .openh{font-size:10px;color:var(--textFaint);white-space:nowrap}
+
+  /* ---------- tela bateria (screenshot real + ribbon da guitarra no topo) ---------- */
+  .screen.drums{background:#0a0c0f;display:flex;flex-direction:column;overflow:hidden}
+  .drumsShot{flex:1;min-height:0;width:100%;object-fit:cover;object-position:top center;display:block}
+  /* ribbon da guitarra (no topo da bateria) */
+  .ribGtr{position:relative;flex:none;height:66px;display:flex;align-items:center;gap:12px;padding:0 18px;
+    border-bottom:1px solid #202632;background:linear-gradient(#171c22,#0e1216)}
+  .ribGtr .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:15px;flex:none;background:linear-gradient(var(--accent),var(--accentDark));cursor:pointer}
+  .ribGtr .lab{display:flex;flex-direction:column;line-height:1.15;min-width:118px}
+  .ribGtr .lab b{font-size:12px}
+  .ribGtr .lab span{font-size:9px;color:var(--textFaint)}
+  .ribGtr .lab span.act{color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:9.5px}
+  .knobs{display:flex;align-items:stretch;gap:0;overflow-x:auto;overflow-y:hidden;flex:1}
+  .knobs::-webkit-scrollbar{height:0}
+  .kgrp{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:0 13px;border-right:1px solid #1e242c;flex:none}
+  .kgrp:last-of-type{border-right:none}
+  .gname{font-size:8px;color:#98a2ae;letter-spacing:.08em;text-transform:uppercase;font-weight:700;white-space:nowrap}
+  .kgrp.amp .gname{color:#e0b072}
+  .krow{display:flex;gap:9px}
+  .knob{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .knob .dial{width:26px;height:26px;border-radius:50%;position:relative;background:radial-gradient(circle at 50% 38%,#3d434c,#181b20);border:1px solid #2a323b;cursor:ns-resize}
+  .knob .dial:hover{border-color:#3a4650}
+  .knob .dial::after{content:'';position:absolute;width:2px;height:8px;background:var(--accent);left:50%;top:3px;transform-origin:50% 10px;transform:translateX(-50%) rotate(var(--a,0deg));box-shadow:0 0 5px var(--accent)}
+  .knob .kn{font-size:7px;color:var(--textFaint)}
+  .kgrp.amp .dial::after{background:var(--orange);box-shadow:0 0 5px var(--orange)}.kgrp.amp .kn{color:#c9a06a}
+  .ribGtr .openh{margin-left:auto;cursor:pointer;padding:6px 10px;border-radius:7px;border:1px solid #242b34;white-space:nowrap}
+  .ribGtr .openh:hover{border-color:var(--accentDark);color:var(--accent)}
+
+  .dbody{position:absolute;top:64px;left:0;right:0;bottom:0;padding:16px 22px;display:flex;flex-direction:column;gap:12px}
+  .dhead{display:flex;align-items:center;gap:12px}
+  .dhead .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}.dhead b{font-size:14px}
+  .dhead .play2{height:30px;padding:0 16px;border-radius:8px;background:linear-gradient(var(--accent),var(--accentDark));color:var(--accentText);font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .dhead .chips{margin-left:auto;display:flex;gap:6px}
+  .dhead .chip{height:26px;padding:0 11px;border-radius:7px;background:#12171d;border:1px solid #242b34;font-size:9.5px;color:var(--textDim);display:flex;align-items:center}
+  .dhead .chip.on{border-color:var(--orange);color:#ffca8f}
+  .heads{display:grid;grid-template-columns:16fr 16fr 14fr 16fr;gap:8px}
+  .bh{display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:8px 8px 0 0;background:linear-gradient(#181d24,#12161b);border:1px solid #1e242c;border-bottom:none}
+  .bh .role{font-size:8px;font-weight:700;padding:2px 7px;border-radius:14px;border:1px solid #262d36;color:var(--textDim);letter-spacing:.06em}
+  .bh .role.v{color:var(--accent);border-color:var(--accentDark)}.bh .role.f{color:var(--orange);border-color:rgba(255,150,60,.5)}
+  .bh .mt{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:#bff0f5}.bh.f .mt{color:#ffca8f}
+  .dpauta{background:#0c1014;border:1px solid #1e242c;border-radius:0 0 10px 10px;padding:5px 4px;position:relative}
+  .dpauta svg{display:block;width:100%;height:150px}
+  .dpauta .ph2{position:absolute;top:6px;bottom:6px;width:2px;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:ph 4s linear infinite}
+  .genstrip{margin-top:auto;background:linear-gradient(rgba(255,150,60,.05),transparent),linear-gradient(var(--cardTop),var(--cardBot));border:1px solid #33302c;border-radius:11px;padding:11px 14px;display:flex;align-items:center;gap:14px}
+  .genstrip .gt{font-size:10px;color:var(--orange);font-weight:700;letter-spacing:.08em}
+  .dd{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:8px;background:#11161c;border:1px solid #232a33;font-size:11px;color:var(--text)}
+  .dd.g{border-color:var(--orange);color:#ffca8f}.dd .c{margin-left:6px;color:var(--textFaint);font-size:8px}
+  .gbtn{margin-left:auto;display:flex;gap:9px}.gb{padding:9px 14px;border-radius:9px;font-size:11px;font-weight:700}
+  .gb.sec{background:#12171d;border:1px solid var(--accentDark);color:var(--accent)}.gb.pri{background:linear-gradient(var(--orange),var(--orangeDark));color:#1a1205}
+</style>
+</head>
+<body>
+  <div class="cap"><b>Guitarra ⇄ Bateria</b> — a tela da guitarra é a real (cadeia intacta). Clique no ribbon do topo para o morph.
+    <span class="btn" id="toggle">alternar tela ⇄</span></div>
+
+  <div class="stage g" id="stage">
+
+    <!-- TELA GUITARRA (screenshot real) + ribbon da bateria -->
+    <div class="screen guitar">
+      <div class="ribDrum">
+        <div class="play" id="playBtn" title="tocar/pausar">❚❚</div>
+        <div class="lab"><b>BATERIA</b><span id="drmState">tocando · acompanhe</span></div>
+        <div class="bpm"><b class="mono">148</b><span class="up">BPM</span></div>
+        <div class="secs"><span class="sec v">Verso</span><span class="sec">Refrão</span><span class="sec">Ponte 7/8</span><span class="sec f">Virada</span></div>
+        <div class="miniStaff"><div class="barmark"></div><svg id="ribStaff"></svg><div class="playhead"></div></div>
+        <div class="openh" data-go="d">abrir bateria ⤢</div>
+      </div>
+    </div>
+
+    <!-- TELA BATERIA + ribbon da guitarra (amp + pedais ativos) -->
+    <div class="screen drums">
+      <div class="ribGtr">
+        <div class="ic" data-go="g">🎸</div>
+        <div class="lab"><b>GUITARRA</b><span id="gtrOut">amp + pedais ativos</span></div>
+        <div class="knobs">
+          <div class="kgrp amp">
+            <div class="gname">AMP · EVH 5150</div>
+            <div class="krow">
+              <div class="knob"><div class="dial" data-lbl="Amp · Gain" data-val="35"></div><span class="kn">GAIN</span></div>
+              <div class="knob"><div class="dial" data-lbl="Amp · Bass" data-val="55"></div><span class="kn">BASS</span></div>
+              <div class="knob"><div class="dial" data-lbl="Amp · Mid" data-val="48"></div><span class="kn">MID</span></div>
+              <div class="knob"><div class="dial" data-lbl="Amp · Treble" data-val="62"></div><span class="kn">TREB</span></div>
+              <div class="knob"><div class="dial" data-lbl="Amp · Presence" data-val="50"></div><span class="kn">PRES</span></div>
+              <div class="knob"><div class="dial" data-lbl="Amp · Master" data-val="70"></div><span class="kn">MASTER</span></div>
+            </div>
+          </div>
+          <div class="kgrp">
+            <div class="gname">Overdrive</div>
+            <div class="krow">
+              <div class="knob"><div class="dial" data-lbl="Overdrive · Drive" data-val="58"></div><span class="kn">DRIVE</span></div>
+              <div class="knob"><div class="dial" data-lbl="Overdrive · Tone" data-val="45"></div><span class="kn">TONE</span></div>
+              <div class="knob"><div class="dial" data-lbl="Overdrive · Nível" data-val="40"></div><span class="kn">LVL</span></div>
+            </div>
+          </div>
+          <div class="kgrp">
+            <div class="gname">Delay</div>
+            <div class="krow">
+              <div class="knob"><div class="dial" data-lbl="Delay · Time" data-val="30"></div><span class="kn">TIME</span></div>
+              <div class="knob"><div class="dial" data-lbl="Delay · Mix" data-val="25"></div><span class="kn">MIX</span></div>
+            </div>
+          </div>
+          <div class="kgrp">
+            <div class="gname">Reverb</div>
+            <div class="krow">
+              <div class="knob"><div class="dial" data-lbl="Reverb · Decay" data-val="52"></div><span class="kn">DECAY</span></div>
+              <div class="knob"><div class="dial" data-lbl="Reverb · Mix" data-val="35"></div><span class="kn">MIX</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="openh" data-go="g">abrir guitarra ⤢</div>
+      </div>
+      <img class="drumsShot" src="ribbon-morph-drums.png" alt="tela da bateria">
+    </div>
+
+  </div>
+
+<script>
+const staffPos=[1,5,9,-1,8,10,7,6,3],xHead=[0,0,1,1,1,1,0,0,0],isHand=[0,1,1,0,1,1,1,1,1];
+const INK="#c9d2da",DIM="#3a424b",CYAN="#33c9d6";
+function groups(n,d){if(d==8&&n==7)return[4,4,6];if(d==4){let g=[];for(let i=0;i<n;i++)g.push(4);return g;}let s=Math.round(n*16/d),g=[],r=s;while(r>=4){g.push(4);r-=4;}if(r>0)g.push(r);return g;}
+function head(x,y,cr,hr){if(cr)return`<line x1="${x-hr}" y1="${y-hr}" x2="${x+hr}" y2="${y+hr}" stroke="${INK}" stroke-width="1.2"/><line x1="${x-hr}" y1="${y+hr}" x2="${x+hr}" y2="${y-hr}" stroke="${INK}" stroke-width="1.2"/>`;return`<ellipse cx="${x}" cy="${y}" rx="${hr*1.05}" ry="${hr*.82}" fill="${INK}"/>`;}
+function drawBars(svg,bars,H){
+  const W=svg.clientWidth||600;svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+  const total=bars.reduce((a,b)=>a+groups(b.n,b.d).reduce((x,y)=>x+y,0),0);
+  const padX=8,sp=(H-26)/16,topPad=10,yOf=p=>topPad+(13-p)*sp,stepW=(W-2*padX)/(total+bars.length*1.1);
+  let el="",cursor=padX,prev="";
+  for(let i=0;i<=4;i++){const y=yOf(i*2);el+=`<line x1="${padX-2}" y1="${y}" x2="${W-padX+2}" y2="${y}" stroke="${DIM}"/>`;}
+  const hr=Math.max(2.2,sp*.6),beamYH=yOf(13),beamYF=yOf(-5);
+  bars.forEach(bar=>{
+    const grp=groups(bar.n,bar.d),steps=grp.reduce((a,b)=>a+b,0),gS=[0];for(let i=1;i<grp.length;i++)gS[i]=gS[i-1]+grp[i-1];
+    el+=`<line x1="${cursor-2}" y1="${yOf(8)}" x2="${cursor-2}" y2="${yOf(0)}" stroke="#4a545e" stroke-width="1.2"/>`;
+    const mtr=bar.n+"/"+bar.d,nx=cursor+(mtr!==prev?11:2);
+    if(mtr!==prev){el+=`<text x="${cursor}" y="${yOf(6)+3}" font-family="JetBrains Mono" font-size="${sp*1.4}" font-weight="700" fill="${CYAN}">${bar.n}</text><text x="${cursor}" y="${yOf(2)+3}" font-family="JetBrains Mono" font-size="${sp*1.4}" font-weight="700" fill="${CYAN}">${bar.d}</text>`;prev=mtr;}
+    const xOf=s=>nx+(s+0.5)*stepW,map={};for(const v in bar.p)for(const s of bar.p[v])(map[s]=map[s]||[]).push(+v);
+    for(let gi=0;gi<grp.length;gi++)for(let limb=0;limb<2;limb++){
+      const up=limb==0,cols=[];
+      for(let i=0;i<grp[gi];i++){const s=gS[gi]+i,vs=map[s];if(!vs)continue;let ext=up?-1e9:1e9,any=false;
+        for(const v of vs){if(isHand[v]!=up)continue;any=true;const y=yOf(staffPos[v]);el+=head(xOf(s),y,xHead[v],hr);ext=up?Math.max(ext,y):Math.min(ext,y);}
+        if(any)cols.push({s,y:ext});}
+      if(!cols.length)continue;const beamY=up?beamYH:beamYF,stemX=s=>up?xOf(s)+hr*.8:xOf(s)-hr*.8;
+      for(const c of cols)el+=`<line x1="${stemX(c.s)}" y1="${c.y+(up?-1.4:1.4)}" x2="${stemX(c.s)}" y2="${beamY}" stroke="${INK}" stroke-width="1"/>`;
+      if(cols.length>1)el+=`<rect x="${stemX(cols[0].s)}" y="${up?beamY:beamY-2}" width="${stemX(cols[cols.length-1].s)-stemX(cols[0].s)}" height="1.8" fill="${INK}"/>`;
+    }
+    cursor=nx+steps*stepW+stepW*1.1;
+  });
+  svg.innerHTML=el;
+}
+const BARS=[
+ {n:4,d:4,p:{2:[0,2,4,6,8,10,12,14],1:[4,12],0:[0,3,8,10]}},
+ {n:4,d:4,p:{2:[0,2,4,6,8,10,12,14],5:[0,8],1:[4,12],0:[0,2,6,8,10,14]}},
+ {n:7,d:8,p:{2:[0,2,4,6,8,10,12],1:[4,10],0:[0,1,6,8,9]}},
+ {n:4,d:4,p:{6:[0,2],7:[4,6],8:[8,10,12],1:[15],5:[0],0:[1,3,5,7,9,11,13]}}
+];
+function render(){drawBars(document.getElementById('ribStaff'),BARS,38);}
+window.addEventListener('load',render);window.addEventListener('resize',render);
+
+const stage=document.getElementById('stage');
+
+// ---- knobs interativos (arrastar vertical) com readout do que está sendo mexido ----
+const out=document.getElementById('gtrOut'), DEF='amp + pedais ativos';
+function setKnob(d){ d.style.setProperty('--a',(-135+(+d.dataset.val)*2.7)+'deg'); }
+document.querySelectorAll('.knob .dial').forEach(d=>{
+  let drag=false,sy=0,sv=0;
+  setKnob(d);
+  const show=()=>{ out.textContent=d.dataset.lbl+' — '+Math.round(+d.dataset.val)+'%'; out.classList.add('act'); };
+  const hide=()=>{ if(!drag){ out.textContent=DEF; out.classList.remove('act'); } };
+  d.addEventListener('mouseenter',()=>{ if(!drag) show(); });
+  d.addEventListener('mouseleave',hide);
+  d.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation(); drag=true; sy=e.clientY; sv=+d.dataset.val; show();
+    const mv=ev=>{ d.dataset.val=Math.max(0,Math.min(100, sv+(sy-ev.clientY)*0.6)); setKnob(d); show(); };
+    const up=()=>{ drag=false; document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); hide(); };
+    document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
+  });
+});
+
+// ---- play/pause do ribbon da bateria (pausa a "música": congela o playhead) ----
+let playing=true;
+const playBtn=document.getElementById('playBtn'), drmState=document.getElementById('drmState');
+playBtn.addEventListener('click',e=>{ e.stopPropagation(); playing=!playing;
+  stage.classList.toggle('paused',!playing);
+  playBtn.textContent=playing?'❚❚':'▶'; playBtn.classList.toggle('paused',!playing);
+  drmState.textContent=playing?'tocando · acompanhe':'pausado';
+});
+
+// ---- morph ----
+function go(m){ if(stage.classList.contains(m))return; stage.classList.remove('g','d'); stage.classList.add(m); setTimeout(render,600); }
+document.querySelectorAll('[data-go]').forEach(e=>e.addEventListener('click',ev=>{ ev.stopPropagation(); go(e.dataset.go); }));
+document.getElementById('toggle').addEventListener('click',()=>go(stage.classList.contains('d')?'g':'d'));
+</script>
+</body>
+</html>
