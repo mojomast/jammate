@@ -80,7 +80,7 @@ private:
     {
     public:
         juce::String title, meta, dragId;
-        bool deletable = false;
+        bool deletable = false, fill = false;
         juce::uint8 pat[drum::numVoices][drum::stepsPerBar] = {};
         bool hasPat = false;
         std::function<void()> onLoad, onDelete;
@@ -125,6 +125,9 @@ private:
     ScoreView scoreView { *this };
 
     juce::OwnedArray<juce::TextButton> genreChips;
+    // sub-filtro: cada gênero mostra seus grooves E viradas
+    juce::TextButton kindTudo { "TUDO" }, kindGroove { "GROOVES" }, kindVirada { "VIRADAS" };
+    void refreshKindChips();
     juce::Viewport cardsViewport;
     juce::Component cardsContent;
     juce::OwnedArray<GrooveCard> cards;
@@ -143,6 +146,7 @@ private:
     bool followOn = true;
     bool gridOn = false;
     juce::String currentGenre { "ROCK" };
+    int currentKind = 0;   // 0 tudo · 1 grooves · 2 viradas
 
     int lastUiBar = -2;
     bool lastHasVst = false;

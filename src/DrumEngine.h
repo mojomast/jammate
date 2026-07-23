@@ -39,15 +39,16 @@ extern const char* const voiceNames[numVoices]; // "Bumbo"... (UI, UTF-8)
 // acento, '.' ghost. Faixa "0-14/2" = steps 0..14 pulando 2.
 struct Groove
 {
-    const char* genre;  // "ROCK"... ("VIRADA" = fills, mesma mecânica)
+    const char* genre;  // "ROCK"... (gênero real, inclusive nas viradas)
     const char* name;   // UTF-8
     int bpm;            // 0 = mantém o andamento atual
     int swing;          // 0..60 (%)
+    bool fill;          // true = virada; false = groove
     const char* spec;
 };
 
 const std::vector<Groove>& library();
-juce::StringArray genres(); // ordem de exibição (sem "VIRADA")
+juce::StringArray genres(); // ordem de exibição dos gêneros com entradas
 
 /// Aplica o spec numa pattern de 1 compasso (zera antes).
 void parseSpec (const Groove&, juce::uint8 out[numVoices][stepsPerBar]);

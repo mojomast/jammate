@@ -235,6 +235,17 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
         gridChip.repaint();
         refreshAll();
     };
+
+    // sub-filtro Tudo/Grooves/Viradas (cada gênero tem os dois)
+    for (auto* c : { &kindTudo, &kindGroove, &kindVirada })
+    {
+        c->getProperties().set ("chip", true);
+        c->setMouseClickGrabsKeyboardFocus (false);
+        addChildComponent (*c);
+    }
+    kindTudo.onClick   = [this] { currentKind = 0; refreshKindChips(); rebuildCards(); };
+    kindGroove.onClick = [this] { currentKind = 1; refreshKindChips(); rebuildCards(); };
+    kindVirada.onClick = [this] { currentKind = 2; refreshKindChips(); rebuildCards(); };
     saveChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Guarda o compasso selecionado em Meus compassos "
         "(Documentos\\PedalForge NAM\\compassos)")));
@@ -542,7 +553,11 @@ void DrumOverlay::resized()
             genreChips[i]->setBounds (margin + col * w, libY + row * (libChipsH + 4),
                                       w - 4, libChipsH);
         }
-        cardsViewport.setBounds (margin, libY + 2 * (libChipsH + 4) + 4, libW, libCardsH + 10);
+        const int subY = libY + 2 * (libChipsH + 4) + 2;
+        kindTudo.setBounds (margin, subY, 58, 20);
+        kindGroove.setBounds (margin + 62, subY, 82, 20);
+        kindVirada.setBounds (margin + 148, subY, 82, 20);
+        cardsViewport.setBounds (margin, subY + 26, libW, libCardsH + 10);
     }
     gridView.setBounds (margin, gridY, libW, gridH);
 
@@ -569,6 +584,7 @@ void DrumOverlay::refreshAll()
         c->setVisible (lib);
     cardsViewport.setVisible (lib);
     gridView.setVisible (gridOn);
+    refreshKindChips();
     if (! lib)
     {
         saveNameEditor.setVisible (false);
@@ -962,11 +978,22 @@ void DrumOverlay::ScoreView::itemDropped (const SourceDetails& d)
 
 //==============================================================================
 // Biblioteca
+void DrumOverlay::refreshKindChips()
+{
+    const bool show = ! gridOn && currentGenre != "MEUS";
+    juce::TextButton* chips[] = { &kindTudo, &kindGroove, &kindVirada };
+    for (int i = 0; i < 3; ++i)
+    {
+        chips[i]->setVisible (show);
+        chips[i]->getProperties().set ("chipActive", currentKind == i);
+        chips[i]->repaint();
+    }
+}
+
 void DrumOverlay::rebuildGenreChips()
 {
     genreChips.clear();
     auto names = drum::genres();
-    names.add ("VIRADAS");
     names.add (juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x85 MEUS")));
 
     for (const auto& n : names)
@@ -981,6 +1008,7 @@ void DrumOverlay::rebuildGenreChips()
         {
             currentGenre = key;
             rebuildGenreChips();
+            refreshKindChips();
             rebuildCards();
         };
         addAndMakeVisible (*b);
@@ -1050,17 +1078,16 @@ void DrumOverlay::rebuildCards()
         for (int i = 0; i < (int) lib.size(); ++i)
         {
             const auto& g = lib[(size_t) i];
-            const auto genre = juce::String (juce::CharPointer_UTF8 (g.genre));
-            const bool isFill = genre == "VIRADA";
-            if ((currentGenre == "VIRADAS") != isFill)
+            if (juce::String (juce::CharPointer_UTF8 (g.genre)) != currentGenre)
                 continue;
-            if (! isFill && genre != currentGenre)
-                continue;
+            if (currentKind == 1 && g.fill)  continue;   // só grooves
+            if (currentKind == 2 && ! g.fill) continue;  // só viradas
 
             auto* c = cards.add (new GrooveCard());
             c->title = juce::String (juce::CharPointer_UTF8 (g.name));
+            c->fill = g.fill;
             const auto dot = juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "));
-            c->meta = isFill
+            c->meta = g.fill
                           ? "virada" + dot + "1 compasso"
                           : juce::String (g.bpm) + " bpm"
                                 + (g.swing > 0 ? dot + "sw " + juce::String (g.swing) + "%"
@@ -1166,6 +1193,13 @@ void DrumOverlay::GrooveCard::paint (juce::Graphics& g)
     g.fillRoundedRectangle (b, 9.0f);
     g.setColour (dragging ? ui::glowOrange.withAlpha (0.6f) : ui::border());
     g.drawRoundedRectangle (b.reduced (0.5f), 9.0f, 1.0f);
+
+    // viradas: faixa laranja na esquerda (distingue de groove num relance)
+    if (fill)
+    {
+        g.setColour (ui::glowOrange);
+        g.fillRoundedRectangle (1.5f, 6.0f, 2.5f, b.getHeight() - 12.0f, 1.2f);
+    }
 
     g.setFont (ui::uiFont (11.5f, true));
     g.setColour (ui::textBright);
