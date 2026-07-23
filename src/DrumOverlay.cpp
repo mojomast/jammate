@@ -289,7 +289,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
 {
     setWantsKeyboardFocus (true);
 
-    closeButton.onClick = [this] { setVisible (false); };
+    closeButton.onClick = [this] { closeAnimated(); };
     addAndMakeVisible (closeButton);
 
     playButton.getProperties().set ("accent", true);
@@ -578,14 +578,55 @@ void DrumOverlay::open()
     syncTransportUi();
     refreshSourceRow();
     refreshAll();
+    morphT = 0.0f; morphTarget = 1.0f; morphing = true;  // cresce da faixa do topo
+    applyMorph();
     setVisible (true);
     toFront (true);
+}
+
+void DrumOverlay::closeAnimated()
+{
+    morphTarget = 0.0f; morphing = true;   // encolhe de volta pra faixa
+}
+
+void DrumOverlay::applyMorph()
+{
+    const float W = (float) getWidth(), H = (float) getHeight();
+    if (W < 1.0f || H < 1.0f) return;
+    // retângulo da faixa da bateria na tela da guitarra (== DrumRibbon)
+    const float rx = 18.0f, ry = 62.0f, rw = W - 36.0f, rh = 54.0f;
+    auto L = [] (float a, float b, float t) { return a + (b - a) * t; };
+    const float sx = L (rw / W, 1.0f, morphT), sy = L (rh / H, 1.0f, morphT);
+    const float tx = L (rx, 0.0f, morphT),     ty = L (ry, 0.0f, morphT);
+    setTransform (juce::AffineTransform::scale (sx, sy).translated (tx, ty));
+    setAlpha (L (0.25f, 1.0f, morphT));
 }
 
 void DrumOverlay::timerCallback()
 {
     if (! isVisible())
         return;
+
+    if (morphing)
+    {
+        morphT += (morphTarget - morphT) * 0.30f;
+        if (std::abs (morphT - morphTarget) < 0.012f)
+        {
+            morphT = morphTarget;
+            morphing = false;
+            if (morphTarget < 0.5f)   // terminou de fechar
+            {
+                setTransform ({});
+                setAlpha (1.0f);
+                setVisible (false);
+                return;
+            }
+            setTransform ({});
+            setAlpha (1.0f);
+        }
+        else
+            applyMorph();
+    }
 
     const int uiBar = engine.uiBar.load();
     if (uiBar != lastUiBar || (uiBar >= 0 && engine.uiStep.load() >= 0))
@@ -1748,7 +1789,7 @@ void DrumOverlay::setupGuitarRibbon()
 
     gtrOpenBtn.getProperties().set ("chip", true);
     gtrOpenBtn.setMouseClickGrabsKeyboardFocus (false);
-    gtrOpenBtn.onClick = [this] { if (onClose) onClose(); else setVisible (false); };
+    gtrOpenBtn.onClick = [this] { if (onClose) onClose(); closeAnimated(); };
     addAndMakeVisible (gtrOpenBtn);
 }
 

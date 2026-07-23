@@ -164,6 +164,14 @@ private:
     static juce::File userGroovesDir();
     void syncTransportUi();
 
+    // morph: faixa da bateria (topo da guitarra) <-> tela cheia
+    float morphT = 1.0f, morphTarget = 1.0f;   // 0 = faixa, 1 = tela cheia
+    bool morphing = false;
+    void applyMorph();
+public:
+    void closeAnimated();   // fecha com a animação de morph
+private:
+
     GuitarRigNAMProcessor& processor;
     DrumEngine& engine;
 
