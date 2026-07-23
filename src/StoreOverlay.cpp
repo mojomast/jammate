@@ -358,7 +358,8 @@ public:
 
         g.setFont (ui::uiFont (14.0f, true));
         g.setColour (ui::textBright);
-        g.drawText (entry.name, 38, 10, getWidth() - 240, 20, juce::Justification::centredLeft);
+        g.drawText (juce::String (juce::CharPointer_UTF8 (entry.name)),
+                    38, 10, getWidth() - 240, 20, juce::Justification::centredLeft);
 
         const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
         juce::String info = juce::String (juce::CharPointer_UTF8 (entry.category))

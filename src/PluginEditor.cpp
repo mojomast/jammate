@@ -1035,7 +1035,7 @@ void ChainView::showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea)
         { "Drive & Filtro",        { "wah", "od", "octaver", "ringmod", "bitcrush", "preeq" } },
         { "Pitch",                 { "pitch", "harm" } },
         { "Modula\xc3\xa7\xc3\xa3o & Cor", { "mod", "exciter", "deesser", "tape", "console" } },
-        { "Amb\xc3\xaancia",       { "delay", "reverb" } },
+        { "Ambi\xc3\xaancia",      { "delay", "reverb" } },
         { "Extras",                { "ext", "ext2", "ext3", "ext4", "ext5", "ext6",
                                      "ext7", "ext8", "looper", "analyzer" } },
     };
@@ -3274,12 +3274,13 @@ void RigContent::chooseExtPluginFile (int slot)
 
     struct Category { const char* title; std::initializer_list<const char*> keys; };
     static const Category categories[] = {
-        { "Reverb & Amb\xc3\xaancia",  { "dragonfly", "valhalla", "supermassive", "reverb" } },
+        { "Reverb & Ambi\xc3\xaancia", { "dragonfly", "reverb", "surge" } },
         { "Cole\xc3\xa7\xc3\xa3o Airwindows", { "airwindows", "airwin" } },
-        { "Est\xc3\xba""dio (LSP)",     { "lsp" } },
         { "Pedais & Din\xc3\xa2mica (Zam)", { "zam", "zamaudio" } },
+        { "Drives & Pedais",            { "fire", "wolf-shaper", "peakeater" } },
+        { "Neural / captures",          { "aida", "proteus", "neural" } },
         { "Amp sims",                   { "bias", "amplitube", "guitar rig", "th-u",
-                                          "stormblade", "neural" } },
+                                          "stormblade" } },
     };
 
     juce::PopupMenu menu;

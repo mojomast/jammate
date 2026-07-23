@@ -208,7 +208,8 @@ void installAsync (const Entry& entry,
             juce::FileOutputStream out (tempZip);
             if (! out.openedOk())
             {
-                finish (false, "Sem acesso ao arquivo tempor\xc3\xa1rio");
+                finish (false, juce::String (juce::CharPointer_UTF8 (
+                                   "Sem acesso ao arquivo tempor\xc3\xa1rio")));
                 return;
             }
             out.setPosition (0);
@@ -289,12 +290,14 @@ void installAsync (const Entry& entry,
 
         if (extracted == 0)
         {
-            finish (false, "O pacote n\xc3\xa3o continha bundles VST3");
+            finish (false, juce::String (juce::CharPointer_UTF8 (
+                               "O pacote n\xc3\xa3o continha bundles VST3")));
             return;
         }
 
         writeManifest (entry, bundles);
-        finish (true, juce::String (entry.name) + " " + entry.version + " instalado");
+        finish (true, juce::String (juce::CharPointer_UTF8 (entry.name))
+                          + " " + entry.version + " instalado");
     });
 }
 
