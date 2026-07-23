@@ -22,6 +22,7 @@ namespace drum
 constexpr int numVoices = 9;
 constexpr int numSteps = 32;
 constexpr int stepsPerBar = 16;
+constexpr int maxSections = 8;   // song mode: seções A..H, cada uma 2 compassos
 
 enum Voice { kick = 0, snare, hat, hatPedal, ride, crash, tom1, tom2, floorTom };
 
@@ -73,7 +74,13 @@ public:
     bool isAudible() const noexcept { return playing.load() || anyVoiceActive.load(); }
 
     // ---- estado compartilhado UI <-> áudio ----------------------------------
-    std::atomic<juce::uint8> pattern[drum::numVoices][drum::numSteps] = {};
+    // Song mode: até 8 seções (A..H), cada uma com sua pattern de 2 compassos
+    // e um nº de repetições. songMode desligado = toca só a seção em edição.
+    std::atomic<juce::uint8> pattern[drum::maxSections][drum::numVoices][drum::numSteps] = {};
+    std::atomic<int> numSections { 1 };
+    std::atomic<int> sectionRepeats[drum::maxSections] = {}; // <1 = 1
+    std::atomic<int> editSection { 0 };     // seção mostrada/editada na UI
+    std::atomic<bool> songMode { false };
     std::atomic<float> bpm { 104.0f };
     std::atomic<float> swingPct { 0.0f };   // 0..60
     std::atomic<float> level { 0.8f };      // 0..1.5
@@ -82,11 +89,22 @@ public:
     std::atomic<bool> countInOn { false };
     std::atomic<bool> useVst { false };     // fonte: interno (false) ou VST3
     std::atomic<int> uiStep { -1 };         // playhead para a UI (-1 = parado)
+    std::atomic<int> uiSection { -1 };      // seção tocando (p/ UI)
+
+    // nomes das seções — SÓ message thread (áudio nunca lê)
+    juce::String sectionNames[drum::maxSections] { "A" };
+
+    /// célula da seção em edição (atalho para a UI)
+    std::atomic<juce::uint8>& cell (int voice, int step)
+    {
+        return pattern[juce::jlimit (0, drum::maxSections - 1, editSection.load())][voice][step];
+    }
 
     // ---- persistência (message thread; lê/escreve os atomics) ---------------
-    juce::String patternToString() const;          // "0120..." 32×9 dígitos
-    void patternFromString (const juce::String&);
-    void setPattern (const juce::uint8 p[drum::numVoices][drum::numSteps]);
+    juce::String patternToString (int section = -1) const; // "0120..." 32×9 dígitos
+    void patternFromString (const juce::String&, int section = -1);
+    void setPattern (const juce::uint8 p[drum::numVoices][drum::numSteps],
+                     int section = -1);
 
     /// Decodifica os samples embutidos do GMRockKit (GPL — ver
     /// assets/drums/ORIGEM.txt) — chamar UMA vez, na message thread, antes
@@ -94,16 +112,19 @@ public:
     void loadEmbeddedSamples();
 
 private:
-    void fireStep (int step, int sampleOffset,
+    void fireStep (int section, int step, int sampleOffset,
                    juce::AudioPluginInstance* vst, juce::MidiBuffer& midi);
     void trigger (int synthType, float vel, int delaySamples);
     double stepLenSamples (int stepIdx) const;
+    void advanceSection();  // fim da pattern: repete/avança seção (thread áudio)
 
     double sr = 48000.0;
     double samplesToNext = 0.0;
     int nextStep = 0;
     int countInLeft = 0;
     bool wasPlaying = false;
+    int playSec = 0;        // seção tocando (thread de áudio)
+    int repeatsDone = 0;
 
     // note-offs pendentes para o VST (bateria é one-shot, mas mandamos o
     // off ~1/4 de segundo depois por educação com samplers que sustentam)

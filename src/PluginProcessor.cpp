@@ -3093,8 +3093,22 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
             }
     }
 
-    // bateria: pattern + transporte + fonte de som
-    state.setProperty ("drumPattern", drumEngine.patternToString(), nullptr);
+    // bateria: pattern + transporte + fonte de som (+ song mode: seções)
+    state.setProperty ("drumPattern", drumEngine.patternToString (0), nullptr);
+    {
+        const int nSec = juce::jlimit (1, drum::maxSections, drumEngine.numSections.load());
+        state.setProperty ("drumNumSections", nSec, nullptr);
+        state.setProperty ("drumSongMode", drumEngine.songMode.load(), nullptr);
+        state.setProperty ("drumEditSection", drumEngine.editSection.load(), nullptr);
+        for (int i = 0; i < nSec; ++i)
+        {
+            const auto sfx = juce::String (i + 1);
+            state.setProperty ("drumSecPattern" + sfx, drumEngine.patternToString (i), nullptr);
+            state.setProperty ("drumSecRepeats" + sfx,
+                               juce::jmax (1, drumEngine.sectionRepeats[i].load()), nullptr);
+            state.setProperty ("drumSecName" + sfx, drumEngine.sectionNames[i], nullptr);
+        }
+    }
     state.setProperty ("drumBpm", drumEngine.bpm.load(), nullptr);
     state.setProperty ("drumSwing", drumEngine.swingPct.load(), nullptr);
     state.setProperty ("drumLevel", drumEngine.level.load(), nullptr);
@@ -3185,7 +3199,35 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
     // bateria (presets antigos não têm as chaves — mantém o que está)
     if (state.hasProperty ("drumPattern"))
     {
-        drumEngine.patternFromString (state.getProperty ("drumPattern", "").toString());
+        if (state.hasProperty ("drumNumSections"))
+        {
+            const int nSec = juce::jlimit (1, drum::maxSections,
+                                           (int) state.getProperty ("drumNumSections", 1));
+            drumEngine.numSections.store (nSec);
+            drumEngine.songMode.store ((bool) state.getProperty ("drumSongMode", false));
+            drumEngine.editSection.store (juce::jlimit (0, nSec - 1,
+                (int) state.getProperty ("drumEditSection", 0)));
+            for (int i = 0; i < nSec; ++i)
+            {
+                const auto sfx = juce::String (i + 1);
+                drumEngine.patternFromString (
+                    state.getProperty ("drumSecPattern" + sfx, "").toString(), i);
+                drumEngine.sectionRepeats[i].store (
+                    juce::jmax (1, (int) state.getProperty ("drumSecRepeats" + sfx, 1)));
+                drumEngine.sectionNames[i] =
+                    state.getProperty ("drumSecName" + sfx,
+                                       juce::String::charToString (
+                                           (juce::juce_wchar) ('A' + i))).toString();
+            }
+        }
+        else
+        {
+            // formato antigo: uma pattern só -> seção A
+            drumEngine.numSections.store (1);
+            drumEngine.editSection.store (0);
+            drumEngine.songMode.store (false);
+            drumEngine.patternFromString (state.getProperty ("drumPattern", "").toString(), 0);
+        }
         drumEngine.bpm.store ((float) (double) state.getProperty ("drumBpm", 104.0));
         drumEngine.swingPct.store ((float) (double) state.getProperty ("drumSwing", 0.0));
         drumEngine.level.store ((float) (double) state.getProperty ("drumLevel", 0.8));

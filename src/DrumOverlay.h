@@ -29,15 +29,16 @@ public:
 private:
     void timerCallback() override;
 
-    // ---- partitura (desenhada da pattern do engine)
+    // ---- partitura (desenhada da pattern; clique edita como na grade)
     class ScoreView : public juce::Component
     {
     public:
-        explicit ScoreView (DrumEngine& e) : engine (e) {}
+        explicit ScoreView (DrumOverlay& o) : owner (o) {}
         void paint (juce::Graphics&) override;
+        void mouseDown (const juce::MouseEvent&) override;
 
     private:
-        DrumEngine& engine;
+        DrumOverlay& owner;
     };
 
     // ---- grade de steps (editável)
@@ -66,6 +67,14 @@ private:
 
     void rebuildGenreChips();
     void rebuildCards();
+    void rebuildSectionChips();
+    void refreshPatternViews();  // repinta grade/partitura + rótulo do groove
+    /// playhead só aparece quando a seção tocando é a seção em edição
+    int playheadStep() const
+    {
+        return engine.uiSection.load() == engine.editSection.load()
+                   ? engine.uiStep.load() : -1;
+    }
     void loadFactoryGroove (const drum::Groove&);
     void applyFill (const drum::Groove&);
     void loadUserGroove (const juce::File&);
@@ -83,6 +92,14 @@ private:
     juce::TextButton clickChip { "CLICK" }, countChip { "CONTAGEM" };
     juce::TextButton saveChip { "SALVAR COMPASSO" };
 
+    // song mode: seções A..H com repetições
+    juce::TextButton songChip { juce::String (juce::CharPointer_UTF8 ("M\xc3\x9aSICA")) };
+    juce::OwnedArray<juce::TextButton> sectionChips;
+    juce::TextButton addSectionBtn { juce::CharPointer_UTF8 ("+ SE\xc3\x87\xc3\x83O") };
+    juce::TextButton delSectionBtn { juce::CharPointer_UTF8 ("\xe2\x9c\x95") };
+    juce::TextButton repeatBtn { juce::CharPointer_UTF8 ("\xc3\x97""1") };
+    juce::String sectionGroove[drum::maxSections]; // nome do groove por seção
+
     juce::OwnedArray<juce::TextButton> genreChips;
     juce::Viewport cardsViewport;
     juce::Component cardsContent;
@@ -90,7 +107,7 @@ private:
     juce::TextEditor saveNameEditor;
     juce::TextButton saveConfirm { "SALVAR" };
 
-    ScoreView scoreView { engine };
+    ScoreView scoreView { *this };
     GridView gridView { *this };
 
     // fonte de som
@@ -102,6 +119,8 @@ private:
     juce::String currentGenre { "ROCK" };  // ou "MEUS" / "VIRADAS"
     juce::String currentGrooveName;
     int lastUiStep = -2;
+    int lastUiSection = -2;
+    int lastNumSections = -1, lastEditSection = -1;
     bool lastHasVst = false;
 
     static constexpr int gridRows = 9;

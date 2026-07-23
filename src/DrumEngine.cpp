@@ -199,12 +199,30 @@ void DrumEngine::trigger (int synthType, float vel, int delaySamples)
     anyVoiceActive.store (true);
 }
 
-void DrumEngine::fireStep (int step, int sampleOffset,
+void DrumEngine::advanceSection()
+{
+    const int nSec = juce::jlimit (1, drum::maxSections, numSections.load());
+    if (songMode.load())
+    {
+        if (++repeatsDone >= juce::jmax (1, sectionRepeats[playSec].load()))
+        {
+            repeatsDone = 0;
+            playSec = (playSec + 1) % nSec;
+        }
+    }
+    else
+    {
+        // fora do song mode segue a seção selecionada (troca ao fim do padrão)
+        playSec = juce::jlimit (0, nSec - 1, editSection.load());
+    }
+}
+
+void DrumEngine::fireStep (int section, int step, int sampleOffset,
                            juce::AudioPluginInstance* vst, juce::MidiBuffer& midi)
 {
     for (int v = 0; v < drum::numVoices; ++v)
     {
-        const int val = pattern[v][step].load();
+        const int val = pattern[section][v][step].load();
         if (val == 0)
             continue;
         const float vel = val == 2 ? 1.0f : val == 3 ? 0.28f : 0.68f;
@@ -247,6 +265,12 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
             nextStep = 0;
             samplesToNext = 8.0;
             countInLeft = countInOn.load() ? drum::stepsPerBar : 0;
+            repeatsDone = 0;
+            playSec = songMode.load()
+                          ? 0
+                          : juce::jlimit (0, juce::jlimit (1, drum::maxSections,
+                                                           numSections.load()) - 1,
+                                          editSection.load());
             uiStep.store (-1);
         }
 
@@ -266,10 +290,13 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
                 }
                 else
                 {
-                    fireStep (nextStep, offset, vst, midi);
+                    fireStep (playSec, nextStep, offset, vst, midi);
                     uiStep.store (nextStep);
+                    uiSection.store (playSec);
                     samplesToNext += stepLenSamples (nextStep);
                     nextStep = (nextStep + 1) % drum::numSteps;
+                    if (nextStep == 0)
+                        advanceSection();
                 }
                 continue;
             }
@@ -281,6 +308,7 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
     else if (wasPlaying)
     {
         uiStep.store (-1);
+        uiSection.store (-1);
         if (vst != nullptr)
             for (int v = 0; v < drum::numVoices; ++v)
                 midi.addEvent (juce::MidiMessage::noteOff (10, drum::gmNote[v]), 0);
@@ -424,31 +452,38 @@ float DrumEngine::synthSample (SynthVoice& v) const
 }
 
 //==============================================================================
-juce::String DrumEngine::patternToString() const
+juce::String DrumEngine::patternToString (int section) const
 {
+    const int sec = juce::jlimit (0, drum::maxSections - 1,
+                                  section < 0 ? editSection.load() : section);
     juce::String out;
     out.preallocateBytes (drum::numVoices * drum::numSteps + 8);
     for (int v = 0; v < drum::numVoices; ++v)
         for (int s = 0; s < drum::numSteps; ++s)
-            out << juce::String ((int) pattern[v][s].load());
+            out << juce::String ((int) pattern[sec][v][s].load());
     return out;
 }
 
-void DrumEngine::patternFromString (const juce::String& str)
+void DrumEngine::patternFromString (const juce::String& str, int section)
 {
+    const int sec = juce::jlimit (0, drum::maxSections - 1,
+                                  section < 0 ? editSection.load() : section);
     int i = 0;
     for (int v = 0; v < drum::numVoices; ++v)
         for (int s = 0; s < drum::numSteps; ++s)
         {
             const juce::juce_wchar c = i < str.length() ? str[i] : '0';
-            pattern[v][s].store (c >= '0' && c <= '3' ? (juce::uint8) (c - '0') : 0);
+            pattern[sec][v][s].store (c >= '0' && c <= '3' ? (juce::uint8) (c - '0') : 0);
             ++i;
         }
 }
 
-void DrumEngine::setPattern (const juce::uint8 p[drum::numVoices][drum::numSteps])
+void DrumEngine::setPattern (const juce::uint8 p[drum::numVoices][drum::numSteps],
+                             int section)
 {
+    const int sec = juce::jlimit (0, drum::maxSections - 1,
+                                  section < 0 ? editSection.load() : section);
     for (int v = 0; v < drum::numVoices; ++v)
         for (int s = 0; s < drum::numSteps; ++s)
-            pattern[v][s].store (p[v][s]);
+            pattern[sec][v][s].store (p[v][s]);
 }

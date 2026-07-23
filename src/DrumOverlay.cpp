@@ -7,13 +7,22 @@
 namespace
 {
 constexpr int margin = 26;
-constexpr int headerY = 14, headerH = 36;
-constexpr int transportY = 54, transportH = 34;
-constexpr int genresY = 96, genreRowH = 26;
-constexpr int cardsY = 156, cardsH = 60;
-constexpr int scoreY = 224, scoreH = 182;
-constexpr int gridY = 414, gridH = 226;
-constexpr int sourceY = 648, sourceH = 32;
+constexpr int headerY = 12, headerH = 32;
+constexpr int transportY = 46, transportH = 34;
+constexpr int sectionsY = 86, sectionsH = 26;
+constexpr int genresY = 118, genreRowH = 25;
+constexpr int cardsY = 176, cardsH = 58;
+constexpr int scoreY = 240, scoreH = 160;
+constexpr int gridY = 406, gridH = 226;
+constexpr int sourceY = 640, sourceH = 32;
+
+// partitura: posição na pauta / cabeça × / mão-ou-pé por voz (compartilhado
+// entre desenho e clique) — índices seguem drum::Voice
+constexpr float staffPos[drum::numVoices] = { 1, 5, 9, -1, 8, 10, 7, 6, 3 };
+constexpr bool staffXHead[drum::numVoices] = { false, false, true, true, true, true,
+                                               false, false, false };
+constexpr bool staffIsHand[drum::numVoices] = { false, true, true, false, true, true,
+                                                true, true, true };
 
 // grade: geometria compartilhada entre GridView e ScoreView (colunas alinhadas)
 constexpr int gridLabelW = 96;
@@ -100,6 +109,79 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
         countChip.repaint();
     };
 
+    // ---- song mode: MÚSICA + seções A..H + repetições
+    songChip.getProperties().set ("chip", true);
+    songChip.setMouseClickGrabsKeyboardFocus (false);
+    songChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Toca as se\xc3\xa7\xc3\xb5""es em sequ\xc3\xaancia (com as repeti\xc3\xa7\xc3\xb5""es); "
+        "desligado, repete s\xc3\xb3 a se\xc3\xa7\xc3\xa3o selecionada")));
+    songChip.onClick = [this]
+    {
+        engine.songMode.store (! engine.songMode.load());
+        songChip.getProperties().set ("chipActive", engine.songMode.load());
+        songChip.repaint();
+    };
+    addAndMakeVisible (songChip);
+
+    addSectionBtn.onClick = [this]
+    {
+        const int n = engine.numSections.load();
+        if (n >= drum::maxSections)
+            return;
+        const int cur = engine.editSection.load();
+        for (int v = 0; v < drum::numVoices; ++v)     // duplica a seção atual
+            for (int s = 0; s < drum::numSteps; ++s)
+                engine.pattern[n][v][s].store (engine.pattern[cur][v][s].load());
+        engine.sectionNames[n] = juce::String::charToString ((juce::juce_wchar) ('A' + n));
+        engine.sectionRepeats[n].store (1);
+        sectionGroove[n] = sectionGroove[cur];
+        engine.numSections.store (n + 1);
+        engine.editSection.store (n);
+        rebuildSectionChips();
+        refreshPatternViews();
+    };
+    addAndMakeVisible (addSectionBtn);
+
+    delSectionBtn.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Apaga a se\xc3\xa7\xc3\xa3o selecionada")));
+    delSectionBtn.onClick = [this]
+    {
+        const int n = engine.numSections.load();
+        if (n <= 1)
+            return;
+        const int cur = engine.editSection.load();
+        for (int i = cur; i < n - 1; ++i)             // puxa as seguintes p/ trás
+        {
+            for (int v = 0; v < drum::numVoices; ++v)
+                for (int s = 0; s < drum::numSteps; ++s)
+                    engine.pattern[i][v][s].store (engine.pattern[i + 1][v][s].load());
+            engine.sectionNames[i] = engine.sectionNames[i + 1];
+            engine.sectionRepeats[i].store (engine.sectionRepeats[i + 1].load());
+            sectionGroove[i] = sectionGroove[i + 1];
+        }
+        engine.numSections.store (n - 1);
+        engine.editSection.store (juce::jmin (cur, n - 2));
+        currentGrooveName = sectionGroove[engine.editSection.load()];
+        rebuildSectionChips();
+        refreshPatternViews();
+    };
+    addAndMakeVisible (delSectionBtn);
+
+    repeatBtn.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Quantas vezes a se\xc3\xa7\xc3\xa3o repete no song mode")));
+    repeatBtn.onClick = [this]
+    {
+        const int cur = engine.editSection.load();
+        static const int cycle[] = { 1, 2, 3, 4, 6, 8 };
+        const int now = juce::jmax (1, engine.sectionRepeats[cur].load());
+        int next = cycle[0];
+        for (int i = 0; i < 5; ++i)
+            if (cycle[i] == now) { next = cycle[i + 1]; break; }
+        engine.sectionRepeats[cur].store (next);
+        rebuildSectionChips();
+    };
+    addAndMakeVisible (repeatBtn);
+
     saveChip.getProperties().set ("chip", true);
     saveChip.setMouseClickGrabsKeyboardFocus (false);
     saveChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
@@ -168,10 +250,11 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     bool empty = true;
     for (int v = 0; v < drum::numVoices && empty; ++v)
         for (int s = 0; s < drum::numSteps && empty; ++s)
-            empty = engine.pattern[v][s].load() == 0;
+            empty = engine.pattern[0][v][s].load() == 0;
     if (empty && ! drum::library().empty())
         loadFactoryGroove (drum::library()[0]);
 
+    rebuildSectionChips();
     rebuildGenreChips();
     rebuildCards();
     refreshSourceRow();
@@ -205,6 +288,27 @@ void DrumOverlay::timerCallback()
                               : juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6 TOCAR"));
     if (playButton.getButtonText() != want)
         playButton.setButtonText (want);
+
+    // seção tocando mudou (song mode): atualiza o destaque nos chips
+    const int uiSec = engine.uiSection.load();
+    if (uiSec != lastUiSection)
+    {
+        lastUiSection = uiSec;
+        rebuildSectionChips();
+    }
+
+    // preset/A-B trocaram as seções por fora: ressincroniza a UI
+    const int nSec = engine.numSections.load(), eSec = engine.editSection.load();
+    if (nSec != lastNumSections || eSec != lastEditSection)
+    {
+        lastNumSections = nSec;
+        lastEditSection = eSec;
+        songChip.getProperties().set ("chipActive", engine.songMode.load());
+        songChip.repaint();
+        rebuildSectionChips();
+        refreshPatternViews();
+        syncTransportUi();
+    }
 
     // o load do VST publica no próximo bloco de áudio — poll leve aqui
     const bool hasVst = processor.hasDrumPlugin();
@@ -242,9 +346,15 @@ void DrumOverlay::paint (juce::Graphics& g)
     g.drawText ("BATERIA", area.getX() + 16, headerY, 120, headerH, juce::Justification::centredLeft);
     g.setFont (ui::monoFont (10.0f));
     g.setColour (ui::textFaint);
-    g.drawText ("groove: " + (currentGrooveName.isNotEmpty() ? currentGrooveName : juce::String ("-"))
-                    + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 2 compassos \xc2\xb7 4/4")),
-                area.getX() + 130, headerY, 500, headerH, juce::Justification::centredLeft);
+    {
+        const int cur = juce::jlimit (0, drum::maxSections - 1, engine.editSection.load());
+        const auto dot = juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "));
+        g.drawText (juce::String (juce::CharPointer_UTF8 ("se\xc3\xa7\xc3\xa3o "))
+                        + engine.sectionNames[cur] + dot + "groove: "
+                        + (currentGrooveName.isNotEmpty() ? currentGrooveName : juce::String ("-"))
+                        + dot + "2 compassos" + dot + "4/4",
+                    area.getX() + 130, headerY, 520, headerH, juce::Justification::centredLeft);
+    }
 
     // transporte: BPM + rótulos
     g.setFont (ui::monoFont (16.0f, true));
@@ -284,6 +394,23 @@ void DrumOverlay::resized()
     countChip.setBounds (x0 + 416, transportY + 3, 100, 28);
     saveChip.setBounds (x0 + 528, transportY + 3, 152, 28);
 
+    // fileira do song mode: MÚSICA · seções · ×N · ✕ · + SEÇÃO
+    {
+        int sx = x0;
+        songChip.setBounds (sx, sectionsY, 76, sectionsH);
+        sx += 84;
+        for (auto* b : sectionChips)
+        {
+            b->setBounds (sx, sectionsY, 58, sectionsH);
+            sx += 62;
+        }
+        repeatBtn.setBounds (sx, sectionsY, 44, sectionsH);
+        sx += 48;
+        delSectionBtn.setBounds (sx, sectionsY, 34, sectionsH);
+        sx += 40;
+        addSectionBtn.setBounds (sx, sectionsY, 84, sectionsH);
+    }
+
     // duas linhas de chips de gênero
     const int chipsPerRow = (genreChips.size() + 1) / 2;
     const int availW = W - 2 * margin;
@@ -305,6 +432,54 @@ void DrumOverlay::resized()
     vstPanelButton.setBounds (margin + 306, sourceY, 76, sourceH);
     vstClearButton.setBounds (margin + 390, sourceY, 90, sourceH);
     levelSlider.setBounds (W - margin - 130, sourceY + 3, 130, 26);
+}
+
+//==============================================================================
+// Song mode
+void DrumOverlay::refreshPatternViews()
+{
+    currentGrooveName = sectionGroove[juce::jlimit (0, drum::maxSections - 1,
+                                                    engine.editSection.load())];
+    scoreView.repaint();
+    gridView.repaint();
+    repaint();
+}
+
+void DrumOverlay::rebuildSectionChips()
+{
+    sectionChips.clear();
+    const int n = juce::jlimit (1, drum::maxSections, engine.numSections.load());
+    const int cur = juce::jlimit (0, n - 1, engine.editSection.load());
+
+    for (int i = 0; i < n; ++i)
+    {
+        const int reps = juce::jmax (1, engine.sectionRepeats[i].load());
+        auto label = engine.sectionNames[i].isNotEmpty()
+                         ? engine.sectionNames[i]
+                         : juce::String::charToString ((juce::juce_wchar) ('A' + i));
+        if (reps > 1)
+            label << juce::String (juce::CharPointer_UTF8 (" \xc3\x97")) << reps;
+
+        auto* b = sectionChips.add (new juce::TextButton (label));
+        b->getProperties().set ("chip", true);
+        b->getProperties().set ("chipActive", i == cur);
+        if (i == engine.uiSection.load())   // tocando agora (song mode)
+            b->setColour (juce::TextButton::textColourOffId, ui::glowOrange);
+        b->setMouseClickGrabsKeyboardFocus (false);
+        b->onClick = [this, i]
+        {
+            engine.editSection.store (i);
+            rebuildSectionChips();
+            refreshPatternViews();
+        };
+        addAndMakeVisible (*b);
+    }
+
+    repeatBtn.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xc3\x97"))
+                             + juce::String (juce::jmax (1, engine.sectionRepeats[cur].load())));
+    delSectionBtn.setEnabled (n > 1);
+    addSectionBtn.setEnabled (n < drum::maxSections);
+    resized();
 }
 
 //==============================================================================
@@ -426,6 +601,8 @@ void DrumOverlay::loadFactoryGroove (const drum::Groove& g)
         engine.bpm.store ((float) g.bpm);
     engine.swingPct.store ((float) g.swing);
     currentGrooveName = juce::String (juce::CharPointer_UTF8 (g.name));
+    sectionGroove[juce::jlimit (0, drum::maxSections - 1, engine.editSection.load())]
+        = currentGrooveName;
     syncTransportUi();
     rebuildCards();
     scoreView.repaint();
@@ -437,13 +614,15 @@ void DrumOverlay::applyFill (const drum::Groove& g)
     juce::uint8 pat[drum::numVoices][drum::numSteps];
     for (int v = 0; v < drum::numVoices; ++v)
         for (int s = 0; s < drum::numSteps; ++s)
-            pat[v][s] = engine.pattern[v][s].load();
+            pat[v][s] = engine.cell (v, s).load();
     drum::parseSpec (g, pat, true);
     engine.setPattern (pat);
     if (g.swing > 0)
         engine.swingPct.store ((float) g.swing);
     currentGrooveName = currentGrooveName.upToFirstOccurrenceOf (" + ", false, false)
                         + " + " + juce::String (juce::CharPointer_UTF8 (g.name));
+    sectionGroove[juce::jlimit (0, drum::maxSections - 1, engine.editSection.load())]
+        = currentGrooveName;
     syncTransportUi();
     scoreView.repaint();
     gridView.repaint();
@@ -466,6 +645,8 @@ void DrumOverlay::loadUserGroove (const juce::File& f)
         engine.bpm.store ((float) bpmV);
     engine.swingPct.store ((float) (double) parsed.getProperty ("swing", 0.0));
     currentGrooveName = parsed.getProperty ("name", f.getFileNameWithoutExtension()).toString();
+    sectionGroove[juce::jlimit (0, drum::maxSections - 1, engine.editSection.load())]
+        = currentGrooveName;
     syncTransportUi();
     rebuildCards();
     scoreView.repaint();
@@ -556,7 +737,7 @@ void DrumOverlay::GridView::paint (juce::Graphics& g)
         g.drawText (lbl, stepX (s), 0, cellW, 14, juce::Justification::centred);
     }
 
-    const int playStep = engine.uiStep.load();
+    const int playStep = owner.playheadStep();
 
     for (int row = 0; row < gridRows; ++row)
     {
@@ -570,7 +751,7 @@ void DrumOverlay::GridView::paint (juce::Graphics& g)
         for (int s = 0; s < drum::numSteps; ++s)
         {
             auto r = cellBounds (row, s).toFloat();
-            const int val = engine.pattern[v][s].load();
+            const int val = engine.cell (v, s).load();
 
             juce::Colour c = s % 4 == 0 ? juce::Colours::white.withAlpha (0.085f)
                                         : juce::Colours::white.withAlpha (0.05f);
@@ -595,7 +776,7 @@ void DrumOverlay::GridView::mouseDown (const juce::MouseEvent& e)
         for (int s = 0; s < drum::numSteps; ++s)
             if (cellBounds (row, s).contains (e.getPosition()))
             {
-                auto& cell = owner.engine.pattern[gridRowVoice[row]][s];
+                auto& cell = owner.engine.cell (gridRowVoice[row], s);
                 cell.store ((juce::uint8) ((cell.load() + 1) % 4));
                 repaint();
                 owner.scoreView.repaint();
@@ -614,7 +795,7 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
     g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 12.0f, 1.0f);
 
     const float SP = 7.0f;                    // meia distância entre linhas
-    const float top = 52.0f;
+    const float top = 46.0f;
     auto yOf = [&] (float pos) { return top + 8.0f * SP - pos * SP; };
     auto xOf = [] (int s) { return (float) stepX (s) + cellW * 0.5f; };
 
@@ -643,20 +824,13 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
                     16, 12, juce::Justification::centred);
 
     // playhead
-    const int playStep = engine.uiStep.load();
+    const int playStep = owner.playheadStep();
     if (playStep >= 0)
     {
         g.setColour (ui::accent.withAlpha (0.13f));
         g.fillRoundedRectangle (xOf (playStep) - cellW * 0.5f + 1, yOf (13.0f),
                                 (float) cellW - 2, yOf (-5.0f) - yOf (13.0f), 4.0f);
     }
-
-    // posição na pauta e tipo de cabeça por voz (0 = 1ª linha de baixo)
-    static const float pos[drum::numVoices] = { 1, 5, 9, -1, 8, 10, 7, 6, 3 };
-    static const bool xHead[drum::numVoices] = { false, false, true, true, true, true,
-                                                 false, false, false };
-    static const bool isHand[drum::numVoices] = { false, true, true, false, true, true,
-                                                  true, true, true };
 
     auto drawHead = [&] (float x, float y, bool cross, bool ghost)
     {
@@ -703,16 +877,16 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
 
                 for (int v = 0; v < drum::numVoices; ++v)
                 {
-                    if (isHand[v] != up)
+                    if (staffIsHand[v] != up)
                         continue;
-                    const int val = engine.pattern[v][s].load();
+                    const int val = owner.engine.cell (v, s).load();
                     if (val == 0)
                         continue;
                     any = true;
                     if (val == 2)
                         acc = true;
-                    const float y = yOf (pos[v]);
-                    drawHead (xOf (s), y, xHead[v], val == 3);
+                    const float y = yOf (staffPos[v]);
+                    drawHead (xOf (s), y, staffXHead[v], val == 3);
                     extremeY = up ? juce::jmax (extremeY, y) : juce::jmin (extremeY, y);
                 }
                 if (any)
@@ -765,9 +939,46 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
     g.setFont (ui::monoFont (8.5f));
     g.setColour (ui::textMuted);
     g.drawText (juce::String (juce::CharPointer_UTF8 (
-                    "hastes \xe2\x86\x91 m\xc3\xa3os \xc2\xb7 \xe2\x86\x93 p\xc3\xa9s \xc2\xb7 "
-                    "\xc3\x97 pratos \xc2\xb7 > acento \xc2\xb7 ( ) ghost")),
+                    "clique para editar \xc2\xb7 hastes \xe2\x86\x91 m\xc3\xa3os \xc2\xb7 "
+                    "\xe2\x86\x93 p\xc3\xa9s \xc2\xb7 \xc3\x97 pratos \xc2\xb7 > acento \xc2\xb7 "
+                    "( ) ghost")),
                 40, 4, getWidth() - 60, 12, juce::Justification::centredLeft);
+}
+
+void DrumOverlay::ScoreView::mouseDown (const juce::MouseEvent& e)
+{
+    // mesma geometria do paint: x -> step, y -> voz mais próxima na pauta
+    const float SP = 7.0f, top = 46.0f;
+    auto yOf = [&] (float pos) { return top + 8.0f * SP - pos * SP; };
+
+    int step = -1;
+    for (int s = 0; s < drum::numSteps; ++s)
+        if (std::abs ((float) e.x - ((float) stepX (s) + cellW * 0.5f)) <= cellW * 0.5f + 1.0f)
+        {
+            step = s;
+            break;
+        }
+    if (step < 0)
+        return;
+
+    int voice = -1;
+    float best = 8.0f; // tolerância de meia posição e pouco
+    for (int v = 0; v < drum::numVoices; ++v)
+    {
+        const float d = std::abs ((float) e.y - yOf (staffPos[v]));
+        if (d < best)
+        {
+            best = d;
+            voice = v;
+        }
+    }
+    if (voice < 0)
+        return;
+
+    auto& cell = owner.engine.cell (voice, step);
+    cell.store ((juce::uint8) ((cell.load() + 1) % 4));
+    repaint();
+    owner.gridView.repaint();
 }
 
 //==============================================================================
