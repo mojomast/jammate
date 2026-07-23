@@ -31,19 +31,11 @@ static int voiceForCode (const juce::String& code)
     return -1;
 }
 
-void parseSpec (const Groove& g, juce::uint8 out[numVoices][numSteps], bool fillOnly)
+void parseSpec (const Groove& g, juce::uint8 out[numVoices][stepsPerBar])
 {
-    if (! fillOnly)
-        for (int v = 0; v < numVoices; ++v)
-            for (int s = 0; s < numSteps; ++s)
-                out[v][s] = 0;
-    else
-        for (int v = 0; v < numVoices; ++v)
-            for (int s = stepsPerBar; s < numSteps; ++s)
-                out[v][s] = 0;
-
-    const int base = fillOnly ? stepsPerBar : 0;
-    const int span = (g.bars >= 2 && ! fillOnly) ? numSteps : stepsPerBar;
+    for (int v = 0; v < numVoices; ++v)
+        for (int s = 0; s < stepsPerBar; ++s)
+            out[v][s] = 0;
 
     for (const auto& tok : juce::StringArray::fromTokens (g.spec, "|", ""))
     {
@@ -77,13 +69,8 @@ void parseSpec (const Groove& g, juce::uint8 out[numVoices][numSteps], bool fill
                 from = to = item.getIntValue();
 
             for (int s = from; s <= to; s += stride)
-                if (s >= 0 && s < span)
-                {
-                    out[v][base + s] = val;
-                    // spec de 1 compasso repete no 2º (quando não é virada)
-                    if (! fillOnly && g.bars < 2 && base + s + stepsPerBar < numSteps)
-                        out[v][s + stepsPerBar] = val;
-                }
+                if (s >= 0 && s < stepsPerBar)
+                    out[v][s] = val;
         }
     }
 }
@@ -96,6 +83,7 @@ void DrumEngine::prepare (double sampleRate, int)
     sr = juce::jmax (8000.0, sampleRate);
     samplesToNext = 0.0;
     nextStep = 0;
+    playBar = 0;
     wasPlaying = false;
     countInLeft = 0;
     for (auto& v : svoices)
@@ -104,6 +92,7 @@ void DrumEngine::prepare (double sampleRate, int)
         o.note = -1;
     anyVoiceActive.store (false);
     uiStep.store (-1);
+    uiBar.store (-1);
 }
 
 double DrumEngine::stepLenSamples (int stepIdx) const
@@ -117,8 +106,6 @@ double DrumEngine::stepLenSamples (int stepIdx) const
 
 void DrumEngine::loadEmbeddedSamples()
 {
-    // message thread, uma vez, antes do áudio. Decodifica os WAVs do
-    // GMRockKit embutidos no binário (3 camadas de velocity por voz).
     struct Item { const char* data; int size; };
     using namespace BinaryData;
     static const Item items[drum::numVoices][3] = {
@@ -162,14 +149,12 @@ void DrumEngine::loadEmbeddedSamples()
 
 void DrumEngine::trigger (int synthType, float vel, int delaySamples)
 {
-    // chimbal: fechado/pedal cortam o aberto (choke com fade de ~15 ms
-    // para não estalar)
+    // chimbal: fechado/pedal cortam o aberto (choke com fade de ~15 ms)
     if (synthType == drum::hat || synthType == drum::hatPedal)
         for (auto& v : svoices)
             if (v.active && (v.type == drum::hat || v.type == drum::hatPedal))
                 v.fading = true;
 
-    // rouba a voz mais antiga se o pool encher (32 é folga para 9 vozes)
     SynthVoice* slot = nullptr;
     double oldest = -1.0;
     for (auto& v : svoices)
@@ -184,7 +169,6 @@ void DrumEngine::trigger (int synthType, float vel, int delaySamples)
     slot->vel = vel;
     slot->noise = 0x9e3779b9u + (juce::uint32) (synthType * 7919);
 
-    // sample real (quando embutido): camada por velocity — ghost/normal/acento
     if (synthType < drum::numVoices && samplesReady.load())
     {
         const int layerIdx = vel > 0.9f ? 2 : vel > 0.5f ? 1 : 0;
@@ -192,60 +176,43 @@ void DrumEngine::trigger (int synthType, float vel, int delaySamples)
         if (layer.buf.getNumSamples() > 0)
         {
             slot->layer = &layer;
-            // as camadas já carregam a dinâmica; só um trim leve no ghost
             slot->vel = vel > 0.5f ? 1.0f : 0.75f;
         }
     }
     anyVoiceActive.store (true);
 }
 
-void DrumEngine::advanceSection()
-{
-    const int nSec = juce::jlimit (1, drum::maxSections, numSections.load());
-    if (songMode.load())
-    {
-        if (++repeatsDone >= juce::jmax (1, sectionRepeats[playSec].load()))
-        {
-            repeatsDone = 0;
-            playSec = (playSec + 1) % nSec;
-        }
-    }
-    else
-    {
-        // fora do song mode segue a seção selecionada (troca ao fim do padrão)
-        playSec = juce::jlimit (0, nSec - 1, editSection.load());
-    }
-}
-
-void DrumEngine::fireStep (int section, int step, int sampleOffset,
+void DrumEngine::fireStep (int bar, int step, int sampleOffset,
                            juce::AudioPluginInstance* vst, juce::MidiBuffer& midi)
 {
-    for (int v = 0; v < drum::numVoices; ++v)
-    {
-        const int val = pattern[section][v][step].load();
-        if (val == 0)
-            continue;
-        const float vel = val == 2 ? 1.0f : val == 3 ? 0.28f : 0.68f;
-
-        if (vst != nullptr)
+    if (barUsed[bar].load())
+        for (int v = 0; v < drum::numVoices; ++v)
         {
-            const int note = drum::gmNote[v];
-            midi.addEvent (juce::MidiMessage::noteOn (10, note, (juce::uint8) (vel * 127.0f)),
-                           sampleOffset);
-            for (auto& o : pendingOffs)
-                if (o.note < 0)
-                {
-                    o.note = note;
-                    o.samplesLeft = sampleOffset + (int) (0.25 * sr);
-                    break;
-                }
+            const int val = pattern[bar][v][step].load();
+            if (val == 0)
+                continue;
+            const float vel = val == 2 ? 1.0f : val == 3 ? 0.28f : 0.68f;
+
+            if (vst != nullptr)
+            {
+                const int note = drum::gmNote[v];
+                midi.addEvent (juce::MidiMessage::noteOn (10, note,
+                                                          (juce::uint8) (vel * 127.0f)),
+                               sampleOffset);
+                for (auto& o : pendingOffs)
+                    if (o.note < 0)
+                    {
+                        o.note = note;
+                        o.samplesLeft = sampleOffset + (int) (0.25 * sr);
+                        break;
+                    }
+            }
+            else
+                trigger (v, vel, sampleOffset);
         }
-        else
-            trigger (v, vel, sampleOffset);
-    }
 
     if (clickOn.load() && step % 4 == 0)
-        trigger (step % drum::stepsPerBar == 0 ? 10 : 9, 1.0f, sampleOffset);
+        trigger (step == 0 ? 10 : 9, 1.0f, sampleOffset);
 }
 
 void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
@@ -257,21 +224,16 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
 
     const bool playNow = playing.load();
 
-    // ---- transporte: agenda os steps que caem neste bloco
     if (playNow)
     {
         if (! wasPlaying)
         {
             nextStep = 0;
+            playBar = 0;
             samplesToNext = 8.0;
             countInLeft = countInOn.load() ? drum::stepsPerBar : 0;
-            repeatsDone = 0;
-            playSec = songMode.load()
-                          ? 0
-                          : juce::jlimit (0, juce::jlimit (1, drum::maxSections,
-                                                           numSections.load()) - 1,
-                                          editSection.load());
             uiStep.store (-1);
+            uiBar.store (-1);
         }
 
         double pos = 0.0;
@@ -282,7 +244,6 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
                 const int offset = juce::jlimit (0, n - 1, (int) pos);
                 if (countInLeft > 0)
                 {
-                    // 1 compasso só de clique antes da pattern
                     if (countInLeft % 4 == 0)
                         trigger (countInLeft == drum::stepsPerBar ? 10 : 9, 1.0f, offset);
                     --countInLeft;
@@ -290,13 +251,18 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
                 }
                 else
                 {
-                    fireStep (playSec, nextStep, offset, vst, midi);
+                    const int total = totalBars();
+                    if (playBar >= total)
+                        playBar = 0;
+                    fireStep (playBar, nextStep, offset, vst, midi);
                     uiStep.store (nextStep);
-                    uiSection.store (playSec);
+                    uiBar.store (playBar);
                     samplesToNext += stepLenSamples (nextStep);
-                    nextStep = (nextStep + 1) % drum::numSteps;
-                    if (nextStep == 0)
-                        advanceSection();
+                    if (++nextStep >= drum::stepsPerBar)
+                    {
+                        nextStep = 0;
+                        playBar = (playBar + 1) % total;
+                    }
                 }
                 continue;
             }
@@ -308,7 +274,7 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
     else if (wasPlaying)
     {
         uiStep.store (-1);
-        uiSection.store (-1);
+        uiBar.store (-1);
         if (vst != nullptr)
             for (int v = 0; v < drum::numVoices; ++v)
                 midi.addEvent (juce::MidiMessage::noteOff (10, drum::gmNote[v]), 0);
@@ -317,7 +283,6 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
     }
     wasPlaying = playNow;
 
-    // ---- note-offs agendados
     if (vst != nullptr)
         for (auto& o : pendingOffs)
             if (o.note >= 0)
@@ -332,11 +297,10 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
                     o.samplesLeft -= n;
             }
 
-    // ---- VST de bateria escreve primeiro (substitui o buffer)...
     if (vst != nullptr)
         vst->processBlock (out, midi);
 
-    // ---- ...e o sampler interno (samples reais/síntese + clique) soma por cima
+    // sampler interno (samples reais/síntese + clique) soma por cima
     bool any = false;
     float* L = out.getWritePointer (0);
     float* R = out.getWritePointer (1);
@@ -346,7 +310,6 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
             continue;
         any = true;
 
-        // pan sutil por voz para abrir o kit
         static const float pans[11] = { 0.0f, 0.02f, 0.22f, 0.18f, 0.3f, -0.28f,
                                         -0.12f, 0.08f, 0.2f, 0.0f, 0.0f };
         const float pan = pans[juce::jlimit (0, 10, v.type)];
@@ -355,7 +318,6 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
 
         if (v.layer != nullptr)
         {
-            // sample real: interpolação linear + resample pela razão de taxas
             const auto& buf = v.layer->buf;
             const float* sl = buf.getReadPointer (0);
             const float* sr2 = buf.getNumChannels() > 1 ? buf.getReadPointer (1) : sl;
@@ -376,7 +338,6 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
                 const float a = sl[i0] + (sl[i0 + 1] - sl[i0]) * frac;
                 const float b = sr2[i0] + (sr2[i0 + 1] - sr2[i0]) * frac;
                 const float gain = v.vel * v.fadeGain;
-                // sample estéreo já traz a imagem do kit; mono usa o pan
                 L[i] += (stereo ? a : a * gl) * gain;
                 R[i] += (stereo ? b : b * gr) * gain;
                 v.pos += ratio;
@@ -403,13 +364,10 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
 }
 
 //==============================================================================
-// Síntese por voz — leve (senoide com sweep + ruído filtrado), pensada como
-// kit de trabalho: o som "bom" vem do VST; este garante que funciona sozinho.
+// Síntese de reserva (usada só se os samples embutidos faltarem) + clique.
 float DrumEngine::synthSample (SynthVoice& v) const
 {
     struct P { float f0, f1, fDec, oscAmp, oscDec, nzAmp, nzDec, nzHp, dur; };
-    // f0->f1 (Hz) com decay fDec; amplitudes/decays (s); nzHp = alpha do
-    // one-pole highpass do ruído (0..1, maior = mais agudo); dur = corte
     static const P table[11] = {
         { 110, 42, 0.075f, 1.05f, 0.11f, 0.30f, 0.012f, 0.30f, 0.45f }, // bumbo
         { 190, 160, 0.05f, 0.30f, 0.08f, 0.85f, 0.075f, 0.55f, 0.30f }, // caixa
@@ -452,38 +410,53 @@ float DrumEngine::synthSample (SynthVoice& v) const
 }
 
 //==============================================================================
-juce::String DrumEngine::patternToString (int section) const
+juce::String DrumEngine::barToString (int bar) const
 {
-    const int sec = juce::jlimit (0, drum::maxSections - 1,
-                                  section < 0 ? editSection.load() : section);
+    const int b = juce::jlimit (0, drum::maxBars - 1, bar);
+    if (! barUsed[b].load())
+        return {};
     juce::String out;
-    out.preallocateBytes (drum::numVoices * drum::numSteps + 8);
+    out.preallocateBytes (drum::numVoices * drum::stepsPerBar + 8);
     for (int v = 0; v < drum::numVoices; ++v)
-        for (int s = 0; s < drum::numSteps; ++s)
-            out << juce::String ((int) pattern[sec][v][s].load());
+        for (int s = 0; s < drum::stepsPerBar; ++s)
+            out << juce::String ((int) pattern[b][v][s].load());
     return out;
 }
 
-void DrumEngine::patternFromString (const juce::String& str, int section)
+void DrumEngine::barFromString (const juce::String& str, int bar)
 {
-    const int sec = juce::jlimit (0, drum::maxSections - 1,
-                                  section < 0 ? editSection.load() : section);
+    const int b = juce::jlimit (0, drum::maxBars - 1, bar);
+    if (str.isEmpty())
+    {
+        clearBar (b);
+        return;
+    }
     int i = 0;
     for (int v = 0; v < drum::numVoices; ++v)
-        for (int s = 0; s < drum::numSteps; ++s)
+        for (int s = 0; s < drum::stepsPerBar; ++s)
         {
             const juce::juce_wchar c = i < str.length() ? str[i] : '0';
-            pattern[sec][v][s].store (c >= '0' && c <= '3' ? (juce::uint8) (c - '0') : 0);
+            pattern[b][v][s].store (c >= '0' && c <= '3' ? (juce::uint8) (c - '0') : 0);
             ++i;
         }
+    barUsed[b].store (true);
 }
 
-void DrumEngine::setPattern (const juce::uint8 p[drum::numVoices][drum::numSteps],
-                             int section)
+void DrumEngine::setBarPattern (const juce::uint8 p[drum::numVoices][drum::stepsPerBar],
+                                int bar)
 {
-    const int sec = juce::jlimit (0, drum::maxSections - 1,
-                                  section < 0 ? editSection.load() : section);
+    const int b = juce::jlimit (0, drum::maxBars - 1, bar);
     for (int v = 0; v < drum::numVoices; ++v)
-        for (int s = 0; s < drum::numSteps; ++s)
-            pattern[sec][v][s].store (p[v][s]);
+        for (int s = 0; s < drum::stepsPerBar; ++s)
+            pattern[b][v][s].store (p[v][s]);
+    barUsed[b].store (true);
+}
+
+void DrumEngine::clearBar (int bar)
+{
+    const int b = juce::jlimit (0, drum::maxBars - 1, bar);
+    for (int v = 0; v < drum::numVoices; ++v)
+        for (int s = 0; s < drum::stepsPerBar; ++s)
+            pattern[b][v][s].store (0);
+    barUsed[b].store (false);
 }

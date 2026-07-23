@@ -3093,21 +3093,18 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
             }
     }
 
-    // bateria: pattern + transporte + fonte de som (+ song mode: seções)
-    state.setProperty ("drumPattern", drumEngine.patternToString (0), nullptr);
+    // bateria: timeline de compassos (v4) + transporte + fonte de som
     {
         const int nSec = juce::jlimit (1, drum::maxSections, drumEngine.numSections.load());
         state.setProperty ("drumNumSections", nSec, nullptr);
-        state.setProperty ("drumSongMode", drumEngine.songMode.load(), nullptr);
-        state.setProperty ("drumEditSection", drumEngine.editSection.load(), nullptr);
-        for (int i = 0; i < nSec; ++i)
-        {
-            const auto sfx = juce::String (i + 1);
-            state.setProperty ("drumSecPattern" + sfx, drumEngine.patternToString (i), nullptr);
-            state.setProperty ("drumSecRepeats" + sfx,
-                               juce::jmax (1, drumEngine.sectionRepeats[i].load()), nullptr);
-            state.setProperty ("drumSecName" + sfx, drumEngine.sectionNames[i], nullptr);
-        }
+        for (int b = 0; b < nSec * drum::barsPerSection; ++b)
+            if (drumEngine.barUsed[b].load())
+            {
+                const auto sfx = juce::String (b + 1);
+                state.setProperty ("drumBar" + sfx, drumEngine.barToString (b), nullptr);
+                if (drumEngine.barNames[b].isNotEmpty())
+                    state.setProperty ("drumBarName" + sfx, drumEngine.barNames[b], nullptr);
+            }
     }
     state.setProperty ("drumBpm", drumEngine.bpm.load(), nullptr);
     state.setProperty ("drumSwing", drumEngine.swingPct.load(), nullptr);
@@ -3197,36 +3194,72 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
     }
 
     // bateria (presets antigos não têm as chaves — mantém o que está)
-    if (state.hasProperty ("drumPattern"))
+    if (state.hasProperty ("drumNumSections") || state.hasProperty ("drumPattern"))
     {
-        if (state.hasProperty ("drumNumSections"))
+        for (int b = 0; b < drum::maxBars; ++b)
         {
+            drumEngine.clearBar (b);
+            drumEngine.barNames[b].clear();
+        }
+
+        if (state.hasProperty ("drumSecPattern1"))
+        {
+            // formato v2 (seções de 2 compassos, 288 dígitos): cada seção
+            // antiga vira 2 compassos consecutivos da timeline
+            const int oldSec = juce::jlimit (1, drum::maxSections,
+                                             (int) state.getProperty ("drumNumSections", 1));
+            for (int i = 0; i < oldSec; ++i)
+            {
+                const auto str = state.getProperty ("drumSecPattern" + juce::String (i + 1),
+                                                    "").toString();
+                if (str.length() >= 288 && 2 * i + 1 < drum::maxBars)
+                {
+                    // desintercala: v2 guardava [voz][32 steps]
+                    juce::String bar1, bar2;
+                    bar1.preallocateBytes (150);
+                    bar2.preallocateBytes (150);
+                    for (int v = 0; v < drum::numVoices; ++v)
+                    {
+                        bar1 << str.substring (v * 32, v * 32 + 16);
+                        bar2 << str.substring (v * 32 + 16, v * 32 + 32);
+                    }
+                    drumEngine.barFromString (bar1, 2 * i);
+                    drumEngine.barFromString (bar2, 2 * i + 1);
+                }
+            }
+            drumEngine.numSections.store (juce::jlimit (1, drum::maxSections,
+                (2 * oldSec + drum::barsPerSection - 1) / drum::barsPerSection));
+        }
+        else if (state.hasProperty ("drumBar1") || state.hasProperty ("drumNumSections"))
+        {
+            // formato v4 (timeline de compassos)
             const int nSec = juce::jlimit (1, drum::maxSections,
                                            (int) state.getProperty ("drumNumSections", 1));
             drumEngine.numSections.store (nSec);
-            drumEngine.songMode.store ((bool) state.getProperty ("drumSongMode", false));
-            drumEngine.editSection.store (juce::jlimit (0, nSec - 1,
-                (int) state.getProperty ("drumEditSection", 0)));
-            for (int i = 0; i < nSec; ++i)
+            for (int b = 0; b < nSec * drum::barsPerSection; ++b)
             {
-                const auto sfx = juce::String (i + 1);
-                drumEngine.patternFromString (
-                    state.getProperty ("drumSecPattern" + sfx, "").toString(), i);
-                drumEngine.sectionRepeats[i].store (
-                    juce::jmax (1, (int) state.getProperty ("drumSecRepeats" + sfx, 1)));
-                drumEngine.sectionNames[i] =
-                    state.getProperty ("drumSecName" + sfx,
-                                       juce::String::charToString (
-                                           (juce::juce_wchar) ('A' + i))).toString();
+                const auto sfx = juce::String (b + 1);
+                drumEngine.barFromString (state.getProperty ("drumBar" + sfx, "").toString(), b);
+                drumEngine.barNames[b] =
+                    state.getProperty ("drumBarName" + sfx, "").toString();
             }
         }
         else
         {
-            // formato antigo: uma pattern só -> seção A
+            // formato v1: uma pattern de 2 compassos -> compassos 1 e 2
+            const auto str = state.getProperty ("drumPattern", "").toString();
+            if (str.length() >= 288)
+            {
+                juce::String bar1, bar2;
+                for (int v = 0; v < drum::numVoices; ++v)
+                {
+                    bar1 << str.substring (v * 32, v * 32 + 16);
+                    bar2 << str.substring (v * 32 + 16, v * 32 + 32);
+                }
+                drumEngine.barFromString (bar1, 0);
+                drumEngine.barFromString (bar2, 1);
+            }
             drumEngine.numSections.store (1);
-            drumEngine.editSection.store (0);
-            drumEngine.songMode.store (false);
-            drumEngine.patternFromString (state.getProperty ("drumPattern", "").toString(), 0);
         }
         drumEngine.bpm.store ((float) (double) state.getProperty ("drumBpm", 104.0));
         drumEngine.swingPct.store ((float) (double) state.getProperty ("drumSwing", 0.0));

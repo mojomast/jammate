@@ -6,23 +6,25 @@
 #include <vector>
 
 //==============================================================================
-// Módulo Bateria (fase 18) — sequencer de bateria que acompanha o guitarrista.
+// Módulo Bateria (fase 18, layout v4) — o baterista virtual do rig.
 //
-// Modelo: 2 compassos de 4/4 × 16 semicolcheias = 32 steps, 9 vozes.
-// Cada célula: 0 = nada · 1 = toque · 2 = acento · 3 = ghost (mesma convenção
-// do mockup em docs/design/bateria-mockup.html).
+// Modelo: GROOVE = 1 COMPASSO (16 semicolcheias × 9 vozes). A música é uma
+// timeline de SEÇÕES de 4 compassos (até 8 seções = 32 compassos); cada
+// compasso guarda sua própria cópia da pattern (célula: 0 = nada · 1 = toque ·
+// 2 = acento · 3 = ghost). Compasso não usado = silêncio.
 //
-// A pattern vive em atomics (UI escreve, áudio lê — sem locks). O som sai do
-// sampler interno sintetizado (funciona "de fábrica") ou de um VST3 de
-// bateria hospedado (o processor injeta a instância; o engine só agenda o
-// MIDI). O clique do metrônomo é sempre interno.
+// A timeline vive em atomics (UI escreve, áudio lê — sem locks). O som sai do
+// sampler interno (samples reais do GMRockKit embutidos, síntese de reserva)
+// ou de um VST3 de bateria hospedado (o processor injeta a instância; o
+// engine agenda o MIDI GM canal 10). O clique do metrônomo é sempre interno.
 namespace drum
 {
 
 constexpr int numVoices = 9;
-constexpr int numSteps = 32;
 constexpr int stepsPerBar = 16;
-constexpr int maxSections = 8;   // song mode: seções A..H, cada uma 2 compassos
+constexpr int barsPerSection = 4;
+constexpr int maxSections = 8;
+constexpr int maxBars = maxSections * barsPerSection; // 32
 
 enum Voice { kick = 0, snare, hat, hatPedal, ride, crash, tom1, tom2, floorTom };
 
@@ -31,29 +33,24 @@ extern const char* const voiceIds[numVoices];   // "kick"... (persistência)
 extern const char* const voiceNames[numVoices]; // "Bumbo"... (UI, UTF-8)
 
 //==============================================================================
-// Biblioteca de fábrica: grooves e viradas, por gênero.
-// spec compacto: vozes separadas por '|', cada uma "K:0,4!,8." —
-//   K bumbo · S caixa · H chimbal · P pedal do chimbal · R ride · C crash ·
-//   T tom1 · U tom2 · F surdo
-//   step com sufixo '!' = acento, '.' = ghost; faixa "0-14/2" = de 0 a 14
-//   pulando 2 (o sufixo vale para a faixa toda).
+// Biblioteca de fábrica: grooves e viradas de 1 COMPASSO, por gênero.
+// spec compacto: vozes separadas por '|' — K bumbo · S caixa · H chimbal ·
+// P pedal · R ride · C crash · T tom1 · U tom2 · F surdo. Sufixos: '!'
+// acento, '.' ghost. Faixa "0-14/2" = steps 0..14 pulando 2.
 struct Groove
 {
-    const char* genre;  // "ROCK"... ("VIRADA" = fill de 1 compasso)
+    const char* genre;  // "ROCK"... ("VIRADA" = fills, mesma mecânica)
     const char* name;   // UTF-8
-    int bpm;
+    int bpm;            // 0 = mantém o andamento atual
     int swing;          // 0..60 (%)
-    int bars;           // 1 = repete nos dois compassos; 2 = spec com 32 steps
     const char* spec;
 };
 
 const std::vector<Groove>& library();
 juce::StringArray genres(); // ordem de exibição (sem "VIRADA")
 
-/// Aplica o spec numa matriz [voz][step] (zera antes). fillOnly=true escreve
-/// só no 2º compasso (steps 16..31) — usado pelas viradas.
-void parseSpec (const Groove&, juce::uint8 out[numVoices][numSteps],
-                bool fillOnly = false);
+/// Aplica o spec numa pattern de 1 compasso (zera antes).
+void parseSpec (const Groove&, juce::uint8 out[numVoices][stepsPerBar]);
 
 } // namespace drum
 
@@ -69,18 +66,13 @@ public:
     void process (juce::AudioBuffer<float>& out, int n,
                   juce::AudioPluginInstance* drumVst, juce::MidiBuffer& midiScratch);
 
-    /// true se há algo para ouvir (tocando ou caudas do sintetizador) —
-    /// o processor pula o mix quando não há.
     bool isAudible() const noexcept { return playing.load() || anyVoiceActive.load(); }
 
-    // ---- estado compartilhado UI <-> áudio ----------------------------------
-    // Song mode: até 8 seções (A..H), cada uma com sua pattern de 2 compassos
-    // e um nº de repetições. songMode desligado = toca só a seção em edição.
-    std::atomic<juce::uint8> pattern[drum::maxSections][drum::numVoices][drum::numSteps] = {};
-    std::atomic<int> numSections { 1 };
-    std::atomic<int> sectionRepeats[drum::maxSections] = {}; // <1 = 1
-    std::atomic<int> editSection { 0 };     // seção mostrada/editada na UI
-    std::atomic<bool> songMode { false };
+    // ---- timeline compartilhada UI <-> áudio --------------------------------
+    std::atomic<juce::uint8> pattern[drum::maxBars][drum::numVoices][drum::stepsPerBar] = {};
+    std::atomic<bool> barUsed[drum::maxBars] = {};  // false = silêncio
+    std::atomic<int> numSections { 1 };             // seções ativas (×4 compassos)
+
     std::atomic<float> bpm { 104.0f };
     std::atomic<float> swingPct { 0.0f };   // 0..60
     std::atomic<float> level { 0.8f };      // 0..1.5
@@ -88,51 +80,49 @@ public:
     std::atomic<bool> clickOn { false };
     std::atomic<bool> countInOn { false };
     std::atomic<bool> useVst { false };     // fonte: interno (false) ou VST3
-    std::atomic<int> uiStep { -1 };         // playhead para a UI (-1 = parado)
-    std::atomic<int> uiSection { -1 };      // seção tocando (p/ UI)
 
-    // nomes das seções — SÓ message thread (áudio nunca lê)
-    juce::String sectionNames[drum::maxSections] { "A" };
+    std::atomic<int> uiBar { -1 };          // compasso global tocando (-1 parado)
+    std::atomic<int> uiStep { -1 };         // step dentro do compasso
 
-    /// célula da seção em edição (atalho para a UI)
-    std::atomic<juce::uint8>& cell (int voice, int step)
+    // nome do groove aplicado em cada compasso — SÓ message thread (UI e
+    // persistência; o áudio nunca lê)
+    juce::String barNames[drum::maxBars];
+
+    int totalBars() const noexcept
     {
-        return pattern[juce::jlimit (0, drum::maxSections - 1, editSection.load())][voice][step];
+        return juce::jlimit (1, drum::maxSections, numSections.load())
+               * drum::barsPerSection;
     }
 
-    // ---- persistência (message thread; lê/escreve os atomics) ---------------
-    juce::String patternToString (int section = -1) const; // "0120..." 32×9 dígitos
-    void patternFromString (const juce::String&, int section = -1);
-    void setPattern (const juce::uint8 p[drum::numVoices][drum::numSteps],
-                     int section = -1);
+    // ---- persistência/edição (message thread; via atomics) ------------------
+    juce::String barToString (int bar) const;             // 144 dígitos "0123..."
+    void barFromString (const juce::String&, int bar);    // marca barUsed
+    void setBarPattern (const juce::uint8 p[drum::numVoices][drum::stepsPerBar],
+                        int bar);
+    void clearBar (int bar);
 
     /// Decodifica os samples embutidos do GMRockKit (GPL — ver
-    /// assets/drums/ORIGEM.txt) — chamar UMA vez, na message thread, antes
-    /// do áudio começar. Sem eles o sampler cai na síntese (som de trabalho).
+    /// assets/drums/ORIGEM.txt) — chamar UMA vez, na message thread.
     void loadEmbeddedSamples();
 
 private:
-    void fireStep (int section, int step, int sampleOffset,
+    void fireStep (int bar, int step, int sampleOffset,
                    juce::AudioPluginInstance* vst, juce::MidiBuffer& midi);
     void trigger (int synthType, float vel, int delaySamples);
     double stepLenSamples (int stepIdx) const;
-    void advanceSection();  // fim da pattern: repete/avança seção (thread áudio)
 
     double sr = 48000.0;
     double samplesToNext = 0.0;
-    int nextStep = 0;
+    int nextStep = 0;    // step dentro do compasso
+    int playBar = 0;     // compasso global tocando (thread de áudio)
     int countInLeft = 0;
     bool wasPlaying = false;
-    int playSec = 0;        // seção tocando (thread de áudio)
-    int repeatsDone = 0;
 
-    // note-offs pendentes para o VST (bateria é one-shot, mas mandamos o
-    // off ~1/4 de segundo depois por educação com samplers que sustentam)
     struct PendingOff { int note = -1; int samplesLeft = 0; };
     PendingOff pendingOffs[64];
 
-    // ---- sampler interno: samples reais embutidos (GMRockKit) com 3
-    // camadas de velocity por voz; síntese leve como fallback -----------------
+    // ---- sampler interno: samples reais (GMRockKit, 3 camadas de velocity
+    // por voz) com síntese leve de reserva ------------------------------------
     struct Layer
     {
         juce::AudioBuffer<float> buf;  // 1 ou 2 canais
@@ -145,12 +135,12 @@ private:
     {
         int type = -1;       // índice drum::Voice, 9 = clique fraco, 10 = forte
         bool active = false;
-        int delay = 0;       // amostras até o ataque
+        int delay = 0;
         const Layer* layer = nullptr; // sample em uso (null = síntese)
-        double pos = 0.0;    // posição no sample
+        double pos = 0.0;
         bool fading = false; // choke: fade rápido em vez de corte seco
         float fadeGain = 1.0f;
-        double t = 0.0;      // segundos desde o ataque (síntese)
+        double t = 0.0;
         double phase = 0.0;
         float hpState = 0.0f;
         juce::uint32 noise = 22222;
@@ -160,5 +150,5 @@ private:
     SynthVoice svoices[maxSynthVoices];
     std::atomic<bool> anyVoiceActive { false };
 
-    float synthSample (SynthVoice&) const; // avança 1 amostra da voz (fallback)
+    float synthSample (SynthVoice&) const;
 };
