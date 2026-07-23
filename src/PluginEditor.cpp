@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 
+#include "DrumOverlay.h"
 #include "PluginCatalog.h"
 
 #include <BinaryData.h>
@@ -2639,6 +2640,28 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     storeOverlay = std::make_unique<StoreOverlay> (processor);
     addChildComponent (*storeOverlay);
 
+    // módulo Bateria: overlay + botão na top bar + janela do VST de bateria
+    drumOverlay = std::make_unique<DrumOverlay> (processor);
+    addChildComponent (*drumOverlay);
+    drumOverlay->onChooseVst = [this] { chooseDrumVstFile(); };
+    drumOverlay->onOpenVstPanel = [this] { openDrumVstWindow(); };
+    drumButton.onClick = [this] { drumOverlay->open(); };
+    drumButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Bateria eletr\xc3\xb4nica: grooves por g\xc3\xaanero, partitura e grade")));
+    drumButton.setMouseClickGrabsKeyboardFocus (false);
+    addAndMakeVisible (drumButton);
+
+    processor.onDrumPluginWillChange =
+        [safe = juce::Component::SafePointer<RigContent> (this)]
+        {
+            if (safe != nullptr)
+            {
+                safe->closeDrumVstWindow();
+                if (safe->drumOverlay != nullptr)
+                    safe->drumOverlay->refreshSourceRow();
+            }
+        };
+
     // Dev: GUITARRIG_EXT_PLUGIN=<caminho .vst3> carrega no slot ao iniciar.
     {
         const auto extFlag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_EXT_PLUGIN", "");
@@ -2648,6 +2671,22 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 {
                     if (safe != nullptr)
                         safe->processor.loadExternalPluginAsync (0, juce::File (extFlag));
+                });
+    }
+
+    // Flags de dev: GUITARRIG_OPEN_DRUMS=1 abre o módulo Bateria ao iniciar;
+    // =play também dá o play (teste do transporte sem cliques sintéticos).
+    {
+        const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_DRUMS", "");
+        if (flag.isNotEmpty())
+            juce::MessageManager::callAsync (
+                [safe = juce::Component::SafePointer<RigContent> (this), flag]
+                {
+                    if (safe == nullptr)
+                        return;
+                    safe->drumOverlay->open();
+                    if (flag == "play")
+                        safe->processor.drumEngine.playing.store (true);
                 });
     }
 
@@ -2671,7 +2710,9 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 RigContent::~RigContent()
 {
     processor.onExternalPluginWillChange = nullptr;
+    processor.onDrumPluginWillChange = nullptr;
     closeAllExtPluginWindows();
+    closeDrumVstWindow();
     setLookAndFeel (nullptr);
 }
 
@@ -2680,11 +2721,13 @@ void RigContent::resized()
     const int W = getWidth();
 
     storeOverlay->setBounds (getLocalBounds());
+    drumOverlay->setBounds (getLocalBounds());
 
     // ---- top bar (60 px)
     storeButton.setBounds (W - 18 - 108, 13, 108, 34);
     audioButton.setBounds (storeButton.getX() - 8 - 82, 13, 82, 34);
-    const int metersRight = audioButton.getX() - 15 - 1 - 15;
+    drumButton.setBounds (audioButton.getX() - 8 - 78, 13, 78, 34);
+    const int metersRight = drumButton.getX() - 15 - 1 - 15;
     cpuMeter.setBounds (metersRight - 60, 34, 60, 7);
     inMeter.setBounds (metersRight - 60 - 14 - 78, 17, 78, 7);
     outMeter.setBounds (metersRight - 60 - 14 - 78, 32, 78, 7);
@@ -3443,6 +3486,51 @@ void RigContent::closeAllExtPluginWindows()
 {
     for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
         extWindow[s].reset();
+}
+
+void RigContent::chooseDrumVstFile()
+{
+    auto initialDir = juce::File (processor.getDrumPluginPath()).getParentDirectory();
+    if (! initialDir.isDirectory())
+        initialDir = plugcat::userVst3Dir().isDirectory() ? plugcat::userVst3Dir()
+                                                          : plugcat::systemVst3Dir();
+
+    fileChooser = std::make_unique<juce::FileChooser> (
+        "Escolher o VST3 de bateria", initialDir, "*.vst3");
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode
+                                  | juce::FileBrowserComponent::canSelectFiles
+                                  | juce::FileBrowserComponent::canSelectDirectories,
+                              [this] (const juce::FileChooser& fc)
+                              {
+                                  const auto file = fc.getResult();
+                                  if (file.exists())
+                                      processor.loadDrumPluginAsync (file);
+                              });
+}
+
+void RigContent::openDrumVstWindow()
+{
+    auto* inst = processor.getDrumInstance();
+    if (inst == nullptr || ! processor.hasDrumPlugin())
+        return;
+
+    if (drumVstWindow != nullptr)
+    {
+        drumVstWindow->toFront (true);
+        return;
+    }
+
+    drumVstWindow = std::make_unique<ExtPluginWindow> (
+        *inst, [safe = juce::Component::SafePointer<RigContent> (this)]
+        {
+            if (safe != nullptr)
+                safe->closeDrumVstWindow();
+        });
+}
+
+void RigContent::closeDrumVstWindow()
+{
+    drumVstWindow.reset();
 }
 
 void RigContent::chooseIrFile (int slot)

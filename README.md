@@ -171,6 +171,15 @@ Dados do usuário (fora do repo): `Documentos\PedalForge NAM\` — `Captures/`, 
 - [x] `plugins/` no repo: script alternativo + cópia offline (32 MB) com licenças
 - [x] **Renomeado para PedalForge NAM** (evita confusão com o Guitar Rig da NI); dados antigos migram sozinhos
 
+**Fase 18 — módulo Bateria (em andamento):**
+- [x] Motor: sequencer sample-accurate no processBlock (2 compassos × 16 steps, 9 vozes, acento/ghost), swing, clique, contagem; barramento próprio somado no master (não passa pela cadeia da guitarra)
+- [x] Fontes de som: **sampler interno sintetizado** (funciona de fábrica) e **VST3 de bateria hospedado** (MIDI GM canal 10, protocolo pending/retired, painel em janela própria)
+- [x] UI (botão **Bateria** na top bar): transporte, **partitura em pentagrama percussivo** (hastes ↑ mãos / ↓ pés, × pratos, acentos, ghosts) + **grade de DAW** editável, sempre sincronizadas
+- [x] **Biblioteca**: ~70 grooves de fábrica em 14 gêneros (Rock→Brasil→Eletrônico) + **24 viradas** (entram no 2º compasso) + **Meus compassos** (salvar/apagar em `Documentos\PedalForge NAM\compassos`)
+- [x] Pattern/BPM/swing/fonte salvos no preset (A/B incluso)
+- [ ] Pendentes: edição clicando na partitura, song mode (seções × repetições), saída MIDI externa
+- Design aprovado: `docs/design/bateria-mockup.html`; dev flags `GUITARRIG_OPEN_DRUMS=1|play`
+
 **Próximos:**
 - [ ] Ideias futuras: minimapa da cadeia, MIDI learn, snapshot de cena por música
 

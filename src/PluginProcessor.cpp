@@ -771,6 +771,9 @@ GuitarRigNAMProcessor::~GuitarRigNAMProcessor()
         delete extRetired[s].exchange (nullptr);
         extActive[s].reset();
     }
+    delete drumPending.exchange (nullptr);
+    delete drumRetired.exchange (nullptr);
+    drumActive.reset();
 
     recActive.store (nullptr);
     recWriter.reset();
@@ -923,6 +926,17 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     // slots VST3 externos: buffer estéreo + (re)prepara instâncias vivas
     extBuf.setSize (2, samplesPerBlock);
     extMidi.ensureSize (64);
+
+    // bateria: engine + barramento + (re)prepara o VST de bateria vivo
+    drumEngine.prepare (sampleRate, samplesPerBlock);
+    drumBuf.setSize (2, samplesPerBlock);
+    drumMidi.ensureSize (256);
+    for (auto* inst : { drumActive.get(), drumPending.load() })
+        if (inst != nullptr)
+        {
+            inst->setPlayConfigDetails (2, 2, sampleRate, samplesPerBlock);
+            inst->prepareToPlay (sampleRate, samplesPerBlock);
+        }
     for (int s = 0; s < maxExtSlots; ++s)
         for (auto* inst : { extActive[s].get(), extPending[s].load() })
             if (inst != nullptr)
@@ -1090,6 +1104,9 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         if (n <= stereoExtra.getNumSamples())
             buffer.addFrom (1, 0, stereoExtra, 0, 0, n, outGain);
     }
+
+    // bateria: barramento próprio somado APÓS a cadeia da guitarra
+    processDrums (buffer, numOut, n);
 
     outputPeak.store (buffer.getMagnitude (0, 0, n));
 
@@ -2224,6 +2241,135 @@ void GuitarRigNAMProcessor::processExtFx (int slot, float* io, int n)
     }
 }
 
+void GuitarRigNAMProcessor::processDrums (juce::AudioBuffer<float>& buffer, int numOut, int n)
+{
+    // troca RT-safe da instância do VST de bateria
+    if (auto* p = drumPending.exchange (nullptr))
+    {
+        drumRetired.store (drumActive.release());
+        drumActive.reset (p);
+        drumUiInstance.store (drumActive.get());
+        drumLoaded.store (true);
+    }
+    if (drumUnloadRequest.exchange (false))
+    {
+        drumUiInstance.store (nullptr);
+        drumRetired.store (drumActive.release());
+        drumLoaded.store (false);
+    }
+
+    auto* vst = (drumEngine.useVst.load() && drumActive != nullptr) ? drumActive.get() : nullptr;
+    if (n > drumBuf.getNumSamples() || (! drumEngine.isAudible() && vst == nullptr))
+        return;
+
+    juce::AudioBuffer<float> view (drumBuf.getArrayOfWritePointers(), 2, n);
+    drumEngine.process (view, n, vst, drumMidi);
+
+    const float lv = drumEngine.level.load();
+    buffer.addFrom (0, 0, drumBuf, 0, 0, n, lv);
+    if (numOut >= 2)
+        buffer.addFrom (1, 0, drumBuf, 1, 0, n, lv);
+}
+
+void GuitarRigNAMProcessor::loadDrumPluginAsync (const juce::File& file,
+                                                 const juce::MemoryBlock* stateToRestore)
+{
+    // message thread (mesma receita do loadExternalPluginAsync)
+    if (! file.exists())
+        return;
+
+    collectExternalRetired();
+
+    juce::OwnedArray<juce::PluginDescription> types;
+    for (auto* format : extFormatManager.getFormats())
+        format->findAllTypesForFile (types, file.getFullPathName());
+
+    if (types.isEmpty())
+    {
+        const juce::ScopedLock sl (modelInfoLock);
+        loadError = juce::String (juce::CharPointer_UTF8 (
+                        "N\xc3\xa3o achei um plugin VST3 v\xc3\xa1lido em "))
+                    + file.getFileName();
+        return;
+    }
+
+    // prioriza um tipo INSTRUMENTO se o .vst3 tiver mais de um
+    int pick = 0;
+    for (int i = 0; i < types.size(); ++i)
+        if (types[i]->isInstrument) { pick = i; break; }
+
+    juce::MemoryBlock state = stateToRestore != nullptr ? *stateToRestore : juce::MemoryBlock();
+    loading.store (true);
+
+    extFormatManager.createPluginInstanceAsync (
+        *types[pick], hostSampleRate.load(), preparedBlockSize.load(),
+        [this, state, path = file.getFullPathName()]
+        (std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
+        {
+            loading.store (false);
+            if (instance == nullptr)
+            {
+                const juce::ScopedLock sl (modelInfoLock);
+                loadError = error.isNotEmpty() ? error : "Falha ao instanciar o plugin";
+                return;
+            }
+
+            const double sr = hostSampleRate.load();
+            const int block = preparedBlockSize.load();
+            instance->setPlayConfigDetails (0, 2, sr, block);
+            if (instance->getTotalNumOutputChannels() < 2)
+                instance->setPlayConfigDetails (2, 2, sr, block);
+            instance->prepareToPlay (sr, block);
+            if (state.getSize() > 0)
+                instance->setStateInformation (state.getData(), (int) state.getSize());
+
+            {
+                const juce::ScopedLock sl (modelInfoLock);
+                drumVstName = instance->getName();
+                drumVstPath = path;
+                loadError.clear();
+            }
+
+            if (onDrumPluginWillChange)
+                onDrumPluginWillChange();
+
+            collectExternalRetired();
+            delete drumPending.exchange (instance.release());
+            drumEngine.useVst.store (true);
+        });
+}
+
+void GuitarRigNAMProcessor::clearDrumPlugin()
+{
+    // message thread
+    if (onDrumPluginWillChange)
+        onDrumPluginWillChange();
+
+    {
+        const juce::ScopedLock sl (modelInfoLock);
+        drumVstName.clear();
+        drumVstPath.clear();
+    }
+
+    collectExternalRetired();
+    delete drumPending.exchange (nullptr);
+    drumUnloadRequest.store (true);
+    drumLoaded.store (false);
+    drumEngine.useVst.store (false);
+}
+
+juce::String GuitarRigNAMProcessor::getDrumPluginName() const
+{
+    const juce::ScopedLock sl (modelInfoLock);
+    return drumVstName;
+}
+
+juce::String GuitarRigNAMProcessor::getDrumPluginPath() const
+{
+    const juce::ScopedLock sl (modelInfoLock);
+    return drumVstPath;
+}
+
 void GuitarRigNAMProcessor::loadExternalPluginAsync (int slot, const juce::File& file,
                                                      const juce::MemoryBlock* stateToRestore)
 {
@@ -2943,6 +3089,24 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
                                        blob.toBase64Encoding(), nullptr);
             }
     }
+
+    // bateria: pattern + transporte + fonte de som
+    state.setProperty ("drumPattern", drumEngine.patternToString(), nullptr);
+    state.setProperty ("drumBpm", drumEngine.bpm.load(), nullptr);
+    state.setProperty ("drumSwing", drumEngine.swingPct.load(), nullptr);
+    state.setProperty ("drumLevel", drumEngine.level.load(), nullptr);
+    state.setProperty ("drumClick", drumEngine.clickOn.load(), nullptr);
+    state.setProperty ("drumCountIn", drumEngine.countInOn.load(), nullptr);
+    state.setProperty ("drumUseVst", drumEngine.useVst.load(), nullptr);
+    state.setProperty ("drumVstPath", getDrumPluginPath(), nullptr);
+    if (includeExtPluginState)
+        if (auto* inst = drumUiInstance.load(); inst != nullptr && drumLoaded.load())
+        {
+            juce::MemoryBlock blob;
+            inst->getStateInformation (blob);
+            if (blob.getSize() > 0)
+                state.setProperty ("drumVstState", blob.toBase64Encoding(), nullptr);
+        }
     return state;
 }
 
@@ -3013,6 +3177,40 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
         {
             clearExternalPlugin (s);
         }
+    }
+
+    // bateria (presets antigos não têm as chaves — mantém o que está)
+    if (state.hasProperty ("drumPattern"))
+    {
+        drumEngine.patternFromString (state.getProperty ("drumPattern", "").toString());
+        drumEngine.bpm.store ((float) (double) state.getProperty ("drumBpm", 104.0));
+        drumEngine.swingPct.store ((float) (double) state.getProperty ("drumSwing", 0.0));
+        drumEngine.level.store ((float) (double) state.getProperty ("drumLevel", 0.8));
+        drumEngine.clickOn.store ((bool) state.getProperty ("drumClick", false));
+        drumEngine.countInOn.store ((bool) state.getProperty ("drumCountIn", false));
+
+        const juce::File drumFile (state.getProperty ("drumVstPath", "").toString());
+        const bool wantVst = (bool) state.getProperty ("drumUseVst", false);
+        if (drumFile.exists())
+        {
+            juce::MemoryBlock blob;
+            const auto b64 = state.getProperty ("drumVstState", "").toString();
+            if (b64.isNotEmpty())
+                blob.fromBase64Encoding (b64);
+            if (drumFile.getFullPathName() == getDrumPluginPath() && hasDrumPlugin())
+            {
+                if (auto* inst = drumUiInstance.load(); inst != nullptr && blob.getSize() > 0)
+                    inst->setStateInformation (blob.getData(), (int) blob.getSize());
+                drumEngine.useVst.store (wantVst);
+            }
+            else
+            {
+                loadDrumPluginAsync (drumFile, blob.getSize() > 0 ? &blob : nullptr);
+                drumEngine.useVst.store (wantVst);
+            }
+        }
+        else
+            drumEngine.useVst.store (false);
     }
 
     setCurrentPresetName (state.getProperty (kStatePresetName, "").toString());

@@ -76,7 +76,10 @@ target_sources(GuitarRigNAM
         src/PluginEditor.cpp
         src/PluginCatalog.cpp
         src/Tone3000Client.cpp
-        src/StoreOverlay.cpp)
+        src/StoreOverlay.cpp
+        src/DrumEngine.cpp
+        src/DrumLibrary.cpp
+        src/DrumOverlay.cpp)
 
 # Fontes usam literais UTF-8; sem /utf-8 o MSVC assume codepage 1252 e
 # corrompe os acentos na UI.

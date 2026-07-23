@@ -4,6 +4,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 
+#include "DrumEngine.h"
+
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -208,7 +210,30 @@ public:
     {
         for (auto& r : extRetired)
             delete r.exchange (nullptr);
+        delete drumRetired.exchange (nullptr);
     }
+
+    //==========================================================================
+    // Módulo Bateria (fase 18): sequencer + sampler interno no DrumEngine;
+    // opcionalmente um VST3 de bateria hospedado (mesmo protocolo
+    // pending/retired dos slots de efeito). A bateria toca num barramento
+    // próprio somado no master — nunca passa pela cadeia da guitarra.
+    DrumEngine drumEngine;
+
+    void loadDrumPluginAsync (const juce::File&,
+                              const juce::MemoryBlock* stateToRestore = nullptr);
+    void clearDrumPlugin();
+    bool hasDrumPlugin() const noexcept { return drumLoaded.load(); }
+    juce::String getDrumPluginName() const;
+    juce::String getDrumPluginPath() const;
+    /// Instância ativa — SÓ para a message thread criar o painel.
+    juce::AudioPluginInstance* getDrumInstance() const noexcept
+    {
+        return drumUiInstance.load();
+    }
+    /// Chamado (message thread) antes de trocar/descartar a instância da
+    /// bateria — o editor fecha a janela do painel.
+    std::function<void()> onDrumPluginWillChange;
 
     /// true quando o estado atual difere do último preset salvo/carregado.
     bool isPresetDirty();
@@ -683,6 +708,18 @@ private:
     juce::MidiBuffer extMidi;
     std::atomic<float>* pExtOn[maxExtSlots] = {};
     std::atomic<float>* pExtMix[maxExtSlots] = {};
+
+    // ---- Bateria: instrumento VST3 hospedado + barramento próprio
+    std::unique_ptr<juce::AudioPluginInstance> drumActive; // só thread de áudio
+    std::atomic<juce::AudioPluginInstance*> drumPending { nullptr };
+    std::atomic<juce::AudioPluginInstance*> drumRetired { nullptr };
+    std::atomic<juce::AudioPluginInstance*> drumUiInstance { nullptr };
+    std::atomic<bool> drumLoaded { false };
+    std::atomic<bool> drumUnloadRequest { false };
+    juce::String drumVstName, drumVstPath;                // sob modelInfoLock
+    juce::AudioBuffer<float> drumBuf;                     // estéreo do kit
+    juce::MidiBuffer drumMidi;
+    void processDrums (juce::AudioBuffer<float>& buffer, int numOut, int n);
 
     // ---- Limiter (pós-cadeia; brickwall do JUCE)
     juce::dsp::Limiter<float> outLimiter;

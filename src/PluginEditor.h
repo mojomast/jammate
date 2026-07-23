@@ -284,6 +284,8 @@ private:
 
 //==============================================================================
 // Canvas lógico fixo 1100×700 escalado pelo editor.
+class DrumOverlay;
+
 class RigContent : public juce::Component,
                    private juce::Timer
 {
@@ -309,6 +311,9 @@ private:
     void openExtPluginWindow (int slot);
     void closeExtPluginWindow (int slot);
     void closeAllExtPluginWindows();
+    void chooseDrumVstFile();
+    void openDrumVstWindow();
+    void closeDrumVstWindow();
     void saveCurrentPreset();
     void beginPresetNameEdit();
     void showPresetMenu();
@@ -336,6 +341,11 @@ private:
 
     std::unique_ptr<juce::FileChooser> fileChooser;
     std::unique_ptr<StoreOverlay> storeOverlay;
+
+    // módulo Bateria (overlay + janela do painel do VST de bateria)
+    std::unique_ptr<DrumOverlay> drumOverlay;
+    juce::TextButton drumButton { "Bateria" };
+    std::unique_ptr<juce::DocumentWindow> drumVstWindow;
 
     // janelas flutuantes com os painéis dos plugins VST3 hospedados
     std::unique_ptr<juce::DocumentWindow> extWindow[GuitarRigNAMProcessor::maxExtSlots];
