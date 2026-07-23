@@ -6,6 +6,29 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 //==============================================================================
+// Faixa fina da bateria mostrada no TOPO da tela da guitarra (fase 20): play/
+// pausa + BPM + os 4 compassos da seção que toca em mini-pentagrama com o
+// playhead andando, para o guitarrista acompanhar. Clicar (fora do play) abre
+// o módulo Bateria. Reusa o desenho meter-aware da pauta.
+class DrumRibbon : public juce::Component,
+                   public juce::SettableTooltipClient,
+                   private juce::Timer
+{
+public:
+    explicit DrumRibbon (DrumEngine&);
+    std::function<void()> onOpen;    // clique (fora do play) -> abre a bateria
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void mouseUp (const juce::MouseEvent&) override;
+
+private:
+    void timerCallback() override;
+    DrumEngine& engine;
+    juce::TextButton playBtn;
+    int sectionShown = 0;
+};
+
+//==============================================================================
 // Overlay do módulo Bateria — layout v4 ("a pauta é a track"):
 // a área central mostra os 4 compassos da seção em pentagrama corrido;
 // grooves de 1 compasso são ARRASTADOS da biblioteca direto para cima do

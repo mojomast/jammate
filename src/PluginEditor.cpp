@@ -2651,6 +2651,13 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     drumButton.setMouseClickGrabsKeyboardFocus (false);
     addAndMakeVisible (drumButton);
 
+    // faixa da bateria no topo (acompanhar sem abrir o módulo)
+    drumRibbon = std::make_unique<DrumRibbon> (processor.drumEngine);
+    drumRibbon->onOpen = [this] { drumOverlay->open(); };
+    drumRibbon->setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Acompanhe a bateria \xe2\x80\x94 clique para abrir o m\xc3\xb3" "dulo")));
+    addAndMakeVisible (*drumRibbon);
+
     processor.onDrumPluginWillChange =
         [safe = juce::Component::SafePointer<RigContent> (this)]
         {
@@ -2764,8 +2771,10 @@ void RigContent::resized()
         recChip.setBounds (x, 16, 66, 28);
     }
 
-    // ---- cadeia (rolável) e barra inferior (chips)
-    chainViewport.setBounds (0, 60, W, getHeight() - 60 - 60);
+    // ---- faixa da bateria (topo) + cadeia (rolável) + barra inferior (chips)
+    if (drumRibbon != nullptr)
+        drumRibbon->setBounds (18, 62, W - 36, 54);
+    chainViewport.setBounds (0, 120, W, getHeight() - 120 - 60);
     const int by = getHeight() - 60 + 16;
     tunerToggle.setBounds (22, by, 76, 28);
     muteChip.setBounds (102, by, 48, 28);

@@ -285,6 +285,7 @@ private:
 //==============================================================================
 // Canvas lógico fixo 1100×700 escalado pelo editor.
 class DrumOverlay;
+class DrumRibbon;
 
 class RigContent : public juce::Component,
                    private juce::Timer
@@ -344,6 +345,7 @@ private:
 
     // módulo Bateria (overlay + janela do painel do VST de bateria)
     std::unique_ptr<DrumOverlay> drumOverlay;
+    std::unique_ptr<DrumRibbon> drumRibbon;   // faixa no topo (acompanhar a bateria)
     juce::TextButton drumButton { "Bateria" };
     std::unique_ptr<juce::DocumentWindow> drumVstWindow;
 

@@ -192,6 +192,95 @@ const int DrumOverlay::gridRowVoice[DrumOverlay::gridRows] = {
 };
 
 //==============================================================================
+// DrumRibbon — faixa da bateria no topo da tela da guitarra
+DrumRibbon::DrumRibbon (DrumEngine& e) : engine (e)
+{
+    playBtn.setMouseClickGrabsKeyboardFocus (false);
+    playBtn.getProperties().set ("accent", true);
+    playBtn.setButtonText (juce::CharPointer_UTF8 ("\xe2\x96\xb6"));
+    playBtn.onClick = [this] { engine.playing.store (! engine.playing.load()); repaint(); };
+    addAndMakeVisible (playBtn);
+    startTimerHz (15);
+}
+
+void DrumRibbon::resized()
+{
+    playBtn.setBounds (8, (getHeight() - 34) / 2, 40, 34);
+}
+
+void DrumRibbon::timerCallback()
+{
+    const bool playing = engine.playing.load();
+    sectionShown = playing ? juce::jlimit (0, drum::maxSections - 1,
+                                           engine.uiBar.load() / drum::barsPerSection)
+                           : 0;
+    playBtn.setButtonText (playing ? juce::String (juce::CharPointer_UTF8 ("\xe2\x9d\x9a\xe2\x9d\x9a"))
+                                   : juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6")));
+    repaint();
+}
+
+void DrumRibbon::paint (juce::Graphics& g)
+{
+    auto b = getLocalBounds().toFloat().reduced (0.5f);
+    g.setColour (juce::Colour (0xff141a20));
+    g.fillRoundedRectangle (b, 10.0f);
+    g.setColour (ui::accentDark.withAlpha (0.45f));
+    g.drawRoundedRectangle (b, 10.0f, 1.0f);
+
+    const bool playing = engine.playing.load();
+    const int base = sectionShown * drum::barsPerSection;
+
+    g.setColour (ui::textBright);
+    g.setFont (ui::uiFont (12.0f, true));
+    g.drawText ("BATERIA", 58, 7, 130, 14, juce::Justification::centredLeft);
+    g.setColour (ui::textFaint);
+    g.setFont (ui::uiFont (9.0f));
+    g.drawText (playing ? juce::String (juce::CharPointer_UTF8 ("tocando \xc2\xb7 acompanhe"))
+                        : juce::String ("parada"),
+                58, 22, 150, 12, juce::Justification::centredLeft);
+
+    g.setColour (ui::textBright);
+    g.setFont (ui::monoFont (15.0f, true));
+    g.drawText (juce::String ((int) engine.bpm.load()), 196, 6, 46, 18, juce::Justification::centred);
+    g.setColour (ui::textFaint);
+    g.setFont (ui::uiFont (8.0f, true));
+    g.drawText ("BPM", 196, 25, 46, 10, juce::Justification::centred);
+
+    const float staffX = 258.0f, staffR = (float) getWidth() - 108.0f;
+    const float bw = (staffR - staffX) / (float) drum::barsPerSection;
+    for (int i = 0; i < drum::barsPerSection; ++i)
+    {
+        const int bar = base + i;
+        juce::uint8 pat[drum::numVoices][drum::maxStepsPerBar];
+        for (int v = 0; v < drum::numVoices; ++v)
+            for (int s = 0; s < drum::maxStepsPerBar; ++s)
+                pat[v][s] = engine.pattern[bar][v][s].load();
+        drawMiniBar (g, { staffX + i * bw, 5.0f, bw - 3.0f, (float) getHeight() - 10.0f },
+                     pat, engine.meterNum (bar), engine.meterDen (bar));
+    }
+
+    const int ub = engine.uiBar.load();
+    if (playing && ub >= base && ub < base + drum::barsPerSection)
+    {
+        const int steps = engine.barSteps (ub);
+        const int st = juce::jlimit (0, steps - 1, engine.uiStep.load());
+        const float fx = staffX + (ub - base) * bw + (st + 0.5f) / (float) steps * (bw - 3.0f);
+        g.setColour (ui::accent);
+        g.fillRect (fx, 5.0f, 2.0f, (float) getHeight() - 10.0f);
+    }
+
+    g.setColour (ui::textFaint);
+    g.setFont (ui::uiFont (10.0f));
+    g.drawText (juce::String (juce::CharPointer_UTF8 ("abrir bateria \xe2\xa4\xa2")),
+                getWidth() - 104, 0, 98, getHeight(), juce::Justification::centredRight);
+}
+
+void DrumRibbon::mouseUp (const juce::MouseEvent&)
+{
+    if (onOpen) onOpen();
+}
+
+//==============================================================================
 DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     : processor (p), engine (p.drumEngine)
 {
