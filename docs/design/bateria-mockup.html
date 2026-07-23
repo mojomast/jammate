@@ -146,6 +146,50 @@
   .sec.on { border-style: solid; border-color: var(--accent-dark); color: var(--accent); background: rgba(51,201,214,.1); }
   .sec .x { color: var(--text-muted); }
 
+  /* biblioteca de compassos */
+  .lib { background: var(--glass); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 9px; }
+  .lib-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #genreChips { display: contents; }
+  .lib-title { font-size: 10px; letter-spacing: .16em; font-weight: 700; color: var(--text-muted); margin-right: 4px; }
+  .gchip {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
+    color: var(--text-faint); background: transparent;
+    border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; cursor: pointer;
+  }
+  .gchip:hover { color: var(--text); border-color: var(--border-hover); }
+  .gchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .gchip.on { color: var(--accent); border-color: var(--accent-dark); background: rgba(51,201,214,.1); }
+  .gchip.mine { color: var(--yellow); }
+  .gchip.mine.on { color: var(--yellow); border-color: rgba(229,194,74,.5); background: rgba(229,194,74,.08); }
+  .lib-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .gcard {
+    flex: none; min-width: 148px; text-align: left; cursor: pointer;
+    background: linear-gradient(var(--card-top), var(--card-bot));
+    border: 1px solid var(--border); border-radius: 10px; padding: 8px 11px;
+    color: var(--text); font-family: var(--ui); position: relative;
+  }
+  .gcard:hover { border-color: var(--border-hover); }
+  .gcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .gcard.on { border-color: var(--accent-dark); box-shadow: 0 0 0 1px var(--accent-dark), 0 6px 18px rgba(0,0,0,.35); }
+  .gcard b { display: block; font-size: 12px; font-weight: 700; color: var(--text-bright); margin-bottom: 2px; }
+  .gcard.on b { color: var(--accent); }
+  .gcard .meta { font-family: var(--mono); font-size: 9.5px; color: var(--text-faint); }
+  .gcard .del {
+    position: absolute; top: 5px; right: 7px; color: var(--text-muted);
+    font-family: var(--mono); font-size: 11px; padding: 0 3px; border-radius: 5px;
+  }
+  .gcard .del:hover { color: var(--red); background: rgba(224,83,58,.12); }
+  .lib-empty { font-family: var(--mono); font-size: 11px; color: var(--text-muted); padding: 8px 4px; }
+  .save-row { display: flex; gap: 8px; align-items: center; }
+  .save-row input[type=text] {
+    flex: 1; max-width: 300px; background: #0c0e11; border: 1px solid var(--border);
+    border-radius: 9px; color: var(--text-bright); font-family: var(--mono); font-size: 12px;
+    padding: 7px 11px;
+  }
+  .save-row input[type=text]:focus { outline: none; border-color: var(--accent-dark); }
+  .save-row input::placeholder { color: var(--text-muted); }
+  .save-note { font-family: var(--mono); font-size: 9.5px; color: var(--text-muted); }
+
   /* partitura */
   .score-box { background: #0c0e11; border: 1px solid var(--border); border-radius: 14px; padding: 12px 8px 6px; overflow-x: auto; }
   .score-box svg { display: block; margin: 0 auto; }
@@ -251,7 +295,7 @@
         <div class="ed-head">
           <span class="led"></span>
           <span class="ed-title">BATERIA</span>
-          <span class="ed-sub">groove: “Rock 4/4” · 2 compassos</span>
+          <span class="ed-sub" id="grooveName">groove: “Rock — Básico + virada” · 2 compassos</span>
           <div class="view-chips" role="tablist" aria-label="Modo de edição">
             <button class="chip" id="vScore" role="tab">PARTITURA</button>
             <button class="chip" id="vGrid" role="tab">GRADE</button>
@@ -276,6 +320,7 @@
           <button class="chip" id="clickBtn">CLICK</button>
           <button class="chip" title="No app: 1 compasso de contagem antes de tocar">CONTAGEM</button>
           <button class="chip" title="No app: a bateria segue o A/B e o looper">SEGUIR A/B</button>
+          <button class="chip" id="saveBtn" title="Guarda a pattern atual em Meus compassos">SALVAR COMPASSO</button>
         </div>
 
         <div class="sections" aria-label="Song mode">
@@ -285,6 +330,19 @@
           <span class="sec">REFRÃO <span class="x">×2</span></span>
           <span class="sec">PONTE <span class="x">×1</span></span>
           <span class="sec">＋ seção</span>
+        </div>
+
+        <div class="lib">
+          <div class="lib-head">
+            <span class="lib-title">BIBLIOTECA DE COMPASSOS</span>
+            <span id="genreChips"></span>
+          </div>
+          <div class="lib-row" id="libRow" aria-label="Compassos do gênero selecionado"></div>
+          <div class="save-row" id="saveRow" hidden>
+            <input type="text" id="saveName" placeholder="nome do compasso (ex.: Verso da minha música)" maxlength="40">
+            <button class="chip on" id="saveConfirm">SALVAR</button>
+            <span class="save-note">no app: Documentos\PedalForge NAM\compassos\*.json (aqui: salvo no navegador)</span>
+          </div>
         </div>
 
         <div class="score-box" id="scoreBox">
@@ -313,7 +371,7 @@
     </div>
   </div>
 
-  <p class="hint">▲ mockup interativo — <b>clique na grade</b> para editar (a partitura redesenha na hora) e aperte <b>PLAY</b> (sons sintetizados aqui só para prova de conceito; no app, o som vem do VST/sampler).</p>
+  <p class="hint">▲ mockup interativo — <b>clique na grade</b> para editar (a partitura redesenha na hora), aperte <b>PLAY</b>, troque de groove pela <b>biblioteca</b> (cada gênero com BPM/swing sugeridos) e guarde os seus com <b>SALVAR COMPASSO</b>. Sons sintetizados aqui só para prova de conceito; no app, o som vem do VST/sampler.</p>
 
   <!-- ================= CONCEITOS ================= -->
   <section class="concepts">
@@ -359,7 +417,7 @@
     <div class="phases">
       <div class="phase"><span class="k">FASE A</span><b>Motor MIDI + clock</b><span>sequencer sample-accurate no processBlock, transporte BPM/swing/count-in, metrônomo</span></div>
       <div class="phase"><span class="k">FASE B</span><b>Slot de instrumento</b><span>hosting VST3 aceita instrumentos (buffer MIDI), sampler interno de reserva, mixer/level</span></div>
-      <div class="phase"><span class="k">FASE C</span><b>Grade de DAW</b><span>editor 16 steps, velocity acento/ghost, copiar/colar compasso, presets de groove</span></div>
+      <div class="phase"><span class="k">FASE C</span><b>Grade + biblioteca</b><span>editor 16 steps com acento/ghost, biblioteca de grooves por gênero (de fábrica) e SALVAR COMPASSO em Documentos\PedalForge NAM\compassos\*.json</span></div>
       <div class="phase"><span class="k">FASE D</span><b>Partitura</b><span>renderização em pentagrama percussivo (a deste mockup), edição clicando na pauta</span></div>
       <div class="phase"><span class="k">FASE E</span><b>Song mode</b><span>seções + repetições, fills, SEGUIR A/B, sync com looper</span></div>
     </div>
@@ -391,16 +449,177 @@ const GRID_ORDER = ['crash','hat','ride','tom1','tom2','snare','floor','kick','h
 
 const pattern = {};
 VOICES.forEach(v => pattern[v.id] = new Array(NSTEPS).fill(0));
-// groove inicial: rock com fill no fim do 2º compasso
-[0,2,4,6,8,10,12,14].forEach(s => { pattern.hat[s] = (s%8===0) ? 2 : 1; });
-[16,18,20,22,24,26].forEach(s => { pattern.hat[s] = (s%8===0) ? 2 : 1; });
-pattern.crash[0] = 2;
-pattern.snare[4] = 2; pattern.snare[12] = 2; pattern.snare[20] = 2;
-pattern.snare[7] = 3;                       // ghost antes do 3
-pattern.snare[28] = 1; pattern.snare[29] = 1; // fill
-pattern.tom1[30] = 1; pattern.tom2[31] = 0; pattern.floor[31] = 2;
-pattern.kick[0] = 1; pattern.kick[8] = 1; pattern.kick[10] = 1;
-pattern.kick[16] = 1; pattern.kick[24] = 1; pattern.kick[26] = 1;
+
+/* ============================================================
+   BIBLIOTECA DE COMPASSOS — grooves de fábrica por gênero.
+   d = { voz: [[step, val], …] }; bars:16 repete o compasso nos
+   dois; bars:32 escreve os 32 steps (para claves e viradas).
+   ============================================================ */
+const ev = (list, acc) => list.map(s => [s, acc && acc.includes(s) ? 2 : 1]);
+const EIGHTS = [0,2,4,6,8,10,12,14], SIXT = Array.from({length:16},(_,i)=>i);
+
+const GENRES = [
+  { id:'rock', name:'ROCK', grooves: [
+    { name:'Básico + virada', bpm:104, swing:0, bars:32, d:{
+        hat:[...ev(EIGHTS,[0,8]), ...ev([16,18,20,22,24,26],[16,24])],
+        crash:[[0,2]],
+        snare:[[4,2],[12,2],[7,3],[20,2],[28,1],[29,1]],
+        tom1:[[30,1]], floor:[[31,2]],
+        kick:[[0,1],[8,1],[10,1],[16,1],[24,1],[26,1]] } },
+    { name:'Meio-tempo', bpm:88, swing:0, bars:16, d:{
+        hat:ev(EIGHTS,[0]), snare:[[8,2]], kick:[[0,1],[10,1]] } },
+    { name:'Punk', bpm:172, swing:0, bars:16, d:{
+        hat:ev(EIGHTS,[0,4,8,12]), snare:[[4,2],[12,2]],
+        kick:[[0,1],[2,1],[8,1],[10,1]] } },
+  ]},
+  { id:'pop', name:'POP', grooves: [
+    { name:'Pop colcheias', bpm:100, swing:0, bars:16, d:{
+        hat:ev(EIGHTS,[0,8]), snare:[[4,2],[12,2]], kick:[[0,1],[6,1],[8,1]] } },
+    { name:'Disco', bpm:118, swing:0, bars:16, d:{
+        hat:[...ev([0,4,8,12]), [2,2],[6,2],[10,2],[14,2]],
+        snare:[[4,2],[12,2]], kick:[[0,1],[4,1],[8,1],[12,1]] } },
+  ]},
+  { id:'funk', name:'FUNK', grooves: [
+    { name:'Funk 16', bpm:96, swing:0, bars:16, d:{
+        hat:ev(SIXT,[0,4,8,12]),
+        snare:[[4,2],[12,2],[7,3],[10,3],[15,3]],
+        kick:[[0,1],[3,1],[10,1]] } },
+    { name:'Ghost groove', bpm:92, swing:8, bars:16, d:{
+        hat:ev(SIXT,[0,8]),
+        snare:[[4,2],[12,2],[2,3],[7,3],[11,3]],
+        kick:[[0,1],[5,1],[10,1]] } },
+  ]},
+  { id:'metal', name:'METAL', grooves: [
+    { name:'Double kick', bpm:150, swing:0, bars:16, d:{
+        ride:ev(EIGHTS,[0,4,8,12]), crash:[[0,2]],
+        snare:[[4,2],[12,2]], kick:ev(SIXT) } },
+    { name:'Thrash', bpm:184, swing:0, bars:16, d:{
+        hat:ev(EIGHTS), snare:[[2,2],[6,2],[10,2],[14,2]],
+        kick:[[0,1],[4,1],[8,1],[12,1]] } },
+  ]},
+  { id:'blues', name:'BLUES/JAZZ', grooves: [
+    { name:'Shuffle', bpm:120, swing:55, bars:16, d:{
+        hat:ev(EIGHTS,[0,4,8,12]), snare:[[4,2],[12,2]], kick:[[0,1],[8,1]] } },
+    { name:'Swing (ride)', bpm:140, swing:60, bars:16, d:{
+        ride:[[0,2],[4,1],[6,1],[8,2],[12,1],[14,1]],
+        hp:[[4,1],[12,1]], kick:[[0,3],[8,3]], snare:[[6,3],[10,3]] } },
+  ]},
+  { id:'brasil', name:'BRASIL', grooves: [
+    { name:'Samba (kit)', bpm:100, swing:0, bars:16, d:{
+        hat:ev(SIXT,[0,3,6,10,13]),
+        kick:[[0,1],[4,2],[8,1],[12,2]],
+        snare:[[2,3],[5,3],[10,3],[15,3]] } },
+    { name:'Bossa nova', bpm:126, swing:0, bars:32, d:{
+        snare:[[0,1],[6,1],[12,1],[20,1],[26,1]],
+        kick:[[0,1],[6,1],[8,1],[14,1],[16,1],[22,1],[24,1],[30,1]],
+        hp:[[4,1],[12,1],[20,1],[28,1]],
+        hat:ev(EIGHTS.concat(EIGHTS.map(s=>s+16))).map(([s])=>[s,3]) } },
+    { name:'Baião', bpm:110, swing:0, bars:16, d:{
+        hat:ev(EIGHTS,[0,8]),
+        kick:[[0,2],[7,1],[8,2],[15,1]], snare:[[4,1],[12,1]] } },
+  ]},
+  { id:'reggae', name:'REGGAE', grooves: [
+    { name:'One drop', bpm:76, swing:12, bars:16, d:{
+        hat:ev(EIGHTS,[4,12]), kick:[[8,2]], snare:[[8,1]] } },
+    { name:'Steppers', bpm:80, swing:0, bars:16, d:{
+        hat:[...ev([0,4,8,12]),[2,2],[6,2],[10,2],[14,2]],
+        kick:[[0,1],[4,1],[8,1],[12,1]], snare:[[8,2]] } },
+  ]},
+];
+
+/* ---- meus compassos (mockup: localStorage; app: pasta compassos\) ---- */
+const LS_KEY = 'pedalforge-compassos';
+function myGrooves () {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch (e) { return {}; }
+}
+function saveMyGroove (name) {
+  const all = myGrooves();
+  const d = {};
+  VOICES.forEach(v => {
+    const hits = [];
+    pattern[v.id].forEach((val, s) => { if (val > 0) hits.push([s, val]); });
+    if (hits.length) d[v.id] = hits;
+  });
+  all[name] = { name, bpm, swing, bars: 32, d, mine: true };
+  localStorage.setItem(LS_KEY, JSON.stringify(all));
+}
+
+let curGenre = 'rock', curGroove = null;
+
+function loadGroove (g, genreName) {
+  VOICES.forEach(v => pattern[v.id].fill(0));
+  for (const id in g.d)
+    g.d[id].forEach(([s, val]) => {
+      if (!pattern[id]) return;
+      pattern[id][s] = val;
+      if (g.bars === 16) pattern[id][s + BAR] = val;
+    });
+  bpm = g.bpm; swing = g.swing || 0;
+  document.getElementById('bpmVal').textContent = bpm;
+  document.getElementById('swing').value = swing;
+  document.getElementById('swingVal').textContent = swing + '%';
+  document.getElementById('grooveName').textContent =
+    `groove: “${genreName ? genreName + ' — ' : ''}${g.name}” · 2 compassos`;
+  curGroove = g.name;
+  document.querySelectorAll('td.step').forEach(paintCell);
+  drawScore();
+  renderLib();
+}
+
+function renderGenres () {
+  const box = document.getElementById('genreChips');
+  box.innerHTML = '';
+  GENRES.forEach(gen => {
+    const b = document.createElement('button');
+    b.className = 'gchip' + (curGenre === gen.id ? ' on' : '');
+    b.textContent = gen.name;
+    b.addEventListener('click', () => { curGenre = gen.id; renderGenres(); renderLib(); });
+    box.appendChild(b);
+  });
+  const mine = document.createElement('button');
+  mine.className = 'gchip mine' + (curGenre === 'mine' ? ' on' : '');
+  mine.textContent = '★ MEUS';
+  mine.addEventListener('click', () => { curGenre = 'mine'; renderGenres(); renderLib(); });
+  box.appendChild(mine);
+}
+
+function renderLib () {
+  const row = document.getElementById('libRow');
+  document.getElementById('saveRow').hidden = (curGenre !== 'mine');
+  row.innerHTML = '';
+  const mkCard = (g, genreName, deletable) => {
+    const c = document.createElement('button');
+    c.className = 'gcard' + (curGroove === g.name ? ' on' : '');
+    c.innerHTML = `<b></b><span class="meta">${g.bpm} bpm${g.swing ? ' · swing ' + g.swing + '%' : ''}</span>`;
+    c.querySelector('b').textContent = g.name;
+    c.addEventListener('click', () => loadGroove(g, genreName));
+    if (deletable) {
+      const x = document.createElement('span');
+      x.className = 'del'; x.textContent = '×'; x.title = 'Apagar';
+      x.addEventListener('click', e => {
+        e.stopPropagation();
+        const all = myGrooves(); delete all[g.name];
+        localStorage.setItem(LS_KEY, JSON.stringify(all));
+        renderLib();
+      });
+      c.appendChild(x);
+    }
+    row.appendChild(c);
+  };
+  if (curGenre === 'mine') {
+    const all = myGrooves(), names = Object.keys(all);
+    if (!names.length) {
+      const e = document.createElement('div');
+      e.className = 'lib-empty';
+      e.textContent = 'nenhum compasso salvo ainda — monte na grade e use SALVAR COMPASSO';
+      row.appendChild(e);
+    }
+    names.forEach(n => mkCard(all[n], null, true));
+  } else {
+    const gen = GENRES.find(x => x.id === curGenre);
+    gen.grooves.forEach(g => mkCard(g, gen.name, false));
+  }
+}
 
 /* ============================================================
    PARTITURA — SVG gerado da pattern
@@ -704,6 +923,27 @@ Object.keys(views).forEach(id => document.getElementById(id).addEventListener('c
   ['scoreBox','gridBox'].forEach(b => document.getElementById(b).style.display = views[id].includes(b) ? '' : 'none');
 }));
 
+/* ---- salvar compasso ---- */
+document.getElementById('saveBtn').addEventListener('click', () => {
+  curGenre = 'mine'; renderGenres(); renderLib();
+  const inp = document.getElementById('saveName');
+  inp.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  inp.focus();
+});
+function doSave () {
+  const inp = document.getElementById('saveName');
+  const name = inp.value.trim();
+  if (!name) { inp.focus(); return; }
+  saveMyGroove(name);
+  inp.value = '';
+  curGroove = name;
+  document.getElementById('grooveName').textContent = `groove: “${name}” · 2 compassos`;
+  renderLib();
+}
+document.getElementById('saveConfirm').addEventListener('click', doSave);
+document.getElementById('saveName').addEventListener('keydown', e => { if (e.key === 'Enter') doSave(); });
+
 buildGrid();
-drawScore();
+renderGenres();
+loadGroove(GENRES[0].grooves[0], GENRES[0].name);
 </script>
