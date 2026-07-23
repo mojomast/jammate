@@ -16,8 +16,10 @@ constexpr int gridY = 418, gridH = 226;                   // grade no lugar da l
 constexpr int sourceY = 648, sourceH = 32;
 
 // geometria da pauta: 4 compassos × 16 steps na largura útil (~1048)
-constexpr int scoreLeft = 58;
-constexpr float stepW = 13.6f, beatPad = 6.0f, barPad = 24.0f;
+// 4 compassos precisam caber em ~1038 px úteis: 64·stepW + 12·beatPad +
+// 3·barPad + scoreLeft + folga ≤ largura, senão o 4º compasso corta no fim
+constexpr int scoreLeft = 54;
+constexpr float stepW = 13.2f, beatPad = 5.0f, barPad = 20.0f;
 constexpr float staffSP = 7.0f;   // meia distância entre linhas
 constexpr float staffTop = 104.0f;
 
