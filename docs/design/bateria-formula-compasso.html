@@ -52,6 +52,23 @@
   .ts-badge .arrow { font-size:8px; color:var(--text-muted); }
   .score-wrap svg { display:block; }
 
+  /* menu de fórmula */
+  .ts-menu { position:fixed; z-index:50; background:#14181d; border:1px solid var(--border-hover);
+    border-radius:9px; padding:5px; box-shadow:0 14px 34px rgba(0,0,0,.55); display:flex; flex-direction:column; gap:1px; min-width:118px; }
+  .ts-menu button { text-align:left; font-family:var(--mono); font-size:12px; color:var(--text-dim);
+    background:none; border:none; border-radius:6px; padding:6px 11px; cursor:pointer; }
+  .ts-menu button:hover { background:var(--glass); color:var(--text); }
+  .ts-menu button.on { color:var(--accent); }
+  .ts-menu button.custom { color:var(--yellow); }
+  .ts-menu .sep { height:1px; background:var(--border); margin:3px 2px; }
+  .ts-custom { display:none; gap:5px; align-items:center; padding:6px 8px 3px; }
+  .ts-custom input { width:42px; background:#0c0e11; border:1px solid var(--border); border-radius:6px;
+    color:var(--text-bright); font-family:var(--mono); font-size:12px; padding:4px 6px; text-align:center; }
+  .ts-custom select { background:#0c0e11; border:1px solid var(--border); border-radius:6px; color:var(--text-bright); font-family:var(--mono); font-size:12px; padding:4px; }
+  .ts-custom .slash { color:var(--text-muted); }
+  .ts-custom .ok { background:var(--accent); color:var(--accent-ink); font-weight:700; border:none; border-radius:6px; padding:5px 11px; cursor:pointer; font-size:11px; }
+  .ts-custom .ok:hover { filter:brightness(1.08); }
+
   .legend { display:flex; gap:16px; font-family:var(--mono); font-size:10px; color:var(--text-faint); flex-wrap:wrap; padding:0 4px; }
   .legend b { color:var(--glow); }
 
@@ -72,7 +89,7 @@
   <header>
     <div class="eyebrow">PedalForge NAM · bateria · fórmula de compasso</div>
     <h1>Cada compasso com sua fórmula</h1>
-    <p class="lede">Cada um dos 4 compassos da seção pode ter uma <b>métrica diferente</b> (4/4, 3/4, 6/8, 7/8…). A fórmula é escrita <b>só quando muda</b> — como em partitura de verdade — e a largura do compasso se ajusta ao número de tempos. As ligaduras agrupam certo, inclusive nos compostos (6/8 agrupa de 3 em 3). Mockup funcional: <b>clique na fórmula</b> de um compasso para trocar a métrica e veja a pauta se reorganizar; aperte PLAY.</p>
+    <p class="lede">Cada um dos 4 compassos da seção pode ter uma <b>métrica diferente</b> (4/4, 3/4, 6/8, 7/8…). A fórmula é escrita <b>só quando muda</b> — como em partitura de verdade — e a largura do compasso se ajusta ao número de tempos. As ligaduras agrupam certo, inclusive nos compostos (6/8 agrupa de 3 em 3). Mockup funcional: <b>clique na fórmula</b> de um compasso → abre um menu com as <b>5 principais</b> (4/4, 3/4, 2/4, 6/8, 12/8) + <b>Custom</b> para digitar qualquer fórmula; a pauta se reorganiza. Aperte PLAY.</p>
   </header>
 
   <div class="window">
@@ -131,18 +148,18 @@ const VOICES=[
   {id:'floor',pos:3,head:'o',limb:'h'},{id:'kick',pos:1,head:'o',limb:'f'},
   {id:'hp',pos:-1,head:'x',limb:'f'}];
 
-const METERS=[[4,4],[3,4],[2,4],[6,8],[5,4],[7,8],[12,8]];
+const MAIN=[[4,4],[3,4],[2,4],[6,8],[12,8]];   // 5 principais + Custom
 function meterInfo(num,den){
-  if(den===4) return {steps:num*4, groups:Array(num).fill(4)};
-  if(den===2) return {steps:num*8, groups:Array(num).fill(8)};
-  if(den===8){
-    const steps=num*2;
-    if(num%3===0){const g=[];for(let i=0;i<num/3;i++)g.push(6);return{steps,groups:g};}
-    if(num===7) return {steps:14,groups:[4,4,6]};   // 2+2+3
-    if(num===5) return {steps:10,groups:[4,6]};     // 2+3
-    const g=[];let rem=steps;while(rem>=4){g.push(4);rem-=4;}if(rem)g.push(rem);return{steps,groups:g};
-  }
-  return {steps:16,groups:[4,4,4,4]};
+  const steps=Math.max(1,Math.min(32,Math.round(num*16/den)));  // resolução de semicolcheia
+  let groups;
+  if(den===8 && num%3===0){ groups=[]; for(let i=0;i<num/3;i++)groups.push(6); }
+  else if(den===8 && num===7){ groups=[4,4,6]; }   // 2+2+3
+  else if(den===8 && num===5){ groups=[4,6]; }     // 2+3
+  else if(den===4){ groups=Array(num).fill(4); }
+  else if(den===2){ groups=Array(num).fill(8); }
+  else { groups=[]; let rem=steps; while(rem>=4){groups.push(4);rem-=4;} if(rem)groups.push(rem); }
+  if(!groups.length) groups=[steps];
+  return {steps,groups};
 }
 function groupIndex(s,groups){let acc=0;for(let i=0;i<groups.length;i++){acc+=groups[i];if(s<acc)return i;}return groups.length-1;}
 
@@ -249,17 +266,51 @@ function renderTsRow(){
     const cx=(L.showTS?L.tsX:L.notesX+8)*scale;
     badge.style.left=cx+'px';
     badge.innerHTML=`<span class="bn">${bi+1}</span><span class="tv">${L.ts[0]}/${L.ts[1]}</span><span class="arrow">▾</span>`;
-    badge.title='Clique para trocar a métrica deste compasso';
-    badge.onclick=()=>{
-      const cur=METERS.findIndex(m=>m[0]===bars[bi].ts[0]&&m[1]===bars[bi].ts[1]);
-      const nx=METERS[(cur+1)%METERS.length];
-      bars[bi].ts=[nx[0],nx[1]];
-      const mi=meterInfo(nx[0],nx[1]);
-      bars[bi].p=resizePat(bars[bi].p,mi.steps);
-      drawScore();
-    };
+    badge.title='Clique para escolher a métrica deste compasso';
+    badge.onclick=(e)=>{ e.stopPropagation(); openTsMenu(bi,badge); };
     row.appendChild(badge);
   });
+}
+
+/* menu de fórmula: 5 principais + Custom */
+let openMenu=null;
+function closeTsMenu(){ if(openMenu){ openMenu.remove(); openMenu=null; document.removeEventListener('mousedown',outsideMenu,true); } }
+function outsideMenu(e){ if(openMenu && !openMenu.contains(e.target)) closeTsMenu(); }
+function applyMeter(bi,num,den){
+  bars[bi].ts=[num,den];
+  bars[bi].p=resizePat(bars[bi].p,meterInfo(num,den).steps);
+  drawScore();
+}
+function openTsMenu(bi,badgeEl){
+  closeTsMenu();
+  const r=badgeEl.getBoundingClientRect();
+  const m=document.createElement('div'); m.className='ts-menu';
+  m.style.left=r.left+'px'; m.style.top=(r.bottom+4)+'px';
+  MAIN.forEach(([n,d])=>{
+    const b=document.createElement('button');
+    b.textContent=n+'/'+d;
+    if(bars[bi].ts[0]===n&&bars[bi].ts[1]===d) b.className='on';
+    b.onclick=()=>{ applyMeter(bi,n,d); closeTsMenu(); };
+    m.appendChild(b);
+  });
+  m.appendChild(Object.assign(document.createElement('div'),{className:'sep'}));
+  const cbtn=document.createElement('button'); cbtn.className='custom'; cbtn.textContent='Custom…';
+  const cust=document.createElement('div'); cust.className='ts-custom';
+  cust.innerHTML='<input type="number" min="1" max="16" value="'+bars[bi].ts[0]+'"><span class="slash">/</span>'
+    +'<select><option>2</option><option>4</option><option>8</option><option>16</option></select>'
+    +'<button class="ok">OK</button>';
+  cust.querySelector('select').value=String(bars[bi].ts[1]);
+  cbtn.onclick=()=>{ cust.style.display = cust.style.display==='flex' ? 'none' : 'flex'; cust.querySelector('input').focus(); };
+  cust.querySelector('.ok').onclick=()=>{
+    let n=parseInt(cust.querySelector('input').value)||4;
+    let d=parseInt(cust.querySelector('select').value)||4;
+    n=Math.max(1,Math.min(16,n));
+    applyMeter(bi,n,d); closeTsMenu();
+  };
+  cust.querySelector('input').addEventListener('keydown',ev=>{ if(ev.key==='Enter') cust.querySelector('.ok').click(); });
+  m.appendChild(cbtn); m.appendChild(cust);
+  document.body.appendChild(m); openMenu=m;
+  setTimeout(()=>document.addEventListener('mousedown',outsideMenu,true),0);
 }
 
 /* áudio simples */
