@@ -175,7 +175,7 @@ Dados do usuário (fora do repo): `Documentos\PedalForge NAM\` — `Captures/`, 
 - [x] Motor: sequencer sample-accurate no processBlock (2 compassos × 16 steps, 9 vozes, acento/ghost), swing, clique, contagem; barramento próprio somado no master (não passa pela cadeia da guitarra)
 - [x] Fontes de som: **sampler interno sintetizado** (funciona de fábrica) e **VST3 de bateria hospedado** (MIDI GM canal 10, protocolo pending/retired, painel em janela própria)
 - [x] UI v4 "a pauta é a track" (botão **Bateria** na top bar): a área central mostra a **seção inteira (4 compassos) em pentagrama corrido**; grooves de **1 compasso** são **arrastados da biblioteca direto para o compasso na pauta**; clique na pauta edita (vazio→toque→acento→ghost); seções em abas (**+ SEÇÃO** = +4 compassos); **SEGUIR** vira a página no play; chip **GRADE** abre a grade de 16 steps do compasso selecionado
-- [x] **Biblioteca**: ~70 grooves + 24 viradas de fábrica em 14 gêneros (tudo 1 compasso, arrastável) + **Meus compassos** (salvar/apagar em `Documentos\PedalForge NAM\compassos`)
+- [x] **Biblioteca massiva**: ~157 grooves + ~53 viradas de fábrica em 14 gêneros (Rock→Brasil→Eletrônico→World; tudo 1 compasso, arrastável); cada card mostra uma **miniatura da partitura** do que vai ser colocado; + **Meus compassos** (salvar/apagar em `Documentos\PedalForge NAM\compassos`)
 - [x] Timeline/BPM/swing/fonte salvos no preset (A/B incluso; formatos antigos migram)
 - [ ] Pendentes: saída MIDI externa, mini-mixer por peça, copiar compasso→compasso arrastando
 - Design aprovado: `docs/design/bateria-mockup.html`; dev flags `GUITARRIG_OPEN_DRUMS=1|play`

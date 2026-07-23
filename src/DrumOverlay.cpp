@@ -11,7 +11,7 @@ constexpr int headerY = 12, headerH = 34;
 constexpr int tabsY = 52, tabsH = 26;
 constexpr int barHeadsY = 82, barHeadsH = 24;
 constexpr int scoreY = 108, scoreH = 300;
-constexpr int libY = 420, libChipsH = 25, libCardsH = 58; // biblioteca OU grade
+constexpr int libY = 420, libChipsH = 25, libCardsH = 82; // biblioteca OU grade
 constexpr int gridY = 418, gridH = 226;                   // grade no lugar da lib
 constexpr int sourceY = 648, sourceH = 32;
 
@@ -905,8 +905,8 @@ void DrumOverlay::rebuildCards()
     auto place = [&] (GrooveCard* c)
     {
         cardsContent.addAndMakeVisible (c);
-        c->setBounds (x, 0, 152, libCardsH - 6);
-        x += 152 + 8;
+        c->setBounds (x, 0, 176, libCardsH - 6);
+        x += 176 + 8;
     };
 
     if (mine && ! gridOn)
@@ -929,6 +929,18 @@ void DrumOverlay::rebuildCards()
             c->meta = bpmV > 0 ? juce::String (bpmV) + " bpm" : juce::String ("1 compasso");
             c->dragId = "u:" + f.getFullPathName();
             c->deletable = true;
+            {
+                const auto str = parsed.getProperty ("pattern", "").toString();
+                int k = 0;
+                for (int v = 0; v < drum::numVoices; ++v)
+                    for (int s = 0; s < drum::stepsPerBar; ++s)
+                    {
+                        const juce::juce_wchar ch = k < str.length() ? str[k] : '0';
+                        c->pat[v][s] = ch >= '0' && ch <= '3' ? (juce::uint8) (ch - '0') : 0;
+                        ++k;
+                    }
+                c->hasPat = str.isNotEmpty();
+            }
             c->onLoad = [this, id = c->dragId] { applyGrooveToBar (id, selectedBar()); };
             c->onDelete = [this, f]
             {
@@ -960,6 +972,8 @@ void DrumOverlay::rebuildCards()
                                 + (g.swing > 0 ? dot + "sw " + juce::String (g.swing) + "%"
                                                : juce::String());
             c->dragId = "f:" + juce::String (i);
+            drum::parseSpec (g, c->pat);
+            c->hasPat = true;
             c->onLoad = [this, id = c->dragId] { applyGrooveToBar (id, selectedBar()); };
             place (c);
         }
@@ -1067,23 +1081,60 @@ void DrumOverlay::GrooveCard::paint (juce::Graphics& g)
     g.setColour (dragging ? ui::glowOrange.withAlpha (0.6f) : ui::border());
     g.drawRoundedRectangle (b.reduced (0.5f), 9.0f, 1.0f);
 
-    g.setFont (ui::uiFont (12.0f, true));
+    g.setFont (ui::uiFont (11.5f, true));
     g.setColour (ui::textBright);
-    g.drawText (title, 10, 6, getWidth() - 36, 18, juce::Justification::centredLeft);
-    g.setFont (ui::monoFont (9.0f));
-    g.setColour (ui::textFaint);
-    g.drawText (meta, 10, 26, getWidth() - 18, 14, juce::Justification::centredLeft);
-
-    // "pegada" do arrasto
+    g.drawText (title, 9, 3, getWidth() - 54, 15, juce::Justification::centredLeft);
+    g.setFont (ui::monoFont (8.0f));
     g.setColour (ui::textMuted);
-    g.setFont (ui::monoFont (10.0f));
-    g.drawText ("::", getWidth() - 18, 6, 12, 14, juce::Justification::centred);
+    g.drawText (meta, getWidth() - 50, 3, 44, 15, juce::Justification::centredRight);
+
+    // miniatura da partitura: mostra o que vai ser colocado (antes de arrastar)
+    if (hasPat)
+    {
+        const juce::Rectangle<float> sc (8.0f, 21.0f, getWidth() - 16.0f, getHeight() - 25.0f);
+        const juce::Colour mink (0xffb9c2cc), mdim (0xff353d46);
+        const float sp = (sc.getHeight() - 4.0f) / 11.0f;   // posições -1..10
+        auto yy = [&] (float pos) { return sc.getBottom() - 2.0f - (pos + 1.0f) * sp; };
+        const float sw = sc.getWidth() / (float) drum::stepsPerBar;
+
+        // 5 linhas da pauta (posições 0,2,4,6,8)
+        g.setColour (mdim);
+        for (int i = 0; i <= 4; ++i)
+            g.drawHorizontalLine ((int) yy ((float) (i * 2)), sc.getX(), sc.getRight());
+        // separadores de tempo
+        g.setColour (juce::Colours::white.withAlpha (0.05f));
+        for (int beat = 1; beat < 4; ++beat)
+            g.drawVerticalLine ((int) (sc.getX() + beat * 4 * sw), yy (10.5f), yy (-1.0f));
+
+        for (int s = 0; s < drum::stepsPerBar; ++s)
+        {
+            const float x = sc.getX() + (s + 0.5f) * sw;
+            for (int v = 0; v < drum::numVoices; ++v)
+            {
+                const int val = pat[v][s];
+                if (val == 0)
+                    continue;
+                const float y = yy (staffPos[v]);
+                g.setColour (val == 2 ? ui::glowOrange
+                                      : val == 3 ? mdim.brighter (0.3f) : mink);
+                if (staffXHead[v])
+                {
+                    const float r = 2.0f;
+                    g.drawLine (x - r, y - r, x + r, y + r, 1.0f);
+                    g.drawLine (x - r, y + r, x + r, y - r, 1.0f);
+                }
+                else
+                    g.fillEllipse (x - 2.1f, y - 1.6f, 4.2f, 3.2f);
+            }
+        }
+    }
 
     if (deletable)
     {
+        g.setColour (ui::textMuted);
         g.setFont (ui::monoFont (11.0f));
-        g.drawText (juce::CharPointer_UTF8 ("\xc3\x97"), getWidth() - 20,
-                    getHeight() - 18, 14, 14, juce::Justification::centred);
+        g.drawText (juce::CharPointer_UTF8 ("\xc3\x97"), getWidth() - 17,
+                    getHeight() - 16, 13, 13, juce::Justification::centred);
     }
 }
 

@@ -75,12 +75,14 @@ private:
         DrumOverlay& owner;
     };
 
-    // ---- card de groove (fonte do arrasto)
+    // ---- card de groove (fonte do arrasto), com miniatura da partitura
     class GrooveCard : public juce::Component
     {
     public:
         juce::String title, meta, dragId;
         bool deletable = false;
+        juce::uint8 pat[drum::numVoices][drum::stepsPerBar] = {};
+        bool hasPat = false;
         std::function<void()> onLoad, onDelete;
         void paint (juce::Graphics&) override;
         void mouseDrag (const juce::MouseEvent&) override;
