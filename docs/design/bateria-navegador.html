@@ -71,6 +71,16 @@
   .seq td.gap { width:9px; background:transparent; cursor:default; }
   .seq .cnt { font-family:var(--mono); font-size:8px; color:var(--text-muted); text-align:center; }
 
+  /* abas de seção (múltiplos compassos = a música inteira) */
+  .sec-tabs { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .sec-tab { font-family:var(--mono); font-size:10.5px; letter-spacing:.04em; padding:5px 12px; border-radius:8px 8px 0 0; border:1px solid var(--border); border-bottom:none; background:transparent; color:var(--text-faint); cursor:pointer; }
+  .sec-tab:hover { color:var(--text); }
+  .sec-tab.on { color:var(--accent); border-color:var(--accent-dark); background:rgba(51,201,214,.08); font-weight:700; }
+  .sec-add { font-family:var(--mono); font-size:10.5px; padding:5px 11px; border-radius:8px; border:1px dashed rgba(255,255,255,.16); background:none; color:var(--text-faint); cursor:pointer; }
+  .sec-add:hover { border-color:var(--accent-dark); color:var(--accent); }
+  .sec-del { font-family:var(--mono); font-size:9.5px; color:var(--text-muted); cursor:pointer; padding:3px 7px; border-radius:5px; }
+  .sec-del:hover { color:var(--red); background:rgba(224,83,58,.12); }
+
   /* ===== NAVEGADOR EM COLUNAS (Miller columns, inspirado no DrumGroovePro) ===== */
   .browser { display:flex; gap:8px; height:224px; }
   .col { background:#0c0e11; border:1px solid var(--border); border-radius:11px; display:flex; flex-direction:column; overflow:hidden; }
@@ -136,7 +146,7 @@
   <header>
     <div class="eyebrow">PedalForge NAM · bateria · edição + navegador</div>
     <h1>Botão EDIÇÃO: editar ou montar</h1>
-    <p class="lede">O botão <b>EDIÇÃO</b> troca o que o clique/arraste faz na pauta. <b>Ligado</b> → clicar edita as notas e a <b>GRADE</b> de 16 steps aparece para o compasso selecionado. <b>Desligado (montar)</b> → você arrasta o <b>compasso inteiro</b> pela pauta para reposicionar ou copiar. E o <b>ARRASTAR</b> da biblioteca (groove → pauta) funciona <b>em qualquer um dos modos</b>. Mockup funcional: ligue a edição, clique nas notas, ou desligue e arraste um compasso sobre o outro.</p>
+    <p class="lede">A música é feita de <b>seções de 4 compassos</b> (abas SEÇÃO A, B… · <b>+ SEÇÃO</b> adiciona mais 4). O botão <b>EDIÇÃO</b> troca o que o clique/arraste faz na pauta: <b>ligado</b> → clicar edita as notas e a <b>GRADE</b> de 16 steps aparece; <b>desligado (montar)</b> → você arrasta o <b>compasso inteiro</b> para reposicionar/copiar. O <b>ARRASTAR</b> da biblioteca funciona nos dois modos. Mockup funcional: troque de seção, adicione uma, edite e arraste.</p>
   </header>
 
   <div class="window">
@@ -150,8 +160,11 @@
         <button class="chip play on" id="playBtn">▶ TOCAR</button>
         <button class="chip" id="editBtn" title="Liga: clique edita as notas + grade. Desliga: arraste o compasso inteiro">EDIÇÃO</button>
         <span class="ed-sub" id="modeLabel">MONTAR · arraste o compasso p/ reposicionar · arraste um groove da lista</span>
-        <span class="ed-sub" style="margin-left:auto">104 BPM · 4/4 · SEÇÃO A</span>
+        <span class="ed-sub" style="margin-left:auto" id="totalLabel">104 BPM · 4/4</span>
       </div>
+
+      <!-- abas de seção: cada seção = 4 compassos; a música é a sequência delas -->
+      <div class="sec-tabs" id="secTabs"></div>
 
       <div class="score-stage">
         <div class="bar-heads" id="barHeads"></div>
@@ -248,8 +261,11 @@ const LIB=[
 ];
 const GENRES=[...new Set(LIB.map(x=>x.g))];
 let curGenre='ROCK', curKind='groove', selItem=0;
-let song=[{bars:[{name:'Básico',pat:makePat(LIB[0].d)},{name:'Básico',pat:makePat(LIB[0].d)},null,null]}];
-let selBar=0, editMode=false;
+let song=[
+  {bars:[{name:'Básico',pat:makePat(LIB[0].d)},{name:'Básico',pat:makePat(LIB[0].d)},{name:'Básico',pat:makePat(LIB[0].d)},{name:'Só no 4º',pat:makePat(LIB[5].d)}]},
+  {bars:[{name:'Funk 16',pat:makePat(LIB[8].d)},null,null,null]}
+];
+let curSection=0, selBar=0, editMode=false;
 const GRID=['crash','hat','ride','tom1','tom2','snare','floor','kick','hp'];
 const VN={crash:'Crash',hat:'Chimbal',ride:'Ride',tom1:'Tom 1',tom2:'Tom 2',snare:'Caixa',floor:'Surdo',kick:'Bumbo',hp:'P. Chimbal'};
 function makePat(d){const p={};VOICES.forEach(v=>p[v.id]=new Array(NSTEPS).fill(0));if(d)for(const id in d)d[id].forEach(([s,val])=>{if(p[id])p[id][s]=val;});return p;}
@@ -290,7 +306,7 @@ function drawScore(){
   const ink='#c9d2da',dim='#5a6570',el=(t,a)=>{const e=document.createElementNS('http://www.w3.org/2000/svg',t);for(const k in a)e.setAttribute(k,a[k]);return e;};
   for(let i=0;i<=4;i++)svg.appendChild(el('line',{x1:16,y1:yOf(i*2),x2:SCORE_W-8,y2:yOf(i*2),stroke:dim,'stroke-width':1}));
   [0,1].forEach(i=>svg.appendChild(el('rect',{x:22+i*6,y:yOf(6),width:3.2,height:4*SP,fill:ink})));
-  const bar=song[0].bars;
+  const bar=song[curSection].bars;
   svg.appendChild(el('rect',{x:bX0(selBar),y:yOf(13),width:bX1(selBar)-bX0(selBar),height:yOf(-5)-yOf(13),rx:6,fill:'rgba(51,201,214,.05)',stroke:'rgba(51,201,214,.35)','stroke-width':1,'stroke-dasharray':'3 3'}));
   for(let b=1;b<4;b++){const x=(bX1(b-1)+bX0(b))/2;svg.appendChild(el('line',{x1:x,y1:yOf(8),x2:x,y2:yOf(0),stroke:ink,'stroke-width':1.1}));}
   svg.appendChild(el('line',{x1:SCORE_W-10,y1:yOf(8),x2:SCORE_W-10,y2:yOf(0),stroke:ink,'stroke-width':1.3}));
@@ -318,13 +334,13 @@ function renderBarHeads(){
   const hs=document.getElementById('barHeads');hs.innerHTML='';
   const wrap=document.getElementById('scoreWrap');wrap.querySelectorAll('.drop-zone').forEach(z=>z.remove());
   const scale=(document.getElementById('score').getBoundingClientRect().width/SCORE_W)||1;
-  song[0].bars.forEach((bar,b)=>{
+  song[curSection].bars.forEach((bar,b)=>{
     const h=document.createElement('div');
     h.className='bar-head'+(b===selBar?' sel':'')+(bar?'':' empty')+(editMode?' editing':'');
     h.style.left=(bX0(b)*scale)+'px';h.style.width=((bX1(b)-bX0(b))*scale)+'px';
     // MONTAR (edição off): o cabeçalho arrasta o compasso inteiro
     const grip=(!editMode&&bar)?'<span class="bh-grip">⠿</span>':'';
-    h.innerHTML=`<span class="bh-num">${b+1}</span><span class="bh-name"></span>${grip}`;
+    h.innerHTML=`<span class="bh-num">${curSection*4+b+1}</span><span class="bh-name"></span>${grip}`;
     h.querySelector('.bh-name').textContent=bar?bar.name:'vazio';
     h.onclick=()=>{selBar=b;drawScore();buildGrade();};
     if(!editMode&&bar){
@@ -337,13 +353,33 @@ function renderBarHeads(){
     z.ondrop=e=>{e.preventDefault();z.classList.remove('dragover');
       const data=e.dataTransfer.getData('text/plain');
       if(data.startsWith('bar:')){ // copia um compasso inteiro sobre outro
-        const src=+data.slice(4), sb=song[0].bars[src];
-        if(sb) song[0].bars[b]={name:sb.name,pat:JSON.parse(JSON.stringify(sb.pat))};
-      } else { const i=+data; if(LIB[i]) song[0].bars[b]={name:LIB[i].n,pat:makePat(LIB[i].d)}; }
+        const src=+data.slice(4), sb=song[curSection].bars[src];
+        if(sb) song[curSection].bars[b]={name:sb.name,pat:JSON.parse(JSON.stringify(sb.pat))};
+      } else { const i=+data; if(LIB[i]) song[curSection].bars[b]={name:LIB[i].n,pat:makePat(LIB[i].d)}; }
       selBar=b;drawScore();buildGrade();
     };
     wrap.appendChild(z);
   });
+}
+
+/* abas de seção (múltiplos compassos) */
+function renderSectionTabs(){
+  const box=document.getElementById('secTabs');box.innerHTML='';
+  song.forEach((s,i)=>{
+    const t=document.createElement('button');t.className='sec-tab'+(i===curSection?' on':'');
+    t.textContent=`SEÇÃO ${String.fromCharCode(65+i)} · ${i*4+1}–${i*4+4}`;
+    t.onclick=()=>{curSection=i;selBar=0;drawScore();buildGrade();renderSectionTabs();};
+    box.appendChild(t);
+  });
+  const add=document.createElement('button');add.className='sec-add';add.textContent='+ SEÇÃO (4 compassos)';
+  add.onclick=()=>{song.push({bars:[null,null,null,null]});curSection=song.length-1;selBar=0;drawScore();buildGrade();renderSectionTabs();};
+  box.appendChild(add);
+  if(song.length>1){
+    const del=document.createElement('span');del.className='sec-del';del.textContent='✕ remover seção';
+    del.onclick=()=>{song.splice(curSection,1);curSection=Math.min(curSection,song.length-1);selBar=0;drawScore();buildGrade();renderSectionTabs();};
+    box.appendChild(del);
+  }
+  document.getElementById('totalLabel').textContent=`104 BPM · 4/4 · ${song.length*4} compassos`;
 }
 
 /* GRADE de edição do compasso selecionado */
@@ -351,10 +387,10 @@ function buildGrade(){
   const panel=document.getElementById('gradePanel');
   panel.style.display=editMode?'block':'none';
   if(!editMode) return;
-  document.getElementById('gradeBar').textContent=selBar+1;
+  document.getElementById('gradeBar').textContent=curSection*4+selBar+1;
   const tbl=document.getElementById('grid');tbl.innerHTML='';
-  if(!song[0].bars[selBar]) song[0].bars[selBar]={name:'novo',pat:makePat()};
-  const pat=song[0].bars[selBar].pat;
+  if(!song[curSection].bars[selBar]) song[curSection].bars[selBar]={name:'novo',pat:makePat()};
+  const pat=song[curSection].bars[selBar].pat;
   const cnt=tbl.insertRow();cnt.appendChild(document.createElement('th'));
   for(let s=0;s<NSTEPS;s++){ if(s>0&&s%4===0){const g=cnt.insertCell();g.className='gap';}
     const c=cnt.insertCell();c.className='cnt';c.textContent=s%4===0?String(s/4+1):(s%2===0?'&':'·'); }
@@ -410,7 +446,7 @@ function renderPreview(){
   const drag=document.createElement('button');drag.className='pv-drag';drag.textContent='⠿ ARRASTAR PARA A PAUTA';drag.draggable=true;
   drag.addEventListener('dragstart',e=>e.dataTransfer.setData('text/plain',selItem));
   const ap=document.createElement('button');ap.className='pv-apply';ap.textContent='aplicar no compasso '+(selBar+1);
-  ap.onclick=()=>{song[0].bars[selBar]={name:it.n,pat:makePat(it.d)};drawScore();};
+  ap.onclick=()=>{song[curSection].bars[selBar]={name:it.n,pat:makePat(it.d)};drawScore();};
   const hz=document.createElement('div');hz.className='humanize';
   hz.innerHTML=`<span class="hz-title">HUMANIZAR</span>
     <div class="hz"><label>VELOCITY</label><input type="range" min="0" max="100" value="30"></div>
@@ -440,12 +476,12 @@ document.getElementById('score').addEventListener('mousedown',e=>{
   let best=7,voice=null;VOICES.forEach(v=>{const d=Math.abs(p.y-yOf(v.pos));if(d<best){best=d;voice=v;}});
   if(!voice)return;
   const b=Math.floor(gs/NSTEPS);selBar=b;
-  if(!song[0].bars[b])song[0].bars[b]={name:'novo',pat:makePat()};
-  const pat=song[0].bars[b].pat,s=gs%NSTEPS;
+  if(!song[curSection].bars[b])song[curSection].bars[b]={name:'novo',pat:makePat()};
+  const pat=song[curSection].bars[b].pat,s=gs%NSTEPS;
   pat[voice.id][s]=(pat[voice.id][s]+1)%4;
   drawScore();buildGrade();
 });
 window.addEventListener('resize',()=>{renderBarHeads();renderPreview();});
-renderGenreCol();renderList();renderPreview();drawScore();buildGrade();
+renderSectionTabs();renderGenreCol();renderList();renderPreview();drawScore();buildGrade();
 if(location.hash==='#edit')document.getElementById('editBtn').click();
 </script>
