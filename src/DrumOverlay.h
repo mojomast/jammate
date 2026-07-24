@@ -197,11 +197,18 @@ private:
     juce::TextButton playButton;
     juce::TextButton bpmDown { "-" }, bpmUp { "+" };
     juce::Slider swingSlider, levelSlider;
-    juce::TextButton clickChip { "CLICK" }, countChip { "COUNT-IN" };
+    juce::TextButton clickChip { "CLICK" }, countChip { "COUNT-IN" };  // legacy (menu now)
+    juce::TextButton metroChip { juce::CharPointer_UTF8 ("METRO \xe2\x96\xbe") };
     juce::TextButton followChip { "FOLLOW" }, gridChip { "GRID" };
     juce::TextButton genChip { "GENERATE" };
     juce::TextButton editChip { "EDIT" };
     juce::TextButton saveChip { "SAVE BAR" };
+    // clean UI: humanize sliders live in a small popover panel; the drum sound
+    // source row collapses into a single kit chip with a menu
+    juce::TextButton humChip { juce::CharPointer_UTF8 ("HUMANIZE \xe2\x96\xbe") };
+    std::unique_ptr<juce::Component> humPanel;
+    juce::TextButton kitChip;
+    juce::TextButton helpChip { "?" };
 
     juce::OwnedArray<juce::TextButton> sectionTabs;
     juce::TextButton addSectionBtn { "+ SECTION" };

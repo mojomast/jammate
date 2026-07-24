@@ -23,6 +23,40 @@ constexpr int sourceY = 648, sourceH = 32;
 // column browser: Genre | Grooves/Fills | Preview
 constexpr int colGap = 8, genreColW = 150, listColW = 208, colRowH = 26;
 
+// clean UI: small floating card holding the 3 humanize sliders (popover)
+class HumanizePanel : public juce::Component
+{
+public:
+    HumanizePanel (juce::Slider& v, juce::Slider& t, juce::Slider& r)
+        : vel (v), tim (t), rr (r)
+    {
+        addAndMakeVisible (vel);
+        addAndMakeVisible (tim);
+        addAndMakeVisible (rr);
+    }
+    void paint (juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat().reduced (0.5f);
+        g.setColour (ui::cardTop);
+        g.fillRoundedRectangle (b, 6.0f);
+        g.setColour (ui::borderHover());
+        g.drawRoundedRectangle (b, 6.0f, 1.0f);
+        g.setFont (ui::monoFont (7.5f));
+        g.setColour (ui::textFaint);
+        g.drawText ("VELOCITY",    10, 12, 76, 12, juce::Justification::centredLeft);
+        g.drawText ("TIMING",      10, 42, 76, 12, juce::Justification::centredLeft);
+        g.drawText ("ROUND-ROBIN", 10, 72, 76, 12, juce::Justification::centredLeft);
+    }
+    void resized() override
+    {
+        vel.setBounds (88, 8, getWidth() - 98, 22);
+        tim.setBounds (88, 38, getWidth() - 98, 22);
+        rr.setBounds (88, 68, getWidth() - 98, 22);
+    }
+private:
+    juce::Slider &vel, &tim, &rr;
+};
+
 // bar role (1..5) - label (UI) and key (generator)
 juce::String roleLabel (int r)
 {
@@ -380,7 +414,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     { engine.level.store ((float) levelSlider.getValue()); };
     addAndMakeVisible (levelSlider);
 
-    for (auto* c : { &clickChip, &countChip, &followChip, &gridChip, &genChip, &editChip, &saveChip })
+    for (auto* c : { &metroChip, &followChip, &gridChip, &genChip, &editChip, &saveChip, &humChip })
     {
         c->getProperties().set ("chip", true);
         c->setMouseClickGrabsKeyboardFocus (false);
@@ -399,18 +433,29 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
                                            : juce::MouseCursor::DraggingHandCursor);
         scoreView.repaint();
     };
-    clickChip.onClick = [this]
+    // clean UI: click & count-in live in the metronome menu (one chip)
+    metroChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Metronome: click track and 1-bar count-in")));
+    metroChip.onClick = [this]
     {
-        engine.clickOn.store (! engine.clickOn.load());
-        clickChip.getProperties().set ("chipActive", engine.clickOn.load());
-        clickChip.repaint();
-    };
-    countChip.setTooltip ("1 count-in bar before playing");
-    countChip.onClick = [this]
-    {
-        engine.countInOn.store (! engine.countInOn.load());
-        countChip.getProperties().set ("chipActive", engine.countInOn.load());
-        countChip.repaint();
+        juce::PopupMenu m;
+        m.setLookAndFeel (&getLookAndFeel());
+        m.addItem (1, "Click", true, engine.clickOn.load());
+        m.addItem (2, "Count-in (1 bar)", true, engine.countInOn.load());
+        auto* self = this; // MSVC: 'this' in a nested lambda init-capture resolves wrong
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&metroChip),
+            [safe = juce::Component::SafePointer<DrumOverlay> (self)] (int r)
+            {
+                if (safe == nullptr) return;
+                if (r == 1) safe->engine.clickOn.store (! safe->engine.clickOn.load());
+                else if (r == 2) safe->engine.countInOn.store (! safe->engine.countInOn.load());
+                if (r > 0)
+                {
+                    safe->metroChip.getProperties().set ("chipActive",
+                        safe->engine.clickOn.load() || safe->engine.countInOn.load());
+                    safe->metroChip.repaint();
+                }
+            });
     };
     followChip.getProperties().set ("chipActive", true);
     followChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
@@ -587,33 +632,79 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
 
     addChildComponent (gridView);
 
-    sourceChip.getProperties().set ("chip", true);
-    sourceChip.setMouseClickGrabsKeyboardFocus (false);
-    sourceChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Toggles between the internal kit and the loaded drum VST3")));
-    sourceChip.onClick = [this]
+    // clean UI: the whole sound-source row collapses into ONE kit chip whose
+    // menu holds source toggle / panel / load / remove
+    kitChip.getProperties().set ("chip", true);
+    kitChip.setMouseClickGrabsKeyboardFocus (false);
+    kitChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Drum sound source: internal kit or a hosted VST3 (panel, load, remove)")));
+    kitChip.onClick = [this]
     {
-        if (processor.hasDrumPlugin())
-            engine.useVst.store (! engine.useVst.load());
-        refreshSourceRow();
+        const bool hasVst = processor.hasDrumPlugin();
+        const bool vstOn = engine.useVst.load() && hasVst;
+        juce::PopupMenu m;
+        m.setLookAndFeel (&getLookAndFeel());
+        m.addItem (1, "Source: VST3 plugin", hasVst, vstOn);
+        m.addItem (2, "Source: internal kit", true, ! vstOn);
+        m.addSeparator();
+        m.addItem (3, "Open plugin panel", hasVst);
+        m.addItem (4, juce::String (juce::CharPointer_UTF8 ("Load drum VST3\xe2\x80\xa6")));
+        m.addItem (5, "Remove plugin", hasVst);
+        auto* self = this; // MSVC: 'this' in a nested lambda init-capture resolves wrong
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&kitChip),
+            [safe = juce::Component::SafePointer<DrumOverlay> (self)] (int r)
+            {
+                if (safe == nullptr) return;
+                switch (r)
+                {
+                    case 1: safe->engine.useVst.store (true); break;
+                    case 2: safe->engine.useVst.store (false); break;
+                    case 3: if (safe->onOpenVstPanel) safe->onOpenVstPanel(); break;
+                    case 4: if (safe->onChooseVst) safe->onChooseVst(); break;
+                    case 5: safe->processor.clearDrumPlugin(); break;
+                    default: break;
+                }
+                safe->refreshSourceRow();
+            });
     };
-    addAndMakeVisible (sourceChip);
+    addAndMakeVisible (kitChip);
 
-    vstLoadButton.onClick = [this] { if (onChooseVst) onChooseVst(); };
-    vstPanelButton.onClick = [this] { if (onOpenVstPanel) onOpenVstPanel(); };
-    vstClearButton.onClick = [this]
+    // humanize: popover panel above the chip (sliders keep their bindings)
+    humPanel = std::make_unique<HumanizePanel> (humVelSlider, humTimeSlider, humRRSlider);
+    addChildComponent (*humPanel);
+    humChip.setTooltip ("Velocity / timing / round-robin humanization");
+    humChip.onClick = [this]
     {
-        processor.clearDrumPlugin();
-        refreshSourceRow();
+        const bool show = ! humPanel->isVisible();
+        humPanel->setVisible (show);
+        humChip.getProperties().set ("chipActive", show);
+        humChip.repaint();
+        if (show)
+            humPanel->toFront (false);
     };
-    addAndMakeVisible (vstLoadButton);
-    addChildComponent (vstPanelButton);
-    addChildComponent (vstClearButton);
+
+    // notation legend: the permanent hint line became this "?" popover
+    helpChip.getProperties().set ("chip", true);
+    helpChip.setMouseClickGrabsKeyboardFocus (false);
+    helpChip.setTooltip ("Notation & staff shortcuts");
+    helpChip.onClick = [this]
+    {
+        juce::PopupMenu m;
+        m.setLookAndFeel (&getLookAndFeel());
+        m.addSectionHeader ("NOTATION");
+        m.addItem (100, juce::String (juce::CharPointer_UTF8 ("\xc3\x97 cymbals \xc2\xb7 heads = drums")), false);
+        m.addItem (101, juce::String (juce::CharPointer_UTF8 ("> accent \xc2\xb7 ( ) ghost note")), false);
+        m.addSectionHeader ("STAFF");
+        m.addItem (102, "drag a groove onto a bar", false);
+        m.addItem (103, "click the staff to edit (EDIT on)", false);
+        m.addItem (104, "time signature: click it on the staff", false);
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&helpChip), nullptr);
+    };
+    addAndMakeVisible (helpChip);
 
     for (auto* b : std::initializer_list<juce::Button*> {
              &closeButton, &playButton, &bpmDown, &bpmUp,
-             &addSectionBtn, &delSectionBtn,
-             &vstLoadButton, &vstPanelButton, &vstClearButton })
+             &addSectionBtn, &delSectionBtn, &kitChip, &helpChip })
         b->setMouseClickGrabsKeyboardFocus (false);
 
     // first time (empty timeline): builds a demo section with the default groove
@@ -749,8 +840,8 @@ void DrumOverlay::syncTransportUi()
 {
     swingSlider.setValue (engine.swingPct.load(), juce::dontSendNotification);
     levelSlider.setValue (engine.level.load(), juce::dontSendNotification);
-    clickChip.getProperties().set ("chipActive", engine.clickOn.load());
-    countChip.getProperties().set ("chipActive", engine.countInOn.load());
+    metroChip.getProperties().set ("chipActive",
+                                   engine.clickOn.load() || engine.countInOn.load());
     playButton.setButtonText (engine.playing.load()
                                   ? juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0 STOP"))
                                   : juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6 PLAY")));
@@ -847,22 +938,7 @@ void DrumOverlay::paint (juce::Graphics& g)
                 juce::Justification::centredLeft);
 
     // humanize labels
-    if (humVelSlider.isVisible())
-    {
-        g.setFont (ui::monoFont (7.5f));
-        g.setColour (ui::textMuted);
-        auto lbl = [&] (juce::Slider& s, const char* t)
-        {
-            auto b = s.getBounds();
-            g.drawText (t, b.getX(), b.getY() - 10, b.getWidth(), 9, juce::Justification::centred);
-        };
-        lbl (humVelSlider, "VELOCITY");
-        lbl (humTimeSlider, "TIMING");
-        lbl (humRRSlider, "R-ROBIN");
-        g.setColour (ui::textFaint);
-        g.drawText ("HUMANIZE", humVelSlider.getX() - 76, humVelSlider.getY() - 2, 72, 12,
-                    juce::Justification::centredRight);
-    }
+    // (humanize labels now live inside the HumanizePanel popover)
 
     // generator labels
     if (genOn)
@@ -915,12 +991,12 @@ void DrumOverlay::resized()
     bpmDown.setBounds (x0 + 204, headerY + 4, 24, 26);
     bpmUp.setBounds (x0 + 204 + 24 + 50, headerY + 4, 24, 26);
     swingSlider.setBounds (x0 + 362, headerY + 5, 108, 24);
-    clickChip.setBounds (x0 + 484, headerY + 3, 64, 28);
-    countChip.setBounds (x0 + 552, headerY + 3, 96, 28);
-    followChip.setBounds (x0 + 652, headerY + 3, 70, 28);
-    gridChip.setBounds (x0 + 726, headerY + 3, 62, 28);
-    genChip.setBounds (x0 + 792, headerY + 3, 60, 28);
-    editChip.setBounds (x0 + 856, headerY + 3, 72, 28);
+    metroChip.setBounds (x0 + 484, headerY + 3, 78, 28);
+    // FOLLOW | GRID | EDIT read as one segmented control (adjacent chips)
+    followChip.setBounds (x0 + 578, headerY + 3, 70, 28);
+    gridChip.setBounds (x0 + 648, headerY + 3, 56, 28);
+    editChip.setBounds (x0 + 704, headerY + 3, 56, 28);
+    genChip.setBounds (x0 + 776, headerY + 3, 92, 28);
 
     // ---- guitar ribbon (band below the transport), in chain order
     {
@@ -989,13 +1065,12 @@ void DrumOverlay::resized()
         const int prevW = (W - margin) - prevX;
         previewPane.setBounds (prevX, libY, prevW, libH - 38);
         applyBtn.setBounds (prevX, libBottom - 30, 190, 30);
-        // humanize (non-MINE): 3 sliders on the right
-        const int hw = 62, hg = 8;
-        const int hx = W - margin - (hw * 3 + hg * 2);
-        humVelSlider.setBounds (hx, libBottom - 26, hw, 22);
-        humTimeSlider.setBounds (hx + hw + hg, libBottom - 26, hw, 22);
-        humRRSlider.setBounds (hx + 2 * (hw + hg), libBottom - 26, hw, 22);
+        // humanize: one chip; the 3 sliders live in the popover panel above it
+        humChip.setBounds (W - margin - 112, libBottom - 28, 112, 26);
+        if (humPanel != nullptr)
+            humPanel->setBounds (W - margin - 214, libBottom - 28 - 106, 214, 100);
     }
+    helpChip.setBounds (W - margin - 26, scoreY + 6, 22, 20);
     gridView.setBounds (margin, gridY, libW, gridH);
 
     // generator (same area): SOURCE | PARAMETERS | GENERATE
@@ -1016,11 +1091,8 @@ void DrumOverlay::resized()
         genAllBtn.setBounds (gx, libY + 96, gw, 58);
     }
 
-    sourceChip.setBounds (margin, sourceY, 150, sourceH);
-    vstLoadButton.setBounds (margin + 158, sourceY, 140, sourceH);
-    vstPanelButton.setBounds (margin + 306, sourceY, 76, sourceH);
-    vstClearButton.setBounds (margin + 390, sourceY, 90, sourceH);
-    saveChip.setBounds (margin + 492, sourceY + 2, 152, 28);
+    kitChip.setBounds (margin, sourceY, 254, sourceH);
+    saveChip.setBounds (margin + 262, sourceY + 2, 120, 28);
     levelSlider.setBounds (W - margin - 130, sourceY + 3, 130, 26);
 }
 
@@ -1104,9 +1176,12 @@ void DrumOverlay::refreshAll()
     tabViradas.setVisible (lib && ! mine);
     applyBtn.setVisible (lib && selValid);
     const bool humShow = lib && ! mine;
-    humVelSlider.setVisible (humShow);
-    humTimeSlider.setVisible (humShow);
-    humRRSlider.setVisible (humShow);
+    humChip.setVisible (humShow);
+    if (! humShow && humPanel != nullptr && humPanel->isVisible())
+    {
+        humPanel->setVisible (false);
+        humChip.getProperties().set ("chipActive", false);
+    }
     gridView.setVisible (gridOn);
 
     juce::Component* genComps[] = { &genGenreBox, &genStyleBox, &genDrummerBox,
@@ -1463,13 +1538,7 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
         }
     }
 
-    // legend
-    g.setFont (ui::monoFont (8.5f));
-    g.setColour (ui::textMuted);
-    g.drawText (juce::String (juce::CharPointer_UTF8 (
-                    "drag a groove \xc2\xb7 click edits \xc2\xb7 time signature in the bar "
-                    "header \xc2\xb7 \xc3\x97 cymbals \xc2\xb7 > accent \xc2\xb7 ( ) ghost")),
-                20, 4, getWidth() - 40, 12, juce::Justification::centredLeft);
+    // (the permanent legend line moved into the "?" popover - clean UI)
 }
 
 int DrumOverlay::ScoreView::barAtX (int x) const { return owner.barAtXlocal (x); }
@@ -1665,15 +1734,10 @@ void DrumOverlay::rebuildGenreCol()
     for (const auto& n : names)
     {
         const auto key = n.startsWith (star) ? juce::String ("MINE") : n;
-        int cnt = 0;
-        if (key == "MINE")
-            cnt = userGroovesDir().findChildFiles (juce::File::findFiles, false, "*.json").size();
-        else
-            for (const auto& gg : drum::library())
-                if (juce::String (juce::CharPointer_UTF8 (gg.genre)) == key) ++cnt;
 
+        // clean UI: no per-genre counters (visual noise without navigation value)
         auto* b = genreRows.add (new juce::TextButton());
-        b->setButtonText (n + "  (" + juce::String (cnt) + ")");
+        b->setButtonText (n);
         b->setColour (juce::TextButton::buttonColourId,
                       key == currentGenre ? ui::accentDark.withAlpha (0.22f) : juce::Colour (0));
         b->setColour (juce::TextButton::buttonOnColourId, ui::accentDark.withAlpha (0.22f));
@@ -2285,13 +2349,13 @@ void DrumOverlay::refreshSourceRow()
     const bool hasVst = processor.hasDrumPlugin();
     const bool vstOn = engine.useVst.load() && hasVst;
 
-    sourceChip.setButtonText (vstOn ? "SOURCE: VST3" : "SOURCE: INTERNAL");
-    sourceChip.getProperties().set ("chipActive", vstOn);
-    sourceChip.repaint();
-
-    vstLoadButton.setButtonText (hasVst
-        ? processor.getDrumPluginName().substring (0, 16)
-        : juce::String (juce::CharPointer_UTF8 ("LOAD VST3\xe2\x80\xa6")));
-    vstPanelButton.setVisible (hasVst);
-    vstClearButton.setVisible (hasVst);
+    // single kit chip: "<name> · VST3 ▾" or "INTERNAL KIT ▾"
+    const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
+    const auto caret = juce::String::fromUTF8 (" \xe2\x96\xbe");
+    kitChip.setButtonText (vstOn
+        ? juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\xa5\x81 "))
+              + processor.getDrumPluginName().substring (0, 18) + dot + "VST3" + caret
+        : "INTERNAL KIT" + caret);
+    kitChip.getProperties().set ("chipActive", vstOn);
+    kitChip.repaint();
 }
