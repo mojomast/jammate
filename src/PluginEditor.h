@@ -369,6 +369,7 @@ private:
 //==============================================================================
 // Fixed logical canvas 1100x700 scaled by the editor.
 class DrumOverlay;
+class SongOverlay;
 class DrumRibbon;
 
 class RigContent : public juce::Component,
@@ -428,6 +429,10 @@ private:
 
     std::unique_ptr<juce::FileChooser> fileChooser;
     std::unique_ptr<StoreOverlay> storeOverlay;
+
+    // vNext: SONG / SCENES screen (rig snapshots per drum section)
+    std::unique_ptr<SongOverlay> songOverlay;
+    juce::TextButton songButton { "Song" };
 
     // Drums module (overlay + drum VST panel window)
     std::unique_ptr<DrumOverlay> drumOverlay;

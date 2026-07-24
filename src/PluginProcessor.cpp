@@ -2325,6 +2325,27 @@ void GuitarRigNAMProcessor::applySceneForSection (int sec)
     sceneFadeLeft.store (fade);
 }
 
+juce::String GuitarRigNAMProcessor::sceneSummary (int sec) const
+{
+    if (! hasScene (sec))
+        return {};
+    auto t = juce::ValueTree::fromXml (sceneXml[sec]);
+    if (! t.isValid())
+        return {};
+
+    const juce::File model (t.getProperty (kStateModelPath, "").toString());
+    const auto amp = model.getFullPathName().isNotEmpty()
+                         ? model.getFileNameWithoutExtension()
+                         : juce::String ("No capture");
+    const auto order = juce::StringArray::fromTokens (
+        t.getProperty ("chainOrder", "").toString(), ",", "");
+    int fx = 0;
+    for (const auto& id : order)
+        if (id != "amp")
+            ++fx;
+    return amp + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 ")) + juce::String (fx) + " fx";
+}
+
 void GuitarRigNAMProcessor::shiftScenesOnSectionRemove (int sec)
 {
     if (sec < 0 || sec >= drum::maxSections)

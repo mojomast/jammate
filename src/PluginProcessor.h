@@ -291,6 +291,8 @@ public:
     void applySceneForSection (int sec);
     /// Keeps scenes aligned when a section is removed (shifts left from sec).
     void shiftScenesOnSectionRemove (int sec);
+    /// Short human summary of a scene ("Mesa Dual... · 6 fx"); "" if none.
+    juce::String sceneSummary (int sec) const;
     std::atomic<bool> scenesOn { false };
 
     //==========================================================================

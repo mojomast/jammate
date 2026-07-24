@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 
 #include "DrumOverlay.h"
+#include "SongOverlay.h"
 #include "PluginCatalog.h"
 
 #include <BinaryData.h>
@@ -3281,6 +3282,16 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     drumButton.setMouseClickGrabsKeyboardFocus (false);
     addAndMakeVisible (drumButton);
 
+    // vNext: SONG / SCENES screen (per-section rig snapshots + setlist)
+    songOverlay = std::make_unique<SongOverlay> (processor);
+    addChildComponent (*songOverlay);
+    songOverlay->onSaveSong = [this] { saveCurrentPreset(); };
+    songButton.onClick = [this] { songOverlay->open(); };
+    songButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Song/Scenes: one rig snapshot per drum section, auto-switch on play")));
+    songButton.setMouseClickGrabsKeyboardFocus (false);
+    addAndMakeVisible (songButton);
+
     // drum ribbon at the top (follow along without opening the module)
     drumRibbon = std::make_unique<DrumRibbon> (processor.drumEngine);
     drumRibbon->onOpen = [this] { drumOverlay->open(); };
@@ -3395,12 +3406,15 @@ void RigContent::resized()
 
     storeOverlay->setBounds (getLocalBounds());
     drumOverlay->setBounds (getLocalBounds());
+    if (songOverlay != nullptr)
+        songOverlay->setBounds (getLocalBounds());
 
     // ---- top bar (60 px) - clean UI: ghost cluster left, meters, actions right
     storeButton.setBounds (W - 18 - 134, 13, 134, 34);
     audioButton.setBounds (storeButton.getX() - 8 - 82, 13, 82, 34);
     drumButton.setBounds (audioButton.getX() - 8 - 78, 13, 78, 34);
-    const int metersRight = drumButton.getX() - 16;
+    songButton.setBounds (drumButton.getX() - 8 - 66, 13, 66, 34);
+    const int metersRight = songButton.getX() - 16;
     const int meterW = 58, cpuW = 48;
     cpuMeter.setBounds (metersRight - cpuW, 34, cpuW, 7);
     inMeter.setBounds (metersRight - cpuW - 14 - meterW, 17, meterW, 7);
