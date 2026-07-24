@@ -208,6 +208,7 @@ private:
     juce::TextButton closeButton { juce::CharPointer_UTF8 ("\xe2\x9c\x95") };
     juce::TextButton playButton;
     juce::TextButton bpmDown { "-" }, bpmUp { "+" };
+    juce::TextButton syncChip { "SYNC" };   // vNext: follow the DAW BPM (VST3)
     juce::Slider swingSlider, levelSlider;
     juce::TextButton clickChip { "CLICK" }, countChip { "COUNT-IN" };  // legacy (menu now)
     juce::TextButton metroChip { juce::CharPointer_UTF8 ("METRO \xe2\x96\xbe") };

@@ -295,8 +295,14 @@ private:
     int abCurrent = 0;
 
 public:
+    // vNext: DAW sync - the drum engine follows the host BPM when enabled
+    // (persisted; no-op in the standalone, which has no play head)
+    std::atomic<bool> drumHostSync { true };
+    float getHostBpm() const { return hostBpm.load(); }
 
 private:
+    std::atomic<float> hostBpm { 0.0f };   // 0 = host BPM unknown
+
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     using Resampler = dsp::ResamplingContainer<float, 1, 12>;

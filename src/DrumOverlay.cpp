@@ -636,6 +636,18 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
                                            : juce::MouseCursor::DraggingHandCursor);
         scoreView.repaint();
     };
+    // vNext: DAW sync toggle - in the VST3 the drums follow the host BPM
+    syncChip.getProperties().set ("chip", true);
+    syncChip.setMouseClickGrabsKeyboardFocus (false);
+    syncChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Follow the DAW tempo (VST3). The standalone keeps its own BPM.")));
+    syncChip.onClick = [this]
+    {
+        processor.drumHostSync.store (! processor.drumHostSync.load());
+        syncTransportUi();
+    };
+    addAndMakeVisible (syncChip);
+
     // clean UI: click & count-in live in the metronome menu (one chip)
     metroChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Metronome: click track and 1-bar count-in")));
@@ -1004,6 +1016,8 @@ void DrumOverlay::syncTransportUi()
     levelSlider.setValue (engine.level.load(), juce::dontSendNotification);
     metroChip.getProperties().set ("chipActive",
                                    engine.clickOn.load() || engine.countInOn.load());
+    syncChip.getProperties().set ("chipActive", processor.drumHostSync.load());
+    syncChip.repaint();
     playButton.setButtonText (engine.playing.load()
                                   ? juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0 STOP"))
                                   : juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6 PLAY")));
@@ -1210,6 +1224,7 @@ void DrumOverlay::resized()
     // GRID and GENERATE live in the lower action row.
     followChip.setBounds (x0 + 578, headerY + 3, 70, 28);
     editChip.setBounds (x0 + 648, headerY + 3, 56, 28);
+    syncChip.setBounds (x0 + 720, headerY + 3, 56, 28);   // DAW BPM follow
 
     // ---- guitar ribbon (band below the transport), in chain order
     {

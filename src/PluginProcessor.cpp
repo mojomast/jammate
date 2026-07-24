@@ -2253,6 +2253,19 @@ void GuitarRigNAMProcessor::processExtFx (int slot, float* io, int n)
 
 void GuitarRigNAMProcessor::processDrums (juce::AudioBuffer<float>& buffer, int numOut, int n)
 {
+    // vNext: DAW sync - follow the host BPM when available and enabled.
+    // getPosition() returns a value struct; no allocation on the RT path.
+    if (auto* ph = getPlayHead())
+        if (auto pos = ph->getPosition())
+            if (auto b = pos->getBpm())
+                hostBpm.store ((float) *b);
+    if (drumHostSync.load())
+    {
+        const float hb = hostBpm.load();
+        if (hb >= 30.0f && hb <= 300.0f)
+            drumEngine.bpm.store (hb);
+    }
+
     // RT-safe swap of the drum VST instance
     if (auto* p = drumPending.exchange (nullptr))
     {
@@ -3147,6 +3160,7 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
     state.setProperty ("drumHumRR", drumEngine.humanRR.load(), nullptr);
     state.setProperty ("drumClick", drumEngine.clickOn.load(), nullptr);
     state.setProperty ("drumCountIn", drumEngine.countInOn.load(), nullptr);
+    state.setProperty ("drumHostSync", drumHostSync.load(), nullptr);
     state.setProperty ("drumUseVst", drumEngine.useVst.load(), nullptr);
     state.setProperty ("drumVstPath", getDrumPluginPath(), nullptr);
     if (includeExtPluginState)
@@ -3321,6 +3335,7 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
         drumEngine.humanRR.store ((float) (double) state.getProperty ("drumHumRR", 0.4));
         drumEngine.clickOn.store ((bool) state.getProperty ("drumClick", false));
         drumEngine.countInOn.store ((bool) state.getProperty ("drumCountIn", false));
+        drumHostSync.store ((bool) state.getProperty ("drumHostSync", true));
 
         const juce::File drumFile (state.getProperty ("drumVstPath", "").toString());
         const bool wantVst = (bool) state.getProperty ("drumUseVst", false);
