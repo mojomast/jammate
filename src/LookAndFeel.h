@@ -155,6 +155,50 @@ public:
         }
     }
 
+    void drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height,
+                           float sliderPos, float, float,
+                           juce::Slider::SliderStyle style, juce::Slider& s) override
+    {
+        if (style != juce::Slider::LinearHorizontal && style != juce::Slider::LinearBar)
+        {
+            juce::LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos,
+                                                    0.0f, 0.0f, style, s);
+            return;
+        }
+
+        const float trackH = juce::jmin (9.0f, (float) height * 0.5f);
+        const float cy = (float) y + (float) height * 0.5f;
+        const float r = trackH * 0.5f;
+        juce::Rectangle<float> track ((float) x, cy - r, (float) width, trackH);
+
+        g.setColour (ui::text.withAlpha (0.14f));      // track bg (divider)
+        g.fillRoundedRectangle (track, r);
+
+        const float fillW = sliderPos - (float) x;
+        if (fillW > 1.0f)
+        {
+            auto fill = track.withWidth (fillW);
+            g.setColour (ui::accent.withAlpha (0.22f)); // glow
+            g.fillRoundedRectangle (fill.expanded (0.0f, 2.0f), r + 2.0f);
+            juce::ColourGradient grad (ui::accentDark, fill.getX(), 0.0f,
+                                       ui::accent, fill.getRight(), 0.0f, false);
+            g.setGradientFill (grad);
+            g.fillRoundedRectangle (fill, r);
+        }
+
+        // round dimensional handle (mini knob cap)
+        const float hd = juce::jlimit (14.0f, 22.0f, (float) height * 0.8f);
+        auto handle = juce::Rectangle<float> (hd, hd).withCentre ({ sliderPos, cy });
+        juce::ColourGradient hg (juce::Colour (0xff39424a),
+                                 handle.getX() + hd * 0.38f, handle.getY() + hd * 0.26f,
+                                 juce::Colour (0xff12171b), handle.getRight(), handle.getBottom(), true);
+        g.setGradientFill (hg);
+        g.fillEllipse (handle);
+        const bool act = s.isMouseOverOrDragging();
+        g.setColour (act ? ui::accentBright : ui::accent.withAlpha (0.55f));
+        g.drawEllipse (handle.reduced (0.6f), act ? 1.8f : 1.4f);
+    }
+
     void drawButtonBackground (juce::Graphics& g, juce::Button& button,
                                const juce::Colour&, bool isHighlighted, bool isDown) override
     {
@@ -231,10 +275,10 @@ public:
     {
         const auto& props = button.getProperties();
         if (props["tab"])
-            return ui::uiFont (13.0f, true);
+            return ui::uiFont (12.0f, true);
         if (props["chip"])
-            return ui::uiFont (11.5f, true);
-        return ui::uiFont (props["accent"] ? 13.0f : 12.5f, true);
+            return ui::uiFont (10.0f, true);   // Archivo is wider — fit the fixed chips
+        return ui::uiFont (props["accent"] ? 12.0f : 11.5f, true);
     }
 
     void drawButtonText (juce::Graphics& g, juce::TextButton& button,

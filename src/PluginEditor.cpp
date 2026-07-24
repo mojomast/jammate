@@ -161,22 +161,22 @@ void KnobComponent::resized()
 //==============================================================================
 void LedButton::paintButton (juce::Graphics& g, bool, bool)
 {
-    const auto b = getLocalBounds().toFloat();
-    const auto c = b.getCentre();
+    const auto c = getLocalBounds().toFloat().getCentre();
+    constexpr float d = 14.0f;   // bypass-led dot per tokens.json
 
-    if (getToggleState())
+    if (getToggleState())        // on: accent fill + glow
     {
-        g.setColour (ui::accent.withAlpha (0.35f));
-        g.fillEllipse (c.x - 9.0f, c.y - 9.0f, 18.0f, 18.0f);
+        g.setColour (ui::accent.withAlpha (0.40f));
+        g.fillEllipse (c.x - d * 0.78f, c.y - d * 0.78f, d * 1.56f, d * 1.56f);
         g.setColour (ui::accent);
-        g.fillEllipse (c.x - 5.5f, c.y - 5.5f, 11.0f, 11.0f);
+        g.fillEllipse (c.x - d * 0.5f, c.y - d * 0.5f, d, d);
+        g.setColour (juce::Colours::white.withAlpha (0.25f));
+        g.fillEllipse (c.x - d * 0.24f, c.y - d * 0.34f, d * 0.34f, d * 0.28f); // specular
     }
-    else
+    else                         // off: 1.5px divider ring (hollow)
     {
-        g.setColour (juce::Colour (0xff2c323a));
-        g.fillEllipse (c.x - 5.5f, c.y - 5.5f, 11.0f, 11.0f);
-        g.setColour (juce::Colours::black.withAlpha (0.5f));
-        g.drawEllipse (c.x - 5.0f, c.y - 5.0f, 10.0f, 10.0f, 1.5f);
+        g.setColour (ui::text.withAlpha (0.24f));
+        g.drawEllipse (c.x - d * 0.5f + 0.75f, c.y - d * 0.5f + 0.75f, d - 1.5f, d - 1.5f, 1.5f);
     }
 }
 
@@ -225,38 +225,42 @@ void LevelMeter::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat();
     g.setColour (ui::meterBg);
-    g.fillRoundedRectangle (b, 4.0f);
-    g.setColour (juce::Colours::white.withAlpha (0.06f));
-    g.drawRoundedRectangle (b, 4.0f, 1.0f);
+    g.fillRect (b);
+    g.setColour (ui::text.withAlpha (0.10f));
+    g.drawRect (b, 1.0f);
 
-    if (fraction <= 0.003f)
-        return;
+    auto inner = b.reduced (1.5f);
+    constexpr int N = 14;                 // segments per tokens.json
+    constexpr int clipZone = N - 2;       // last 2 = warn (amber)
+    const float gap = 1.4f;
+    const float segW = (inner.getWidth() - gap * (float) (N - 1)) / (float) N;
+    const float off = 0.08f;
 
-    auto inner = b.reduced (1.0f);
-
-    if (solid)
+    for (int i = 0; i < N; ++i)
     {
-        g.setColour (solidColour);
-        g.fillRoundedRectangle (inner.withWidth (inner.getWidth() * fraction), 3.0f);
-        return;
+        auto seg = juce::Rectangle<float> (inner.getX() + (float) i * (segW + gap),
+                                           inner.getY(), segW, inner.getHeight());
+        const bool lit = fraction >= (float) i / (float) N + 0.001f;
+        juce::Colour c;
+        if (solid)
+            c = lit ? solidColour : ui::text.withAlpha (off);
+        else if (i >= clipZone)
+            c = lit ? (peakFrac >= 0.98f ? ui::red : ui::glowOrange)
+                    : ui::glowOrange.withAlpha (0.12f);
+        else
+            c = lit ? ui::accent : ui::text.withAlpha (off);
+        g.setColour (c);
+        g.fillRect (seg);
     }
 
-    juce::ColourGradient grad (ui::green, inner.getX(), 0.0f, ui::red, inner.getRight(), 0.0f, false);
-    grad.addColour (0.60, ui::green);
-    grad.addColour (0.82, ui::yellow);
-
-    g.saveState();
-    g.reduceClipRegion (inner.withWidth (inner.getWidth() * fraction).toNearestInt());
-    g.setGradientFill (grad);
-    g.fillRoundedRectangle (inner, 3.0f);
-    g.restoreState();
-
-    // peak-hold marker
-    if (peakFrac > 0.02f)
+    // peak-hold marker (bright segment)
+    if (! solid && peakFrac > 0.02f)
     {
-        const float px = inner.getX() + inner.getWidth() * peakFrac;
-        g.setColour (peakFrac >= 0.98f ? ui::red : juce::Colours::white.withAlpha (0.85f));
-        g.fillRect (px - 1.0f, inner.getY(), 2.0f, inner.getHeight());
+        const int pi = juce::jlimit (0, N - 1, (int) (peakFrac * (float) N));
+        auto seg = juce::Rectangle<float> (inner.getX() + (float) pi * (segW + gap),
+                                           inner.getY(), segW, inner.getHeight());
+        g.setColour (peakFrac >= 0.98f ? ui::red : ui::textBright.withAlpha (0.9f));
+        g.fillRect (seg);
     }
 }
 
