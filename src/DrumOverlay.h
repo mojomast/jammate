@@ -19,6 +19,10 @@ class DrumRibbon : public juce::Component,
 public:
     explicit DrumRibbon (DrumEngine&);
     std::function<void()> onOpen;    // click (outside play) -> opens the drums
+    // clean UI: the ribbon collapses to a minimal strip (chevron toggle)
+    std::function<void (bool)> onToggleMin;
+    void setMinimal (bool);
+    bool isMinimal() const { return minimal; }
     void paint (juce::Graphics&) override;
     void resized() override;
     void mouseUp (const juce::MouseEvent&) override;
@@ -27,6 +31,8 @@ private:
     void timerCallback() override;
     DrumEngine& engine;
     juce::TextButton playBtn;
+    juce::TextButton chevBtn;        // collapse/expand
+    bool minimal = false;
     int sectionShown = 0;
 };
 
@@ -170,6 +176,7 @@ private:
     void applyMorph();
 public:
     void closeAnimated();   // closes with the morph animation
+    int ribbonSourceH = 54; // current DrumRibbon height (26 when collapsed)
 private:
 
     GuitarRigNAMProcessor& processor;

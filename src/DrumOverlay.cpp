@@ -5,15 +5,18 @@
 
 //==============================================================================
 // Fixed layout inside the editor's 1100x700 content (v4: the staff is the track).
-// The top (0..gtrRibH) is the guitar ribbon; the module starts at headerY.
+// Clean UI: the TRANSPORT band sits on top (mirroring the guitar top bar) and
+// the guitar ribbon lives right below it, in the exact band where the drum
+// ribbon sits on the guitar screen - "open guitar"/"open drums" swap in place.
 namespace
 {
-constexpr int gtrRibH = 66;   // guitar strip at the top
+constexpr int headerBandH = 60;              // transport band (== guitar top bar)
+constexpr int gtrRibY = 62, gtrRibH = 54;    // guitar ribbon band (== DrumRibbon)
 constexpr int margin = 26;
-constexpr int headerY = 12 + gtrRibH, headerH = 34;
-constexpr int tabsY = 52 + gtrRibH, tabsH = 26;
-constexpr int barHeadsY = 80 + gtrRibH, barHeadsH = 30;
-constexpr int scoreY = 114 + gtrRibH, scoreH = 294 - gtrRibH;
+constexpr int headerY = 13, headerH = 34;
+constexpr int tabsY = 124, tabsH = 26;
+constexpr int barHeadsY = 154, barHeadsH = 30;
+constexpr int scoreY = 188, scoreH = 218;
 constexpr int libY = 414;                                 // top of the browser/grid
 constexpr int gridY = 418, gridH = 226;                   // grid in place of the lib
 constexpr int sourceY = 648, sourceH = 32;
@@ -203,12 +206,37 @@ DrumRibbon::DrumRibbon (DrumEngine& e) : engine (e)
     playBtn.setButtonText (juce::CharPointer_UTF8 ("\xe2\x96\xb6"));
     playBtn.onClick = [this] { engine.playing.store (! engine.playing.load()); repaint(); };
     addAndMakeVisible (playBtn);
+
+    chevBtn.setMouseClickGrabsKeyboardFocus (false);
+    chevBtn.getProperties().set ("ghost", true);
+    chevBtn.setButtonText (juce::CharPointer_UTF8 ("\xe2\x8c\x83"));
+    chevBtn.setTooltip ("Collapse/expand the drum strip");
+    chevBtn.onClick = [this]
+    {
+        setMinimal (! minimal);
+        if (onToggleMin)
+            onToggleMin (minimal);
+    };
+    addAndMakeVisible (chevBtn);
+
     startTimerHz (15);
+}
+
+void DrumRibbon::setMinimal (bool m)
+{
+    minimal = m;
+    chevBtn.setButtonText (juce::CharPointer_UTF8 (minimal ? "\xe2\x8c\x84" : "\xe2\x8c\x83"));
+    resized();
+    repaint();
 }
 
 void DrumRibbon::resized()
 {
-    playBtn.setBounds (8, (getHeight() - 34) / 2, 40, 34);
+    if (minimal)
+        playBtn.setBounds (8, (getHeight() - 20) / 2, 28, 20);
+    else
+        playBtn.setBounds (8, (getHeight() - 34) / 2, 40, 34);
+    chevBtn.setBounds (getWidth() - 128, (getHeight() - 22) / 2, 22, 22);
 }
 
 void DrumRibbon::timerCallback()
@@ -232,6 +260,28 @@ void DrumRibbon::paint (juce::Graphics& g)
 
     const bool playing = engine.playing.load();
     const int base = sectionShown * drum::barsPerSection;
+
+    if (minimal)
+    {
+        // collapsed: one thin line - play, name/state, BPM, open hint
+        g.setColour (ui::textBright);
+        g.setFont (ui::uiFont (10.5f, true));
+        g.drawText ("DRUMS", 44, 0, 60, getHeight(), juce::Justification::centredLeft);
+        g.setColour (ui::textFaint);
+        g.setFont (ui::uiFont (8.5f));
+        g.drawText (playing ? juce::String (juce::CharPointer_UTF8 ("playing"))
+                            : juce::String ("stopped"),
+                    104, 0, 60, getHeight(), juce::Justification::centredLeft);
+        g.setColour (ui::textBright);
+        g.setFont (ui::monoFont (10.5f, true));
+        g.drawText (juce::String ((int) engine.bpm.load()) + " BPM",
+                    168, 0, 70, getHeight(), juce::Justification::centredLeft);
+        g.setColour (ui::textFaint);
+        g.setFont (ui::uiFont (10.0f));
+        g.drawText (juce::String (juce::CharPointer_UTF8 ("open drums \xe2\xa4\xa2")),
+                    getWidth() - 104, 0, 98, getHeight(), juce::Justification::centredRight);
+        return;
+    }
 
     g.setColour (ui::textBright);
     g.setFont (ui::uiFont (12.0f, true));
@@ -613,7 +663,7 @@ void DrumOverlay::applyMorph()
     const float W = (float) getWidth(), H = (float) getHeight();
     if (W < 1.0f || H < 1.0f) return;
     // rectangle of the drum strip on the guitar screen (== DrumRibbon)
-    const float rx = 18.0f, ry = 62.0f, rw = W - 36.0f, rh = 54.0f;
+    const float rx = 18.0f, ry = 62.0f, rw = W - 36.0f, rh = (float) ribbonSourceH;
     auto L = [] (float a, float b, float t) { return a + (b - a) * t; };
     const float sx = L (rw / W, 1.0f, morphT), sy = L (rh / H, 1.0f, morphT);
     const float tx = L (rx, 0.0f, morphT),     ty = L (ry, 0.0f, morphT);
@@ -712,20 +762,29 @@ void DrumOverlay::paint (juce::Graphics& g)
 {
     g.fillAll (ui::bg);
 
-    // ---- guitar ribbon (top): background + labels ----
+    // ---- transport band on TOP (mirrors the guitar top bar) ----
     {
-        juce::Rectangle<float> rib (0.0f, 0.0f, (float) getWidth(), (float) gtrRibH);
+        g.setGradientFill ({ ui::barTop, 0.0f, 0.0f, ui::barBottom, 0.0f, (float) headerBandH, false });
+        g.fillRect (0, 0, getWidth(), headerBandH);
+        g.setColour (juce::Colours::black.withAlpha (0.5f));
+        g.fillRect (0, headerBandH, getWidth(), 1);
+    }
+
+    // ---- guitar ribbon (band below, aligned with the guitar screen's drum ribbon) ----
+    {
+        juce::Rectangle<float> rib (0.0f, (float) gtrRibY, (float) getWidth(), (float) gtrRibH);
         g.setColour (ui::cardBottom);
         g.fillRect (rib);
         g.setColour (ui::accentDark.withAlpha (0.35f));
-        g.drawLine (0.0f, (float) gtrRibH, (float) getWidth(), (float) gtrRibH, 1.0f);
+        g.drawLine (0.0f, (float) (gtrRibY + gtrRibH), (float) getWidth(),
+                    (float) (gtrRibY + gtrRibH), 1.0f);
 
         g.setColour (ui::textBright);
         g.setFont (ui::uiFont (12.0f, true));
-        g.drawText ("GUITAR", margin, 12, 84, 14, juce::Justification::centredLeft);
+        g.drawText ("GUITAR", margin, gtrRibY + 10, 84, 14, juce::Justification::centredLeft);
         g.setColour (ui::textFaint);
         g.setFont (ui::uiFont (8.5f));
-        g.drawText ("signal chain", margin, 28, 84, 12, juce::Justification::centredLeft);
+        g.drawText ("signal chain", margin, gtrRibY + 26, 84, 12, juce::Justification::centredLeft);
 
         // one label per effect group, in chain order (name-only slots get a chip)
         for (const auto& grp : gtrGroups)
@@ -734,11 +793,11 @@ void DrumOverlay::paint (juce::Graphics& g)
             const bool nameOnly = grp.last < grp.first;
             g.setColour (amp ? juce::Colour (0xffe0b072) : ui::accent);
             g.setFont (ui::monoFont (8.0f, true));
-            g.drawText (grp.name, grp.x, 1, grp.w, 9, juce::Justification::centred);
+            g.drawText (grp.name, grp.x, gtrRibY + 1, grp.w, 9, juce::Justification::centred);
             if (nameOnly)   // draw a small pedal chip so the slot reads as active
             {
-                juce::Rectangle<float> chip ((float) grp.x + 3.0f, 16.0f,
-                                             (float) grp.w - 6.0f, (float) gtrRibH - 26.0f);
+                juce::Rectangle<float> chip ((float) grp.x + 3.0f, (float) gtrRibY + 14.0f,
+                                             (float) grp.w - 6.0f, (float) gtrRibH - 22.0f);
                 g.setColour (ui::accent.withAlpha (0.10f));
                 g.fillRect (chip);
                 g.setColour (ui::accent.withAlpha (0.45f));
@@ -863,9 +922,9 @@ void DrumOverlay::resized()
     genChip.setBounds (x0 + 792, headerY + 3, 60, 28);
     editChip.setBounds (x0 + 856, headerY + 3, 72, 28);
 
-    // ---- guitar ribbon (top): one group per active effect, in chain order
+    // ---- guitar ribbon (band below the transport), in chain order
     {
-        const int ky = 11, kw = 28, kh = 54;
+        const int ky = gtrRibY + 1, kw = 26, kh = 52;
         const int rightLimit = W - margin - 130;   // leave room for "open guitar"
         int gx = margin + 96;
         for (auto& grp : gtrGroups)
@@ -888,7 +947,8 @@ void DrumOverlay::resized()
             gx += 16;                               // gap between groups
             if (gx > rightLimit) break;             // don't overflow the button
         }
-        gtrOpenBtn.setBounds (W - margin - 116, (gtrRibH - 26) / 2, 116, 26);
+        // same spot as the guitar screen's "open drums" (aligned bands)
+        gtrOpenBtn.setBounds (W - margin - 116, gtrRibY + (gtrRibH - 26) / 2, 116, 26);
     }
 
     // section tabs

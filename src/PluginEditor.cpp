@@ -2861,6 +2861,20 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     // drum ribbon at the top (follow along without opening the module)
     drumRibbon = std::make_unique<DrumRibbon> (processor.drumEngine);
     drumRibbon->onOpen = [this] { drumOverlay->open(); };
+    // collapsed state persists in the session state; the chain area and the
+    // morph source rect follow the ribbon height
+    drumRibbon->onToggleMin = [this] (bool m)
+    {
+        processor.apvts.state.setProperty ("drumRibMin", m, nullptr);
+        if (drumOverlay != nullptr)
+            drumOverlay->ribbonSourceH = m ? 26 : 54;
+        resized();
+    };
+    if ((bool) processor.apvts.state.getProperty ("drumRibMin", false))
+    {
+        drumRibbon->setMinimal (true);
+        drumOverlay->ribbonSourceH = 26;
+    }
     drumRibbon->setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Follow along with the drums - click to open the module")));
     addAndMakeVisible (*drumRibbon);
@@ -2979,10 +2993,12 @@ void RigContent::resized()
         recChip.setBounds (x, 16, 62, 28);
     }
 
-    // ---- drum ribbon (top) + chain (scrollable) + bottom bar (chips)
+    // ---- drum ribbon (top, collapsible) + chain (scrollable) + bottom bar
+    const int ribH = (drumRibbon != nullptr && drumRibbon->isMinimal()) ? 26 : 54;
     if (drumRibbon != nullptr)
-        drumRibbon->setBounds (18, 62, W - 36, 54);
-    chainViewport.setBounds (0, 120, W, getHeight() - 120 - 60);
+        drumRibbon->setBounds (18, 62, W - 36, ribH);
+    const int chainTop = 62 + ribH + 4;
+    chainViewport.setBounds (0, chainTop, W, getHeight() - chainTop - 60);
     const int by = getHeight() - 60 + 16;
     tunerToggle.setBounds (22, by, 76, 28);
     muteChip.setBounds (102, by, 48, 28);
