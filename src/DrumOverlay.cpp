@@ -577,6 +577,7 @@ void DrumOverlay::open()
 {
     syncTransportUi();
     refreshSourceRow();
+    buildGuitarRibbon();   // mirror the current guitar chain
     refreshAll();
     morphT = 0.0f; morphTarget = 1.0f; morphing = true;  // grows from the top strip
     applyMorph();
@@ -703,25 +704,30 @@ void DrumOverlay::paint (juce::Graphics& g)
 
         g.setColour (ui::textBright);
         g.setFont (ui::uiFont (12.0f, true));
-        g.drawText ("GUITAR", margin, 12, 90, 14, juce::Justification::centredLeft);
+        g.drawText ("GUITAR", margin, 12, 84, 14, juce::Justification::centredLeft);
         g.setColour (ui::textFaint);
         g.setFont (ui::uiFont (8.5f));
-        g.drawText (juce::String (juce::CharPointer_UTF8 ("amp + active pedals")),
-                    margin, 28, 90, 12, juce::Justification::centredLeft);
+        g.drawText ("signal chain", margin, 28, 84, 12, juce::Justification::centredLeft);
 
-        // group names above the knobs (amp: knobs 0..5; OD: 6..8)
-        if (gtrKnobs.size() >= 9)
+        // one label per effect group, in chain order (name-only slots get a chip)
+        for (const auto& grp : gtrGroups)
         {
+            const bool amp = grp.name == "AMP";
+            const bool nameOnly = grp.last < grp.first;
+            g.setColour (amp ? juce::Colour (0xffe0b072) : ui::accent);
             g.setFont (ui::monoFont (8.0f, true));
-            auto grp = [&] (const juce::String& t, int a, int b, juce::Colour c)
+            g.drawText (grp.name, grp.x, 1, grp.w, 9, juce::Justification::centred);
+            if (nameOnly)   // draw a small pedal chip so the slot reads as active
             {
-                const int x0g = gtrKnobs[a]->getX();
-                const int x1g = gtrKnobs[b]->getRight();
-                g.setColour (c);
-                g.drawText (t, x0g, 1, x1g - x0g, 9, juce::Justification::centred);
-            };
-            grp (juce::String (juce::CharPointer_UTF8 ("AMP \xc2\xb7 EVH 5150")), 0, 5, juce::Colour (0xffe0b072));
-            grp ("OVERDRIVE", 6, 8, ui::accent);
+                juce::Rectangle<float> chip ((float) grp.x + 3.0f, 16.0f,
+                                             (float) grp.w - 6.0f, (float) gtrRibH - 26.0f);
+                g.setColour (ui::accent.withAlpha (0.10f));
+                g.fillRect (chip);
+                g.setColour (ui::accent.withAlpha (0.45f));
+                g.drawRect (chip, 1.0f);
+                g.setColour (ui::accent);
+                g.fillEllipse (chip.getCentreX() - 3.0f, chip.getCentreY() - 3.0f, 6.0f, 6.0f);
+            }
         }
     }
 
@@ -839,15 +845,30 @@ void DrumOverlay::resized()
     genChip.setBounds (x0 + 792, headerY + 3, 60, 28);
     editChip.setBounds (x0 + 856, headerY + 3, 72, 28);
 
-    // ---- guitar ribbon (top): amp + OD knobs wired to the APVTS
+    // ---- guitar ribbon (top): one group per active effect, in chain order
     {
         const int ky = 11, kw = 28, kh = 54;
+        const int rightLimit = W - margin - 130;   // leave room for "open guitar"
         int gx = margin + 96;
-        for (int i = 0; i < gtrKnobs.size(); ++i)
+        for (auto& grp : gtrGroups)
         {
-            gtrKnobs[i]->setBounds (gx, ky, kw, kh);
-            gx += kw + 4;
-            if (i == 5) gx += 22;   // separates AMP | OVERDRIVE
+            grp.x = gx;
+            const int nKnobs = grp.last - grp.first + 1;
+            if (nKnobs <= 0)                        // name-only mini-slot
+            {
+                gx += 46;
+            }
+            else
+            {
+                for (int i = grp.first; i <= grp.last && i < gtrKnobs.size(); ++i)
+                {
+                    gtrKnobs[i]->setBounds (gx, ky, kw, kh);
+                    gx += kw + 4;
+                }
+            }
+            grp.w = gx - grp.x;
+            gx += 16;                               // gap between groups
+            if (gx > rightLimit) break;             // don't overflow the button
         }
         gtrOpenBtn.setBounds (W - margin - 116, (gtrRibH - 26) / 2, 116, 26);
     }
@@ -1770,25 +1791,71 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
 // ---- Groove generator (phase 19) ------------------------------------------
 void DrumOverlay::setupGuitarRibbon()
 {
-    auto& apvts = processor.apvts;
-    struct K { const char* id; const char* lbl; };
-    static const K knobs[] = {
-        { "ampGain", "GAIN" }, { "ampBass", "BASS" }, { "ampMid", "MID" },
-        { "ampTreble", "TREB" }, { "ampPresence", "PRES" }, { "ampMaster", "MASTER" },
-        { "odDrive", "DRIVE" }, { "odTone", "TONE" }, { "odLevel", "LVL" }
-    };
-    for (auto& k : knobs)
-    {
-        auto* kn = new KnobComponent (apvts, k.id, k.lbl,
-                                      [] (float v) { return juce::String (v, 1); });
-        gtrKnobs.add (kn);
-        addAndMakeVisible (*kn);
-    }
-
     gtrOpenBtn.getProperties().set ("chip", true);
     gtrOpenBtn.setMouseClickGrabsKeyboardFocus (false);
     gtrOpenBtn.onClick = [this] { if (onClose) onClose(); closeAnimated(); };
     addAndMakeVisible (gtrOpenBtn);
+    buildGuitarRibbon();
+}
+
+// The guitar ribbon mirrors the real signal chain: one group per active effect
+// in chain order (amp shows its 6 knobs; pedals show their primary knob; the
+// rest show a name-only mini-slot), so it reads as a miniature of the chain.
+void DrumOverlay::buildGuitarRibbon()
+{
+    gtrKnobs.clear();     // OwnedArray deletes the child components
+    gtrGroups.clear();
+    auto& apvts = processor.apvts;
+
+    auto add = [&] (const char* id, const char* lbl)
+    {
+        if (apvts.getParameter (id) == nullptr) return;
+        auto* kn = new KnobComponent (apvts, id, lbl, [] (float v) { return juce::String (v, 1); });
+        gtrKnobs.add (kn);
+        addAndMakeVisible (*kn);
+    };
+
+    struct KP { const char* id; const char* lbl; };
+    auto defFor = [] (const juce::String& id, juce::String& name) -> std::vector<KP>
+    {
+        if (id == "amp")      { name = "AMP";     return { {"ampGain","GAIN"},{"ampBass","BASS"},{"ampMid","MID"},{"ampTreble","TREB"},{"ampPresence","PRES"},{"ampMaster","MASTER"} }; }
+        if (id == "gate")     { name = "GATE";    return { {"gateThresh","THRSH"} }; }
+        if (id == "comp")     { name = "COMP";    return { {"compLevel","LVL"} }; }
+        if (id == "od")       { name = "OD";      return { {"odDrive","DRIVE"},{"odLevel","LVL"} }; }
+        if (id == "preeq")    { name = "PRE-EQ";  return { {"preEqMid","MID"} }; }
+        if (id == "eq")       { name = "EQ";      return { {"eqMid","MID"} }; }
+        if (id == "mod")      { name = "MOD";     return { {"modMix","MIX"} }; }
+        if (id == "delay")    { name = "DELAY";   return { {"delayMix","MIX"} }; }
+        if (id == "reverb")   { name = "REVERB";  return { {"revMix","MIX"} }; }
+        if (id == "pitch")    { name = "PITCH";   return { {"pitchMix","MIX"} }; }
+        if (id == "limiter")  { name = "LIMIT";   return { {"limCeil","CEIL"} }; }
+        if (id == "wah")      { name = "WAH";     return {}; }
+        if (id == "harm")     { name = "HARM";    return {}; }
+        if (id == "octaver")  { name = "OCT";     return {}; }
+        if (id == "ringmod")  { name = "RING";    return {}; }
+        if (id == "bitcrush") { name = "CRUSH";   return {}; }
+        if (id == "slowgear") { name = "SLOW";    return {}; }
+        if (id == "exciter")  { name = "EXCITE";  return {}; }
+        if (id == "deesser")  { name = "DE-ESS";  return {}; }
+        if (id == "tape")     { name = "TAPE";    return {}; }
+        if (id == "console")  { name = "CONSOLE"; return {}; }
+        if (id.startsWith ("ext")) { name = "VST"; return {}; }
+        name = {};            // looper / analyzer / cab / mixer -> skipped
+        return {};
+    };
+
+    for (const auto& id : processor.getChainOrder())
+    {
+        juce::String name;
+        const auto kps = defFor (id, name);
+        if (name.isEmpty()) continue;
+        GtrGroup grp; grp.name = name; grp.first = gtrKnobs.size();
+        for (const auto& kp : kps) add (kp.id, kp.lbl);
+        grp.last = gtrKnobs.size() - 1;   // < first when name-only
+        gtrGroups.push_back (grp);
+    }
+    resized();
+    repaint();
 }
 
 void DrumOverlay::setupGenerator()

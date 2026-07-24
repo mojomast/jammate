@@ -175,10 +175,13 @@ private:
     GuitarRigNAMProcessor& processor;
     DrumEngine& engine;
 
-    // ---- guitar ribbon at the TOP of the drums (phase 20): amp + active pedals
+    // ---- guitar ribbon at the TOP of the drums: a miniature of the real chain
     juce::OwnedArray<KnobComponent> gtrKnobs;   // real knobs (wired to the APVTS)
+    struct GtrGroup { juce::String name; int first = 0, last = -1; int x = 0, w = 0; };
+    std::vector<GtrGroup> gtrGroups;            // one per active effect, in chain order
     juce::TextButton gtrOpenBtn { juce::CharPointer_UTF8 ("open guitar \xe2\xa4\xa2") };
     void setupGuitarRibbon();
+    void buildGuitarRibbon();                   // (re)build from getChainOrder()
 public:
     std::function<void()> onClose;   // "open guitar" -> back to the chain
 private:
