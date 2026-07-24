@@ -85,7 +85,9 @@ private:
         friend class DrumOverlay;
     };
 
-    // ---- header of each bar (number + groove + close), above the staff
+    // ---- per-bar options overlaid ON the staff, aligned with their bar
+    // (role pill + number/name + save + clear; the time signature is engraved
+    // on the staff itself and edited by clicking it there)
     class BarHead : public juce::Component
     {
     public:
@@ -94,8 +96,8 @@ private:
         int roleId = 1;              // 1..5 resolved (for color)
         bool roleAuto = true;        // role coming from the arc (not explicit)
         bool selected = false, empty = true;
-        std::function<void()> onSelect, onClear, onMeter, onRole;
-        juce::Rectangle<int> roleRect, meterRect, clearRect;  // click zones
+        std::function<void()> onSelect, onClear, onMeter, onRole, onSave;
+        juce::Rectangle<int> roleRect, meterRect, clearRect, saveRect;  // click zones
         void paint (juce::Graphics&) override;
         void mouseUp (const juce::MouseEvent&) override;
     };
@@ -167,6 +169,7 @@ private:
     /// applies a groove (by dragId "f:<index>" or "u:<file>") to a bar
     void applyGrooveToBar (const juce::String& dragId, int globalBar);
     void saveUserGroove (const juce::String& name);
+    void promptSaveBar();   // name popup -> saveUserGroove (bar overlay + chip)
     static juce::File userGroovesDir();
     void syncTransportUi();
 

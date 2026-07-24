@@ -15,8 +15,9 @@ constexpr int gtrRibY = 62, gtrRibH = 54;    // guitar ribbon band (== DrumRibbo
 constexpr int margin = 26;
 constexpr int headerY = 13, headerH = 34;
 constexpr int tabsY = 124, tabsH = 26;
-constexpr int barHeadsY = 154, barHeadsH = 30;
-constexpr int scoreY = 188, scoreH = 218;
+// clean UI: the bar options overlay the TOP of the staff area (no extra row)
+constexpr int scoreY = 154, scoreH = 252;
+constexpr int barHeadsY = scoreY + 2, barHeadsH = 26;
 constexpr int libY = 414;                                 // top of the browser/grid
 constexpr int gridY = 418, gridH = 226;                   // grid in place of the lib
 constexpr int sourceY = 648, sourceH = 32;
@@ -81,9 +82,9 @@ const char* roleKey (int r)
 constexpr int scoreLeft = 54;
 constexpr float stepW = 13.2f, beatPad = 5.0f, barPad = 20.0f;
 constexpr float staffSP = 7.0f;   // half the distance between lines
-constexpr float staffTop = 104.0f;
+constexpr float staffTop = 112.0f;
 
-constexpr float tsW = 20.0f;   // width of the time signature on the staff
+constexpr float tsW = 26.0f;   // width of the engraved time signature
 float staffY (float pos) { return staffTop + 8.0f * staffSP - pos * staffSP; }
 
 // number of steps + beam grouping of a meter (compound meters in threes)
@@ -503,48 +504,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     saveChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Save the selected bar as a reusable groove in \"My bars\" - then drag "
         "it onto any bar (Documents\\PedalForge NAM\\compassos)")));
-    saveChip.onClick = [this]
-    {
-        const int g = selectedBar();
-        if (! engine.barUsed[g].load())
-        {
-            // nothing on the selected bar to save
-            auto* w = new juce::AlertWindow (
-                juce::String ("Nothing to save"),
-                juce::String ("Select a bar with notes first, then use SAVE BAR to "
-                              "store it in your reusable \"My bars\" library."),
-                juce::MessageBoxIconType::NoIcon);
-            w->addButton ("OK", 0, juce::KeyPress (juce::KeyPress::returnKey));
-            w->enterModalState (true, juce::ModalCallbackFunction::create (
-                [w] (int) { delete w; }));
-            return;
-        }
-
-        auto* w = new juce::AlertWindow (
-            juce::String ("Save bar to My bars"),
-            juce::String ("Name this bar. It appears under the \"My bars\" genre so you "
-                          "can drag it onto any bar later."),
-            juce::MessageBoxIconType::NoIcon);
-        w->addTextEditor ("name", engine.barNames[g], "Name");
-        w->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
-        w->addButton (juce::String ("Cancel"), 0, juce::KeyPress (juce::KeyPress::escapeKey));
-        w->enterModalState (true, juce::ModalCallbackFunction::create (
-            [this, w] (int r)
-            {
-                if (r == 1)
-                {
-                    const auto name = w->getTextEditorContents ("name").trim();
-                    if (name.isNotEmpty())
-                    {
-                        saveUserGroove (name);
-                        currentGenre = "MINE";   // show the result in My bars
-                        rebuildGenreCol();
-                        refreshAll();
-                    }
-                }
-                delete w;
-            }));
-    };
+    saveChip.onClick = [this] { promptSaveBar(); };
 
     addSectionBtn.onClick = [this]
     {
@@ -1260,6 +1220,8 @@ void DrumOverlay::rebuildBarHeads()
         };
         h->onMeter = [this, b, h] { selBar = b; openMeterMenu (b, h); };
         h->onRole  = [this, b, h] { selBar = b; openRoleMenu (b, h); };
+        h->onSave  = [this, b]    { selBar = b; promptSaveBar(); };
+        h->setRepaintsOnMouseActivity (true);   // save/clear appear on hover
         addAndMakeVisible (*h);
     }
     resized();
@@ -1267,27 +1229,23 @@ void DrumOverlay::rebuildBarHeads()
 
 void DrumOverlay::BarHead::paint (juce::Graphics& g)
 {
-    auto b = getLocalBounds().toFloat().reduced (1.0f);
-    if (selected)
-    {
-        g.setColour (ui::accent.withAlpha (0.08f));
-        g.fillRoundedRectangle (b, 7.0f);
-    }
-    g.setColour (selected ? ui::accentDark : ui::border());
-    g.drawRoundedRectangle (b, 7.0f, 1.0f);
-
+    // clean UI: slim overlay ON the staff - no box; the selection is shown by
+    // the staff highlight below. Meter is engraved on the staff (not here).
     const int H = getHeight(), W = getWidth();
     const int py = (H - 18) / 2;
+    const bool hover = isMouseOver (true);
     const juce::juce_wchar caret = juce::CharPointer_UTF8 ("\xe2\x96\xbe")[0];
 
     auto pill = [&] (juce::Rectangle<int> r, const juce::String& txt, juce::Colour c,
-                     bool strong, bool mono)
+                     bool strong)
     {
+        g.setColour (juce::Colour (0xff0c0e11).withAlpha (0.85f));
+        g.fillRoundedRectangle (r.toFloat(), 5.0f);
         g.setColour (c.withAlpha (0.11f)); g.fillRoundedRectangle (r.toFloat(), 5.0f);
         g.setColour (c.withAlpha (strong ? 0.6f : 0.32f));
         g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 5.0f, 1.0f);
         g.setColour (strong ? c : c.withAlpha (0.85f));
-        g.setFont (mono ? ui::monoFont (9.5f, true) : ui::uiFont (9.5f, true));
+        g.setFont (ui::uiFont (9.5f, true));
         g.drawText (txt, r.getX() + 7, r.getY(), r.getWidth() - 22, 18, juce::Justification::centredLeft);
         g.setFont (ui::monoFont (7.0f));
         g.drawText (juce::String::charToString (caret), r.getRight() - 13, r.getY(), 10, 18,
@@ -1298,10 +1256,11 @@ void DrumOverlay::BarHead::paint (juce::Graphics& g)
     const juce::Colour rc = roleId == 3 ? ui::textDim : (roleId >= 4 ? ui::glowOrange : ui::accent);
     const int rtw = juce::GlyphArrangement::getStringWidthInt (ui::uiFont (9.5f, true), roleText);
     roleRect = { 6, py, rtw + 24, 18 };
-    pill (roleRect, roleText, rc, ! roleAuto, false);
+    pill (roleRect, roleText, rc, ! roleAuto);
+    meterRect = {};   // meter is edited by clicking the engraved signature
 
-    // close/clear (right)
-    const bool showX = ! empty;
+    // clear + save (right, on hover/selection so the staff stays clean)
+    const bool showX = ! empty && (hover || selected);
     clearRect = showX ? juce::Rectangle<int> (W - 22, py, 16, 18) : juce::Rectangle<int>();
     if (showX)
     {
@@ -1309,19 +1268,20 @@ void DrumOverlay::BarHead::paint (juce::Graphics& g)
         g.setColour (ui::textMuted);
         g.drawText (juce::CharPointer_UTF8 ("\xc3\x97"), clearRect, juce::Justification::centred);
     }
-
-    // TIME SIGNATURE pill (before the close icon)
-    const bool odd = meterText != "4/4";
-    const juce::Colour mc = odd ? ui::accent : ui::textFaint;
-    const int mtw = juce::GlyphArrangement::getStringWidthInt (ui::monoFont (9.5f, true), meterText);
-    const int mpw = mtw + 24;
-    const int mrx = (showX ? clearRect.getX() : W - 6) - 6 - mpw;
-    meterRect = { mrx, py, mpw, 18 };
-    pill (meterRect, meterText, mc, odd, true);
+    const bool showSave = ! empty && (hover || selected);
+    saveRect = showSave ? juce::Rectangle<int> ((showX ? clearRect.getX() : W - 6) - 20, py, 18, 18)
+                        : juce::Rectangle<int>();
+    if (showSave)
+    {
+        g.setFont (ui::monoFont (10.0f, true));
+        g.setColour (saveRect.contains (getMouseXYRelative()) ? ui::accent : ui::textFaint);
+        g.drawText (juce::CharPointer_UTF8 ("\xe2\xa4\x93"), saveRect,
+                    juce::Justification::centred);   // save bar to "My bars"
+    }
 
     // title (number, groove) in the middle, if it fits
     const int tx = roleRect.getRight() + 8;
-    const int tw = meterRect.getX() - 6 - tx;
+    const int tw = (saveRect.isEmpty() ? W - 6 : saveRect.getX() - 4) - tx;
     if (tw > 24)
     {
         g.setFont (ui::uiFont (10.5f, false));
@@ -1334,7 +1294,7 @@ void DrumOverlay::BarHead::mouseUp (const juce::MouseEvent& e)
 {
     const auto p = e.getPosition();
     if (! empty && clearRect.contains (p)) { if (onClear)  onClear();  return; }
-    if (meterRect.contains (p))            { if (onMeter)  onMeter();  return; }
+    if (! empty && saveRect.contains (p))  { if (onSave)   onSave();   return; }
     if (roleRect.contains (p))             { if (onRole)   onRole();   return; }
     if (onSelect) onSelect();
 }
@@ -1428,15 +1388,18 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
         const auto& L = owner.barLay[b];
         const int bar = sec0 + b;
 
-        // time signature (only when it changes) - in cyan
+        // time signature (only when it changes) - engraved like a printed
+        // score: stacked bold serif numerals in the staff ink, numerator
+        // filling the top two spaces, denominator the bottom two
         if (L.showTS)
         {
-            g.setColour (ui::accent);
-            g.setFont (ui::monoFont (15.0f, true));
-            g.drawText (juce::String (L.num), (int) L.tsX - 9, (int) staffY (8), 18,
-                        (int) (2 * staffSP), juce::Justification::centred);
-            g.drawText (juce::String (L.den), (int) L.tsX - 9, (int) staffY (4), 18,
-                        (int) (2 * staffSP), juce::Justification::centred);
+            g.setColour (ink);
+            g.setFont (juce::Font (juce::FontOptions ("Georgia", staffSP * 5.0f,
+                                                      juce::Font::bold)));
+            g.drawText (juce::String (L.num), (int) L.tsX - 14, (int) staffY (8), 28,
+                        (int) (4 * staffSP), juce::Justification::centred);
+            g.drawText (juce::String (L.den), (int) L.tsX - 14, (int) staffY (4), 28,
+                        (int) (4 * staffSP), juce::Justification::centred);
         }
 
         // bar line
@@ -1546,6 +1509,25 @@ int DrumOverlay::ScoreView::barAtX (int x) const { return owner.barAtXlocal (x);
 void DrumOverlay::ScoreView::mouseDown (const juce::MouseEvent& e)
 {
     owner.computeBarLayout (getWidth());
+
+    // clicking the bar's opening zone (the engraved signature, or the bar
+    // start when it is hidden by repetition) edits that bar's meter
+    for (int b = 0; b < drum::barsPerSection; ++b)
+    {
+        const auto& L = owner.barLay[b];
+        const float zx0 = L.tsX >= 0.0f ? L.tsX - tsW * 0.5f - 2.0f
+                                        : L.notesX - owner.curStepW - 6.0f;
+        const float zx1 = L.notesX - owner.curStepW * 0.55f;
+        if ((float) e.x >= zx0 && (float) e.x < zx1
+            && (float) e.y > staffY (10.0f) && (float) e.y < staffY (-3.0f))
+        {
+            owner.selBar = b;
+            owner.refreshAll();
+            owner.openMeterMenu (b, this);
+            return;
+        }
+    }
+
     downBar = owner.barAtXlocal (e.x);
 
     // ASSEMBLE: only selects; the bar drag starts in mouseDrag
@@ -2121,6 +2103,49 @@ juce::File DrumOverlay::userGroovesDir()
                    .getChildFile ("PedalForge NAM").getChildFile ("compassos");
     dir.createDirectory();
     return dir;
+}
+
+void DrumOverlay::promptSaveBar()
+{
+    const int g = selectedBar();
+    if (! engine.barUsed[g].load())
+    {
+        // nothing on the selected bar to save
+        auto* w = new juce::AlertWindow (
+            juce::String ("Nothing to save"),
+            juce::String ("Select a bar with notes first, then use save to "
+                          "store it in your reusable \"My bars\" library."),
+            juce::MessageBoxIconType::NoIcon);
+        w->addButton ("OK", 0, juce::KeyPress (juce::KeyPress::returnKey));
+        w->enterModalState (true, juce::ModalCallbackFunction::create (
+            [w] (int) { delete w; }));
+        return;
+    }
+
+    auto* w = new juce::AlertWindow (
+        juce::String ("Save bar to My bars"),
+        juce::String ("Name this bar. It appears under the \"My bars\" genre so you "
+                      "can drag it onto any bar later."),
+        juce::MessageBoxIconType::NoIcon);
+    w->addTextEditor ("name", engine.barNames[g], "Name");
+    w->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    w->addButton (juce::String ("Cancel"), 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    w->enterModalState (true, juce::ModalCallbackFunction::create (
+        [this, w] (int r)
+        {
+            if (r == 1)
+            {
+                const auto name = w->getTextEditorContents ("name").trim();
+                if (name.isNotEmpty())
+                {
+                    saveUserGroove (name);
+                    currentGenre = "MINE";   // show the result in My bars
+                    rebuildGenreCol();
+                    refreshAll();
+                }
+            }
+            delete w;
+        }));
 }
 
 void DrumOverlay::saveUserGroove (const juce::String& name)
