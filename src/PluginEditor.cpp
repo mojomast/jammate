@@ -10,10 +10,11 @@ namespace ui
 {
 juce::Typeface::Ptr uiTypeface (bool bold)
 {
+    // Archivo (OFL) — heading/label typeface of the modernist redesign
     static juce::Typeface::Ptr regular = juce::Typeface::createSystemTypefaceFor (
-        BinaryData::SpaceGroteskRegular_ttf, BinaryData::SpaceGroteskRegular_ttfSize);
+        BinaryData::ArchivoRegular_ttf, BinaryData::ArchivoRegular_ttfSize);
     static juce::Typeface::Ptr boldTf = juce::Typeface::createSystemTypefaceFor (
-        BinaryData::SpaceGroteskBold_ttf, BinaryData::SpaceGroteskBold_ttfSize);
+        BinaryData::ArchivoExtraBold_ttf, BinaryData::ArchivoExtraBold_ttfSize);
     return bold ? boldTf : regular;
 }
 

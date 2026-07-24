@@ -66,6 +66,8 @@ juce_add_plugin(GuitarRigNAM
 # assets/drums/ORIGEM.txt) embutidos no binário.
 juce_add_binary_data(GuitarRigAssets
     SOURCES
+        assets/fonts/Archivo-Regular.ttf
+        assets/fonts/Archivo-ExtraBold.ttf
         assets/fonts/SpaceGrotesk-Regular.ttf
         assets/fonts/SpaceGrotesk-Bold.ttf
         assets/fonts/JetBrainsMono-Regular.ttf
