@@ -294,6 +294,10 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
 {
     auto& apvts = processor.apvts;
 
+    // TONE3000 mark for store-loaded signal blocks (design requirement 5)
+    t3kMark = juce::ImageFileFormat::loadFrom (BinaryData::t3kmark_png,
+                                               (size_t) BinaryData::t3kmark_pngSize);
+
     auto formatDb = [] (float v) { return juce::String (v, 1) + " dB"; };
     auto formatDbInt = [] (float v) { return juce::String ((int) v) + " dB"; };
     auto formatMs = [] (float v) { return juce::String ((int) v) + " ms"; };
@@ -2352,6 +2356,16 @@ void ChainView::paint (juce::Graphics& g)
             g.drawRoundedRectangle (badge, 5.0f, 1.0f);
             g.setFont (ui::monoFont (9.0f, true));
             g.drawText (archLabel, badge, juce::Justification::centred);
+
+            // TONE3000 mark: this capture came from the store (design req 5)
+            if (t3kMark.isValid() && toneIdForLane (lane) > 0)
+            {
+                const float mh = badge.getHeight();
+                const float mw = mh * t3kMark.getWidth() / (float) t3kMark.getHeight();
+                g.drawImage (t3kMark,
+                             juce::Rectangle<float> (badge.getX() - 6.0f - mw, badge.getY(), mw, mh),
+                             juce::RectanglePlacement::centred);
+            }
         }
 
         if (! compact)

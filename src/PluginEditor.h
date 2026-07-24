@@ -199,6 +199,7 @@ private:
     // parallel rigs: one amp+cab pair per lane + the Mixer card that sums everything
     juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs], mixerB;
     juce::Image ampImages[maxRigs], cabImages[maxRigs];
+    juce::Image t3kMark;   // TONE3000 mark shown on store-loaded signal blocks
 
     // knobs / LEDs / buttons
     std::unique_ptr<KnobComponent> inputKnob, outputKnob;
