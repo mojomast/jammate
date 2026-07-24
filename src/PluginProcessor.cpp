@@ -3089,6 +3089,23 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
 
     // drums: bar timeline (v4) + transport + sound source
     {
+        // apvts.replaceState (in applyState) carries the previous state's drum
+        // bar properties into this copy - strip them so a shrunk arrangement
+        // can't leave orphan bars that later desync the section count.
+        for (int b = 0; b < drum::maxBars; ++b)
+        {
+            const auto sfx = juce::String (b + 1);
+            state.removeProperty ("drumBar" + sfx, nullptr);
+            state.removeProperty ("drumBarName" + sfx, nullptr);
+            state.removeProperty ("drumMeter" + sfx, nullptr);
+            state.removeProperty ("drumBarRole" + sfx, nullptr);
+        }
+        // also drop legacy v1/v2 keys so they can't shadow the v4 timeline on
+        // the next load (they were carried over by apvts.replaceState)
+        state.removeProperty ("drumPattern", nullptr);
+        for (int i = 0; i < drum::maxSections * 2; ++i)
+            state.removeProperty ("drumSecPattern" + juce::String (i + 1), nullptr);
+
         const int nSec = juce::jlimit (1, drum::maxSections, drumEngine.numSections.load());
         state.setProperty ("drumNumSections", nSec, nullptr);
         for (int b = 0; b < nSec * drum::barsPerSection; ++b)
@@ -3210,10 +3227,12 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
             drumEngine.barRole[b] = 0;
         }
 
-        if (state.hasProperty ("drumSecPattern1"))
+        if (state.hasProperty ("drumSecPattern1") && ! state.hasProperty ("drumBar1"))
         {
             // v2 format (2-bar sections, 288 digits): each old section
-            // becomes 2 consecutive bars in the timeline
+            // becomes 2 consecutive bars in the timeline. Only when there is NO
+            // v4 timeline present - a state can carry BOTH (stale drumSecPattern
+            // left behind by apvts.replaceState) and the current v4 must win.
             const int oldSec = juce::jlimit (1, drum::maxSections,
                                              (int) state.getProperty ("drumNumSections", 1));
             for (int i = 0; i < oldSec; ++i)
@@ -3240,9 +3259,17 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
         }
         else if (state.hasProperty ("drumBar1") || state.hasProperty ("drumNumSections"))
         {
-            // v4 format (bar timeline)
-            const int nSec = juce::jlimit (1, drum::maxSections,
-                                           (int) state.getProperty ("drumNumSections", 1));
+            // v4 format (bar timeline). Honor the highest bar actually present,
+            // not just drumNumSections: an older save could desync the two and
+            // drop whole sections (drumNumSections=1 while drumBar5..8 exist).
+            const int savedSec = juce::jlimit (1, drum::maxSections,
+                                               (int) state.getProperty ("drumNumSections", 1));
+            int highestBar = 0;
+            for (int b = 0; b < drum::maxBars; ++b)
+                if (state.hasProperty ("drumBar" + juce::String (b + 1)))
+                    highestBar = b + 1;
+            const int fromBars = (highestBar + drum::barsPerSection - 1) / drum::barsPerSection;
+            const int nSec = juce::jlimit (1, drum::maxSections, juce::jmax (savedSec, fromBars));
             drumEngine.numSections.store (nSec);
             for (int b = 0; b < nSec * drum::barsPerSection; ++b)
             {
