@@ -462,6 +462,67 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
     });
 }
 
+void Tone3000Client::listUserTones (const juce::String& kind, int page,
+                                    std::function<void (SearchResult)> done)
+{
+    pool.addJob ([this, kind, page, done]
+    {
+        SearchResult result;
+        result.page = page;
+
+        auto deliver = [done] (SearchResult r)
+        {
+            juce::MessageManager::callAsync ([done, r = std::move (r)] { done (r); });
+        };
+
+        if (! ensureAccessToken (result.error))
+        {
+            deliver (std::move (result));
+            return;
+        }
+
+        const juce::String path = "/api/v1/tones/" + kind
+                                  + "?page=" + juce::String (page) + "&page_size=24";
+
+        int status = 0;
+        juce::String body;
+        for (int attempt = 0; attempt < 2; ++attempt)
+        {
+            body = apiGet (path, status);
+            if (status != 401)
+                break;
+            juce::String err;
+            if (! refreshAccessToken (err))
+            {
+                result.error = "Session expired - reconnect your account";
+                deliver (std::move (result));
+                return;
+            }
+        }
+
+        if (status != 200)
+        {
+            result.error = "Could not load your " + kind + " tones (HTTP "
+                           + juce::String (status) + ")";
+            deliver (std::move (result));
+            return;
+        }
+
+        const auto json = juce::JSON::parse (body);
+        result.totalPages = (int) json.getProperty ("total_pages", 1);
+
+        if (auto* arr = json.getProperty ("data", juce::var()).getArray())
+            for (const auto& t : *arr)
+            {
+                const Tone tone = parseToneJson (t);
+                if (tone.format == "nam" || tone.format == "ir")
+                    result.tones.push_back (tone);
+            }
+
+        deliver (std::move (result));
+    });
+}
+
 void Tone3000Client::getTone (int toneId, std::function<void (Tone, juce::String error)> done)
 {
     pool.addJob ([this, toneId, done]

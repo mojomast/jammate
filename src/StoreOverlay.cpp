@@ -659,6 +659,31 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (sortCombo);
 
+    // TONE3000 collections (Explore / Favorites / Created / Downloaded)
+    sourceCombo.addItem ("Explore", 1);
+    sourceCombo.addItem (juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x85 Favorites")), 2);
+    sourceCombo.addItem ("Created", 3);
+    sourceCombo.addItem ("Downloaded", 4);
+    sourceCombo.setSelectedId (1, juce::dontSendNotification);
+    sourceCombo.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff14171b));
+    sourceCombo.setColour (juce::ComboBox::outlineColourId, juce::Colour (0xff23272c));
+    sourceCombo.setColour (juce::ComboBox::textColourId, ui::text);
+    sourceCombo.setColour (juce::ComboBox::arrowColourId, ui::textMuted);
+    sourceCombo.onChange = [this]
+    {
+        switch (sourceCombo.getSelectedId())
+        {
+            case 2:  sourceMode = "favorited";  break;
+            case 3:  sourceMode = "created";    break;
+            case 4:  sourceMode = "downloaded"; break;
+            default: sourceMode = "search";     break;
+        }
+        // sort/search only make sense on the open Explore search
+        sortCombo.setEnabled (sourceMode == "search");
+        doSearch (1);
+    };
+    addAndMakeVisible (sourceCombo);
+
     retryButton.onClick = [this] { bannerError.clear(); resized(); doSearch (currentPage); };
     dismissButton.onClick = [this] { bannerError.clear(); resized(); repaint(); };
     addChildComponent (retryButton);
@@ -776,6 +801,8 @@ void StoreOverlay::setTab (Tab newTab)
     a2Chip.setVisible (toneTabs);
     favChip.setVisible (toneTabs);
     sortCombo.setVisible (toneTabs);
+    // collections only on Explore (My library is local files)
+    sourceCombo.setVisible (tab == Tab::explore);
 
     if (tab == Tab::plugins)
     {
@@ -1295,24 +1322,15 @@ void StoreOverlay::doSearch (int page)
     searching = true;
     currentPage = page;
 
-    // active tags enter as extra search terms (TONE3000 indexes tags)
-    juce::String query = searchBox.getText().trim();
-    for (const auto& tag : activeTags)
-        query += " " + tag;
-
-    client.searchTones (query.trim(), gearFilter, sortValue, page, a2Only ? 2 : 0,
+    auto onResult =
         [safe = juce::Component::SafePointer<StoreOverlay> (this), page] (Tone3000Client::SearchResult result)
         {
             if (safe == nullptr)
                 return;
             auto* self = safe.getComponent();
             self->searching = false;
-
-            // Result arrived after switching to the library - discard
-            // (otherwise it overwrites the local cards).
             if (self->tab != Tab::explore)
                 return;
-
             if (result.error.isNotEmpty())
             {
                 self->bannerError = result.error;
@@ -1320,7 +1338,6 @@ void StoreOverlay::doSearch (int page)
                 self->repaint();
                 return;
             }
-
             self->bannerError.clear();
             self->totalPages = result.totalPages;
             if (page == 1)
@@ -1330,7 +1347,21 @@ void StoreOverlay::doSearch (int page)
             self->layoutCards();
             self->resized();
             self->repaint();
-        });
+        };
+
+    // TONE3000 collection (Favorites/Created/Downloaded) instead of open search
+    if (sourceMode != "search")
+    {
+        client.listUserTones (sourceMode, page, onResult);
+        return;
+    }
+
+    // active tags enter as extra search terms (TONE3000 indexes tags)
+    juce::String query = searchBox.getText().trim();
+    for (const auto& tag : activeTags)
+        query += " " + tag;
+
+    client.searchTones (query.trim(), gearFilter, sortValue, page, a2Only ? 2 : 0, onResult);
 }
 
 void StoreOverlay::refreshLibrary()
@@ -1463,6 +1494,7 @@ void StoreOverlay::resized()
     a2Chip.setBounds (cx, 74, 62, 28);
     favChip.setBounds (cx + 68, 74, 58, 28);
     sortCombo.setBounds (W - 22 - 150, 72, 150, 32);
+    sourceCombo.setBounds (sortCombo.getX() - 8 - 140, 72, 140, 32);
 
     // error banner
     const int bannerY = 114;

@@ -66,6 +66,11 @@ public:
                       const juce::String& sort, int page, int architecture,
                       std::function<void (SearchResult)> done);
 
+    /// Lista os tones do usuário logado numa das coleções do TONE3000:
+    /// kind = "favorited" | "created" | "downloaded" (GET /tones/{kind}).
+    void listUserTones (const juce::String& kind, int page,
+                        std::function<void (SearchResult)> done);
+
     struct Model
     {
         int id = 0;

@@ -204,6 +204,10 @@ private:
     void toggleFavorite (ToneCardComponent&);
     juce::StringArray activeTags;
     juce::ComboBox sortCombo;
+    // TONE3000 collections: Explore / Favorites / Created / Downloaded (design
+    // req 4). "search" = the normal Explore search; else a /tones/{kind} list.
+    juce::ComboBox sourceCombo;
+    juce::String sourceMode = "search";
 
     // error banner
     juce::TextButton retryButton { "Try again" };
