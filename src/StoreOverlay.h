@@ -184,6 +184,12 @@ private:
     juce::TextButton connectButton { "Connect TONE3000" };
     juce::TextButton userChip;
 
+    // Partnership splash shown before the first TONE3000 sign-in (design req 2)
+    juce::TextButton splashContinue { "Continue to TONE3000" }, splashCancel { "Not now" };
+    bool splashVisible = false;
+    void setSplashVisible (bool);
+    void doConnect();   // the actual OAuth flow (after the splash)
+
     // filters
     juce::OwnedArray<juce::TextButton> gearChips;
     juce::OwnedArray<juce::TextButton> tagChips;   // multi-toggle; enter the query

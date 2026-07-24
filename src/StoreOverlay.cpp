@@ -556,27 +556,18 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     addAndMakeVisible (searchBox);
 
     connectButton.getProperties().set ("accent", true);
-    connectButton.onClick = [this]
-    {
-        connectButton.setEnabled (false);
-        connectButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("Waiting for login\xe2\x80\xa6")));
-        auto* self = this; // MSVC: 'this' in a nested lambda init-capture resolves wrong
-        client.connect ([safe = juce::Component::SafePointer<StoreOverlay> (self)] (bool ok, juce::String error)
-        {
-            if (safe == nullptr)
-                return;
-            safe->connectButton.setEnabled (true);
-            safe->connectButton.setButtonText ("Connect TONE3000");
-            safe->bannerError = ok ? juce::String() : "Failed to connect: " + error;
-            safe->updateHeaderState();
-            if (ok)
-                safe->doSearch (1);
-            else
-                safe->resized();
-            safe->repaint();
-        });
-    };
+    // First a partnership splash (design requirement), then the OAuth flow.
+    connectButton.onClick = [this] { setSplashVisible (true); };
     addChildComponent (connectButton);
+
+    splashContinue.getProperties().set ("accent", true);
+    splashContinue.setMouseClickGrabsKeyboardFocus (false);
+    splashContinue.onClick = [this] { setSplashVisible (false); doConnect(); };
+    addChildComponent (splashContinue);
+    splashCancel.getProperties().set ("chip", true);
+    splashCancel.setMouseClickGrabsKeyboardFocus (false);
+    splashCancel.onClick = [this] { setSplashVisible (false); };
+    addChildComponent (splashCancel);
 
     userChip.setTooltip ("Click to disconnect");
     userChip.onClick = [this]
@@ -724,8 +715,10 @@ bool StoreOverlay::keyPressed (const juce::KeyPress& key)
 {
     if (key == juce::KeyPress::escapeKey)
     {
-        // Details view is a sub-overlay: ESC closes it first, then the store.
-        if (detailsView != nullptr && detailsView->isVisible())
+        // Sub-overlays close first (splash, then details), then the store itself.
+        if (splashVisible)
+            setSplashVisible (false);
+        else if (detailsView != nullptr && detailsView->isVisible())
             detailsView->setVisible (false);
         else
             setVisible (false);
@@ -948,6 +941,41 @@ void StoreOverlay::openVariationsForLane (int lane, int toneId)
     ensureDetailsView();
     detailsView->setBounds (getLocalBounds());
     detailsView->open (detailsInfo);
+}
+
+void StoreOverlay::doConnect()
+{
+    connectButton.setEnabled (false);
+    connectButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("Waiting for login\xe2\x80\xa6")));
+    auto* self = this; // MSVC: 'this' in a nested lambda init-capture resolves wrong
+    client.connect ([safe = juce::Component::SafePointer<StoreOverlay> (self)] (bool ok, juce::String error)
+    {
+        if (safe == nullptr)
+            return;
+        safe->connectButton.setEnabled (true);
+        safe->connectButton.setButtonText ("Connect TONE3000");
+        safe->bannerError = ok ? juce::String() : "Failed to connect: " + error;
+        safe->updateHeaderState();
+        if (ok)
+            safe->doSearch (1);
+        else
+            safe->resized();
+        safe->repaint();
+    });
+}
+
+void StoreOverlay::setSplashVisible (bool v)
+{
+    splashVisible = v;
+    splashContinue.setVisible (v);
+    splashCancel.setVisible (v);
+    if (v)
+    {
+        splashContinue.toFront (false);
+        splashCancel.toFront (false);
+    }
+    resized();
+    repaint();
 }
 
 void StoreOverlay::ensureDetailsView()
@@ -1397,6 +1425,13 @@ void StoreOverlay::resized()
     if (detailsView != nullptr)
         detailsView->setBounds (getLocalBounds());
 
+    if (splashVisible)
+    {
+        auto card = juce::Rectangle<int> (0, 0, 520, 300).withCentre ({ W / 2, getHeight() / 2 });
+        splashContinue.setBounds (card.getCentreX() - 8 - 200, card.getBottom() - 40 - 36, 200, 36);
+        splashCancel.setBounds (card.getCentreX() + 8, card.getBottom() - 40 - 36, 120, 36);
+    }
+
     closeButton.setBounds (W - 22 - 34, 15, 34, 34);
 
     exploreTab.setBounds (208, 20, 76, 30);
@@ -1580,6 +1615,45 @@ void StoreOverlay::paint (juce::Graphics& g)
         g.drawText ("Download tones in the Explore tab or copy .nam files to "
                     + Tone3000Client::capturesDir().getFullPathName(),
                     60, 278, W - 120, 20, juce::Justification::centred);
+    }
+
+    // ---- partnership splash (before the first TONE3000 sign-in)
+    if (splashVisible)
+    {
+        g.fillAll (juce::Colour (0xff0b0c0e).withAlpha (0.92f));
+
+        auto card = juce::Rectangle<int> (0, 0, 520, 300).withCentre ({ W / 2, getHeight() / 2 });
+        g.setColour (ui::cardBottom);
+        g.fillRect (card.toFloat());
+        g.setColour (ui::border());
+        g.drawRect (card.toFloat(), 1.0f);
+
+        // full TONE3000 wordmark (logo usage: full mark before compact)
+        if (brandLogo.isValid())
+        {
+            const float lh = 30.0f;
+            const float lw = lh * brandLogo.getWidth() / (float) brandLogo.getHeight();
+            g.drawImage (brandLogo,
+                         juce::Rectangle<float> (card.getCentreX() - lw / 2.0f,
+                                                 (float) card.getY() + 40.0f, lw, lh),
+                         juce::RectanglePlacement::centred);
+        }
+
+        g.setColour (ui::textBright);
+        g.setFont (ui::uiFont (17.0f, true));
+        g.drawText ("Powered by the TONE3000 partnership",
+                    card.getX(), card.getY() + 92, card.getWidth(), 24,
+                    juce::Justification::centred);
+
+        g.setColour (ui::textDim);
+        g.setFont (ui::uiFont (12.5f));
+        g.drawFittedText (
+            "Sign in with your TONE3000 account to browse and load community amp "
+            "captures and IRs directly inside PedalForge NAM. A browser window "
+            "opens for a one-time secure login - your credentials never touch "
+            "this app.",
+            card.getX() + 40, card.getY() + 124, card.getWidth() - 80, 80,
+            juce::Justification::topLeft, 4);
     }
 }
 
