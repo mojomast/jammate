@@ -390,7 +390,8 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         addChildComponent (cabIrButtons[r]);
 
         // cab variation selector: other IRs of the same TONE3000 cab tone
-        cabVarButtons[r].setButtonText (juce::String (juce::CharPointer_UTF8 ("VARIANTS \xe2\x96\xbe")));
+        // (short label - the cab card is narrower than the amp's)
+        cabVarButtons[r].setButtonText (juce::String (juce::CharPointer_UTF8 ("VARS \xe2\x96\xbe")));
         cabVarButtons[r].getProperties().set ("outlineAccent", true);
         cabVarButtons[r].setMouseClickGrabsKeyboardFocus (false);
         cabVarButtons[r].onClick = [this, r]
@@ -1824,7 +1825,7 @@ void ChainView::resized()
                                                     cabB.getWidth() - 20, 24);
                     if (processor.getIrPath (r).isNotEmpty())
                     {
-                        cabVarButtons[r].setBounds (cb.removeFromRight (84));
+                        cabVarButtons[r].setBounds (cb.removeFromRight (62));
                         cb.removeFromRight (6);
                     }
                     cabIrButtons[r].setBounds (cb);
@@ -1842,7 +1843,7 @@ void ChainView::resized()
                                                     cabB.getWidth() - 20, 22);
                     if (processor.getIrPath (r).isNotEmpty())
                     {
-                        cabVarButtons[r].setBounds (cb.removeFromRight (78));
+                        cabVarButtons[r].setBounds (cb.removeFromRight (58));
                         cb.removeFromRight (5);
                     }
                     cabIrButtons[r].setBounds (cb);
