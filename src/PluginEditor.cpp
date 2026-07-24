@@ -384,7 +384,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         addChildComponent (cabPhaseChips[r]);
 
         cabIrButtons[r].setButtonText ("CHANGE");
-        cabIrButtons[r].setTooltip ("Choose this cab's IR");
+        cabIrButtons[r].setTooltip ("Add an IR from the TONE3000 store or a local file");
         cabIrButtons[r].setMouseClickGrabsKeyboardFocus (false);
         cabIrButtons[r].onClick = [onLoadIr, r] { onLoadIr (r); };
         addChildComponent (cabIrButtons[r]);
@@ -2688,7 +2688,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 
     chainView = std::make_unique<ChainView> (processor,
                                              [this] (int lane) { chooseModelSource (lane); },
-                                             [this] (int slot) { chooseIrFile (slot); },
+                                             [this] (int slot) { chooseIrSource (slot); },
                                              [this] (int slot) { chooseExtPluginFile (slot); },
                                              [this] (int slot) { openExtPluginWindow (slot); });
 
@@ -3648,6 +3648,25 @@ void RigContent::openDrumVstWindow()
 void RigContent::closeDrumVstWindow()
 {
     drumVstWindow.reset();
+}
+
+void RigContent::chooseIrSource (int slot)
+{
+    // Cab entry point (TONE3000 design requirement): the CAB card's CHANGE
+    // offers the Tone Store first (IRs live there too), then a local file.
+    juce::PopupMenu menu;
+    menu.setLookAndFeel (&getLookAndFeel());
+    menu.addSectionHeader (processor.getIrPath (slot).isNotEmpty() ? "Change IR" : "Load IR");
+    menu.addItem (1, "Browse TONE3000 Tone Store\xe2\x80\xa6");
+    menu.addItem (2, "Load IR file from disk\xe2\x80\xa6");
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&chainView->getIrButton (slot)),
+        [safe = juce::Component::SafePointer<RigContent> (this), slot] (int r)
+        {
+            if (safe == nullptr) return;
+            if (r == 1)      safe->storeOverlay->open();
+            else if (r == 2) safe->chooseIrFile (slot);
+        });
 }
 
 void RigContent::chooseIrFile (int slot)
