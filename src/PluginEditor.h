@@ -92,6 +92,35 @@ public:
 };
 
 //==============================================================================
+// vNext: searchable effect browser in a slide-over drawer - replaces the
+// add-effect popup menu (which outgrew the window height).
+class FxDrawer : public juce::Component
+{
+public:
+    explicit FxDrawer (GuitarRigNAMProcessor&);
+    /// Opens listing everything not yet in the chain; insertIndex -1 = canonical.
+    void open (int insertIndex);
+    void close() { setVisible (false); }
+    std::function<void (const juce::String& id, int insertIndex)> onInsert;
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
+
+private:
+    void rebuild();
+    GuitarRigNAMProcessor& processor;
+    juce::TextEditor search;
+    juce::TextButton closeBtn { juce::CharPointer_UTF8 ("\xe2\x9c\x95") };
+    juce::Viewport vp;
+    juce::Component content;
+    juce::OwnedArray<juce::Component> rows;
+    juce::StringArray recents;    // session-only "recently added"
+    juce::OwnedArray<juce::TextButton> recentBtns;
+    int insertIndex = -1;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FxDrawer)
+};
+
+//==============================================================================
 // The scrollable signal chain: Input -> Gate -> OD -> Amp -> Cab -> EQ -> Delay ->
 // Reverb -> Output, with cards at the design v2 metrics.
 class ChainView : public juce::Component,
@@ -135,6 +164,12 @@ public:
     // clean UI: card metadata (footers, amp tech line) lives in hover tooltips.
     // Zones are rebuilt on every paint; the TooltipWindow polls us via this.
     juce::String getTooltip() override;
+
+    // vNext: the "+" spots delegate to the FxDrawer when wired (else the old
+    // popup menu remains as fallback); the drawer inserts through insertFxAt.
+    std::function<void (int insertIndex)> onOpenFxBrowser;
+    void insertFxAt (const juce::String& id, int insertIndex);
+    static juce::String fxDisplayNamePublic (const juce::String& id);
 
     // Keep every stacked rig inside the editor viewport (including LOAD).
     static constexpr int chainHeight = 500;
@@ -387,6 +422,7 @@ private:
     // Drums module (overlay + drum VST panel window)
     std::unique_ptr<DrumOverlay> drumOverlay;
     std::unique_ptr<DrumRibbon> drumRibbon;   // top ribbon (follow along with the drums)
+    std::unique_ptr<FxDrawer> fxDrawer;       // vNext: searchable effect browser
     juce::TextButton drumButton { "Drums" };
     std::unique_ptr<juce::DocumentWindow> drumVstWindow;
 

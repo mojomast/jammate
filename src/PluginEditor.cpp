@@ -192,6 +192,264 @@ void KnobComponent::resized()
 }
 
 //==============================================================================
+// vNext: searchable effect browser (drawer)
+namespace
+{
+struct FxCatalogEntry { const char* id; const char* sub; };
+struct FxCatalogCat { const char* title; std::initializer_list<FxCatalogEntry> fx; };
+const FxCatalogCat kFxCatalog[] = {
+    { "DYNAMICS", { { "gate", "Smart gate \xc2\xb7 hysteresis + hold" },
+                    { "comp", "Dyna / Optical / Studio + presets" },
+                    { "slowgear", "Automatic volume swell" },
+                    { "limiter", "Brickwall \xc2\xb7 end of the chain" } } },
+    { "DRIVE & FILTER", { { "wah", "Auto / manual wah" },
+                          { "od", "6 drive voicings" },
+                          { "octaver", "Analog sub-octave" },
+                          { "ringmod", "Sine carrier" },
+                          { "bitcrush", "Lo-fi \xc2\xb7 bits + rate" },
+                          { "preeq", "3-band pre EQ" } } },
+    { "PITCH", { { "pitch", "Granular shifter" },
+                 { "harm", "Diatonic harmonizer" } } },
+    { "MODULATION & COLOR", { { "mod", "Chorus \xc2\xb7 flanger \xc2\xb7 phaser \xc2\xb7 rotary" },
+                              { "exciter", "Harmonic brightness" },
+                              { "deesser", "Tames the harsh band" },
+                              { "tape", "Saturation \xc2\xb7 bump \xc2\xb7 rolloff" },
+                              { "console", "Analog buss glue" } } },
+    { "AMBIENCE", { { "delay", "Tap tempo \xc2\xb7 subdivisions \xc2\xb7 trails" },
+                    { "reverb", "Room / hall / plate / spring / shimmer" } } },
+    { "EXTRAS", { { "ext", "Hosted VST3 slot 1" },  { "ext2", "Hosted VST3 slot 2" },
+                  { "ext3", "Hosted VST3 slot 3" }, { "ext4", "Hosted VST3 slot 4" },
+                  { "ext5", "Hosted VST3 slot 5" }, { "ext6", "Hosted VST3 slot 6" },
+                  { "ext7", "Hosted VST3 slot 7" }, { "ext8", "Hosted VST3 slot 8" },
+                  { "looper", "60 s looper \xc2\xb7 WAV export" },
+                  { "analyzer", "Spectrum analyzer" } } },
+};
+
+// one clickable effect row (name + short description + category glyph)
+class FxRow : public juce::Component
+{
+public:
+    FxRow (const juce::String& fxId, const juce::String& fxName, const juce::String& fxSub,
+           std::function<void (const juce::String&)> pick)
+        : id (fxId), name (fxName), sub (fxSub), onPick (std::move (pick))
+    {
+        setRepaintsOnMouseActivity (true);
+    }
+    void mouseUp (const juce::MouseEvent& e) override
+    {
+        if (getLocalBounds().contains (e.getPosition()) && onPick)
+            onPick (id);
+    }
+    void paint (juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat().reduced (0.5f);
+        const bool hover = isMouseOver();
+        g.setColour (hover ? ui::glassHover() : ui::glass());
+        g.fillRoundedRectangle (b, 5.0f);
+        g.setColour (hover ? ui::accent.withAlpha (0.6f) : ui::border());
+        g.drawRoundedRectangle (b, 5.0f, 1.0f);
+
+        g.setColour (ui::accent.withAlpha (0.14f));
+        g.fillRoundedRectangle (8.0f, 9.0f, 28.0f, 28.0f, 5.0f);
+        g.setColour (ui::accent);
+        g.setFont (ui::uiFont (12.0f, true));
+        g.drawText (name.substring (0, 1), 8, 9, 28, 28, juce::Justification::centred);
+
+        g.setColour (ui::textBright);
+        g.setFont (ui::uiFont (12.0f, true));
+        g.drawText (name, 46, 6, getWidth() - 100, 16, juce::Justification::centredLeft);
+        g.setColour (ui::textFaint);
+        g.setFont (ui::monoFont (8.0f));
+        g.drawText (sub, 46, 24, getWidth() - 100, 12, juce::Justification::centredLeft);
+
+        g.setColour (hover ? ui::accent : ui::textFaint);
+        g.setFont (ui::monoFont (8.5f, true));
+        g.drawText ("ADD", getWidth() - 46, 0, 38, getHeight(), juce::Justification::centred);
+    }
+private:
+    juce::String id, name, sub;
+    std::function<void (const juce::String&)> onPick;
+};
+
+// non-interactive section label between rows
+class FxSectionLabel : public juce::Component
+{
+public:
+    explicit FxSectionLabel (const juce::String& t) : text (t)
+    {
+        setInterceptsMouseClicks (false, false);
+    }
+    void paint (juce::Graphics& g) override
+    {
+        g.setColour (ui::textFaint);
+        g.setFont (ui::monoFont (8.0f, true));
+        g.drawText (text, 4, 0, getWidth() - 8, getHeight(), juce::Justification::bottomLeft);
+    }
+private:
+    juce::String text;
+};
+} // namespace
+
+FxDrawer::FxDrawer (GuitarRigNAMProcessor& p) : processor (p)
+{
+    search.setFont (ui::uiFont (12.5f));
+    search.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff10161a));
+    search.setColour (juce::TextEditor::outlineColourId, ui::border());
+    search.setColour (juce::TextEditor::focusedOutlineColourId, ui::accentDark);
+    search.setColour (juce::TextEditor::textColourId, ui::text);
+    search.setTextToShowWhenEmpty (
+        juce::String (juce::CharPointer_UTF8 ("Search effects\xe2\x80\xa6")), ui::textMuted);
+    search.onTextChange = [this] { rebuild(); };
+    search.setEscapeAndReturnKeysConsumed (false);
+    addAndMakeVisible (search);
+
+    closeBtn.getProperties().set ("ghost", true);
+    closeBtn.setMouseClickGrabsKeyboardFocus (false);
+    closeBtn.onClick = [this] { close(); };
+    addAndMakeVisible (closeBtn);
+
+    vp.setViewedComponent (&content, false);
+    vp.setScrollBarsShown (true, false);
+    vp.setScrollBarThickness (8);
+    addAndMakeVisible (vp);
+}
+
+void FxDrawer::open (int index)
+{
+    insertIndex = index;
+    search.setText ({}, juce::dontSendNotification);
+    rebuild();
+    setVisible (true);
+    toFront (true);
+    search.grabKeyboardFocus();
+}
+
+void FxDrawer::rebuild()
+{
+    rows.clear();
+    recentBtns.clear();
+    content.removeAllChildren();
+
+    const auto order = processor.getChainOrder();
+    const auto q = search.getText().trim().toLowerCase();
+    const int W = juce::jmax (100, getWidth() - 24 - 10);
+    int y = 0;
+
+    // session "recent" chips (only those not currently in the chain)
+    juce::StringArray recentFree;
+    for (const auto& id : recents)
+        if (! order.contains (id))
+            recentFree.add (id);
+    if (q.isEmpty() && ! recentFree.isEmpty())
+    {
+        auto* lbl = new FxSectionLabel ("RECENT");
+        rows.add (lbl);
+        content.addAndMakeVisible (lbl);
+        lbl->setBounds (0, y, W, 20);
+        y += 24;
+        int x = 0;
+        for (const auto& id : recentFree)
+        {
+            auto* b = recentBtns.add (new juce::TextButton (
+                ChainView::fxDisplayNamePublic (id)));
+            b->getProperties().set ("chip", true);
+            b->setMouseClickGrabsKeyboardFocus (false);
+            b->onClick = [this, id]
+            {
+                if (onInsert)
+                    onInsert (id, insertIndex);
+            };
+            content.addAndMakeVisible (b);
+            const int bw = 26 + 7 * b->getButtonText().length();
+            b->setBounds (x, y, bw, 26);
+            x += bw + 6;
+        }
+        y += 34;
+    }
+
+    for (const auto& cat : kFxCatalog)
+    {
+        bool headerAdded = false;
+        for (const auto& fx : cat.fx)
+        {
+            const juce::String id (fx.id);
+            if (order.contains (id))
+                continue;
+            const auto name = ChainView::fxDisplayNamePublic (id);
+            const juce::String sub = juce::String (juce::CharPointer_UTF8 (fx.sub));
+            if (q.isNotEmpty() && ! (name.toLowerCase().contains (q)
+                                     || sub.toLowerCase().contains (q)
+                                     || juce::String (cat.title).toLowerCase().contains (q)))
+                continue;
+            if (! headerAdded)
+            {
+                auto* lbl = new FxSectionLabel (juce::String (juce::CharPointer_UTF8 (cat.title)));
+                rows.add (lbl);
+                content.addAndMakeVisible (lbl);
+                lbl->setBounds (0, y, W, 20);
+                y += 24;
+                headerAdded = true;
+            }
+            auto* row = new FxRow (id, name, sub, [this] (const juce::String& picked)
+            {
+                recents.removeString (picked);
+                recents.insert (0, picked);
+                while (recents.size() > 3)
+                    recents.remove (recents.size() - 1);
+                if (onInsert)
+                    onInsert (picked, insertIndex);
+            });
+            rows.add (row);
+            content.addAndMakeVisible (row);
+            row->setBounds (0, y, W, 46);
+            y += 51;
+        }
+    }
+
+    if (y == 0)
+    {
+        auto* lbl = new FxSectionLabel (q.isNotEmpty() ? "NO EFFECT MATCHES THE SEARCH"
+                                                       : "ALL EFFECTS ARE IN THE CHAIN");
+        rows.add (lbl);
+        content.addAndMakeVisible (lbl);
+        lbl->setBounds (0, 0, W, 20);
+        y = 28;
+    }
+
+    content.setSize (W, y + 8);
+    repaint();
+}
+
+void FxDrawer::resized()
+{
+    search.setBounds (14, 52, getWidth() - 14 - 48, 34);
+    closeBtn.setBounds (getWidth() - 44, 52, 32, 34);
+    vp.setBounds (14, 98, getWidth() - 24, getHeight() - 98 - 12);
+    rebuild();
+}
+
+void FxDrawer::paint (juce::Graphics& g)
+{
+    auto b = getLocalBounds().toFloat();
+    // slide-over card with a strong left edge (reads as a drawer)
+    g.setColour (juce::Colours::black.withAlpha (0.35f));
+    g.fillRect (b.removeFromLeft (6.0f));
+    g.setGradientFill ({ ui::cardTop, 0.0f, 0.0f, ui::cardBottom, 0.0f, (float) getHeight(), false });
+    g.fillRect (b);
+    g.setColour (ui::borderHover());
+    g.drawLine (6.0f, 0.0f, 6.0f, (float) getHeight(), 1.0f);
+
+    g.setColour (ui::textBright);
+    g.setFont (ui::uiFont (16.0f, true));
+    g.drawText ("Add effect", 16, 14, 200, 20, juce::Justification::centredLeft);
+    g.setColour (ui::textFaint);
+    g.setFont (ui::monoFont (8.5f));
+    g.drawText (insertIndex >= 0 ? "inserts at the clicked position"
+                                 : "inserts at the canonical position",
+                16, 34, getWidth() - 30, 12, juce::Justification::centredLeft);
+}
+
+//==============================================================================
 void LedButton::paintButton (juce::Graphics& g, bool, bool)
 {
     const auto c = getLocalBounds().toFloat().getCentre();
@@ -1174,8 +1432,45 @@ std::vector<std::pair<juce::Rectangle<int>, int>> ChainView::insertSpots() const
     return spots;
 }
 
+juce::String ChainView::fxDisplayNamePublic (const juce::String& id)
+{
+    return fxDisplayName (id);
+}
+
+void ChainView::insertFxAt (const juce::String& id, int insertIndex)
+{
+    auto order = processor.getChainOrder();
+    if (order.contains (id))
+        return;
+    int pos;
+    if (insertIndex >= 0)
+    {
+        pos = juce::jlimit (0, order.size(), insertIndex);
+    }
+    else
+    {
+        const int rank = GuitarRigNAMProcessor::canonicalRank (id);
+        pos = order.size();
+        for (int i = 0; i < order.size(); ++i)
+            if (GuitarRigNAMProcessor::canonicalRank (order[i]) > rank)
+            {
+                pos = i;
+                break;
+            }
+    }
+    order.insert (pos, id);
+    processor.setChainOrder (order);
+    applyChainRelayout();
+}
+
 void ChainView::showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea)
 {
+    // vNext: prefer the searchable drawer when the host wired it
+    if (onOpenFxBrowser != nullptr)
+    {
+        onOpenFxBrowser (insertIndex);
+        return;
+    }
     struct Category { const char* title; std::initializer_list<const char*> ids; };
     static const Category categories[] = {
         { "Dynamics",              { "gate", "comp", "slowgear", "limiter" } },
@@ -2866,6 +3161,19 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     chainViewport.setScrollBarThickness (9);
     addAndMakeVisible (chainViewport);
 
+    // vNext: the "+" spots open the searchable drawer instead of a popup menu
+    fxDrawer = std::make_unique<FxDrawer> (processor);
+    fxDrawer->onInsert = [this] (const juce::String& id, int idx)
+    {
+        chainView->insertFxAt (id, idx);
+        fxDrawer->close();
+    };
+    addChildComponent (*fxDrawer);
+    chainView->onOpenFxBrowser = [this] (int idx)
+    {
+        fxDrawer->open (idx);
+    };
+
     storeOverlay = std::make_unique<StoreOverlay> (processor);
     addChildComponent (*storeOverlay);
 
@@ -3041,6 +3349,8 @@ void RigContent::resized()
         drumRibbon->setBounds (18, 62, W - 36, ribH);
     const int chainTop = 62 + ribH + 4;
     chainViewport.setBounds (0, chainTop, W, getHeight() - chainTop - 60);
+    if (fxDrawer != nullptr)
+        fxDrawer->setBounds (W - 352, chainTop, 352, getHeight() - chainTop - 60);
     const int by = getHeight() - 60 + 16;
     tunerToggle.setBounds (22, by, 76, 28);
     muteChip.setBounds (102, by, 48, 28);
@@ -3952,6 +4262,13 @@ bool RigContent::keyPressed (const juce::KeyPress& key)
 {
     if (storeOverlay->isVisible())
         return false; // the overlay has its own shortcuts
+
+    // vNext: ESC closes the effect drawer first
+    if (key == juce::KeyPress::escapeKey && fxDrawer != nullptr && fxDrawer->isVisible())
+    {
+        fxDrawer->close();
+        return true;
+    }
 
     if (key == juce::KeyPress::spaceKey)
     {
