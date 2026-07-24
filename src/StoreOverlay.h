@@ -23,6 +23,7 @@ public:
         juce::String title, creator, gear;   // gear: amp/pedal/full-rig/ir/...
         juce::String formatBadge;    // "NAM" / "IR"
         juce::String imageUrl;       // tone image ("" = placeholder)
+        juce::String toneUrl;        // tone page on tone3000.com ("" = none)
         bool a2 = false;             // has A2 models available
         juce::String downloads, favorites;   // formatted ("24.1k"); empty for local items
         bool offline = false;        // already exists locally
@@ -55,6 +56,7 @@ private:
     juce::Image image;
     juce::TextButton addButton;
     juce::TextButton favButton;
+    juce::TextButton linkButton;   // open the tone's page on tone3000.com
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToneCardComponent)
 };

@@ -30,6 +30,7 @@ public:
         int id = 0;
         juce::String title, creator, gear, format;
         juce::String imageUrl; // primeira imagem do tone ("" se não houver)
+        juce::String url;      // página do tone em tone3000.com (API field "url")
         bool hasA2 = false;    // a2_models_count > 0
         juce::int64 downloads = 0, favorites = 0;
     };

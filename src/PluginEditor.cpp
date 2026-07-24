@@ -2758,18 +2758,19 @@ void RigContent::resized()
     storeButton.setBounds (W - 18 - 108, 13, 108, 34);
     audioButton.setBounds (storeButton.getX() - 8 - 82, 13, 82, 34);
     drumButton.setBounds (audioButton.getX() - 8 - 78, 13, 78, 34);
-    const int metersRight = drumButton.getX() - 15 - 1 - 15;
-    cpuMeter.setBounds (metersRight - 60, 34, 60, 7);
-    inMeter.setBounds (metersRight - 60 - 14 - 78, 17, 78, 7);
-    outMeter.setBounds (metersRight - 60 - 14 - 78, 32, 78, 7);
+    const int metersRight = drumButton.getX() - 16;
+    const int meterW = 58, cpuW = 48;
+    cpuMeter.setBounds (metersRight - cpuW, 34, cpuW, 7);
+    inMeter.setBounds (metersRight - cpuW - 14 - meterW, 17, meterW, 7);
+    outMeter.setBounds (metersRight - cpuW - 14 - meterW, 32, meterW, 7);
 
     {
-        const int pillW = 190, navW = 32, saveW = 64, gap = 8;
+        const int pillW = 145, navW = 32, saveW = 64, gap = 8;
         const int groupW = navW + gap + pillW + gap + navW + gap + saveW
                            + gap + 40 + 6 + 66; // + A/B + REC
-        // shifted left so it doesn't collide with the meters
-        int x = juce::jmin ((W - groupW) / 2, inMeter.getX() - 24 - groupW);
-        x = juce::jmax (x, 200);
+        // shifted left so it clears the meters (reserve ~40px for IN/OUT labels)
+        int x = juce::jmin ((W - groupW) / 2, inMeter.getX() - 40 - groupW);
+        x = juce::jmax (x, 186);
         prevButton.setBounds (x, 13, navW, 34);
         x += navW + gap;
         presetPill.setBounds (x, 13, pillW, 34);

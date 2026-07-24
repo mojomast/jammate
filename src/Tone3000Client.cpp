@@ -432,6 +432,7 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
                                    .getProperty ("username", "").toString();
                 tone.gear = t.getProperty ("gear", "").toString();
                 tone.format = t.getProperty ("format", "").toString();
+                tone.url = t.getProperty ("url", "").toString();
                 tone.downloads = (juce::int64) t.getProperty ("downloads_count", 0);
                 tone.favorites = (juce::int64) t.getProperty ("favorites_count", 0);
 

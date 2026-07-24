@@ -63,6 +63,24 @@ ToneCardComponent::ToneCardComponent (Info cardInfo, std::function<void (ToneCar
     addChildComponent (favButton);
     favButton.setVisible (info.toneId != 0);
 
+    // open the tone's page on tone3000.com
+    linkButton.getProperties().set ("chip", true);
+    linkButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xe2\x86\x97")));  // arrow up-right
+    linkButton.setTooltip ("Open on tone3000.com");
+    linkButton.setMouseClickGrabsKeyboardFocus (false);
+    linkButton.onClick = [this]
+    {
+        auto u = info.toneUrl;
+        if (u.isEmpty() && info.toneId != 0)
+            u = "https://www.tone3000.com/tones/" + juce::String (info.toneId);
+        if (u.startsWith ("/"))
+            u = "https://www.tone3000.com" + u;
+        if (u.isNotEmpty())
+            juce::URL (u).launchInDefaultBrowser();
+    };
+    addChildComponent (linkButton);
+    linkButton.setVisible (info.toneId != 0);
+
     setStatus (Status::add);
 }
 
@@ -123,7 +141,8 @@ void ToneCardComponent::setLocalFile (const juce::File& file)
 void ToneCardComponent::resized()
 {
     addButton.setBounds (getLocalBounds().reduced (12).removeFromBottom (34));
-    favButton.setBounds (8, 8, 30, 26); // top-left (NAM/A2 badges sit on the right)
+    favButton.setBounds (8, 8, 30, 26);  // top-left (NAM/A2 badges sit on the right)
+    linkButton.setBounds (42, 8, 30, 26); // next to the star
 }
 
 void ToneCardComponent::paint (juce::Graphics& g)
@@ -187,26 +206,27 @@ void ToneCardComponent::paint (juce::Graphics& g)
         g.setColour (juce::Colour (0xffc8cace));
         g.drawText (typeText, typeChip, juce::Justification::centred);
 
-        // badges (top right): format and, if there are A2 models, "A2"
+        // badges (top right): NAM architecture (A1/A2) or IR
         {
             float badgeX = b.getWidth() - 9.0f;
-            auto drawBadge = [&] (const juce::String& text)
+            auto drawBadge = [&] (const juce::String& text, bool strong)
             {
                 const float bw = 14.0f + 6.5f * (float) text.length();
                 badgeX -= bw;
                 auto badge = juce::Rectangle<float> (badgeX, 9.0f, bw, 17.0f);
                 g.setColour (juce::Colours::black.withAlpha (0.4f));
                 g.fillRoundedRectangle (badge, 5.0f);
-                g.setColour (ui::accent);
+                g.setColour (strong ? ui::accent : ui::border());
                 g.drawRoundedRectangle (badge, 5.0f, 1.0f);
+                g.setColour (strong ? ui::accent : ui::textDim);
                 g.setFont (ui::monoFont (9.0f, true));
                 g.drawText (text, badge, juce::Justification::centred);
                 badgeX -= 5.0f;
             };
-            if (info.formatBadge.isNotEmpty())
-                drawBadge (info.formatBadge);
-            if (info.a2)
-                drawBadge ("A2");
+            if (info.formatBadge == "IR")
+                drawBadge ("IR", true);
+            else if (info.formatBadge.isNotEmpty())   // NAM: show A1 or A2
+                drawBadge (info.a2 ? "A2" : "A1", info.a2);
         }
 
         // offline ok (bottom left)
@@ -835,6 +855,7 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
     info.gear = tone.gear;
     info.formatBadge = tone.format == "ir" ? "IR" : "NAM";
     info.imageUrl = tone.imageUrl;
+    info.toneUrl = tone.url;
     info.a2 = tone.hasA2;
     info.downloads = formatCount (tone.downloads);
     info.favorites = formatCount (tone.favorites);
@@ -1381,7 +1402,7 @@ void StoreOverlay::paint (juce::Graphics& g)
                         0, 250, W, 24, juce::Justification::centred);
         }
     }
-    else if (cards.isEmpty())
+    else if (tab == Tab::library && cards.isEmpty())
     {
         g.setFont (ui::uiFont (16.0f, true));
         g.setColour (juce::Colour (0xffc8cace));
