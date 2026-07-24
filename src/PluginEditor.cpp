@@ -137,12 +137,27 @@ KnobComponent::KnobComponent (juce::AudioProcessorValueTreeState& apvts,
     };
     addAndMakeVisible (valueLabel);
 
+    // clean UI: the value is on-demand - visible while hovering/dragging/typing
+    valueLabel.setVisible (false);
+    valueLabel.onEditorHide = [this] { refreshValueVisibility(); };
+    addMouseListener (this, true);   // enter/exit of the slider reach us too
+
     updateValueText();
 }
 
 void KnobComponent::setKnobTooltip (const juce::String& tip)
 {
     slider.setTooltip (tip);
+}
+
+void KnobComponent::mouseEnter (const juce::MouseEvent&) { refreshValueVisibility(); }
+void KnobComponent::mouseExit (const juce::MouseEvent&)  { refreshValueVisibility(); }
+void KnobComponent::mouseUp (const juce::MouseEvent&)    { refreshValueVisibility(); }
+
+void KnobComponent::refreshValueVisibility()
+{
+    valueLabel.setVisible (isMouseOver (true) || slider.isMouseOverOrDragging()
+                           || valueLabel.isBeingEdited());
 }
 
 void KnobComponent::updateValueText()

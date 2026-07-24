@@ -35,8 +35,14 @@ public:
     void setKnobTooltip (const juce::String&);
     void resized() override;
 
+    // clean UI: the numeric value only shows on hover/drag (or while editing)
+    void mouseEnter (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
+
 private:
     void updateValueText();
+    void refreshValueVisibility();
 
     SnapSlider slider;
     juce::Label nameLabel, valueLabel;
