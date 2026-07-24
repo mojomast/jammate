@@ -82,6 +82,14 @@ ToneCardComponent::ToneCardComponent (Info cardInfo, std::function<void (ToneCar
     addChildComponent (linkButton);
     linkButton.setVisible (info.toneId != 0);
 
+    // vNext: temporary A/B preview into AMP 1 (no commitment)
+    previewButton.getProperties().set ("chip", true);
+    previewButton.setTooltip ("A/B preview: hear this tone in AMP 1 without changing your rig");
+    previewButton.setMouseClickGrabsKeyboardFocus (false);
+    previewButton.onClick = [this] { if (onPreview) onPreview (*this); };
+    addChildComponent (previewButton);
+    previewButton.setVisible (info.toneId != 0);
+
     setStatus (Status::add);
 }
 
@@ -147,7 +155,13 @@ void ToneCardComponent::setLocalFile (const juce::File& file)
 
 void ToneCardComponent::resized()
 {
-    addButton.setBounds (getLocalBounds().reduced (12).removeFromBottom (34));
+    auto row = getLocalBounds().reduced (12).removeFromBottom (34);
+    if (previewButton.isVisible())
+    {
+        previewButton.setBounds (row.removeFromLeft (40));
+        row.removeFromLeft (6);
+    }
+    addButton.setBounds (row);
     favButton.setBounds (8, 8, 30, 26);  // top-left (NAM/A2 badges sit on the right)
     linkButton.setBounds (42, 8, 30, 26); // next to the star
 }
@@ -236,10 +250,10 @@ void ToneCardComponent::paint (juce::Graphics& g)
                 drawBadge (info.a2 ? "A2" : "A1", info.a2);
         }
 
-        // offline ok (bottom left)
+        // availability tag (bottom left) - vNext copy: "Available offline"
         if (info.offline && status != Status::downloading)
         {
-            auto tag = juce::Rectangle<float> (9.0f, 130.0f - 9.0f - 17.0f, 74.0f, 17.0f);
+            auto tag = juce::Rectangle<float> (9.0f, 130.0f - 9.0f - 17.0f, 108.0f, 17.0f);
             g.setColour (ui::green.withAlpha (0.14f));
             g.fillRoundedRectangle (tag, 5.0f);
             g.setColour (ui::green.withAlpha (0.4f));
@@ -247,7 +261,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
             g.setColour (juce::Colour (0xff5fe0a0));
             g.fillEllipse (tag.getX() + 7.0f, tag.getCentreY() - 2.5f, 5.0f, 5.0f);
             g.setFont (ui::monoFont (8.5f, true));
-            g.drawText ("offline ok", tag.withTrimmedLeft (14.0f), juce::Justification::centred);
+            g.drawText ("Available offline", tag.withTrimmedLeft (14.0f), juce::Justification::centred);
         }
 
         // download overlay with progress ring
@@ -697,6 +711,16 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (sourceCombo);
 
+    // vNext: A/B preview bar actions
+    keepBtn.getProperties().set ("chip", true);
+    keepBtn.setMouseClickGrabsKeyboardFocus (false);
+    keepBtn.onClick = [this] { endPreview (false); };
+    addChildComponent (keepBtn);
+    applyPrevBtn.getProperties().set ("accent", true);
+    applyPrevBtn.setMouseClickGrabsKeyboardFocus (false);
+    applyPrevBtn.onClick = [this] { endPreview (true); };
+    addChildComponent (applyPrevBtn);
+
     retryButton.onClick = [this] { bannerError.clear(); resized(); doSearch (currentPage); };
     dismissButton.onClick = [this] { bannerError.clear(); resized(); repaint(); };
     addChildComponent (retryButton);
@@ -942,6 +966,7 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
         [this] (ToneCardComponent& c) { openDetails (c); }));
     card->setFavorite (favIds.contains (juce::String (tone.id)));
     card->onToggleFavorite = [this] (ToneCardComponent& c) { toggleFavorite (c); };
+    card->onPreview = [this] (ToneCardComponent& c) { startPreview (c); };
     gridContent.addAndMakeVisible (card);
 
     if (info.imageUrl.isNotEmpty())
@@ -1189,6 +1214,127 @@ void StoreOverlay::showVariationPicker (int lane, int toneId, juce::Component* a
             deliver (ms);
         });
     });
+}
+
+//==============================================================================
+// vNext: temporary A/B preview - loads the tone's best capture into AMP 1
+// while remembering the current pair; KEEP CURRENT restores it, APPLY commits.
+void StoreOverlay::startPreview (ToneCardComponent& card)
+{
+    if (card.getInfo().formatBadge == "IR")
+    {
+        bannerError = "A/B preview works with amp captures (IRs load instantly anyway)";
+        resized();
+        repaint();
+        return;
+    }
+
+    const int toneId = card.getInfo().toneId;
+    auto proceed = [this, safe = juce::Component::SafePointer<ToneCardComponent> (&card)]
+        (const std::vector<Tone3000Client::Model>& models)
+    {
+        if (safe == nullptr || models.empty())
+            return;
+        // best capture: A2 standard > any standard > first
+        const Tone3000Client::Model* best = nullptr;
+        for (const auto& m : models)
+            if (m.arch == "2" && m.size == "standard") { best = &m; break; }
+        if (best == nullptr)
+            for (const auto& m : models)
+                if (m.size == "standard") { best = &m; break; }
+        if (best == nullptr)
+            best = &models.front();
+
+        const auto model = *best;
+        juce::String baseName = safe->getInfo().title;
+        if (model.name.isNotEmpty() && model.name != baseName)
+            baseName += " - " + model.name;
+        if (model.arch == "2")
+            baseName += " [A2]";
+
+        if (const auto local = Tone3000Client::localFileForModel (model, "nam", baseName);
+            local.existsAsFile())
+        {
+            previewBaseName = baseName;
+            previewLoad (*safe, model, local);
+            return;
+        }
+
+        safe->setProgress (0);
+        safe->setStatus (ToneCardComponent::Status::downloading);
+        client.downloadModel (model, "nam", baseName,
+            [safe] (int pct) { if (safe != nullptr) safe->setProgress (pct); },
+            [this, safe, model, baseName] (juce::File file, juce::String error)
+            {
+                if (safe == nullptr)
+                    return;
+                safe->setStatus (ToneCardComponent::Status::add);
+                if (error.isNotEmpty())
+                {
+                    bannerError = error;
+                    resized();
+                    repaint();
+                    return;
+                }
+                previewBaseName = baseName;
+                previewLoad (*safe, model, file);
+            });
+    };
+
+    if (const auto it = modelsCache.find (toneId); it != modelsCache.end())
+    {
+        proceed (it->second);
+        return;
+    }
+    client.listModels (toneId,
+        [this, toneId, proceed] (std::vector<Tone3000Client::Model> models, juce::String)
+        {
+            modelsCache[toneId] = models;
+            proceed (models);
+        });
+}
+
+void StoreOverlay::previewLoad (ToneCardComponent& card, const Tone3000Client::Model& model,
+                                const juce::File& file)
+{
+    if (! previewing)
+    {
+        prevStdPath = processor.getModelPathNormal (0);
+        prevEcoPath = processor.getModelPathEco (0);
+        previewing = true;
+    }
+    previewTitle = card.getInfo().title;
+    previewImageUrl = card.getInfo().imageUrl;
+    previewToneId = card.getInfo().toneId;
+    previewModel = model;
+    previewFile = file;
+    processor.setModelPair (0, file, {});
+    resized();
+    repaint();
+}
+
+void StoreOverlay::endPreview (bool apply)
+{
+    if (! previewing)
+        return;
+    previewing = false;
+
+    if (apply)
+    {
+        // commit: meta + tone photo sidecar + eco pair via the normal path
+        finalizeNamModel (previewFile, previewToneId, previewModel, previewBaseName, 0);
+        client.saveImageSidecar (previewImageUrl, previewFile);
+        updateRigStatuses();
+    }
+    else
+    {
+        if (prevStdPath.isNotEmpty())
+            processor.setModelPair (0, juce::File (prevStdPath), juce::File (prevEcoPath));
+        else
+            processor.unloadModelLane (0);
+    }
+    resized();
+    repaint();
 }
 
 void StoreOverlay::doConnect()
@@ -1694,7 +1840,16 @@ void StoreOverlay::resized()
     }
 
     const int gridTop = banner ? bannerY + 44 : bannerY + 4;
-    viewport.setBounds (22, gridTop, W - 44 + 10, getHeight() - gridTop - 16);
+    // A/B preview bar reserves the bottom strip while active
+    const int previewBarH = previewing ? 54 : 0;
+    viewport.setBounds (22, gridTop, W - 44 + 10, getHeight() - gridTop - 16 - previewBarH);
+    keepBtn.setVisible (previewing);
+    applyPrevBtn.setVisible (previewing);
+    if (previewing)
+    {
+        applyPrevBtn.setBounds (W - 22 - 150, getHeight() - 44, 150, 32);
+        keepBtn.setBounds (W - 22 - 150 - 8 - 130, getHeight() - 44, 130, 32);
+    }
     layoutCards();
 }
 
@@ -1833,6 +1988,25 @@ void StoreOverlay::paint (juce::Graphics& g)
         g.drawText ("Download tones in the Explore tab or copy .nam files to "
                     + Tone3000Client::capturesDir().getFullPathName(),
                     60, 278, W - 120, 20, juce::Justification::centred);
+    }
+
+    // ---- vNext: A/B preview bar (temporary capture in AMP 1)
+    if (previewing)
+    {
+        const int barY = getHeight() - 54;
+        g.setColour (juce::Colour (0xff14191d));
+        g.fillRect (0, barY, W, 54);
+        g.setColour (ui::accent.withAlpha (0.5f));
+        g.fillRect (0, barY, W, 1);
+        g.setColour (ui::accentBright);
+        g.setFont (ui::uiFont (12.5f, true));
+        g.drawText (juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6 A/B preview \xc2\xb7 "))
+                        + previewTitle,
+                    22, barY + 8, W - 44 - 300, 20, juce::Justification::centredLeft);
+        g.setColour (ui::textFaint);
+        g.setFont (ui::monoFont (8.5f));
+        g.drawText ("temporary - APPLY commits, KEEP CURRENT restores your rig",
+                    22, barY + 30, W - 44 - 300, 14, juce::Justification::centredLeft);
     }
 
     // ---- partnership splash (before the first TONE3000 sign-in)

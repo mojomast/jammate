@@ -2905,6 +2905,26 @@ void GuitarRigNAMProcessor::setModelPair (int lane, const juce::File& normal, co
     loadModelAsync (lane, wantEco ? eco : normal);
 }
 
+void GuitarRigNAMProcessor::unloadModelLane (int lane)
+{
+    if (lane < 0 || lane >= maxRigs)
+        return;
+
+    {
+        const juce::ScopedLock sl (modelInfoLock);
+        modelNames[lane].clear();
+        modelPaths[lane].clear();
+        modelPathsStd[lane].clear();
+        modelPathsEco[lane].clear();
+        modelArchLabels[lane].clear();
+        modelExpectedSampleRates[lane] = -1.0;
+    }
+
+    // the audio thread drops the lane on the next block; nothing to free there
+    if (auto* q = pendingModels[lane].exchange (unloadSentinel()); q != unloadSentinel())
+        delete q;
+}
+
 int GuitarRigNAMProcessor::firstFreeModelLane() const
 {
     const int count = getRigCount();

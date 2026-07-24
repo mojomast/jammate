@@ -91,6 +91,8 @@ public:
     // per lane. The ECO/auto-ECO chip swaps which of the two is loaded.
 
     void setModelPair (int lane, const juce::File& normal, const juce::File& eco);
+    /// vNext: unloads a lane RT-safely (publishes the static unload sentinel).
+    void unloadModelLane (int lane);
     juce::String getModelPathNormal (int lane) const;
     juce::String getModelPathEco (int lane) const;
     bool hasEcoVariant() const

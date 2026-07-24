@@ -47,6 +47,9 @@ public:
     bool isFavorite() const { return favorite; }
     std::function<void (ToneCardComponent&)> onToggleFavorite;
 
+    // vNext: temporary A/B preview (loads into AMP 1 without committing)
+    std::function<void (ToneCardComponent&)> onPreview;
+
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -59,6 +62,7 @@ private:
     juce::TextButton addButton;
     juce::TextButton favButton;
     juce::TextButton linkButton;   // open the tone's page on tone3000.com
+    juce::TextButton previewButton { juce::CharPointer_UTF8 ("\xe2\x96\xb6") };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToneCardComponent)
 };
@@ -191,6 +195,19 @@ private:
     bool splashVisible = false;
     void setSplashVisible (bool);
     void doConnect();   // the actual OAuth flow (after the splash)
+
+    // vNext: temporary A/B preview into AMP 1 - the previous pair is restored
+    // by KEEP CURRENT; APPLY commits (meta + sidecar + eco pair)
+    bool previewing = false;
+    juce::String prevStdPath, prevEcoPath;      // pair before the preview started
+    juce::String previewTitle, previewBaseName, previewImageUrl;
+    juce::File previewFile;
+    int previewToneId = 0;
+    Tone3000Client::Model previewModel;
+    juce::TextButton keepBtn { "KEEP CURRENT" }, applyPrevBtn { "APPLY PREVIEW" };
+    void startPreview (ToneCardComponent&);
+    void previewLoad (ToneCardComponent&, const Tone3000Client::Model&, const juce::File&);
+    void endPreview (bool apply);
 
     // filters (clean UI: tags/A2/favorites collapse behind "Filters")
     juce::TextButton filtersChip { juce::String (juce::CharPointer_UTF8 ("Filters \xe2\x96\xbe")) };
