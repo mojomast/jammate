@@ -3096,9 +3096,10 @@ void RigContent::paint (juce::Graphics& g)
 
         const int cy = barY + 30;
         const bool tunerOn = isTunerOn();
-        if (! tunerOn)
-            g.beginTransparencyLayer (0.3f); // tuner off: everything dimmed
-
+        // clean UI: with the tuner OFF nothing is drawn (no dimmed chrome
+        // distracting while playing) - TUNER is a real toggle
+        if (tunerOn)
+        {
         // strings
         int sx = 300;
         for (int i = 0; i < 6; ++i)
@@ -3124,10 +3125,16 @@ void RigContent::paint (juce::Graphics& g)
         g.setColour (hasPitch ? ui::accent : ui::textMuted);
         g.drawText (hasPitch ? tunerNote : juce::String ("-"), sx + 22, barY + 10, 64, 40,
                     juce::Justification::centred);
+        // needle/readout colour tracks the distance from center:
+        // green in tune, amber getting off, red far off
+        const double absCents = std::abs (tunerCents);
+        const juce::Colour needleC = absCents < 5.0 ? ui::green
+                                     : absCents < 15.0 ? ui::yellow
+                                                       : ui::red;
         if (hasPitch)
         {
             g.setFont (ui::monoFont (11.0f));
-            g.setColour (std::abs (tunerCents) < 5.0 ? ui::green : ui::yellow);
+            g.setColour (needleC);
             g.drawText ((tunerCents >= 0 ? "+" : "") + juce::String ((int) tunerCents)
                             + juce::String (juce::CharPointer_UTF8 ("\xc2\xa2")),
                         sx + 86, cy - 8, 40, 16, juce::Justification::centredLeft);
@@ -3148,23 +3155,31 @@ void RigContent::paint (juce::Graphics& g)
             g.fillRect (meter.getX(), meter.getCentreY() - 1.5f, meter.getWidth(), 3.0f);
             g.setOpacity (1.0f);
 
-            g.setColour (juce::Colours::white.withAlpha (0.35f));
-            g.fillRect (meter.getCentreX() - 1.0f, meter.getY(), 2.0f, meter.getHeight());
+            // center clearly marked: brighter tick + little triangle on top
+            g.setColour (juce::Colours::white.withAlpha (0.55f));
+            g.fillRect (meter.getCentreX() - 0.75f, meter.getY(), 1.5f, meter.getHeight());
+            {
+                juce::Path tri;
+                tri.addTriangle (meter.getCentreX() - 5.0f, meter.getY() - 6.0f,
+                                 meter.getCentreX() + 5.0f, meter.getY() - 6.0f,
+                                 meter.getCentreX(), meter.getY() + 1.0f);
+                g.setColour (ui::green.withAlpha (hasPitch && absCents < 5.0 ? 1.0f : 0.55f));
+                g.fillPath (tri);
+            }
 
             if (hasPitch)
             {
                 const float nx = meter.getCentreX()
                                  + (float) juce::jlimit (-50.0, 50.0, tunerCents) / 50.0f
                                        * (meter.getWidth() / 2.0f - 6.0f);
-                g.setColour (ui::accent.withAlpha (0.4f));
+                g.setColour (needleC.withAlpha (0.4f));
                 g.fillRoundedRectangle (nx - 3.0f, meter.getY() - 2.0f, 6.0f, meter.getHeight() + 4.0f, 3.0f);
-                g.setColour (ui::accent);
+                g.setColour (needleC);
                 g.fillRoundedRectangle (nx - 1.5f, meter.getY() - 2.0f, 3.0f, meter.getHeight() + 4.0f, 2.0f);
             }
         }
 
-        if (! tunerOn)
-            g.endTransparencyLayer();
+        } // tunerOn
 
         // compact status on the right
         {
