@@ -265,9 +265,9 @@ void PillButton::paintButton (juce::Graphics& g, bool isHighlighted, bool)
 {
     auto b = getLocalBounds().toFloat().reduced (0.5f);
     g.setColour (ui::glass());
-    g.fillRoundedRectangle (b, 9.0f);
+    g.fillRoundedRectangle (b, 2.0f);
     g.setColour (isHighlighted ? ui::borderHover() : juce::Colours::white.withAlpha (0.08f));
-    g.drawRoundedRectangle (b, 9.0f, 1.0f);
+    g.drawRoundedRectangle (b, 2.0f, 1.0f);
 
     g.setColour (dotLit ? ui::accent : ui::textMuted);
     g.fillEllipse (b.getX() + 13.0f, b.getCentreY() - 3.0f, 6.0f, 6.0f);
@@ -1754,9 +1754,9 @@ void ChainView::drawPedalFrame (juce::Graphics& g, juce::Rectangle<int> b,
 
     auto bf = b.toFloat();
     g.setGradientFill ({ ui::cardTop, 0.0f, bf.getY(), ui::cardBottom, 0.0f, bf.getBottom(), false });
-    g.fillRoundedRectangle (bf, 16.0f);
+    g.fillRoundedRectangle (bf, 2.0f);
     g.setColour (ui::border());
-    g.drawRoundedRectangle (bf.reduced (0.5f), 16.0f, 1.0f);
+    g.drawRoundedRectangle (bf.reduced (0.5f), 2.0f, 1.0f);
 
     g.setFont (ui::uiFont (12.0f, true));
     g.setColour (ui::text);
@@ -1781,7 +1781,7 @@ void ChainView::drawPhoto (juce::Graphics& g, const juce::Image& img, juce::Rect
 
     g.saveState();
     juce::Path clip;
-    clip.addRoundedRectangle (spot.toFloat(), 8.0f);
+    clip.addRoundedRectangle (spot.toFloat(), 2.0f);
     g.reduceClipRegion (clip);
     const float scale = juce::jmax ((float) spot.getWidth() / img.getWidth(),
                                     (float) spot.getHeight() / img.getHeight());
@@ -1791,7 +1791,7 @@ void ChainView::drawPhoto (juce::Graphics& g, const juce::Image& img, juce::Rect
                  juce::RectanglePlacement::stretchToFit);
     g.restoreState();
     g.setColour (juce::Colours::white.withAlpha (0.1f));
-    g.drawRoundedRectangle (spot.toFloat(), 8.0f, 1.0f);
+    g.drawRoundedRectangle (spot.toFloat(), 2.0f, 1.0f);
 }
 
 void ChainView::paint (juce::Graphics& g)
@@ -1902,9 +1902,9 @@ void ChainView::paint (juce::Graphics& g)
         auto bf = b.toFloat();
         g.setGradientFill ({ juce::Colour (0xff1e232a), 0.0f, bf.getY(),
                              juce::Colour (0xff101318), 0.0f, bf.getBottom(), false });
-        g.fillRoundedRectangle (bf, 14.0f);
+        g.fillRoundedRectangle (bf, 2.0f);
         g.setColour (ui::border());
-        g.drawRoundedRectangle (bf.reduced (0.5f), 14.0f, 1.0f);
+        g.drawRoundedRectangle (bf.reduced (0.5f), 2.0f, 1.0f);
 
         g.setFont (ui::monoFont (9.0f));
         g.setColour (juce::Colour (0xff8a929c));
@@ -2041,7 +2041,7 @@ void ChainView::paint (juce::Graphics& g)
                                            (float) anB.getWidth() - 26.0f,
                                            (float) anB.getHeight() - 40.0f - 84.0f);
         g.setColour (ui::meterBg);
-        g.fillRoundedRectangle (viz, 9.0f);
+        g.fillRoundedRectangle (viz, 2.0f);
 
         if (processor.apvts.getRawParameterValue ("anOn")->load() > 0.5f)
         {
@@ -2117,9 +2117,9 @@ void ChainView::paint (juce::Graphics& g)
         auto viz = juce::Rectangle<float> ((float) preEqB.getX() + 13.0f, (float) preEqB.getY() + 38.0f,
                                            (float) preEqB.getWidth() - 26.0f, 62.0f);
         g.setColour (ui::meterBg);
-        g.fillRoundedRectangle (viz, 9.0f);
+        g.fillRoundedRectangle (viz, 2.0f);
         g.setColour (juce::Colours::white.withAlpha (0.06f));
-        g.drawRoundedRectangle (viz, 9.0f, 1.0f);
+        g.drawRoundedRectangle (viz, 2.0f, 1.0f);
 
         const float lo = processor.apvts.getRawParameterValue ("preEqLow")->load();
         const float mi = processor.apvts.getRawParameterValue ("preEqMid")->load();
@@ -2211,9 +2211,9 @@ void ChainView::paint (juce::Graphics& g)
         auto viz = juce::Rectangle<float> ((float) eqB.getX() + 13.0f, (float) eqB.getY() + 38.0f,
                                            (float) eqB.getWidth() - 26.0f, 62.0f);
         g.setColour (ui::meterBg);
-        g.fillRoundedRectangle (viz, 9.0f);
+        g.fillRoundedRectangle (viz, 2.0f);
         g.setColour (juce::Colours::white.withAlpha (0.06f));
-        g.drawRoundedRectangle (viz, 9.0f, 1.0f);
+        g.drawRoundedRectangle (viz, 2.0f, 1.0f);
 
         const float lo = processor.apvts.getRawParameterValue ("eqLow")->load();
         const float mi = processor.apvts.getRawParameterValue ("eqMid")->load();
@@ -2239,15 +2239,15 @@ void ChainView::paint (juce::Graphics& g)
         const bool compact = ampB.getHeight() < 300;
         auto bf = ampB.toFloat();
         g.setGradientFill ({ ui::ampTop, 0.0f, bf.getY(), ui::ampBottom, 0.0f, bf.getBottom(), false });
-        g.fillRoundedRectangle (bf, 18.0f);
+        g.fillRoundedRectangle (bf, 2.0f);
         g.setColour (ui::accent.withAlpha (0.28f));
-        g.drawRoundedRectangle (bf.reduced (0.5f), 18.0f, 1.0f);
+        g.drawRoundedRectangle (bf.reduced (0.5f), 2.0f, 1.0f);
 
         // accent stripe at the top
         {
             g.saveState();
             juce::Path clip;
-            clip.addRoundedRectangle (bf, 18.0f);
+            clip.addRoundedRectangle (bf, 2.0f);
             g.reduceClipRegion (clip);
             juce::ColourGradient grad (ui::accent.withAlpha (0.0f), bf.getX(), 0.0f,
                                        ui::accent.withAlpha (0.0f), bf.getRight(), 0.0f, false);
@@ -2361,7 +2361,7 @@ void ChainView::paint (juce::Graphics& g)
             p != nullptr && p->load() <= 0.5f)
         {
             g.setColour (ui::bg.withAlpha (0.55f));
-            g.fillRoundedRectangle (entry.box.toFloat(), 16.0f);
+            g.fillRoundedRectangle (entry.box.toFloat(), 2.0f);
         }
     }
 
@@ -2398,9 +2398,9 @@ void ChainView::paint (juce::Graphics& g)
     if (! dropHighlight.isEmpty())
     {
         g.setColour (ui::accent.withAlpha (0.9f));
-        g.drawRoundedRectangle (dropHighlight.toFloat().reduced (1.5f), 16.0f, 2.5f);
+        g.drawRoundedRectangle (dropHighlight.toFloat().reduced (1.5f), 2.0f, 2.5f);
         g.setColour (ui::accent.withAlpha (0.12f));
-        g.fillRoundedRectangle (dropHighlight.toFloat(), 16.0f);
+        g.fillRoundedRectangle (dropHighlight.toFloat(), 2.0f);
     }
 
     // ---- "+ EFFECT" button (drawer)
@@ -2409,7 +2409,7 @@ void ChainView::paint (juce::Graphics& g)
         g.setColour (ui::accent.withAlpha (addFxB == hoverHotspot ? 0.8f : 0.35f));
         const float dash[] = { 5.0f, 4.0f };
         juce::Path outline;
-        outline.addRoundedRectangle (bf.reduced (1.0f), 14.0f);
+        outline.addRoundedRectangle (bf.reduced (1.0f), 2.0f);
         juce::PathStrokeType stroke (1.4f);
         juce::Path dashed;
         stroke.createDashedStroke (dashed, outline, dash, 2);
@@ -2431,7 +2431,7 @@ void ChainView::paint (juce::Graphics& g)
 
         // dimmed source
         g.setColour (ui::bg.withAlpha (0.55f));
-        g.fillRoundedRectangle (source.toFloat(), 16.0f);
+        g.fillRoundedRectangle (source.toFloat(), 2.0f);
 
         // insertion line
         const auto entries = orderedEntries();
@@ -2448,9 +2448,9 @@ void ChainView::paint (juce::Graphics& g)
         // card ghost following the mouse
         auto ghost = source.toFloat().withX (dragMouseX - (float) dragGrabDx);
         g.setColour (ui::cardTop.withAlpha (0.85f));
-        g.fillRoundedRectangle (ghost, 16.0f);
+        g.fillRoundedRectangle (ghost, 2.0f);
         g.setColour (ui::accent.withAlpha (0.8f));
-        g.drawRoundedRectangle (ghost, 16.0f, 1.5f);
+        g.drawRoundedRectangle (ghost, 2.0f, 1.5f);
         g.setFont (ui::uiFont (13.0f, true));
         g.setColour (ui::textBright);
         g.drawText (fxDisplayName (draggingId), ghost.reduced (12.0f).removeFromTop (30.0f),
@@ -2819,10 +2819,10 @@ void RigContent::paint (juce::Graphics& g)
         // logo with glow
         auto logo = juce::Rectangle<float> (18.0f, 15.0f, 30.0f, 30.0f);
         g.setColour (ui::accent.withAlpha (0.35f));
-        g.fillRoundedRectangle (logo.expanded (3.0f), 12.0f);
+        g.fillRoundedRectangle (logo.expanded (3.0f), 2.0f);
         g.setGradientFill ({ ui::accent, logo.getX(), logo.getY(),
                              ui::accentDark, logo.getRight(), logo.getBottom(), false });
-        g.fillRoundedRectangle (logo, 9.0f);
+        g.fillRoundedRectangle (logo, 2.0f);
         {
             juce::Path diamond;
             diamond.addRoundedRectangle (-5.0f, -5.0f, 10.0f, 10.0f, 2.0f);

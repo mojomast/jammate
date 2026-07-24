@@ -132,16 +132,16 @@ void ToneCardComponent::paint (juce::Graphics& g)
 
     g.setGradientFill ({ juce::Colour (0xff25272b), 0.0f, b.getY(),
                          juce::Colour (0xff1c1e21), 0.0f, b.getBottom(), false });
-    g.fillRoundedRectangle (b, 12.0f);
+    g.fillRoundedRectangle (b, 2.0f);
     g.setColour (juce::Colour (0xff303338));
-    g.drawRoundedRectangle (b.reduced (0.5f), 12.0f, 1.0f);
+    g.drawRoundedRectangle (b.reduced (0.5f), 2.0f, 1.0f);
 
     // ---- header: tone image, or hatched as placeholder (130 px)
     auto header = getLocalBounds().withHeight (130);
     {
         g.saveState();
         juce::Path clip;
-        clip.addRoundedRectangle (b.getX(), b.getY(), b.getWidth(), 130.0f, 12.0f);
+        clip.addRoundedRectangle (b.getX(), b.getY(), b.getWidth(), 130.0f, 2.0f);
         g.reduceClipRegion (clip);
 
         if (image.isValid())
@@ -287,9 +287,9 @@ void ToneCardComponent::paint (juce::Graphics& g)
     {
         auto btn = getLocalBounds().reduced (12).removeFromBottom (34).toFloat();
         g.setColour (ui::green.withAlpha (0.12f));
-        g.fillRoundedRectangle (btn, 8.0f);
+        g.fillRoundedRectangle (btn, 2.0f);
         g.setColour (ui::green.withAlpha (0.5f));
-        g.drawRoundedRectangle (btn, 8.0f, 1.0f);
+        g.drawRoundedRectangle (btn, 2.0f, 1.0f);
         g.setFont (ui::uiFont (12.5f, true));
         g.setColour (juce::Colour (0xff5fe0a0));
         g.drawText ("In rig", btn, juce::Justification::centred);
@@ -346,9 +346,9 @@ public:
     {
         auto b = getLocalBounds().toFloat();
         g.setColour (juce::Colour (0xff222529));
-        g.fillRoundedRectangle (b, 10.0f);
+        g.fillRoundedRectangle (b, 2.0f);
         g.setColour (juce::Colour (0xff303338));
-        g.drawRoundedRectangle (b.reduced (0.5f), 10.0f, 1.0f);
+        g.drawRoundedRectangle (b.reduced (0.5f), 2.0f, 1.0f);
 
         // status dot
         g.setColour (installed ? ui::green : ui::textMuted);
@@ -1322,9 +1322,9 @@ void StoreOverlay::paint (juce::Graphics& g)
     {
         auto banner = juce::Rectangle<float> (22.0f, 114.0f, (float) W - 44.0f, 36.0f);
         g.setColour (ui::red.withAlpha (0.1f));
-        g.fillRoundedRectangle (banner, 9.0f);
+        g.fillRoundedRectangle (banner, 2.0f);
         g.setColour (ui::red.withAlpha (0.4f));
-        g.drawRoundedRectangle (banner, 9.0f, 1.0f);
+        g.drawRoundedRectangle (banner, 2.0f, 1.0f);
         g.setColour (ui::red);
         g.fillEllipse (banner.getX() + 14.0f, banner.getCentreY() - 4.0f, 8.0f, 8.0f);
         g.setFont (ui::uiFont (12.5f));

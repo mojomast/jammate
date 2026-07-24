@@ -226,9 +226,9 @@ void DrumRibbon::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat().reduced (0.5f);
     g.setColour (juce::Colour (0xff141a20));
-    g.fillRoundedRectangle (b, 10.0f);
+    g.fillRoundedRectangle (b, 2.0f);
     g.setColour (ui::accentDark.withAlpha (0.45f));
-    g.drawRoundedRectangle (b, 10.0f, 1.0f);
+    g.drawRoundedRectangle (b, 2.0f, 1.0f);
 
     const bool playing = engine.playing.load();
     const int base = sectionShown * drum::barsPerSection;
@@ -1175,9 +1175,9 @@ void DrumOverlay::BarHead::mouseUp (const juce::MouseEvent& e)
 void DrumOverlay::ScoreView::paint (juce::Graphics& g)
 {
     g.setColour (juce::Colour (0xff0c0e11));
-    g.fillRoundedRectangle (getLocalBounds().toFloat(), 12.0f);
+    g.fillRoundedRectangle (getLocalBounds().toFloat(), 2.0f);
     g.setColour (ui::accentDark.withAlpha (0.55f));
-    g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 12.0f, 1.0f);
+    g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 2.0f, 1.0f);
 
     owner.computeBarLayout (getWidth());
     auto& engine = owner.engine;
@@ -1198,11 +1198,11 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
         const auto& L = owner.barLay[owner.selBar];
         const float x0 = L.notesX - owner.curStepW * 0.5f - 5.0f, x1 = L.notesX + L.width + 5.0f;
         g.setColour (ui::accent.withAlpha (0.05f));
-        g.fillRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 8.0f);
+        g.fillRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 2.0f);
         g.setColour (ui::accent.withAlpha (0.35f));
         const float dash[] = { 3.0f, 3.0f };
         juce::Path pth;
-        pth.addRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 8.0f);
+        pth.addRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 2.0f);
         juce::PathStrokeType (1.0f).createDashedStroke (pth, pth, dash, 2);
         g.fillPath (pth);
     }
@@ -1211,9 +1211,9 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
         const auto& L = owner.barLay[dragOverBar];
         const float x0 = L.notesX - owner.curStepW * 0.5f - 5.0f, x1 = L.notesX + L.width + 5.0f;
         g.setColour (ui::glowOrange.withAlpha (0.10f));
-        g.fillRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 8.0f);
+        g.fillRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 2.0f);
         g.setColour (ui::glowOrange);
-        g.drawRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 8.0f, 1.4f);
+        g.drawRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 2.0f, 1.4f);
     }
 
     // playhead
@@ -2009,9 +2009,9 @@ void DrumOverlay::LibRow::mouseDrag (const juce::MouseEvent& e)
 void DrumOverlay::PreviewPane::paint (juce::Graphics& g)
 {
     g.setColour (juce::Colour (0xff0c0e11));
-    g.fillRoundedRectangle (getLocalBounds().toFloat(), 10.0f);
+    g.fillRoundedRectangle (getLocalBounds().toFloat(), 2.0f);
     g.setColour (ui::border());
-    g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 10.0f, 1.0f);
+    g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 2.0f, 1.0f);
 
     if (! owner.selValid)
     {
