@@ -630,6 +630,19 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (favChip);
 
+    // "Filters" reveals the extra chips (tags / A2 / favorites) on demand
+    filtersChip.getProperties().set ("chip", true);
+    filtersChip.setMouseClickGrabsKeyboardFocus (false);
+    filtersChip.setTooltip ("More filters: tags, A2 only, favorites");
+    filtersChip.onClick = [this]
+    {
+        filtersOpen = ! filtersOpen;
+        filtersChip.getProperties().set ("chipActive", filtersOpen);
+        filtersChip.repaint();
+        setTab (tab);   // re-applies chip visibility + layout
+    };
+    addAndMakeVisible (filtersChip);
+
     a2Chip.getProperties().set ("chip", true);
     a2Chip.getProperties().set ("chipActive", false);
     a2Chip.setTooltip (juce::String ("Only tones with A2-architecture models (more efficient)"));
@@ -791,15 +804,17 @@ void StoreOverlay::setTab (Tab newTab)
     libraryTab.repaint();
     pluginsTab.repaint();
 
-    // search/filters only make sense on the TONE3000 tabs
+    // search/filters only make sense on the TONE3000 tabs; the extra filters
+    // (tags/A2/favorites) stay collapsed behind "Filters" (clean UI)
     const bool toneTabs = tab != Tab::plugins;
     searchBox.setVisible (toneTabs);
     for (auto* chip : gearChips)
         chip->setVisible (toneTabs);
+    filtersChip.setVisible (toneTabs);
     for (auto* chip : tagChips)
-        chip->setVisible (toneTabs);
-    a2Chip.setVisible (toneTabs);
-    favChip.setVisible (toneTabs);
+        chip->setVisible (toneTabs && filtersOpen);
+    a2Chip.setVisible (toneTabs && filtersOpen);
+    favChip.setVisible (toneTabs && filtersOpen);
     sortCombo.setVisible (toneTabs);
     // collections only on Explore (My library is local files)
     sourceCombo.setVisible (tab == Tab::explore);
@@ -1633,7 +1648,8 @@ void StoreOverlay::resized()
     searchBox.setBounds ((connectButton.isVisible() ? connectButton.getX()
                                                     : userChip.getX()) - 12 - 300, 15, 300, 34);
 
-    // filtros
+    // filters: gear chips + "Filters" toggle; the extra chips lay out only
+    // when expanded (clean UI)
     int cx = 66;
     for (auto* chip : gearChips)
     {
@@ -1641,16 +1657,22 @@ void StoreOverlay::resized()
         chip->setBounds (cx, 74, w, 28);
         cx += w + 9;
     }
-    cx += 48; // divider + TAGS label (painted in paint)
-    for (auto* chip : tagChips)
+    cx += 6;
+    filtersChip.setBounds (cx, 74, 78, 28);
+    cx += 78 + 14;
+    if (filtersOpen)
     {
-        const int w = 22 + 6 * chip->getButtonText().length();
-        chip->setBounds (cx, 74, w, 28);
-        cx += w + 7;
+        cx += 34; // divider + TAGS label (painted in paint)
+        for (auto* chip : tagChips)
+        {
+            const int w = 22 + 6 * chip->getButtonText().length();
+            chip->setBounds (cx, 74, w, 28);
+            cx += w + 7;
+        }
+        cx += 8;
+        a2Chip.setBounds (cx, 74, 62, 28);
+        favChip.setBounds (cx + 68, 74, 58, 28);
     }
-    cx += 8;
-    a2Chip.setBounds (cx, 74, 62, 28);
-    favChip.setBounds (cx + 68, 74, 58, 28);
     sortCombo.setBounds (W - 22 - 150, 72, 150, 32);
     sourceCombo.setBounds (sortCombo.getX() - 8 - 140, 72, 140, 32);
 
@@ -1708,7 +1730,7 @@ void StoreOverlay::paint (juce::Graphics& g)
         g.setFont (ui::monoFont (9.0f));
         g.setColour (ui::textMuted);
         g.drawText ("TYPE", 22, 74, 40, 28, juce::Justification::centredLeft);
-        if (! tagChips.isEmpty())
+        if (filtersOpen && ! tagChips.isEmpty())
         {
             const int divX = tagChips.getFirst()->getX() - 48;
             g.setColour (juce::Colours::white.withAlpha (0.1f));

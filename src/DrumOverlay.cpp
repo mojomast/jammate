@@ -909,9 +909,7 @@ void DrumOverlay::paint (juce::Graphics& g)
             g.setColour (ui::textFaint);
             g.drawText (t, x, libY + 4, 220, 12, juce::Justification::centredLeft);
         };
-        title ("SOURCE", genGenreBox.getX());
-        title ("PARAMETERS", genComplex.getX() - 96);
-        title ("GENERATE", genOneBtn.getX());
+        title ("GENERATOR", genGenreBox.getX());
 
         auto fld = [&] (const juce::String& t, juce::Component& c)
         {
@@ -935,7 +933,8 @@ void DrumOverlay::paint (juce::Graphics& g)
         g.setColour (ui::textMuted);
         g.drawText (juce::CharPointer_UTF8 (
             "Reads each bar's time signature \xc2\xb7 writes on the staff above"),
-            genOneBtn.getX(), genAllBtn.getBottom() + 6, genOneBtn.getWidth(), 14,
+            genGenreBox.getX(), genOneBtn.getY() + 10,
+            genAllBtn.getX() - genGenreBox.getX() - 12, 14,
             juce::Justification::centredLeft);
     }
 }
@@ -1010,19 +1009,19 @@ void DrumOverlay::resized()
         h->setBounds (x0, barHeadsY, (int) (L.width + curStepW + 10.0f), barHeadsH - 2);
     }
 
-    // library (column browser) OR grid, in the same area
-    const int libW = W - 2 * margin;
+    // library (column browser); GRID and the GENERATOR replace only the
+    // preview column, so the genre + groove list never disappear (clean UI)
     const int libBottom = sourceY - 8;
     const int libH = libBottom - libY;
+    const int listX = margin + genreColW + colGap;
+    const int prevX = listX + listColW + colGap;
+    const int prevW = (W - margin) - prevX;
     {
         genreVp.setBounds (margin, libY, genreColW, libH);
-        const int listX = margin + genreColW + colGap;
         const int tabW = (listColW - 4) / 2;
         tabGrooves.setBounds (listX, libY, tabW, 24);
         tabViradas.setBounds (listX + tabW + 4, libY, tabW, 24);
         listVp.setBounds (listX, libY + 28, listColW, libH - 28);
-        const int prevX = listX + listColW + colGap;
-        const int prevW = (W - margin) - prevX;
         previewPane.setBounds (prevX, libY, prevW, libH - 38);
         applyBtn.setBounds (prevX, libBottom - 30, 190, 30);
         // humanize: one chip; the 3 sliders live in the popover panel above it
@@ -1031,24 +1030,26 @@ void DrumOverlay::resized()
             humPanel->setBounds (W - margin - 214, libBottom - 28 - 106, 214, 100);
     }
     helpChip.setBounds (W - margin - 26, scoreY + 6, 22, 20);
-    gridView.setBounds (margin, gridY, libW, gridH);
+    gridView.setBounds (prevX, libY, prevW, libH);
 
-    // generator (same area): SOURCE | PARAMETERS | GENERATE
+    // generator, inside the preview slot: selects row + 2-column sliders +
+    // action buttons (no dead space)
     {
-        const int fx = margin;                     // SOURCE column
-        const int mx = margin + 350;               // PARAMETERS column
-        const int gx = margin + 712;               // GENERATE column
-        const int gw = (W - margin) - gx;
-        genGenreBox.setBounds   (fx, libY + 30, 150, 30);
-        genStyleBox.setBounds   (fx + 158, libY + 30, 172, 30);
-        genDrummerBox.setBounds (fx, libY + 82, 330, 30);
+        genGenreBox.setBounds   (prevX + 4, libY + 26, 148, 30);
+        genStyleBox.setBounds   (prevX + 160, libY + 26, 158, 30);
+        genDrummerBox.setBounds (prevX + 326, libY + 26, 180, 30);
 
         juce::Slider* ps[] = { &genComplex, &genDynamics, &genHuman, &genFill, &genSwing };
+        const int colW = (prevW - 16) / 2;
         for (int i = 0; i < 5; ++i)
-            ps[i]->setBounds (mx + 96, libY + 24 + i * 34, 262, 22);
+        {
+            const int col = i % 2, row = i / 2;
+            ps[i]->setBounds (prevX + 4 + 92 + col * colW, libY + 78 + row * 34,
+                              colW - 100, 22);
+        }
 
-        genOneBtn.setBounds (gx, libY + 40, gw, 46);
-        genAllBtn.setBounds (gx, libY + 96, gw, 58);
+        genOneBtn.setBounds (prevX + prevW - 168, libY + libH - 40, 168, 34);
+        genAllBtn.setBounds (prevX + prevW - 168 - 8 - 140, libY + libH - 40, 140, 34);
     }
 
     kitChip.setBounds (margin, sourceY, 254, sourceH);
@@ -1127,15 +1128,17 @@ void DrumOverlay::refreshAll()
     rebuildGenreCol();
     rebuildList();
 
-    const bool lib = ! gridOn && ! genOn;      // library, grid OR generator
+    // clean UI: the genre + groove list stay visible; GRID and the GENERATOR
+    // replace only the preview column
+    const bool prev = ! gridOn && ! genOn;
     const bool mine = currentGenre == "MINE";
-    genreVp.setVisible (lib);
-    listVp.setVisible (lib);
-    previewPane.setVisible (lib);
-    tabGrooves.setVisible (lib && ! mine);
-    tabViradas.setVisible (lib && ! mine);
-    applyBtn.setVisible (lib && selValid);
-    const bool humShow = lib && ! mine;
+    genreVp.setVisible (true);
+    listVp.setVisible (true);
+    previewPane.setVisible (prev);
+    tabGrooves.setVisible (! mine);
+    tabViradas.setVisible (! mine);
+    applyBtn.setVisible (prev && selValid);
+    const bool humShow = prev && ! mine;
     humChip.setVisible (humShow);
     if (! humShow && humPanel != nullptr && humPanel->isVisible())
     {

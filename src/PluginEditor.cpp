@@ -398,7 +398,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
                                                        cabPhaseChips[r]);
         addChildComponent (cabPhaseChips[r]);
 
-        cabIrButtons[r].setButtonText (juce::String (juce::CharPointer_UTF8 ("CHANGE \xe2\x96\xbe")));
+        cabIrButtons[r].setButtonText ("CHANGE");   // narrow card: no room for the caret
         cabIrButtons[r].setTooltip ("Add an IR from the TONE3000 store or a local file");
         cabIrButtons[r].setMouseClickGrabsKeyboardFocus (false);
         cabIrButtons[r].onClick = [onLoadIr, r] { onLoadIr (r); };

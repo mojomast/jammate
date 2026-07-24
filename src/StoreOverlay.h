@@ -192,7 +192,9 @@ private:
     void setSplashVisible (bool);
     void doConnect();   // the actual OAuth flow (after the splash)
 
-    // filters
+    // filters (clean UI: tags/A2/favorites collapse behind "Filters")
+    juce::TextButton filtersChip { juce::String (juce::CharPointer_UTF8 ("Filters \xe2\x96\xbe")) };
+    bool filtersOpen = false;
     juce::OwnedArray<juce::TextButton> gearChips;
     juce::OwnedArray<juce::TextButton> tagChips;   // multi-toggle; enter the query
     juce::TextButton a2Chip { "A2 only" };
