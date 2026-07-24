@@ -65,7 +65,8 @@ private:
 
 //==============================================================================
 // One selectable model/variation row in the Tone Details view.
-class ModelRowComponent : public juce::Component
+class ModelRowComponent : public juce::Component,
+                          public juce::SettableTooltipClient
 {
 public:
     explicit ModelRowComponent (const Tone3000Client::Model&, bool offline);

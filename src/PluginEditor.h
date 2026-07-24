@@ -248,6 +248,11 @@ private:
     std::unique_ptr<KnobComponent> cabHcKnob[maxRigs];
     juce::TextButton cabPhaseChips[maxRigs];
     juce::TextButton cabIrButtons[maxRigs];
+    // "variations" selector on the cab card: other IRs/captures of the same
+    // TONE3000 cab tone (only for IRs loaded from the store, tone_id in .meta).
+    juce::TextButton cabVarButtons[maxRigs];
+    int toneIdForCab (int slot) const;    // reads tone_id from the IR .meta
+    bool lastCabVarLoaded[maxRigs] = {};  // relayout when the cab gains/loses an IR
     // Mixer: sum of the lanes; +/- adds/removes an entire AMP+CAB pair
     juce::TextButton rigAddButton { "+" }, rigRemoveButton { "-" };
     int lastRigCount = 0;

@@ -388,6 +388,18 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         cabIrButtons[r].setMouseClickGrabsKeyboardFocus (false);
         cabIrButtons[r].onClick = [onLoadIr, r] { onLoadIr (r); };
         addChildComponent (cabIrButtons[r]);
+
+        // cab variation selector: other IRs of the same TONE3000 cab tone
+        cabVarButtons[r].setButtonText (juce::String (juce::CharPointer_UTF8 ("VARIANTS \xe2\x96\xbe")));
+        cabVarButtons[r].getProperties().set ("outlineAccent", true);
+        cabVarButtons[r].setMouseClickGrabsKeyboardFocus (false);
+        cabVarButtons[r].onClick = [this, r]
+        {
+            const int tid = toneIdForCab (r);
+            if (tid > 0 && onShowVariations != nullptr)
+                onShowVariations (r, tid, &cabVarButtons[r]);
+        };
+        addChildComponent (cabVarButtons[r]);
     }
 
     // variation selectors on the cards (menu in the footer) - the tooltips cite
@@ -855,6 +867,17 @@ int ChainView::toneIdForLane (int lane) const
     return (int) juce::JSON::parse (meta.loadFileAsString()).getProperty ("tone_id", 0);
 }
 
+int ChainView::toneIdForCab (int slot) const
+{
+    const auto path = processor.getIrPath (slot);
+    if (path.isEmpty())
+        return 0;
+    const juce::File meta (path + ".meta");
+    if (! meta.existsAsFile())
+        return 0;
+    return (int) juce::JSON::parse (meta.loadFileAsString()).getProperty ("tone_id", 0);
+}
+
 void ChainView::refreshDynamicText()
 {
     bool varLayoutChanged = false;
@@ -879,6 +902,21 @@ void ChainView::refreshDynamicText()
         if (showVar != lastVarLoaded[r])
         {
             lastVarLoaded[r] = showVar;
+            varLayoutChanged = true;
+        }
+
+        // same for the cab: variations of the loaded IR/cab tone
+        const bool cabLoaded = processor.getIrPath (r).isNotEmpty();
+        const bool showCabVar = cabLoaded && r < rigCount;
+        const bool cabHasVar = cabLoaded && toneIdForCab (r) > 0;
+        cabVarButtons[r].setVisible (showCabVar);
+        cabVarButtons[r].setEnabled (cabHasVar);
+        cabVarButtons[r].setTooltip (cabHasVar
+            ? "Switch to another IR of this TONE3000 cab tone"
+            : "Add this IR from the TONE3000 store to switch between its variations");
+        if (showCabVar != lastCabVarLoaded[r])
+        {
+            lastCabVarLoaded[r] = showCabVar;
             varLayoutChanged = true;
         }
     }
@@ -1781,8 +1819,16 @@ void ChainView::resized()
                 cabPhaseChips[r].setBounds (cabB.getRight() - 12 - 26, cabB.getY() + 36, 26, 20);
                 cabLcKnob[r]->setBounds (cabB.getX() + 18, cabB.getY() + 176, 40, 40 + 26);
                 cabHcKnob[r]->setBounds (cabB.getX() + 78, cabB.getY() + 176, 40, 40 + 26);
-                cabIrButtons[r].setBounds (cabB.getX() + 10, cabB.getBottom() - 12 - 24,
-                                           cabB.getWidth() - 20, 24);
+                {
+                    auto cb = juce::Rectangle<int> (cabB.getX() + 10, cabB.getBottom() - 12 - 24,
+                                                    cabB.getWidth() - 20, 24);
+                    if (processor.getIrPath (r).isNotEmpty())
+                    {
+                        cabVarButtons[r].setBounds (cb.removeFromRight (84));
+                        cb.removeFromRight (6);
+                    }
+                    cabIrButtons[r].setBounds (cb);
+                }
             }
             else
             {
@@ -1791,8 +1837,16 @@ void ChainView::resized()
                 const int ky = cabB.getY() + 34 + (cabB.getHeight() - 34 - 30 - kh2) / 2;
                 cabLcKnob[r]->setBounds (cabB.getX() + 26, ky, 36, kh2);
                 cabHcKnob[r]->setBounds (cabB.getX() + 82, ky, 36, kh2);
-                cabIrButtons[r].setBounds (cabB.getX() + 10, cabB.getBottom() - 28,
-                                           cabB.getWidth() - 20, 22);
+                {
+                    auto cb = juce::Rectangle<int> (cabB.getX() + 10, cabB.getBottom() - 28,
+                                                    cabB.getWidth() - 20, 22);
+                    if (processor.getIrPath (r).isNotEmpty())
+                    {
+                        cabVarButtons[r].setBounds (cb.removeFromRight (78));
+                        cb.removeFromRight (5);
+                    }
+                    cabIrButtons[r].setBounds (cb);
+                }
             }
         }
 

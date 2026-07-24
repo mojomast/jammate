@@ -1049,6 +1049,9 @@ private:
     juce::Viewport vp;
     juce::Component content;
     juce::OwnedArray<ModelRowComponent> rows;
+    // the call-out is its own desktop window; it needs its own tooltip window
+    // for the per-row full-name tips to show.
+    juce::TooltipWindow tooltip { this };
 };
 
 void StoreOverlay::loadVariationIntoLane (const Tone3000Client::Model& model, int lane,
@@ -1073,7 +1076,9 @@ void StoreOverlay::loadVariationIntoLane (const Tone3000Client::Model& model, in
         if (kind == "ir")
         {
             writeModelMeta (file, model, toneId);
-            processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), file);
+            // lane >= 0 = swap this cab's IR in place; -1 = first free slot.
+            const int slot = lane >= 0 ? lane : juce::jmax (0, processor.firstFreeIrSlot());
+            processor.loadIrAsync (slot, file);
         }
         else
         {
@@ -1110,12 +1115,16 @@ void StoreOverlay::loadVariationIntoLane (const Tone3000Client::Model& model, in
 void StoreOverlay::showVariationPicker (int lane, int toneId, juce::Component* anchor)
 {
     // Build the tone info the download needs (title/image/format) from getTone,
-    // fetch the model list, then pop the picker anchored to the amp card.
-    const juce::String currentName = processor.getModelName (lane);
-
-    auto present = [this, lane, toneId, anchor, currentName]
+    // fetch the model list, then pop the picker anchored to the amp/cab card.
+    auto present = [this, lane, anchor]
         (ToneCardComponent::Info toneInfo, std::vector<Tone3000Client::Model> models)
     {
+        // which capture is loaded now depends on the format: NAM -> the amp
+        // lane's model; IR -> the cab slot's IR file (used to mark "In rig").
+        const juce::String currentName = toneInfo.formatBadge == "IR"
+            ? juce::File (processor.getIrPath (lane)).getFileNameWithoutExtension()
+            : processor.getModelName (lane);
+
         auto content = std::make_unique<VariationPickerContent> (
             std::move (models), currentName,
             [this, lane, toneInfo] (Tone3000Client::Model m, ModelRowComponent* r)
@@ -1835,6 +1844,14 @@ ModelRowComponent::ModelRowComponent (const Tone3000Client::Model& m, bool offli
     dlButton.setMouseClickGrabsKeyboardFocus (false);
     dlButton.onClick = [this] { if (onDownloadClicked != nullptr && progress < 0) onDownloadClicked(); };
     addAndMakeVisible (dlButton);
+
+    // full name on hover (row text is truncated for long variation names)
+    juce::String full = m.name.isNotEmpty() ? m.name : ("Model " + juce::String (m.id));
+    if (m.arch == "2")      full += "  (A2)";
+    else if (m.arch == "1") full += "  (A1)";
+    if (m.size.isNotEmpty() && m.size != "standard")
+        full += juce::String (juce::CharPointer_UTF8 ("  \xc2\xb7  ")) + m.size;
+    setTooltip (full);
 }
 
 void ModelRowComponent::setDownloading (int pct)
