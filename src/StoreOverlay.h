@@ -93,8 +93,10 @@ public:
     void open (const ToneCardComponent::Info&);
     juce::Image brandLogo;   // official TONE3000 wordmark (attribution)
     std::function<void()> onClose;
-    std::function<void (const Tone3000Client::Model&, const juce::String& title,
-                        const juce::String& format, ModelRowComponent*)> onDownload;
+    // carries the (getTone-filled) tone info back so the store can build the
+    // file name / route the download even when opened with only a tone id.
+    std::function<void (const Tone3000Client::Model&, const ToneCardComponent::Info&,
+                        ModelRowComponent*)> onDownload;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -149,9 +151,11 @@ private:
     void startDownload (ToneCardComponent&, const Tone3000Client::Model&);
     /// After downloading a capture: writes .meta, resolves the ECO pair
     /// (lighter variation with the same name) and hands the pair to the processor.
+    /// forceLane >= 0 loads into that exact lane (variation swap); -1 = first free.
     void finalizeNamModel (const juce::File& mainFile, int toneId,
-                           const Tone3000Client::Model& chosen, const juce::String& baseName);
-    static void writeModelMeta (const juce::File&, const Tone3000Client::Model&);
+                           const Tone3000Client::Model& chosen, const juce::String& baseName,
+                           int forceLane = -1);
+    static void writeModelMeta (const juce::File&, const Tone3000Client::Model&, int toneId);
     static int sizeRank (const juce::String&);
     void setTab (Tab);
     void doSearch (int page);
@@ -215,8 +219,17 @@ private:
     // Tone Details view (opened on card click; TONE3000 design requirement)
     std::unique_ptr<ToneDetailsView> detailsView;
     ToneCardComponent::Info detailsInfo;   // tone shown in the details view
+    int detailsTargetLane = -1;            // >=0 = swap into that amp lane
     void openDetails (ToneCardComponent&);
     void downloadFromDetails (const Tone3000Client::Model&, ModelRowComponent*);
+    void ensureDetailsView();   // lazily builds detailsView + wires callbacks
+
+public:
+    /// Opens the Tone Details view for a tone by id, targeting an amp lane so
+    /// the picked variation replaces the one currently in that lane. Used by the
+    /// amp card's "variations" control. Fetches title/image/creator via getTone.
+    void openVariationsForLane (int lane, int toneId);
+private:
 
     // full TONE3000 logo (list-view branding) + T3K mark (compact)
     juce::Image brandLogo, brandMark;

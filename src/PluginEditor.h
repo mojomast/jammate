@@ -117,6 +117,10 @@ public:
     void setCabImage (int lane, juce::Image);
     void refreshDynamicText();
 
+    // amp-card "variations" click -> host opens the Tone Store details for the
+    // tone, targeting this lane so the pick replaces the current capture.
+    std::function<void (int lane, int toneId)> onShowVariations;
+
     static constexpr int chainHeight = 580;
 
 private:
@@ -229,6 +233,10 @@ private:
         ampMidKnob[maxRigs], ampTrebleKnob[maxRigs], ampPresKnob[maxRigs],
         ampMasterKnob[maxRigs];
     juce::TextButton loadButtons[maxRigs];
+    // "variations" selector on the amp card: lists the other captures of the
+    // same TONE3000 tone (only shown when the loaded model came from the store).
+    juce::TextButton ampVarButtons[maxRigs];
+    int toneIdForLane (int lane) const;   // reads tone_id from the model .meta
     // cab PER LANE (LC/HC/phase/CHANGE); blend lives in the Mixer card
     std::unique_ptr<KnobComponent> cabAirKnob;
     std::unique_ptr<KnobComponent> cabBlendKnob[maxRigs]; // in the Mixer

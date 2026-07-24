@@ -349,6 +349,20 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         loadButtons[r].onClick = [onLoadModel, r] { onLoadModel (r); };
         addChildComponent (loadButtons[r]);
 
+        // variation selector (TONE3000 tones only): swaps the loaded capture for
+        // another model of the same tone via the store's Tone Details view.
+        ampVarButtons[r].setButtonText (juce::String (juce::CharPointer_UTF8 ("\xe2\x87\x86")));
+        ampVarButtons[r].setTooltip ("Other captures of this tone (TONE3000)");
+        ampVarButtons[r].getProperties().set ("chip", true);
+        ampVarButtons[r].setMouseClickGrabsKeyboardFocus (false);
+        ampVarButtons[r].onClick = [this, r]
+        {
+            const int tid = toneIdForLane (r);
+            if (tid > 0 && onShowVariations != nullptr)
+                onShowVariations (r, tid);
+        };
+        addChildComponent (ampVarButtons[r]);
+
         // the lane's blend lives in the Mixer card
         makeKnob (cabBlendKnob[r], ("cab" + n + "Blend").toRawUTF8(),
                   ("RIG " + n).toRawUTF8(), formatPct);
@@ -826,11 +840,26 @@ juce::String ChainView::archBadgeForIr (int slot)
     return cabArchCache[slot];
 }
 
+int ChainView::toneIdForLane (int lane) const
+{
+    const auto path = processor.getModelPathNormal (lane);
+    if (path.isEmpty())
+        return 0;
+    const juce::File meta (path + ".meta");
+    if (! meta.existsAsFile())
+        return 0;
+    return (int) juce::JSON::parse (meta.loadFileAsString()).getProperty ("tone_id", 0);
+}
+
 void ChainView::refreshDynamicText()
 {
     for (int r = 0; r < maxRigs; ++r)
+    {
         loadButtons[r].setButtonText (processor.hasModelLoaded (r) ? "CHANGE NAM CAPTURE"
                                                                    : "LOAD NAM CAPTURE");
+        // show the variations selector only for store captures with a tone id
+        ampVarButtons[r].setVisible (processor.hasModelLoaded (r) && toneIdForLane (r) > 0);
+    }
     ecoChip.setEnabled (processor.hasEcoVariant());
     refreshTypeButtons();
 
@@ -1687,7 +1716,13 @@ void ChainView::resized()
                 for (int i = 0; i < 6; ++i)
                     grid[i]->setBounds (gx + (i % 3) * (kw + gapX), gy + (i / 3) * (kh + gapY), kw, kh);
 
-                loadButtons[r].setBounds (ampB.getX() + 18, ampB.getBottom() - 15 - 32, 266 - 36, 32);
+                {
+                    auto lb = juce::Rectangle<int> (ampB.getX() + 18, ampB.getBottom() - 15 - 32,
+                                                    266 - 36, 32);
+                    ampVarButtons[r].setBounds (lb.removeFromRight (32));
+                    lb.removeFromRight (6);
+                    loadButtons[r].setBounds (lb);
+                }
             }
             else
             {
@@ -1698,7 +1733,13 @@ void ChainView::resized()
                 for (int i = 0; i < 6; ++i)
                     grid[i]->setBounds (gx + i * (kw + gapX), gy, kw, kh);
 
-                loadButtons[r].setBounds (ampB.getX() + 14, ampB.getBottom() - 28, 266 - 28, 22);
+                {
+                    auto lb = juce::Rectangle<int> (ampB.getX() + 14, ampB.getBottom() - 28,
+                                                    266 - 28, 22);
+                    ampVarButtons[r].setBounds (lb.removeFromRight (26));
+                    lb.removeFromRight (5);
+                    loadButtons[r].setBounds (lb);
+                }
             }
 
             // lane's cab
@@ -2651,6 +2692,15 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 
     storeOverlay = std::make_unique<StoreOverlay> (processor);
     addChildComponent (*storeOverlay);
+
+    // amp-card "variations": open the Tone Store details for this tone, aimed at
+    // the lane so the picked capture replaces the one playing there.
+    chainView->onShowVariations =
+        [safe = juce::Component::SafePointer<RigContent> (this)] (int lane, int toneId)
+        {
+            if (safe != nullptr)
+                safe->storeOverlay->openVariationsForLane (lane, toneId);
+        };
 
     // Drums module: overlay + top bar button + drum VST window
     drumOverlay = std::make_unique<DrumOverlay> (processor);

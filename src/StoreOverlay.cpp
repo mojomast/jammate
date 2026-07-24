@@ -928,22 +928,45 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
 
 void StoreOverlay::openDetails (ToneCardComponent& card)
 {
-    if (detailsView == nullptr)
-    {
-        detailsView = std::make_unique<ToneDetailsView> (client);
-        detailsView->brandLogo = brandLogo;
-        addAndMakeVisible (*detailsView);
-        detailsView->onClose = [this] { if (detailsView != nullptr) detailsView->setVisible (false); };
-        detailsView->onDownload = [this] (const Tone3000Client::Model& m, const juce::String&,
-                                          const juce::String&, ModelRowComponent* row)
-        {
-            downloadFromDetails (m, row);
-        };
-    }
-
+    detailsTargetLane = -1;   // card click: variation adds to a free lane
     detailsInfo = card.getInfo();
+    ensureDetailsView();
     detailsView->setBounds (getLocalBounds());
     detailsView->open (detailsInfo);
+}
+
+void StoreOverlay::openVariationsForLane (int lane, int toneId)
+{
+    // Amp-card entry: swap the loaded capture for another variation of the same
+    // tone. title/image/creator are unknown here - getTone fills them in.
+    detailsTargetLane = lane;
+    detailsInfo = ToneCardComponent::Info();
+    detailsInfo.toneId = toneId;
+    detailsInfo.formatBadge = "NAM";
+
+    open();   // the store must be visible to host the details overlay
+    ensureDetailsView();
+    detailsView->setBounds (getLocalBounds());
+    detailsView->open (detailsInfo);
+}
+
+void StoreOverlay::ensureDetailsView()
+{
+    if (detailsView != nullptr)
+        return;
+
+    detailsView = std::make_unique<ToneDetailsView> (client);
+    detailsView->brandLogo = brandLogo;
+    addAndMakeVisible (*detailsView);
+    detailsView->onClose = [this] { if (detailsView != nullptr) detailsView->setVisible (false); };
+    detailsView->onDownload = [this] (const Tone3000Client::Model& m,
+                                      const ToneCardComponent::Info& filled, ModelRowComponent* row)
+    {
+        // adopt the tone info the details view resolved (title/image/format),
+        // but keep the target lane chosen when the view was opened.
+        detailsInfo = filled;
+        downloadFromDetails (m, row);
+    };
 }
 
 void StoreOverlay::downloadFromDetails (const Tone3000Client::Model& model, ModelRowComponent* row)
@@ -965,12 +988,12 @@ void StoreOverlay::downloadFromDetails (const Tone3000Client::Model& model, Mode
         client.saveImageSidecar (imageUrl, file);
         if (kind == "ir")
         {
-            writeModelMeta (file, model);
+            writeModelMeta (file, model, toneId);
             processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), file);
         }
         else
         {
-            finalizeNamModel (file, toneId, model, baseName);
+            finalizeNamModel (file, toneId, model, baseName, detailsTargetLane);
         }
         updateRigStatuses();
     };
@@ -1089,24 +1112,29 @@ int StoreOverlay::sizeRank (const juce::String& s)
     return 0;
 }
 
-void StoreOverlay::writeModelMeta (const juce::File& file, const Tone3000Client::Model& m)
+void StoreOverlay::writeModelMeta (const juce::File& file, const Tone3000Client::Model& m,
+                                   int toneId)
 {
     auto* obj = new juce::DynamicObject();
     obj->setProperty ("arch", m.arch);
     obj->setProperty ("size", m.size);
     obj->setProperty ("name", m.name);
+    obj->setProperty ("tone_id", toneId);   // lets the amp card list variations
+    obj->setProperty ("model_id", m.id);
     juce::File (file.getFullPathName() + ".meta")
         .replaceWithText (juce::JSON::toString (juce::var (obj), true));
 }
 
 void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
                                      const Tone3000Client::Model& chosen,
-                                     const juce::String& baseName)
+                                     const juce::String& baseName,
+                                     int forceLane)
 {
-    writeModelMeta (mainFile, chosen);
+    writeModelMeta (mainFile, chosen, toneId);
 
-    // target lane: first free lane; all busy -> replaces the 1st
-    const int lane = juce::jmax (0, processor.firstFreeModelLane());
+    // target lane: caller-forced (variation swap) or first free (all busy -> 1st)
+    const int lane = forceLane >= 0 ? forceLane
+                                    : juce::jmax (0, processor.firstFreeModelLane());
 
     // ECO pair: same variation (name) AND same architecture, closest lighter
     // size (the list now has A1+A2 with the same name - without the architecture
@@ -1144,11 +1172,11 @@ void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
     processor.setModelPair (lane, mainFile, {});
     const auto partnerCopy = *partner;
     client.downloadModel (partnerCopy, "nam", ecoBase, [] (int) {},
-        [proc = &processor, lane, mainFile, partnerCopy] (juce::File ecoFile, juce::String error)
+        [proc = &processor, lane, mainFile, partnerCopy, toneId] (juce::File ecoFile, juce::String error)
         {
             if (error.isNotEmpty() || ! ecoFile.existsAsFile())
                 return; // no eco pair - chip stays disabled
-            writeModelMeta (ecoFile, partnerCopy);
+            writeModelMeta (ecoFile, partnerCopy, toneId);
             // the user may have changed the lane meanwhile - only
             // complete the pair if the main one is still on it
             if (proc->getModelPathNormal (lane) == mainFile.getFullPathName())
@@ -1181,7 +1209,7 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
         client.saveImageSidecar (card.getInfo().imageUrl, local);
         if (kind == "ir")
         {
-            writeModelMeta (local, model);
+            writeModelMeta (local, model, card.getInfo().toneId);
             processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), local);
         }
         else
@@ -1221,7 +1249,7 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
             client.saveImageSidecar (safe->getInfo().imageUrl, file);
             if (safe->getInfo().formatBadge == "IR")
             {
-                writeModelMeta (file, model);
+                writeModelMeta (file, model, safe->getInfo().toneId);
                 processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), file);
             }
             else
@@ -1670,7 +1698,19 @@ void ToneDetailsView::open (const ToneCardComponent::Info& i)
             if (err.isEmpty())
             {
                 safe->description = t.description;
-                if (t.gear.isNotEmpty()) safe->info.gear = t.gear;
+                // fill any fields the caller did not know (amp-card entry: only
+                // the tone id is known, so title/image/creator come from here).
+                if (safe->info.title.isEmpty())    safe->info.title = t.title;
+                if (safe->info.creator.isEmpty())  safe->info.creator = t.creator;
+                if (t.gear.isNotEmpty())           safe->info.gear = t.gear;
+                if (t.format.isNotEmpty())         safe->info.formatBadge = (t.format == "ir" ? "IR" : "NAM");
+                if (safe->info.toneUrl.isEmpty())  safe->info.toneUrl = t.url;
+                if (safe->info.imageUrl.isEmpty() && t.imageUrl.isNotEmpty())
+                {
+                    safe->info.imageUrl = t.imageUrl;
+                    safe->client.fetchImage (t.imageUrl,
+                        [safe] (juce::Image img) { if (safe) { safe->toneImage = img; safe->repaint(); } });
+                }
                 if (t.creatorAvatar.isNotEmpty())
                     safe->client.fetchImage (t.creatorAvatar,
                         [safe] (juce::Image a) { if (safe) { safe->avatarImage = a; safe->repaint(); } });
@@ -1696,7 +1736,7 @@ void ToneDetailsView::rebuildModels()
         auto* row = modelRows.add (new ModelRowComponent (m, false));
         auto* rp = row;
         auto mm = m;
-        row->onDownloadClicked = [this, mm, rp] { if (onDownload) onDownload (mm, info.title, info.formatBadge, rp); };
+        row->onDownloadClicked = [this, mm, rp] { if (onDownload) onDownload (mm, info, rp); };
         modelsContent.addAndMakeVisible (row);
     }
     resized();
