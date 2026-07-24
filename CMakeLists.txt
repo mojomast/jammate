@@ -72,6 +72,8 @@ juce_add_binary_data(GuitarRigAssets
         assets/fonts/SpaceGrotesk-Bold.ttf
         assets/fonts/JetBrainsMono-Regular.ttf
         assets/fonts/JetBrainsMono-Bold.ttf
+        assets/brand/tone3000-logo.png
+        assets/brand/t3k-mark.png
         assets/drums/drum_kick_1.wav
         assets/drums/drum_kick_2.wav
         assets/drums/drum_kick_3.wav

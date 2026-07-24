@@ -62,6 +62,59 @@ private:
 };
 
 //==============================================================================
+// One selectable model/variation row in the Tone Details view.
+class ModelRowComponent : public juce::Component
+{
+public:
+    explicit ModelRowComponent (const Tone3000Client::Model&, bool offline);
+    std::function<void()> onDownloadClicked;
+    const Tone3000Client::Model& getModel() const { return model; }
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void setDownloading (int pct);
+    void setInRig();
+private:
+    Tone3000Client::Model model;
+    juce::TextButton dlButton;
+    int progress = -1;   // -1 = idle, 0..100 downloading, 101 = in rig
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ModelRowComponent)
+};
+
+//==============================================================================
+// Tone Details view (TONE3000 design requirement): tone image, title, gear
+// type, format, creator (username + avatar), a scrollable model/variation
+// selector (handles very long lists) and the creator's description.
+class ToneDetailsView : public juce::Component
+{
+public:
+    ToneDetailsView (Tone3000Client&);
+    void open (const ToneCardComponent::Info&);
+    juce::Image brandLogo;   // official TONE3000 wordmark (attribution)
+    std::function<void()> onClose;
+    std::function<void (const Tone3000Client::Model&, const juce::String& title,
+                        const juce::String& format, ModelRowComponent*)> onDownload;
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
+
+private:
+    Tone3000Client& client;
+    ToneCardComponent::Info info;
+    juce::String description;
+    juce::Image toneImage, avatarImage;
+    std::vector<Tone3000Client::Model> models;
+
+    juce::TextButton closeButton { juce::String (juce::CharPointer_UTF8 ("\xe2\x9c\x95")) };
+    juce::TextButton webButton { juce::String (juce::CharPointer_UTF8 ("Open on TONE3000 \xe2\x86\x97")) };
+    juce::Viewport modelsVp;
+    juce::Component modelsContent;
+    juce::OwnedArray<ModelRowComponent> modelRows;
+
+    void rebuildModels();
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToneDetailsView)
+};
+
+//==============================================================================
 // Tone Store overlay (TONE3000) per GuitarRig.dc.html.
 class StoreOverlay : public juce::Component,
                      private juce::Timer
@@ -156,6 +209,15 @@ private:
 
     // Cache of variations per tone (1 API call per tone per session).
     std::map<int, std::vector<Tone3000Client::Model>> modelsCache;
+
+    // Tone Details view (opened on card click; TONE3000 design requirement)
+    std::unique_ptr<ToneDetailsView> detailsView;
+    ToneCardComponent::Info detailsInfo;   // tone shown in the details view
+    void openDetails (ToneCardComponent&);
+    void downloadFromDetails (const Tone3000Client::Model&, ModelRowComponent*);
+
+    // full TONE3000 logo (list-view branding) + T3K mark (compact)
+    juce::Image brandLogo, brandMark;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StoreOverlay)
 };

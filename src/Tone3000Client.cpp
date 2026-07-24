@@ -365,6 +365,32 @@ juce::String Tone3000Client::apiGet (const juce::String& path, int& statusCode)
     return stream.readEntireStreamAsString();
 }
 
+// Parse one tone JSON object (shared by search and getTone).
+static Tone3000Client::Tone parseToneJson (const juce::var& t)
+{
+    Tone3000Client::Tone tone;
+    tone.id = (int) t.getProperty ("id", 0);
+    tone.title = t.getProperty ("title", "").toString();
+    const auto user = t.getProperty ("user", juce::var());
+    tone.creator = user.getProperty ("username", "").toString();
+    tone.creatorAvatar = user.getProperty ("avatar_url",
+                             user.getProperty ("avatar",
+                                 user.getProperty ("image_url", ""))).toString();
+    tone.gear = t.getProperty ("gear", "").toString();
+    tone.format = t.getProperty ("format", "").toString();
+    tone.description = t.getProperty ("description", "").toString();
+    tone.url = t.getProperty ("url", "").toString();
+    tone.downloads = (juce::int64) t.getProperty ("downloads_count", 0);
+    tone.favorites = (juce::int64) t.getProperty ("favorites_count", 0);
+    tone.a1Count = (int) t.getProperty ("a1_models_count", 0);
+    tone.a2Count = (int) t.getProperty ("a2_models_count", 0);
+    tone.hasA2 = tone.a2Count > 0;
+    if (auto* images = t.getProperty ("images", juce::var()).getArray())
+        if (! images->isEmpty())
+            tone.imageUrl = images->getFirst().toString();
+    return tone;
+}
+
 void Tone3000Client::searchTones (const juce::String& query, const juce::String& gear,
                                   const juce::String& sort, int page, int architecture,
                                   std::function<void (SearchResult)> done)
@@ -425,23 +451,7 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
         {
             for (const auto& t : *arr)
             {
-                Tone tone;
-                tone.id = (int) t.getProperty ("id", 0);
-                tone.title = t.getProperty ("title", "").toString();
-                tone.creator = t.getProperty ("user", juce::var())
-                                   .getProperty ("username", "").toString();
-                tone.gear = t.getProperty ("gear", "").toString();
-                tone.format = t.getProperty ("format", "").toString();
-                tone.url = t.getProperty ("url", "").toString();
-                tone.downloads = (juce::int64) t.getProperty ("downloads_count", 0);
-                tone.favorites = (juce::int64) t.getProperty ("favorites_count", 0);
-
-                if (auto* images = t.getProperty ("images", juce::var()).getArray())
-                    if (! images->isEmpty())
-                        tone.imageUrl = images->getFirst().toString();
-
-                tone.hasA2 = (int) t.getProperty ("a2_models_count", 0) > 0;
-
+                const Tone tone = parseToneJson (t);
                 // Only formats GuitarRig can use today.
                 if (tone.format == "nam" || tone.format == "ir")
                     result.tones.push_back (tone);
@@ -449,6 +459,37 @@ void Tone3000Client::searchTones (const juce::String& query, const juce::String&
         }
 
         deliver (std::move (result));
+    });
+}
+
+void Tone3000Client::getTone (int toneId, std::function<void (Tone, juce::String error)> done)
+{
+    pool.addJob ([this, toneId, done]
+    {
+        auto deliver = [done] (Tone t, juce::String e)
+        {
+            juce::MessageManager::callAsync ([done, t = std::move (t), e = std::move (e)] { done (t, e); });
+        };
+
+        juce::String error;
+        if (! ensureAccessToken (error)) { deliver ({}, error); return; }
+
+        const juce::String path = "/api/v1/tones/" + juce::String (toneId);
+        int status = 0;
+        juce::String body;
+        for (int attempt = 0; attempt < 2; ++attempt)
+        {
+            body = apiGet (path, status);
+            if (status != 401)
+                break;
+            juce::String err;
+            if (! refreshAccessToken (err)) { deliver ({}, "Session expired - reconnect your account"); return; }
+        }
+        if (status != 200) { deliver ({}, "Could not load tone (HTTP " + juce::String (status) + ")"); return; }
+
+        const auto json = juce::JSON::parse (body);
+        const auto obj = json.hasProperty ("data") ? json.getProperty ("data", juce::var()) : json;
+        deliver (parseToneJson (obj), {});
     });
 }
 

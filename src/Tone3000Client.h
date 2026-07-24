@@ -29,11 +29,17 @@ public:
     {
         int id = 0;
         juce::String title, creator, gear, format;
+        juce::String creatorAvatar;    // avatar do criador (user.avatar_url)
+        juce::String description;      // descrição do criador (detalhe do tone)
         juce::String imageUrl; // primeira imagem do tone ("" se não houver)
         juce::String url;      // página do tone em tone3000.com (API field "url")
         bool hasA2 = false;    // a2_models_count > 0
+        int a1Count = 0, a2Count = 0;  // p/ a view de detalhes
         juce::int64 downloads = 0, favorites = 0;
     };
+
+    /// Detalhe de um tone (GET /tones/{id}) — traz description, avatar, gear...
+    void getTone (int toneId, std::function<void (Tone, juce::String error)> done);
 
     struct SearchResult
     {

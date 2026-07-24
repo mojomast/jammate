@@ -2,6 +2,7 @@
 
 #include "PluginCatalog.h"
 #include "PluginProcessor.h"
+#include "BinaryData.h"
 
 namespace
 {
@@ -492,6 +493,13 @@ private:
 StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     : processor (p)
 {
+    // Official TONE3000 branding (design requirement): full wordmark for the
+    // list-view header, compact T3K mark for tight spots.
+    brandLogo = juce::ImageFileFormat::loadFrom (BinaryData::tone3000logo_png,
+                                                 (size_t) BinaryData::tone3000logo_pngSize);
+    brandMark = juce::ImageFileFormat::loadFrom (BinaryData::t3kmark_png,
+                                                 (size_t) BinaryData::t3kmark_pngSize);
+
     closeButton.onClick = [this] { setVisible (false); };
     addAndMakeVisible (closeButton);
 
@@ -686,7 +694,11 @@ bool StoreOverlay::keyPressed (const juce::KeyPress& key)
 {
     if (key == juce::KeyPress::escapeKey)
     {
-        setVisible (false);
+        // Details view is a sub-overlay: ESC closes it first, then the store.
+        if (detailsView != nullptr && detailsView->isVisible())
+            detailsView->setVisible (false);
+        else
+            setVisible (false);
         return true;
     }
     return false;
@@ -861,7 +873,7 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
     info.favorites = formatCount (tone.favorites);
 
     auto* card = cards.add (new ToneCardComponent (info,
-        [this] (ToneCardComponent& c) { startAddFlow (c); }));
+        [this] (ToneCardComponent& c) { openDetails (c); }));
     card->setFavorite (favIds.contains (juce::String (tone.id)));
     card->onToggleFavorite = [this] (ToneCardComponent& c) { toggleFavorite (c); };
     gridContent.addAndMakeVisible (card);
@@ -873,6 +885,81 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
                 if (safe != nullptr)
                     safe->setImage (std::move (img));
             });
+}
+
+void StoreOverlay::openDetails (ToneCardComponent& card)
+{
+    if (detailsView == nullptr)
+    {
+        detailsView = std::make_unique<ToneDetailsView> (client);
+        detailsView->brandLogo = brandLogo;
+        addAndMakeVisible (*detailsView);
+        detailsView->onClose = [this] { if (detailsView != nullptr) detailsView->setVisible (false); };
+        detailsView->onDownload = [this] (const Tone3000Client::Model& m, const juce::String&,
+                                          const juce::String&, ModelRowComponent* row)
+        {
+            downloadFromDetails (m, row);
+        };
+    }
+
+    detailsInfo = card.getInfo();
+    detailsView->setBounds (getLocalBounds());
+    detailsView->open (detailsInfo);
+}
+
+void StoreOverlay::downloadFromDetails (const Tone3000Client::Model& model, ModelRowComponent* row)
+{
+    const juce::String kind = detailsInfo.formatBadge == "IR" ? "ir" : "nam";
+
+    juce::String baseName = detailsInfo.title;
+    if (model.name.isNotEmpty() && model.name != baseName)
+        baseName += " - " + model.name;
+    if (model.arch == "2")
+        baseName += " [A2]";
+
+    const int toneId = detailsInfo.toneId;
+    const juce::String imageUrl = detailsInfo.imageUrl;
+    juce::Component::SafePointer<ModelRowComponent> rsafe (row);
+
+    auto finish = [this, model, baseName, kind, toneId, imageUrl] (juce::File file)
+    {
+        client.saveImageSidecar (imageUrl, file);
+        if (kind == "ir")
+        {
+            writeModelMeta (file, model);
+            processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), file);
+        }
+        else
+        {
+            finalizeNamModel (file, toneId, model, baseName);
+        }
+        updateRigStatuses();
+    };
+
+    // Already downloaded: load the local file without touching the network.
+    if (const auto local = Tone3000Client::localFileForModel (model, kind, baseName);
+        local.existsAsFile())
+    {
+        if (rsafe != nullptr) rsafe->setInRig();
+        finish (local);
+        return;
+    }
+
+    if (rsafe != nullptr) rsafe->setDownloading (0);
+    client.downloadModel (model, kind, baseName,
+        [rsafe] (int pct) { if (rsafe != nullptr) rsafe->setDownloading (pct); },
+        [this, rsafe, finish] (juce::File file, juce::String error)
+        {
+            if (error.isNotEmpty())
+            {
+                bannerError = error;
+                resized();
+                repaint();
+                return;
+            }
+            if (rsafe != nullptr) rsafe->setInRig();
+            finish (file);
+        });
 }
 
 void StoreOverlay::startAddFlow (ToneCardComponent& card)
@@ -1240,6 +1327,9 @@ void StoreOverlay::resized()
 {
     const int W = getWidth();
 
+    if (detailsView != nullptr)
+        detailsView->setBounds (getLocalBounds());
+
     closeButton.setBounds (W - 22 - 34, 15, 34, 34);
 
     exploreTab.setBounds (208, 20, 76, 30);
@@ -1299,12 +1389,23 @@ void StoreOverlay::paint (juce::Graphics& g)
     g.setColour (ui::textBright);
     g.drawText ("Tone Store", 22, 18, 120, 30, juce::Justification::centredLeft);
 
-    auto badge = juce::Rectangle<float> (134.0f, 25.0f, 66.0f, 17.0f);
-    g.setColour (ui::accent.withAlpha (0.4f));
-    g.drawRoundedRectangle (badge, 4.0f, 1.0f);
-    g.setFont (ui::monoFont (9.0f, true));
-    g.setColour (ui::accent);
-    g.drawText ("TONE3000", badge, juce::Justification::centred);
+    // Full TONE3000 logo (official wordmark) — list-view branding requirement.
+    if (brandLogo.isValid())
+    {
+        const float logoH = 18.0f;
+        const float logoW = logoH * brandLogo.getWidth() / (float) brandLogo.getHeight();
+        g.drawImage (brandLogo, juce::Rectangle<float> (134.0f, 24.0f, logoW, logoH),
+                     juce::RectanglePlacement::centred);
+    }
+    else
+    {
+        auto badge = juce::Rectangle<float> (134.0f, 25.0f, 66.0f, 17.0f);
+        g.setColour (ui::accent.withAlpha (0.4f));
+        g.drawRoundedRectangle (badge, 4.0f, 1.0f);
+        g.setFont (ui::monoFont (9.0f, true));
+        g.setColour (ui::accent);
+        g.drawText ("TONE3000", badge, juce::Justification::centred);
+    }
 
     g.setColour (juce::Colour (0xff24262a));
     g.fillRect (0, 64, W, 1);
@@ -1412,5 +1513,263 @@ void StoreOverlay::paint (juce::Graphics& g)
         g.drawText ("Download tones in the Explore tab or copy .nam files to "
                     + Tone3000Client::capturesDir().getFullPathName(),
                     60, 278, W - 120, 20, juce::Justification::centred);
+    }
+}
+
+//==============================================================================
+// ModelRowComponent - one variation in the Tone Details model selector.
+ModelRowComponent::ModelRowComponent (const Tone3000Client::Model& m, bool offline)
+    : model (m)
+{
+    dlButton.getProperties().set ("outlineAccent", true);
+    dlButton.setButtonText (offline ? "Re-add" : "Add");
+    dlButton.setMouseClickGrabsKeyboardFocus (false);
+    dlButton.onClick = [this] { if (onDownloadClicked != nullptr && progress < 0) onDownloadClicked(); };
+    addAndMakeVisible (dlButton);
+}
+
+void ModelRowComponent::setDownloading (int pct)
+{
+    progress = juce::jlimit (0, 100, pct);
+    dlButton.setButtonText (juce::String (progress) + "%");
+    dlButton.setEnabled (false);
+    repaint();
+}
+
+void ModelRowComponent::setInRig()
+{
+    progress = 101;
+    dlButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xe2\x9c\x93 In rig")));
+    dlButton.setEnabled (false);
+    repaint();
+}
+
+void ModelRowComponent::resized()
+{
+    dlButton.setBounds (getLocalBounds().reduced (7).removeFromRight (96));
+}
+
+void ModelRowComponent::paint (juce::Graphics& g)
+{
+    auto b = getLocalBounds().toFloat().reduced (0.5f);
+    g.setColour (ui::glass());
+    g.fillRect (b);
+    g.setColour (ui::border());
+    g.drawRect (b, 1.0f);
+
+    g.setColour (ui::text);
+    g.setFont (ui::uiFont (12.5f, true));
+    const juce::String name = model.name.isNotEmpty() ? model.name
+                                                      : ("Model " + juce::String (model.id));
+    g.drawText (name, 12, 0, getWidth() - 250, getHeight(), juce::Justification::centredLeft);
+
+    juce::String tag;
+    if (model.arch == "2")      tag = "A2";
+    else if (model.arch == "1") tag = "A1";
+    if (model.size.isNotEmpty() && model.size != "standard")
+        tag += (tag.isEmpty() ? juce::String() : juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))) + model.size;
+    if (tag.isNotEmpty())
+    {
+        g.setColour (model.arch == "2" ? ui::accentBright : ui::textDim);
+        g.setFont (ui::monoFont (10.0f, true));
+        g.drawText (tag, getWidth() - 250, 0, 128, getHeight(), juce::Justification::centredRight);
+    }
+}
+
+//==============================================================================
+// ToneDetailsView - tone image, title, gear, format, creator + avatar,
+// scrollable variation selector and the creator description.
+ToneDetailsView::ToneDetailsView (Tone3000Client& c) : client (c)
+{
+    closeButton.getProperties().set ("chip", true);
+    closeButton.setMouseClickGrabsKeyboardFocus (false);
+    closeButton.onClick = [this] { if (onClose) onClose(); };
+    addAndMakeVisible (closeButton);
+
+    webButton.getProperties().set ("chip", true);
+    webButton.setMouseClickGrabsKeyboardFocus (false);
+    webButton.onClick = [this]
+    {
+        auto u = info.toneUrl;
+        if (u.isEmpty() && info.toneId != 0)
+            u = "https://www.tone3000.com/tones/" + juce::String (info.toneId);
+        if (u.startsWith ("/")) u = "https://www.tone3000.com" + u;
+        if (u.isNotEmpty()) juce::URL (u).launchInDefaultBrowser();
+    };
+    addAndMakeVisible (webButton);
+
+    modelsVp.setViewedComponent (&modelsContent, false);
+    modelsVp.setScrollBarsShown (true, false);
+    addAndMakeVisible (modelsVp);
+}
+
+void ToneDetailsView::open (const ToneCardComponent::Info& i)
+{
+    info = i;
+    description = {};
+    toneImage = juce::Image();
+    avatarImage = juce::Image();
+    models.clear();
+    modelRows.clear();
+    modelsContent.removeAllChildren();
+    setVisible (true);
+    toFront (true);
+    resized();
+    repaint();
+
+    juce::Component::SafePointer<ToneDetailsView> safe (this);
+
+    if (info.imageUrl.isNotEmpty())
+        client.fetchImage (info.imageUrl,
+            [safe] (juce::Image img) { if (safe) { safe->toneImage = img; safe->repaint(); } });
+
+    if (info.toneId != 0)
+    {
+        client.getTone (info.toneId, [safe] (Tone3000Client::Tone t, juce::String err)
+        {
+            if (safe == nullptr) return;
+            if (err.isEmpty())
+            {
+                safe->description = t.description;
+                if (t.gear.isNotEmpty()) safe->info.gear = t.gear;
+                if (t.creatorAvatar.isNotEmpty())
+                    safe->client.fetchImage (t.creatorAvatar,
+                        [safe] (juce::Image a) { if (safe) { safe->avatarImage = a; safe->repaint(); } });
+            }
+            safe->repaint();
+        });
+
+        client.listModels (info.toneId, [safe] (std::vector<Tone3000Client::Model> ms, juce::String)
+        {
+            if (safe == nullptr) return;
+            safe->models = std::move (ms);
+            safe->rebuildModels();
+        });
+    }
+}
+
+void ToneDetailsView::rebuildModels()
+{
+    modelRows.clear();
+    modelsContent.removeAllChildren();
+    for (const auto& m : models)
+    {
+        auto* row = modelRows.add (new ModelRowComponent (m, false));
+        auto* rp = row;
+        auto mm = m;
+        row->onDownloadClicked = [this, mm, rp] { if (onDownload) onDownload (mm, info.title, info.formatBadge, rp); };
+        modelsContent.addAndMakeVisible (row);
+    }
+    resized();
+    repaint();
+}
+
+void ToneDetailsView::resized()
+{
+    auto b = getLocalBounds().reduced (40);
+    const int rowH = 40, gap = 6;
+    const int listX = b.getX() + 430, listW = b.getWidth() - 430 - 24;
+    modelsVp.setBounds (listX, b.getY() + 150, listW, b.getHeight() - 150 - 24);
+    modelsContent.setSize (juce::jmax (10, modelsVp.getWidth() - 12),
+                           juce::jmax (1, (int) modelRows.size() * (rowH + gap)));
+    int y = 0;
+    for (auto* r : modelRows) { r->setBounds (0, y, modelsContent.getWidth(), rowH); y += rowH + gap; }
+
+    closeButton.setBounds (getWidth() - 40 - 34, 30, 34, 30);
+    webButton.setBounds (getWidth() - 40 - 34 - 8 - 190, 32, 190, 26);
+}
+
+void ToneDetailsView::paint (juce::Graphics& g)
+{
+    g.fillAll (ui::bg.withAlpha (0.97f));
+    auto b = getLocalBounds().reduced (40);
+
+    g.setColour (ui::cardBottom);
+    g.fillRect (b.toFloat());
+    g.setColour (ui::border());
+    g.drawRect (b.toFloat(), 1.0f);
+
+    // left column: tone image
+    auto img = juce::Rectangle<int> (b.getX() + 24, b.getY() + 24, 382, 216);
+    g.setColour (ui::meterBg);
+    g.fillRect (img);
+    if (toneImage.isValid())
+        g.drawImage (toneImage, img.toFloat(),
+                     juce::RectanglePlacement::centred | juce::RectanglePlacement::fillDestination);
+    else
+    {
+        g.setColour (ui::textFaint);
+        g.setFont (ui::uiFont (12.0f));
+        g.drawText ("no image", img, juce::Justification::centred);
+    }
+
+    // right column: title / gear / format / creator
+    const int tx = b.getX() + 430;
+    int ty = b.getY() + 24;
+    g.setColour (ui::textBright);
+    g.setFont (ui::uiFont (21.0f, true));
+    g.drawText (info.title, tx, ty, b.getWidth() - 430 - 24, 28, juce::Justification::centredLeft);
+    ty += 34;
+
+    g.setColour (ui::textDim);
+    g.setFont (ui::monoFont (11.0f));
+    juce::String meta = info.gear;
+    if (info.formatBadge.isNotEmpty())
+        meta += (meta.isEmpty() ? juce::String() : juce::String (juce::CharPointer_UTF8 ("   \xc2\xb7   "))) + info.formatBadge;
+    g.drawText (meta.toUpperCase(), tx, ty, b.getWidth() - 430 - 24, 16, juce::Justification::centredLeft);
+    ty += 26;
+
+    // creator (avatar + username)
+    if (avatarImage.isValid())
+    {
+        juce::Path circ;
+        circ.addEllipse ((float) tx, (float) ty, 26.0f, 26.0f);
+        juce::Graphics::ScopedSaveState s (g);
+        g.reduceClipRegion (circ);
+        g.drawImage (avatarImage, juce::Rectangle<float> ((float) tx, (float) ty, 26.0f, 26.0f),
+                     juce::RectanglePlacement::fillDestination);
+    }
+    else
+    {
+        g.setColour (ui::accent.withAlpha (0.22f));
+        g.fillEllipse ((float) tx, (float) ty, 26.0f, 26.0f);
+    }
+    g.setColour (ui::textDim);
+    g.setFont (ui::uiFont (12.5f, true));
+    g.drawText ("by " + (info.creator.isNotEmpty() ? info.creator : juce::String ("unknown")),
+                tx + 34, ty, 320, 26, juce::Justification::centredLeft);
+
+    // TONE3000 attribution (official wordmark), bottom-right of the panel
+    if (brandLogo.isValid())
+    {
+        const float logoH = 16.0f;
+        const float logoW = logoH * brandLogo.getWidth() / (float) brandLogo.getHeight();
+        g.setColour (ui::textFaint);
+        g.setFont (ui::uiFont (9.5f));
+        g.drawText ("FROM", b.getRight() - 24 - (int) logoW - 46, b.getBottom() - 24 - 16,
+                    42, 16, juce::Justification::centredRight);
+        g.drawImage (brandLogo,
+                     juce::Rectangle<float> (b.getRight() - 24 - logoW, b.getBottom() - 24 - logoH,
+                                             logoW, logoH),
+                     juce::RectanglePlacement::centred);
+    }
+
+    // "VARIATIONS" header for the scrollable model list
+    g.setColour (ui::textFaint);
+    g.setFont (ui::uiFont (9.5f, true));
+    juce::String vhead = "VARIATIONS";
+    if (! models.empty()) vhead += "  (" + juce::String ((int) models.size()) + ")";
+    g.drawText (vhead, tx, b.getY() + 132, 260, 14, juce::Justification::centredLeft);
+
+    // description (below the image, left column)
+    if (description.isNotEmpty())
+    {
+        g.setColour (ui::textFaint);
+        g.setFont (ui::uiFont (9.5f, true));
+        g.drawText ("DESCRIPTION", b.getX() + 24, b.getY() + 252, 200, 14, juce::Justification::centredLeft);
+        g.setColour (ui::textDim);
+        g.setFont (ui::uiFont (12.5f));
+        g.drawFittedText (description, b.getX() + 24, b.getY() + 270, 382,
+                          b.getHeight() - 294, juce::Justification::topLeft, 14);
     }
 }
