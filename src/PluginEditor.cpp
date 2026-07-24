@@ -857,20 +857,34 @@ int ChainView::toneIdForLane (int lane) const
 
 void ChainView::refreshDynamicText()
 {
+    bool varLayoutChanged = false;
+    const int rigCount = processor.getRigCount();
     for (int r = 0; r < maxRigs; ++r)
     {
         const bool loaded = processor.hasModelLoaded (r);
         loadButtons[r].setButtonText (loaded ? "CHANGE NAM CAPTURE" : "LOAD NAM CAPTURE");
-        // the variations selector shows whenever a model is loaded; it only
-        // works for store captures (a tone_id in the .meta), so disable it for
-        // disk/old captures and explain via the tooltip.
+        // the variations selector shows whenever a model is loaded on an active
+        // lane; it only works for store captures (a tone_id in the .meta), so
+        // disable it for disk/old captures and explain via the tooltip.
+        const bool showVar = loaded && r < rigCount;
         const bool hasVariations = loaded && toneIdForLane (r) > 0;
-        ampVarButtons[r].setVisible (loaded);
+        ampVarButtons[r].setVisible (showVar);
         ampVarButtons[r].setEnabled (hasVariations);
         ampVarButtons[r].setTooltip (hasVariations
             ? "Switch to another capture of this TONE3000 tone"
             : "Add this capture from the TONE3000 store to switch between its variations");
+
+        // the CHANGE row reserves space for the button only when it shows, so a
+        // load/unload needs a relayout for the button to actually get bounds.
+        if (showVar != lastVarLoaded[r])
+        {
+            lastVarLoaded[r] = showVar;
+            varLayoutChanged = true;
+        }
     }
+    if (varLayoutChanged)
+        resized();
+
     ecoChip.setEnabled (processor.hasEcoVariant());
     refreshTypeButtons();
 

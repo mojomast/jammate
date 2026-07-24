@@ -240,6 +240,7 @@ private:
     // same TONE3000 tone (only shown when the loaded model came from the store).
     juce::TextButton ampVarButtons[maxRigs];
     int toneIdForLane (int lane) const;   // reads tone_id from the model .meta
+    bool lastVarLoaded[maxRigs] = {};     // relayout when a lane gains/loses a model
     // cab PER LANE (LC/HC/phase/CHANGE); blend lives in the Mixer card
     std::unique_ptr<KnobComponent> cabAirKnob;
     std::unique_ptr<KnobComponent> cabBlendKnob[maxRigs]; // in the Mixer
