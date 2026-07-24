@@ -398,7 +398,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
                                                        cabPhaseChips[r]);
         addChildComponent (cabPhaseChips[r]);
 
-        cabIrButtons[r].setButtonText ("CHANGE");
+        cabIrButtons[r].setButtonText (juce::String (juce::CharPointer_UTF8 ("CHANGE \xe2\x96\xbe")));
         cabIrButtons[r].setTooltip ("Add an IR from the TONE3000 store or a local file");
         cabIrButtons[r].setMouseClickGrabsKeyboardFocus (false);
         cabIrButtons[r].onClick = [onLoadIr, r] { onLoadIr (r); };
@@ -901,7 +901,8 @@ void ChainView::refreshDynamicText()
     for (int r = 0; r < maxRigs; ++r)
     {
         const bool loaded = processor.hasModelLoaded (r);
-        loadButtons[r].setButtonText (loaded ? "CHANGE NAM CAPTURE" : "LOAD NAM CAPTURE");
+        loadButtons[r].setButtonText (juce::String (juce::CharPointer_UTF8 (
+            loaded ? "CHANGE \xe2\x96\xbe" : "LOAD CAPTURE \xe2\x96\xbe")));
         // the variations selector shows whenever a model is loaded on an active
         // lane; it only works for store captures (a tone_id in the .meta), so
         // disable it for disk/old captures and explain via the tooltip.
@@ -1909,15 +1910,20 @@ void ChainView::drawPedalFrame (juce::Graphics& g, juce::Rectangle<int> b,
     g.drawText (title, b.getX() + 12, b.getY() + 12, b.getWidth() - 46, 15,
                 juce::Justification::centredLeft);
 
-    if (footer.isNotEmpty())
-    {
-        g.setColour (juce::Colours::white.withAlpha (0.07f));
-        g.fillRect (b.getX() + 12, b.getBottom() - 74, b.getWidth() - 24, 1);
-        g.setFont (ui::monoFont (9.0f));
-        g.setColour (juce::Colour (0xffb4bbc4));
-        g.drawFittedText (footer, b.getX() + 12, b.getBottom() - 64, b.getWidth() - 24, 24,
-                          juce::Justification::centredLeft, 2);
-    }
+    // clean UI: the footer note is no longer painted on the card - it becomes
+    // a hover tooltip on the title (metadata on demand)
+    if (footer.trim().isNotEmpty())
+        tipZones.push_back ({ { b.getX() + 12, b.getY() + 8, b.getWidth() - 46, 22 },
+                              footer });
+}
+
+juce::String ChainView::getTooltip()
+{
+    const auto p = getMouseXYRelative();
+    for (const auto& [zone, tip] : tipZones)
+        if (zone.contains (p))
+            return tip;
+    return {};
 }
 
 void ChainView::drawPhoto (juce::Graphics& g, const juce::Image& img, juce::Rectangle<int> spot)
@@ -1942,6 +1948,7 @@ void ChainView::drawPhoto (juce::Graphics& g, const juce::Image& img, juce::Rect
 
 void ChainView::paint (juce::Graphics& g)
 {
+    tipZones.clear();     // hover metadata zones are rebuilt every paint
     g.fillAll (ui::bg);   // theme background behind the chain
     // subtle striped background
     g.setColour (ui::dividerBase().withAlpha (0.018f));
@@ -2444,18 +2451,15 @@ void ChainView::paint (juce::Graphics& g)
         }
         else
         {
+            // clean UI: no eyebrow line - the name sits right under the title;
+            // tech info (kHz/mono/NAM) moved to the name's hover tooltip
             const int extra = hasT3k ? (int) (18.0f * t3kAspect) + 10 : 0;
-            g.setFont (ui::monoFont (8.0f));
-            g.setColour (ui::accent);
-            g.drawText (juce::CharPointer_UTF8 ("AMPLIFIER \xc2\xb7 NAM CAPTURE"),
-                        ampB.getX() + 18, ampB.getY() + 35, 180, 11, juce::Justification::centredLeft);
-
             g.setFont (ui::uiFont (18.0f, true));
             g.setColour (modelName.isNotEmpty() ? ui::textBright : ui::textMuted);
             // reserve the right corner for the V1/V2 badge (+ TONE3000 mark)
             g.drawText (modelName.isNotEmpty() ? modelName
                                                : juce::String ("- no capture -"),
-                        ampB.getX() + 18, ampB.getY() + 54, ampB.getWidth() - 36 - 40 - extra, 22,
+                        ampB.getX() + 18, ampB.getY() + 40, ampB.getWidth() - 36 - 40 - extra, 22,
                         juce::Justification::centredLeft);
         }
 
@@ -2467,7 +2471,7 @@ void ChainView::paint (juce::Graphics& g)
                              ? juce::Rectangle<float> ((float) ampB.getRight() - 18.0f - 28.0f,
                                                        (float) ampB.getY() + 26.0f, 28.0f, 16.0f)
                              : juce::Rectangle<float> ((float) ampB.getRight() - 18.0f - 30.0f,
-                                                       (float) ampB.getY() + 52.0f, 30.0f, 18.0f);
+                                                       (float) ampB.getY() + 40.0f, 30.0f, 18.0f);
             g.setColour (ui::accent.withAlpha (archLabel == "A2" ? 0.9f : 0.45f));
             g.drawRoundedRectangle (badge, 5.0f, 1.0f);
             g.setFont (ui::monoFont (9.0f, true));
@@ -2484,7 +2488,7 @@ void ChainView::paint (juce::Graphics& g)
             }
         }
 
-        if (! compact)
+        // tech line lives in the name's hover tooltip now (clean UI)
         {
             const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
             juce::String info;
@@ -2495,20 +2499,24 @@ void ChainView::paint (juce::Graphics& g)
                        + "mono" + dot + "NAM";
                 if (processor.isResampling (lane))
                     info += dot + "resample";
+                if (toneIdForLane (lane) > 0)
+                    info += dot + "TONE3000";
             }
             else
             {
-                info = "load a capture from the Tone Store";
+                info = "load a capture from the Tone 3000 Store";
             }
-            g.setFont (ui::monoFont (9.0f));
-            g.setColour (juce::Colour (0xff8a929c));
-            g.drawText (info, ampB.getX() + 18, ampB.getY() + 80, ampB.getWidth() - 36, 12,
-                        juce::Justification::centredLeft);
-
-            if (ampImages[lane].isValid())
-                drawPhoto (g, ampImages[lane],
-                           { ampB.getX() + 18, ampB.getY() + 98, ampB.getWidth() - 36, 48 });
+            tipZones.push_back ({ compact
+                                      ? juce::Rectangle<int> (ampB.getX() + 18, ampB.getY() + 26,
+                                                              ampB.getWidth() - 70, 16)
+                                      : juce::Rectangle<int> (ampB.getX() + 18, ampB.getY() + 38,
+                                                              ampB.getWidth() - 76, 24),
+                                  info });
         }
+
+        if (! compact && ampImages[lane].isValid())
+            drawPhoto (g, ampImages[lane],
+                       { ampB.getX() + 18, ampB.getY() + 70, ampB.getWidth() - 36, 74 });
 
         // glow bar (tube-style - orange, as in the design)
         {

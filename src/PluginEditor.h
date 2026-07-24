@@ -93,7 +93,8 @@ public:
 // The scrollable signal chain: Input -> Gate -> OD -> Amp -> Cab -> EQ -> Delay ->
 // Reverb -> Output, with cards at the design v2 metrics.
 class ChainView : public juce::Component,
-                  public juce::FileDragAndDropTarget
+                  public juce::FileDragAndDropTarget,
+                  public juce::TooltipClient
 {
 public:
     ChainView (GuitarRigNAMProcessor&, std::function<void (int)> onLoadModel,
@@ -128,6 +129,10 @@ public:
     // amp-card "variations" click -> host shows a picker (anchored to the card)
     // with the other captures of this tone, targeting this lane.
     std::function<void (int lane, int toneId, juce::Component* anchor)> onShowVariations;
+
+    // clean UI: card metadata (footers, amp tech line) lives in hover tooltips.
+    // Zones are rebuilt on every paint; the TooltipWindow polls us via this.
+    juce::String getTooltip() override;
 
     static constexpr int chainHeight = 580;
 
@@ -177,6 +182,9 @@ private:
     // pan the chain by dragging the background
     bool panning = false;
     juce::Point<int> panStartMouse, panStartView;
+
+    // hover tooltip zones (title areas -> card info), rebuilt each paint
+    std::vector<std::pair<juce::Rectangle<int>, juce::String>> tipZones;
 
     // microinteractions: hover on the "+" and "x"; file drop target
     juce::Rectangle<int> hoverHotspot;   // "+"/"x" under the mouse
