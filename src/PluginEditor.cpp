@@ -2647,6 +2647,11 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     storeButton.onClick = [this] { storeOverlay->open(); };
     addAndMakeVisible (storeButton);
 
+    // clean UI: preset nav + SAVE are ghost (no boxes) - only the store button
+    // keeps the accent, so a single primary action reads per screen
+    prevButton.getProperties().set ("ghost", true);
+    nextButton.getProperties().set ("ghost", true);
+    saveButton.getProperties().set ("ghost", true);
     prevButton.onClick = [this] { processor.loadAdjacentPreset (-1); };
     nextButton.onClick = [this] { processor.loadAdjacentPreset (1); };
     saveButton.onClick = [this] { saveCurrentPreset(); };
@@ -2733,7 +2738,8 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     addAndMakeVisible (muteChip);
 
     // quick RECORDER: output WAV in Documents\PedalForge NAM\Recordings
-    recChip.getProperties().set ("chip", true);
+    recChip.getProperties().set ("ghost", true);
+    recChip.getProperties().set ("ghostHot", true);   // active = red (recording)
     recChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Records the output as WAV (Documents\\PedalForge NAM\\Recordings)")));
     recChip.setMouseClickGrabsKeyboardFocus (false);
@@ -2755,7 +2761,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     addAndMakeVisible (recChip);
 
     // A/B: compares two complete settings
-    abButton.getProperties().set ("chip", true);
+    abButton.getProperties().set ("ghost", true);
     abButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "A/B: toggles between two complete rig settings (the current one is saved in the active slot)")));
     abButton.setMouseClickGrabsKeyboardFocus (false);
@@ -2920,8 +2926,8 @@ void RigContent::resized()
     storeOverlay->setBounds (getLocalBounds());
     drumOverlay->setBounds (getLocalBounds());
 
-    // ---- top bar (60 px)
-    storeButton.setBounds (W - 18 - 108, 13, 108, 34);
+    // ---- top bar (60 px) - clean UI: ghost cluster left, meters, actions right
+    storeButton.setBounds (W - 18 - 134, 13, 134, 34);
     audioButton.setBounds (storeButton.getX() - 8 - 82, 13, 82, 34);
     drumButton.setBounds (audioButton.getX() - 8 - 78, 13, 78, 34);
     const int metersRight = drumButton.getX() - 16;
@@ -2931,9 +2937,9 @@ void RigContent::resized()
     outMeter.setBounds (metersRight - cpuW - 14 - meterW, 32, meterW, 7);
 
     {
-        const int pillW = 145, navW = 32, saveW = 64, gap = 8;
+        const int pillW = 145, navW = 26, saveW = 52, gap = 4;
         const int groupW = navW + gap + pillW + gap + navW + gap + saveW
-                           + gap + 40 + 6 + 66; // + A/B + REC
+                           + gap + 32 + 4 + 62; // + A/B + REC
         // shifted left so it clears the meters (reserve ~40px for IN/OUT labels)
         int x = juce::jmin ((W - groupW) / 2, inMeter.getX() - 40 - groupW);
         x = juce::jmax (x, 186);
@@ -2945,9 +2951,9 @@ void RigContent::resized()
         x += navW + gap;
         saveButton.setBounds (x, 13, saveW, 34);
         x += saveW + gap;
-        abButton.setBounds (x, 16, 40, 28);
-        x += 40 + 6;
-        recChip.setBounds (x, 16, 66, 28);
+        abButton.setBounds (x, 16, 32, 28);
+        x += 32 + 4;
+        recChip.setBounds (x, 16, 62, 28);
     }
 
     // ---- drum ribbon (top) + chain (scrollable) + bottom bar (chips)

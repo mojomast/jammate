@@ -345,7 +345,7 @@ private:
     // top bar
     LevelMeter inMeter, outMeter, cpuMeter;
     juce::TextButton audioButton { "Audio" };
-    juce::TextButton storeButton { "Tone Store" };
+    juce::TextButton storeButton { "Tone 3000 Store" };
     juce::TextButton prevButton { "<" }, nextButton { ">" };
     juce::TextButton saveButton { "SAVE" };
     PillButton presetPill;

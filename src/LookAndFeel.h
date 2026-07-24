@@ -258,6 +258,16 @@ public:
             return;
         }
 
+        if (props["ghost"])   // clean UI: no box at rest, subtle glass on hover
+        {
+            if (isDown || isHighlighted)
+            {
+                g.setColour (isDown ? ui::glassHover() : ui::glass());
+                g.fillRoundedRectangle (bounds, rBtn);
+            }
+            return;
+        }
+
         if (props["chip"])   // square toggle: solid accent on / ruled ghost off
         {
             if ((bool) props["chipActive"] || button.getToggleState())
@@ -332,6 +342,14 @@ public:
         juce::Colour c;
         if (props["tab"])
             c = props["tabActive"] ? ui::textBright : ui::textFaint;
+        else if (props["ghost"])
+        {
+            // active state (chipActive) tints the label: red for "hot" (REC),
+            // accent otherwise; idle is dim text that brightens on hover
+            const bool act = (bool) props["chipActive"] || button.getToggleState();
+            c = act ? (props["ghostHot"] ? ui::red : ui::accent)
+                    : (isHighlighted || isDown ? ui::text : ui::textDim);
+        }
         else if (props["chip"])
             c = ((bool) props["chipActive"] || button.getToggleState())
                     ? ui::accentTextDark : ui::textDim;
