@@ -21,6 +21,7 @@ public:
         int toneId = 0;              // 0 = local item (no download)
         juce::File localFile;        // filled for local/downloaded items
         juce::String title, creator, gear;   // gear: amp/pedal/full-rig/ir/...
+        juce::String creatorAvatar;  // creator avatar url ("" = initial dot)
         juce::String formatBadge;    // "NAM" / "IR"
         juce::String imageUrl;       // tone image ("" = placeholder)
         juce::String toneUrl;        // tone page on tone3000.com ("" = none)
@@ -34,6 +35,7 @@ public:
     void setStatus (Status s);
     void setProgress (int pct);
     void setImage (juce::Image);
+    void setAvatar (juce::Image);
     /// Associates the downloaded file with the card (enables the offline badge
     /// and status tracking by the overlay).
     void setLocalFile (const juce::File&);
@@ -53,7 +55,7 @@ private:
     Status status = Status::add;
     int progress = 0;
     bool favorite = false;
-    juce::Image image;
+    juce::Image image, avatar;
     juce::TextButton addButton;
     juce::TextButton favButton;
     juce::TextButton linkButton;   // open the tone's page on tone3000.com

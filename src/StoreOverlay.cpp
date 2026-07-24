@@ -132,6 +132,12 @@ void ToneCardComponent::setImage (juce::Image newImage)
     repaint();
 }
 
+void ToneCardComponent::setAvatar (juce::Image newAvatar)
+{
+    avatar = std::move (newAvatar);
+    repaint();
+}
+
 void ToneCardComponent::setLocalFile (const juce::File& file)
 {
     info.localFile = file;
@@ -276,10 +282,34 @@ void ToneCardComponent::paint (juce::Graphics& g)
     g.drawFittedText (info.title, pad, 140, getWidth() - pad * 2, 34,
                       juce::Justification::topLeft, 2);
 
+    // creator: username + small round avatar (TONE3000 attribution)
+    int creatorX = pad;
+    if (info.creator.isNotEmpty() && info.toneId != 0)
+    {
+        const float av = 16.0f;
+        auto avR = juce::Rectangle<float> ((float) pad, 175.0f, av, av);
+        if (avatar.isValid())
+        {
+            juce::Path circ;
+            circ.addEllipse (avR);
+            juce::Graphics::ScopedSaveState s (g);
+            g.reduceClipRegion (circ);
+            g.drawImage (avatar, avR, juce::RectanglePlacement::fillDestination);
+        }
+        else
+        {
+            g.setColour (ui::accent.withAlpha (0.20f));
+            g.fillEllipse (avR);
+            g.setColour (ui::accent.withAlpha (0.85f));
+            g.setFont (ui::uiFont (9.0f, true));
+            g.drawText (info.creator.substring (0, 1).toUpperCase(), avR, juce::Justification::centred);
+        }
+        creatorX = pad + (int) av + 6;
+    }
     g.setFont (ui::uiFont (11.0f));
     g.setColour (juce::Colour (0xff8a8d93));
     g.drawText (info.creator.isNotEmpty() ? "by " + info.creator : juce::String ("local file"),
-                pad, 176, getWidth() - pad * 2, 14, juce::Justification::centredLeft);
+                creatorX, 176, getWidth() - creatorX - pad, 14, juce::Justification::centredLeft);
 
     // metrics (downloads / favorites)
     if (info.downloads.isNotEmpty())
@@ -864,6 +894,7 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
     info.toneId = tone.id;
     info.title = tone.title;
     info.creator = tone.creator;
+    info.creatorAvatar = tone.creatorAvatar;
     info.gear = tone.gear;
     info.formatBadge = tone.format == "ir" ? "IR" : "NAM";
     info.imageUrl = tone.imageUrl;
@@ -884,6 +915,14 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
             {
                 if (safe != nullptr)
                     safe->setImage (std::move (img));
+            });
+
+    if (info.creatorAvatar.isNotEmpty())
+        client.fetchImage (info.creatorAvatar,
+            [safe = juce::Component::SafePointer<ToneCardComponent> (card)] (juce::Image img)
+            {
+                if (safe != nullptr)
+                    safe->setAvatar (std::move (img));
             });
 }
 
