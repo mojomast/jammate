@@ -955,19 +955,192 @@ void StoreOverlay::openDetails (ToneCardComponent& card)
     detailsView->open (detailsInfo);
 }
 
-void StoreOverlay::openVariationsForLane (int lane, int toneId)
+//==============================================================================
+// Inline variation picker (call-out anchored to the amp card): a search box +
+// a scrollable list of the tone's captures, so even very long lists stay
+// manageable without opening the full store.
+class VariationPickerContent : public juce::Component
 {
-    // Amp-card entry: swap the loaded capture for another variation of the same
-    // tone. title/image/creator are unknown here - getTone fills them in.
-    detailsTargetLane = lane;
-    detailsInfo = ToneCardComponent::Info();
-    detailsInfo.toneId = toneId;
-    detailsInfo.formatBadge = "NAM";
+public:
+    VariationPickerContent (std::vector<Tone3000Client::Model> models,
+                            juce::String currentName,
+                            std::function<void (Tone3000Client::Model, ModelRowComponent*)> onPick)
+        : all (std::move (models)), current (std::move (currentName)), pick (std::move (onPick))
+    {
+        search.setTextToShowWhenEmpty ("Search variations\xe2\x80\xa6",
+                                       juce::Colour (ui::textFaint));
+        search.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff14171b));
+        search.setColour (juce::TextEditor::outlineColourId, ui::border());
+        search.setColour (juce::TextEditor::textColourId, ui::text);
+        search.onTextChange = [this] { rebuild(); };
+        addAndMakeVisible (search);
 
-    open();   // the store must be visible to host the details overlay
-    ensureDetailsView();
-    detailsView->setBounds (getLocalBounds());
-    detailsView->open (detailsInfo);
+        vp.setViewedComponent (&content, false);
+        vp.setScrollBarsShown (true, false);
+        addAndMakeVisible (vp);
+
+        setSize (330, juce::jmin (430, 60 + (int) all.size() * 44 + 10));
+        rebuild();
+    }
+
+    void resized() override
+    {
+        auto b = getLocalBounds().reduced (10);
+        search.setBounds (b.removeFromTop (30));
+        b.removeFromTop (8);
+        vp.setBounds (b);
+        layoutRows();
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        g.fillAll (ui::cardBottom);
+        g.setColour (ui::border());
+        g.drawRect (getLocalBounds(), 1);
+    }
+
+private:
+    void layoutRows()
+    {
+        const int rowH = 38, gap = 6, w = juce::jmax (10, vp.getWidth() - 12);
+        content.setSize (w, juce::jmax (1, (int) rows.size() * (rowH + gap)));
+        int y = 0;
+        for (auto* r : rows) { r->setBounds (0, y, w, rowH); y += rowH + gap; }
+    }
+
+    void rebuild()
+    {
+        const auto q = search.getText().trim().toLowerCase();
+        rows.clear();
+        content.removeAllChildren();
+        for (const auto& m : all)
+        {
+            const juce::String name = m.name.isNotEmpty() ? m.name : ("Model " + juce::String (m.id));
+            if (q.isNotEmpty() && ! name.toLowerCase().contains (q))
+                continue;
+            auto* row = rows.add (new ModelRowComponent (m, false));
+            const bool isCurrent = current.isNotEmpty() && name == current;
+            if (isCurrent)
+                row->setInRig();
+            auto* rp = row;
+            auto mm = m;
+            row->onDownloadClicked = [this, mm, rp] { if (pick) pick (mm, rp); };
+            content.addAndMakeVisible (row);
+        }
+        layoutRows();
+        repaint();
+    }
+
+    std::vector<Tone3000Client::Model> all;
+    juce::String current;
+    std::function<void (Tone3000Client::Model, ModelRowComponent*)> pick;
+    juce::TextEditor search;
+    juce::Viewport vp;
+    juce::Component content;
+    juce::OwnedArray<ModelRowComponent> rows;
+};
+
+void StoreOverlay::loadVariationIntoLane (const Tone3000Client::Model& model, int lane,
+                                          const ToneCardComponent::Info& toneInfo,
+                                          ModelRowComponent* row)
+{
+    const juce::String kind = toneInfo.formatBadge == "IR" ? "ir" : "nam";
+
+    juce::String baseName = toneInfo.title;
+    if (model.name.isNotEmpty() && model.name != baseName)
+        baseName += " - " + model.name;
+    if (model.arch == "2")
+        baseName += " [A2]";
+
+    const int toneId = toneInfo.toneId;
+    const juce::String imageUrl = toneInfo.imageUrl;
+    juce::Component::SafePointer<ModelRowComponent> rsafe (row);
+
+    auto finish = [this, model, baseName, kind, toneId, imageUrl, lane] (juce::File file)
+    {
+        client.saveImageSidecar (imageUrl, file);
+        if (kind == "ir")
+        {
+            writeModelMeta (file, model, toneId);
+            processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), file);
+        }
+        else
+        {
+            finalizeNamModel (file, toneId, model, baseName, lane);
+        }
+        updateRigStatuses();
+    };
+
+    if (const auto local = Tone3000Client::localFileForModel (model, kind, baseName);
+        local.existsAsFile())
+    {
+        if (rsafe != nullptr) rsafe->setInRig();
+        finish (local);
+        return;
+    }
+
+    if (rsafe != nullptr) rsafe->setDownloading (0);
+    client.downloadModel (model, kind, baseName,
+        [rsafe] (int pct) { if (rsafe != nullptr) rsafe->setDownloading (pct); },
+        [this, rsafe, finish] (juce::File file, juce::String error)
+        {
+            if (error.isNotEmpty())
+            {
+                bannerError = error;
+                resized();
+                repaint();
+                return;
+            }
+            if (rsafe != nullptr) rsafe->setInRig();
+            finish (file);
+        });
+}
+
+void StoreOverlay::showVariationPicker (int lane, int toneId, juce::Component* anchor)
+{
+    // Build the tone info the download needs (title/image/format) from getTone,
+    // fetch the model list, then pop the picker anchored to the amp card.
+    const juce::String currentName = processor.getModelName (lane);
+
+    auto present = [this, lane, toneId, anchor, currentName]
+        (ToneCardComponent::Info toneInfo, std::vector<Tone3000Client::Model> models)
+    {
+        auto content = std::make_unique<VariationPickerContent> (
+            std::move (models), currentName,
+            [this, lane, toneInfo] (Tone3000Client::Model m, ModelRowComponent* r)
+            {
+                loadVariationIntoLane (m, lane, toneInfo, r);
+            });
+
+        juce::Rectangle<int> area = anchor != nullptr
+            ? anchor->getScreenBounds()
+            : juce::Rectangle<int> (getScreenBounds().getCentre(), getScreenBounds().getCentre());
+        juce::CallOutBox::launchAsynchronously (std::move (content), area, nullptr);
+    };
+
+    // getTone for title/image/format, then the models (cache when possible).
+    juce::Component::SafePointer<StoreOverlay> safe (this);
+    client.getTone (toneId, [safe, toneId, present] (Tone3000Client::Tone t, juce::String)
+    {
+        if (safe == nullptr) return;
+        ToneCardComponent::Info info;
+        info.toneId    = toneId;
+        info.title     = t.title;
+        info.imageUrl  = t.imageUrl;
+        info.formatBadge = (t.format == "ir") ? "IR" : "NAM";
+
+        auto deliver = [present, info] (std::vector<Tone3000Client::Model> ms) { present (info, ms); };
+        if (const auto it = safe->modelsCache.find (toneId); it != safe->modelsCache.end())
+        {
+            deliver (it->second);
+            return;
+        }
+        safe->client.listModels (toneId, [safe, toneId, deliver] (std::vector<Tone3000Client::Model> ms, juce::String)
+        {
+            if (safe != nullptr) safe->modelsCache[toneId] = ms;
+            deliver (ms);
+        });
+    });
 }
 
 void StoreOverlay::doConnect()
@@ -1026,57 +1199,9 @@ void StoreOverlay::ensureDetailsView()
 
 void StoreOverlay::downloadFromDetails (const Tone3000Client::Model& model, ModelRowComponent* row)
 {
-    const juce::String kind = detailsInfo.formatBadge == "IR" ? "ir" : "nam";
-
-    juce::String baseName = detailsInfo.title;
-    if (model.name.isNotEmpty() && model.name != baseName)
-        baseName += " - " + model.name;
-    if (model.arch == "2")
-        baseName += " [A2]";
-
-    const int toneId = detailsInfo.toneId;
-    const juce::String imageUrl = detailsInfo.imageUrl;
-    juce::Component::SafePointer<ModelRowComponent> rsafe (row);
-
-    auto finish = [this, model, baseName, kind, toneId, imageUrl] (juce::File file)
-    {
-        client.saveImageSidecar (imageUrl, file);
-        if (kind == "ir")
-        {
-            writeModelMeta (file, model, toneId);
-            processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), file);
-        }
-        else
-        {
-            finalizeNamModel (file, toneId, model, baseName, detailsTargetLane);
-        }
-        updateRigStatuses();
-    };
-
-    // Already downloaded: load the local file without touching the network.
-    if (const auto local = Tone3000Client::localFileForModel (model, kind, baseName);
-        local.existsAsFile())
-    {
-        if (rsafe != nullptr) rsafe->setInRig();
-        finish (local);
-        return;
-    }
-
-    if (rsafe != nullptr) rsafe->setDownloading (0);
-    client.downloadModel (model, kind, baseName,
-        [rsafe] (int pct) { if (rsafe != nullptr) rsafe->setDownloading (pct); },
-        [this, rsafe, finish] (juce::File file, juce::String error)
-        {
-            if (error.isNotEmpty())
-            {
-                bannerError = error;
-                resized();
-                repaint();
-                return;
-            }
-            if (rsafe != nullptr) rsafe->setInRig();
-            finish (file);
-        });
+    // The details view sets detailsInfo (from getTone) and detailsTargetLane
+    // (-1 = add to a free lane; >=0 = swap that lane). Same core as the picker.
+    loadVariationIntoLane (model, detailsTargetLane, detailsInfo, row);
 }
 
 void StoreOverlay::startAddFlow (ToneCardComponent& card)

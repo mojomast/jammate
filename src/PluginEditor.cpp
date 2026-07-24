@@ -363,7 +363,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         {
             const int tid = toneIdForLane (r);
             if (tid > 0 && onShowVariations != nullptr)
-                onShowVariations (r, tid);
+                onShowVariations (r, tid, &ampVarButtons[r]);
         };
         addChildComponent (ampVarButtons[r]);
 
@@ -2710,10 +2710,11 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     // amp-card "variations": open the Tone Store details for this tone, aimed at
     // the lane so the picked capture replaces the one playing there.
     chainView->onShowVariations =
-        [safe = juce::Component::SafePointer<RigContent> (this)] (int lane, int toneId)
+        [safe = juce::Component::SafePointer<RigContent> (this)]
+        (int lane, int toneId, juce::Component* anchor)
         {
             if (safe != nullptr)
-                safe->storeOverlay->openVariationsForLane (lane, toneId);
+                safe->storeOverlay->showVariationPicker (lane, toneId, anchor);
         };
 
     // Drums module: overlay + top bar button + drum VST window

@@ -235,10 +235,16 @@ private:
     void ensureDetailsView();   // lazily builds detailsView + wires callbacks
 
 public:
-    /// Opens the Tone Details view for a tone by id, targeting an amp lane so
-    /// the picked variation replaces the one currently in that lane. Used by the
-    /// amp card's "variations" control. Fetches title/image/creator via getTone.
-    void openVariationsForLane (int lane, int toneId);
+    /// Shows an inline variation picker (a call-out anchored to the amp card)
+    /// listing the other captures of the tone loaded in that lane, with search
+    /// for long lists. Picking one swaps the capture in that lane. Does NOT open
+    /// the full store. Used by the amp card's "variations" control.
+    void showVariationPicker (int lane, int toneId, juce::Component* anchor);
+    /// Loads a specific variation into a lane (used by the picker + details).
+    /// lane < 0 = first free lane. row (optional) shows download progress.
+    void loadVariationIntoLane (const Tone3000Client::Model&, int lane,
+                                const ToneCardComponent::Info& toneInfo,
+                                ModelRowComponent* row = nullptr);
 private:
 
     // full TONE3000 logo (list-view branding) + T3K mark (compact)

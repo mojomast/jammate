@@ -119,9 +119,9 @@ public:
     juce::Component& getLoadButton (int lane) { return loadButtons[lane]; }
     juce::Component& getIrButton (int slot) { return cabIrButtons[slot]; }
 
-    // amp-card "variations" click -> host opens the Tone Store details for the
-    // tone, targeting this lane so the pick replaces the current capture.
-    std::function<void (int lane, int toneId)> onShowVariations;
+    // amp-card "variations" click -> host shows a picker (anchored to the card)
+    // with the other captures of this tone, targeting this lane.
+    std::function<void (int lane, int toneId, juce::Component* anchor)> onShowVariations;
 
     static constexpr int chainHeight = 580;
 
