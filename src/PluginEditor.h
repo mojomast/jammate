@@ -33,6 +33,7 @@ public:
                    std::function<juce::String (float)> formatter);
 
     void setKnobTooltip (const juce::String&);
+    void setCompactLayout (bool shouldBeCompact);
     void resized() override;
 
     // clean UI: the numeric value only shows on hover/drag (or while editing)
@@ -48,6 +49,7 @@ private:
     juce::Label nameLabel, valueLabel;
     std::function<juce::String (float)> format;
     juce::AudioProcessorValueTreeState::SliderAttachment attachment;
+    bool compactLayout = false;
 };
 
 //==============================================================================
@@ -134,7 +136,8 @@ public:
     // Zones are rebuilt on every paint; the TooltipWindow polls us via this.
     juce::String getTooltip() override;
 
-    static constexpr int chainHeight = 580;
+    // Keep every stacked rig inside the editor viewport (including LOAD).
+    static constexpr int chainHeight = 500;
 
 private:
     static constexpr int maxRigs = GuitarRigNAMProcessor::maxRigs;

@@ -1638,9 +1638,12 @@ void StoreOverlay::resized()
 
     closeButton.setBounds (W - 22 - 34, 15, 34, 34);
 
-    exploreTab.setBounds (208, 20, 76, 30);
-    libraryTab.setBounds (296, 20, 130, 30);
-    pluginsTab.setBounds (434, 20, 74, 30);
+    // Keep the navigation clear of the full TONE3000 wordmark.  The editor is
+    // commonly shown with Windows display scaling, so the previous x=208
+    // position put the logo directly over the Explore label.
+    exploreTab.setBounds (278, 20, 76, 30);
+    libraryTab.setBounds (366, 20, 130, 30);
+    pluginsTab.setBounds (504, 20, 74, 30);
 
     const int chipRightEdge = W - 22 - 34 - 14;
     userChip.setBounds (chipRightEdge - 130, 15, 130, 34);
@@ -1673,11 +1676,14 @@ void StoreOverlay::resized()
         a2Chip.setBounds (cx, 74, 62, 28);
         favChip.setBounds (cx + 68, 74, 58, 28);
     }
-    sortCombo.setBounds (W - 22 - 150, 72, 150, 32);
-    sourceCombo.setBounds (sortCombo.getX() - 8 - 140, 72, 140, 32);
+    // Collections and sorting have their own row.  Keeping them beside the
+    // type chips made the Explore combo cover the Filters button at narrower
+    // logical widths / high-DPI display scales.
+    sortCombo.setBounds (W - 22 - 150, 108, 150, 32);
+    sourceCombo.setBounds (sortCombo.getX() - 8 - 140, 108, 140, 32);
 
     // error banner
-    const int bannerY = 114;
+    const int bannerY = 150;
     const bool banner = bannerError.isNotEmpty();
     retryButton.setVisible (banner);
     dismissButton.setVisible (banner);

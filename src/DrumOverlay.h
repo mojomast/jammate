@@ -57,6 +57,7 @@ public:
     std::function<void()> onOpenVstPanel;
     void refreshSourceRow();
     void devOpenGenerator() { if (! genOn) genChip.triggerClick(); }  // dev flag
+    void devOpenGrid() { if (! gridOn) gridChip.triggerClick(); }      // dev flag
     void devGenerateAll() { generateAll(); }                          // dev flag
 
 private:
@@ -112,6 +113,8 @@ private:
 
     private:
         juce::Rectangle<int> cellBounds (int row, int step) const;
+        int cellWidth() const;
+        int stepX (int step) const;
         DrumOverlay& owner;
     };
 
@@ -187,7 +190,13 @@ private:
 
     // ---- guitar ribbon at the TOP of the drums: a miniature of the real chain
     juce::OwnedArray<KnobComponent> gtrKnobs;   // real knobs (wired to the APVTS)
-    struct GtrGroup { juce::String name; int first = 0, last = -1; int x = 0, w = 0; };
+    struct GtrGroup
+    {
+        juce::String name;
+        juce::String onParam;
+        int first = 0, last = -1, x = 0, w = 0;
+        int rigLane = -1;
+    };
     std::vector<GtrGroup> gtrGroups;            // one per active effect, in chain order
     juce::TextButton gtrOpenBtn { juce::CharPointer_UTF8 ("open guitar \xe2\xa4\xa2") };
     void setupGuitarRibbon();

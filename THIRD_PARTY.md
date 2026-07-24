@@ -67,6 +67,12 @@ The internal drum sampler uses the samples of **GMRockKit** (see also
 
 - **Space Grotesk** and **JetBrains Mono** — SIL Open Font License 1.1 (OFL).
   See `assets/fonts/*-OFL.txt`.
+- **Leland** — MuseScore's SMuFL-compliant music font, used by the Drums
+  notation renderer. Copyright (c) 2025 MuseScore Limited; distributed under
+  the SIL Open Font License 1.1 with Reserved Font Name "Leland". The copy is
+  pinned to MuseScore commit `73d6c2594fb2a90497d4abdc40b825849cb34d43`.
+  See `assets/fonts/Leland-OFL.txt` and
+  <https://github.com/musescore/MuseScore/tree/main/fonts/leland>.
 
 ## Built-in VST3 plugin catalog
 

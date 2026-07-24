@@ -113,6 +113,7 @@ KnobComponent::KnobComponent (juce::AudioProcessorValueTreeState& apvts,
     nameLabel.setFont (ui::monoFont (8.0f));
     nameLabel.setColour (juce::Label::textColourId, ui::textFaint);
     nameLabel.setJustificationType (juce::Justification::centred);
+    nameLabel.setMinimumHorizontalScale (0.55f);
     addAndMakeVisible (nameLabel);
 
     valueLabel.setFont (ui::monoFont (10.5f, true));
@@ -150,6 +151,20 @@ void KnobComponent::setKnobTooltip (const juce::String& tip)
     slider.setTooltip (tip);
 }
 
+void KnobComponent::setCompactLayout (bool shouldBeCompact)
+{
+    if (compactLayout == shouldBeCompact)
+        return;
+
+    compactLayout = shouldBeCompact;
+    nameLabel.setFont (ui::monoFont (compactLayout ? 6.5f : 8.0f));
+    valueLabel.setFont (ui::monoFont (compactLayout ? 8.0f : 10.5f, true));
+    valueLabel.setColour (juce::Label::backgroundColourId,
+                          compactLayout ? juce::Colour (0xd914181d)
+                                        : juce::Colours::transparentBlack);
+    resized();
+}
+
 void KnobComponent::mouseEnter (const juce::MouseEvent&) { refreshValueVisibility(); }
 void KnobComponent::mouseExit (const juce::MouseEvent&)  { refreshValueVisibility(); }
 void KnobComponent::mouseUp (const juce::MouseEvent&)    { refreshValueVisibility(); }
@@ -170,7 +185,10 @@ void KnobComponent::resized()
     auto area = getLocalBounds();
     slider.setBounds (area.removeFromTop (getWidth()));
     nameLabel.setBounds (area.removeFromTop (12));
-    valueLabel.setBounds (area.removeFromTop (14));
+    if (compactLayout)
+        valueLabel.setBounds (0, juce::jmax (0, getWidth() - 13), getWidth(), 13);
+    else
+        valueLabel.setBounds (area.removeFromTop (14));
 }
 
 //==============================================================================
@@ -2912,14 +2930,24 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 {
                     if (safe == nullptr)
                         return;
+                    if (flag == "rig1" || flag == "rig2" || flag == "rig3")
+                        if (auto* param = safe->processor.apvts.getParameter ("cabCount"))
+                        {
+                            const float rigs = (float) flag.getTrailingIntValue();
+                            param->setValueNotifyingHost (
+                                param->getNormalisableRange().convertTo0to1 (rigs));
+                        }
                     safe->drumOverlay->open();
                     if (flag == "play")
                         safe->processor.drumEngine.playing.store (true);
                     if (flag == "meter")   // test: 4/4, 3/4, 6/8, 7/8
                     {
                         auto& e = safe->processor.drumEngine;
-                        e.setMeter (2, 3, 4); e.setMeter (3, 6, 8);
+                        e.setMeter (0, 4, 4); e.setMeter (1, 3, 4);
+                        e.setMeter (2, 6, 8); e.setMeter (3, 7, 8);
                     }
+                    if (flag == "grid")
+                        safe->drumOverlay->devOpenGrid();
                     if (flag == "gen" || flag == "genfill")  // generator test (3rd = 7/8)
                     {
                         safe->processor.drumEngine.setMeter (2, 7, 8);

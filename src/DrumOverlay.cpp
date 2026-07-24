@@ -3,6 +3,8 @@
 #include "LookAndFeel.h"
 #include "PluginEditor.h"   // KnobComponent (guitar ribbon)
 
+#include <BinaryData.h>
+
 //==============================================================================
 // Fixed layout inside the editor's 1100x700 content (v4: the staff is the track).
 // Clean UI: the TRANSPORT band sits on top (mirroring the guitar top bar) and
@@ -11,15 +13,15 @@
 namespace
 {
 constexpr int headerBandH = 60;              // transport band (== guitar top bar)
-constexpr int gtrRibY = 62, gtrRibH = 54;    // guitar ribbon band (== DrumRibbon)
+constexpr int gtrRibY = 62, gtrRibH = 160;   // larger controls with uniform hit targets
 constexpr int margin = 26;
 constexpr int headerY = 13, headerH = 34;
-constexpr int tabsY = 124, tabsH = 26;
+constexpr int tabsY = 230, tabsH = 26;
 // clean UI: the bar options overlay the TOP of the staff area (no extra row)
-constexpr int scoreY = 154, scoreH = 252;
+constexpr int scoreY = 260, scoreH = 152;
 constexpr int barHeadsY = scoreY + 2, barHeadsH = 26;
-constexpr int libY = 414;                                 // top of the browser/grid
-constexpr int gridY = 418, gridH = 226;                   // grid in place of the lib
+constexpr int libY = 420;                                 // top of the browser/grid
+constexpr int gridY = 424, gridH = 216;                   // grid in place of the lib
 constexpr int sourceY = 648, sourceH = 32;
 // column browser: Genre | Grooves/Fills | Preview
 constexpr int colGap = 8, genreColW = 150, listColW = 208, colRowH = 26;
@@ -79,13 +81,117 @@ const char* roleKey (int r)
 // staff geometry: 4 bars x 16 steps across the usable width (~1048)
 // 4 bars must fit in ~1038 usable px: 64*stepW + 12*beatPad +
 // 3*barPad + scoreLeft + slack <= width, otherwise the 4th bar clips at the end
-constexpr int scoreLeft = 54;
+constexpr int scoreLeft = 64;
 constexpr float stepW = 13.2f, beatPad = 5.0f, barPad = 20.0f;
-constexpr float staffSP = 7.0f;   // half the distance between lines
-constexpr float staffTop = 112.0f;
+constexpr float staffSP = 5.20f;
+constexpr float staffTop = 65.0f;
 
-constexpr float tsW = 26.0f;   // width of the engraved time signature
 float staffY (float pos) { return staffTop + 8.0f * staffSP - pos * staffSP; }
+
+float timeSignatureWidth (int num, int den)
+{
+    return num >= 10 || den >= 10 ? 54.0f : 40.0f;
+}
+
+// MuseScore's Leland face is a SMuFL font.  Keeping the notes as semantic
+// music glyphs (instead of hand-drawn ellipses and x marks) gives the main
+// editor, ribbon and library preview one consistent engraving language while
+// the existing DrumEngine remains responsible for timing and playback.
+constexpr juce::juce_wchar smuflPercussionClef = 0xE069;
+constexpr juce::juce_wchar smuflNoteheadBlack = 0xE0A4;
+constexpr juce::juce_wchar smuflNoteheadXBlack = 0xE0A9;
+constexpr juce::juce_wchar smuflNoteheadParenthesisLeft = 0xE0F5;
+constexpr juce::juce_wchar smuflNoteheadParenthesisRight = 0xE0F6;
+constexpr juce::juce_wchar smuflAccentAbove = 0xE4A0;
+constexpr juce::juce_wchar smuflAccentBelow = 0xE4A1;
+constexpr juce::juce_wchar smuflRestWhole = 0xE4E3;
+constexpr juce::juce_wchar smuflTimeSig0 = 0xE080;
+
+// Smoked Ivory: a low-glare notation palette that belongs to the dark UI
+// without sacrificing the contrast expected from a professional score.
+const juce::Colour notationFrame (0xff182125);
+const juce::Colour notationPaperTop (0xffefeee8);
+const juce::Colour notationPaperBottom (0xffe5e6e1);
+const juce::Colour notationPaperEdge (0xff778185);
+const juce::Colour notationInk (0xff172023);
+const juce::Colour notationStaff (0xff657074);
+const juce::Colour notationDim (0xff697477);
+const juce::Colour notationCyan (0xff168f9d);
+const juce::Colour notationAmber (0xffb8732f);
+
+void fillNotationPaper (juce::Graphics& g, juce::Rectangle<float> area,
+                        float radius, float shadowAlpha)
+{
+    g.setColour (juce::Colours::black.withAlpha (shadowAlpha));
+    g.fillRoundedRectangle (area.translated (0.0f, 1.5f), radius);
+
+    juce::ColourGradient paperGradient (notationPaperTop,
+                                        area.getX(), area.getY(),
+                                        notationPaperBottom,
+                                        area.getX(), area.getBottom(), false);
+    g.setGradientFill (paperGradient);
+    g.fillRoundedRectangle (area, radius);
+    g.setColour (notationPaperEdge.withAlpha (0.82f));
+    g.drawRoundedRectangle (area.reduced (0.5f), radius, 1.0f);
+}
+
+juce::Typeface::Ptr lelandTypeface()
+{
+    static juce::Typeface::Ptr face = juce::Typeface::createSystemTypefaceFor (
+        BinaryData::Leland_otf, BinaryData::Leland_otfSize);
+    return face;
+}
+
+juce::Font musicFont (float height)
+{
+    return juce::Font (juce::FontOptions (lelandTypeface()).withHeight (height));
+}
+
+juce::String musicNumber (int value)
+{
+    const auto digits = juce::String (juce::jmax (0, value));
+    juce::String result;
+    for (int i = 0; i < digits.length(); ++i)
+    {
+        const int digit = (int) digits[i] - (int) '0';
+        if (juce::isPositiveAndBelow (digit, 10))
+            result += juce::String::charToString ((juce::juce_wchar) (smuflTimeSig0 + digit));
+    }
+    return result;
+}
+
+void drawMusicTextCentred (juce::Graphics& g, const juce::String& text,
+                           juce::Point<float> centre, float height,
+                           juce::Colour colour)
+{
+    if (text.isEmpty())
+        return;
+
+    juce::GlyphArrangement glyphs;
+    glyphs.addLineOfText (musicFont (height), text, 0.0f, 0.0f);
+    const auto bounds = glyphs.getBoundingBox (0, glyphs.getNumGlyphs(), false);
+    glyphs.moveRangeOfGlyphs (0, -1, centre.x - bounds.getCentreX(),
+                              centre.y - bounds.getCentreY());
+    g.setColour (colour);
+    glyphs.draw (g);
+}
+
+void drawMusicGlyph (juce::Graphics& g, juce::juce_wchar glyph,
+                     juce::Point<float> centre, float height, juce::Colour colour)
+{
+    drawMusicTextCentred (g, juce::String::charToString (glyph), centre, height, colour);
+}
+
+void drawMusicTimeSignature (juce::Graphics& g, float x, float space,
+                             const std::function<float(float)>& yOf,
+                             int num, int den, juce::Colour colour)
+{
+    // Leland deliberately has very tall line metrics. A 32-half-space JUCE
+    // font height maps its SMuFL digit outline to the expected two staff
+    // spaces occupied by each half of a time signature.
+    drawMusicTextCentred (g, musicNumber (num), { x, yOf (6.0f) }, space * 32.0f, colour);
+    drawMusicTextCentred (g, musicNumber (den), { x, yOf (2.0f) }, space * 32.0f, colour);
+}
 
 // number of steps + beam grouping of a meter (compound meters in threes)
 void meterGroups (int num, int den, int& steps, int groups[8], int& nGroups)
@@ -116,62 +222,125 @@ constexpr bool staffXHead[drum::numVoices] = { false, false, true, true, true, t
 constexpr bool staffIsHand[drum::numVoices] = { false, true, true, false, true, true,
                                                 true, true, true };
 
-// Draws 1 bar as a STAFF inside `area` - same language as the central staff:
-// 5-line staff, note heads (x cymbals / ellipse drums), stems (up hands, down
-// feet) and beams per beat. Used in the card thumbnails.
+// Draws one engraved bar for both the drum ribbon and the library preview.
+// Notes/time signatures are Leland SMuFL glyphs; stems, beams and staff lines
+// remain vectors so the score stays crisp at every UI scale.
 void drawMiniBar (juce::Graphics& g, juce::Rectangle<float> area,
                   const juce::uint8 pat[drum::numVoices][drum::maxStepsPerBar],
-                  int num = 4, int den = 4)
+                  int num = 4, int den = 4, bool showClef = true,
+                  bool showMeter = true, bool drawPaper = true, int playStep = -1)
 {
+    if (area.getWidth() < 30.0f || area.getHeight() < 24.0f)
+        return;
+
     int steps = 16, groups[8], nGroups = 1;
     meterGroups (num, den, steps, groups, nGroups);
-    // starting offset (in steps) of each group
-    int gStart[8] = {}; for (int i = 1; i < nGroups; ++i) gStart[i] = gStart[i - 1] + groups[i - 1];
+    int gStart[8] = {};
+    for (int i = 1; i < nGroups; ++i)
+        gStart[i] = gStart[i - 1] + groups[i - 1];
 
-    const juce::Colour ink (0xffc4cdd6), dim (0xff3a424b);
-    const float sp = (area.getHeight() - 4.0f) / 16.0f;   // positions -4..12
-    auto yOf = [&] (float pos) { return area.getBottom() - 2.0f - (pos + 4.0f) * sp; };
-    const float x0 = area.getX() + 4.0f;
-    const float sw = (area.getWidth() - 8.0f) / (float) steps;
+    if (drawPaper)
+        fillNotationPaper (g, area, 3.5f, 0.22f);
+
+    auto content = area.reduced (drawPaper ? 7.0f : 0.0f,
+                                 drawPaper ? 5.0f : 3.0f);
+    const float sp = juce::jlimit (1.8f, 6.6f, (content.getHeight() - 4.0f) / 18.0f);
+    const float centreY = content.getCentreY();
+    auto yOf = [&] (float pos) { return centreY + (4.0f - pos) * sp; };
+
+    const float staffL = content.getX() + 1.0f;
+    const float staffR = content.getRight() - 1.0f;
+    float cursor = staffL;
+    if (showClef)
+        cursor += 2.8f * sp;
+    const float meterReserve = (num >= 10 || den >= 10 ? 7.5f : 4.4f) * sp;
+    if (showMeter)
+        cursor += meterReserve;
+    const float x0 = cursor + 0.35f * sp;
+    const float sw = juce::jmax (0.8f, (staffR - x0) / (float) steps);
     auto xOf = [&] (int s) { return x0 + (s + 0.5f) * sw; };
-    const float hr = juce::jmax (1.7f, sp * 0.72f);       // head radius
+    const float headHalfW = sp * 0.90f;
+    const float lineW = juce::jmax (0.65f, sp * 0.12f);
+    const float beamH = juce::jmax (0.9f, sp * 0.34f);
 
     // 5 staff lines (positions 0,2,4,6,8)
-    g.setColour (dim);
+    g.setColour (notationStaff.withAlpha (0.86f));
     for (int i = 0; i <= 4; ++i)
-        g.drawHorizontalLine ((int) yOf ((float) (i * 2)), area.getX(), area.getRight());
+        g.drawLine (staffL, yOf ((float) (i * 2)), staffR,
+                    yOf ((float) (i * 2)), lineW);
+
+    float symbolX = staffL;
+    if (showClef)
+    {
+        drawMusicGlyph (g, smuflPercussionClef,
+                        { symbolX + 1.3f * sp, yOf (4.0f) },
+                        32.0f * sp, notationInk);
+        symbolX += 2.8f * sp;
+    }
+    if (showMeter)
+    {
+        drawMusicTimeSignature (g, symbolX + meterReserve * 0.5f, sp, yOf,
+                                num, den, notationInk);
+    }
+
     // beat separators (meter group boundaries)
-    g.setColour (juce::Colours::white.withAlpha (0.045f));
+    g.setColour (notationInk.withAlpha (0.07f));
     for (int gi = 1; gi < nGroups; ++gi)
-        g.drawVerticalLine ((int) (x0 + gStart[gi] * sw), yOf (9.0f), yOf (-2.0f));
+        g.drawLine (x0 + gStart[gi] * sw, yOf (9.0f),
+                    x0 + gStart[gi] * sw, yOf (-2.0f), lineW);
+
+    if (playStep >= 0)
+    {
+        const float px = xOf (juce::jlimit (0, steps - 1, playStep));
+        g.setColour (ui::accent.withAlpha (0.10f));
+        g.fillRect (px - sw * 0.45f, yOf (12.5f), sw * 0.9f,
+                    yOf (-4.5f) - yOf (12.5f));
+        g.setColour (ui::accent);
+        g.fillRect (px - 0.7f, yOf (12.5f), 1.4f, yOf (-4.5f) - yOf (12.5f));
+    }
 
     auto drawHead = [&] (float x, float y, bool cross, int val)
     {
-        g.setColour (val == 2 ? ui::glowOrange : val == 3 ? dim.brighter (0.45f) : ink);
-        if (cross)
+        const auto colour = val == 3 ? notationDim.withAlpha (0.72f) : notationInk;
+        drawMusicGlyph (g, cross ? smuflNoteheadXBlack : smuflNoteheadBlack,
+                        { x, y }, 22.0f * sp, colour);
+        if (val == 3)
         {
-            g.drawLine (x - hr, y - hr, x + hr, y + hr, 1.0f);
-            g.drawLine (x - hr, y + hr, x + hr, y - hr, 1.0f);
+            drawMusicGlyph (g, smuflNoteheadParenthesisLeft,
+                            { x - 1.12f * sp, y }, 24.0f * sp,
+                            notationDim.withAlpha (0.82f));
+            drawMusicGlyph (g, smuflNoteheadParenthesisRight,
+                            { x + 1.12f * sp, y }, 24.0f * sp,
+                            notationDim.withAlpha (0.82f));
         }
-        else
-            g.fillEllipse (x - hr * 1.05f, y - hr * 0.8f, hr * 2.1f, hr * 1.6f);
     };
 
     const float beamYH = yOf (12.0f), beamYF = yOf (-4.0f);
+    bool anyNote = false;
+    for (int v = 0; v < drum::numVoices && ! anyNote; ++v)
+        for (int s = 0; s < steps; ++s)
+            if (pat[v][s] != 0) { anyNote = true; break; }
+
+    if (! anyNote)
+    {
+        drawMusicGlyph (g, smuflRestWhole,
+                        { (x0 + staffR) * 0.5f, yOf (4.0f) },
+                        30.0f * sp, notationDim);
+    }
 
     for (int beat = 0; beat < nGroups; ++beat)
         for (int limb = 0; limb < 2; ++limb)
         {
             const bool up = (limb == 0);
             const int gLen = groups[beat];
-            struct Col { int s; float noteY; };
+            struct Col { int s; float noteY; bool accent; };
             Col cols[8];
             int nc = 0;
             for (int i = 0; i < gLen; ++i)
             {
                 const int s = gStart[beat] + i;
                 float ext = up ? -1.0e9f : 1.0e9f;
-                bool any = false;
+                bool any = false, accent = false;
                 for (int v = 0; v < drum::numVoices; ++v)
                 {
                     if (staffIsHand[v] != up)
@@ -180,51 +349,82 @@ void drawMiniBar (juce::Graphics& g, juce::Rectangle<float> area,
                     if (val == 0)
                         continue;
                     any = true;
+                    accent = accent || val == 2;
                     const float y = yOf (staffPos[v]);
                     drawHead (xOf (s), y, staffXHead[v], val);
                     ext = up ? juce::jmax (ext, y) : juce::jmin (ext, y);
                 }
                 if (any)
-                    cols[nc++] = { s, ext };
+                    cols[nc++] = { s, ext, accent };
             }
             if (nc == 0)
                 continue;
 
             const float beamY = up ? beamYH : beamYF;
-            auto stemX = [&] (int s) { return up ? xOf (s) + hr * 0.85f : xOf (s) - hr * 0.85f; };
-            g.setColour (ink);
+            auto stemX = [&] (int s) { return up ? xOf (s) + headHalfW
+                                                  : xOf (s) - headHalfW; };
+            g.setColour (notationInk);
             for (int c = 0; c < nc; ++c)
+            {
+                g.setColour (notationInk);
                 g.drawLine (stemX (cols[c].s), cols[c].noteY + (up ? -1.5f : 1.5f),
-                            stemX (cols[c].s), beamY, 1.0f);
+                            stemX (cols[c].s), beamY, lineW);
+                if (cols[c].accent)
+                    drawMusicGlyph (g, up ? smuflAccentAbove : smuflAccentBelow,
+                                    { xOf (cols[c].s), beamY + (up ? -1.45f : 1.45f) * sp },
+                                    28.0f * sp, ui::glowOrange);
+            }
+            g.setColour (notationInk);
 
             if (nc > 1)
             {
-                const float y = up ? beamY : beamY - 2.0f;
-                g.fillRect (stemX (cols[0].s), y, stemX (cols[nc - 1].s) - stemX (cols[0].s), 2.0f);
+                const float primaryY = up ? beamY : beamY - beamH;
+                g.fillRect (stemX (cols[0].s), primaryY,
+                            stemX (cols[nc - 1].s) - stemX (cols[0].s), beamH);
+                const float secondaryY = primaryY + (up ? 1.65f : -1.65f) * beamH;
                 for (int c = 0; c < nc - 1; ++c)
                     if (cols[c + 1].s - cols[c].s == 1)
-                        g.fillRect (stemX (cols[c].s), up ? beamY + 3.0f : beamY - 5.0f,
-                                    stemX (cols[c + 1].s) - stemX (cols[c].s), 2.0f);
+                        g.fillRect (stemX (cols[c].s), secondaryY,
+                                    stemX (cols[c + 1].s) - stemX (cols[c].s), beamH);
+
+                // Isolated sixteenths inside a beamed group receive a short
+                // secondary beam, rather than looking like eighth notes.
+                for (int c = 0; c < nc; ++c)
+                {
+                    const bool joinsLeft = c > 0 && cols[c].s - cols[c - 1].s == 1;
+                    const bool joinsRight = c + 1 < nc && cols[c + 1].s - cols[c].s == 1;
+                    if (! joinsLeft && ! joinsRight)
+                    {
+                        const float len = sp * (c == nc - 1 ? -1.1f : 1.1f);
+                        g.fillRect (juce::jmin (stemX (cols[c].s), stemX (cols[c].s) + len),
+                                    secondaryY, std::abs (len), beamH);
+                    }
+                }
             }
             else
             {
-                juce::Path flag;
-                const float x = stemX (cols[0].s), dir = up ? 1.0f : -1.0f;
-                flag.startNewSubPath (x, beamY);
-                flag.quadraticTo (x + 4.0f, beamY + 3.0f * dir, x + 2.0f, beamY + 8.0f * dir);
-                g.strokePath (flag, juce::PathStrokeType (1.0f));
+                const float x = stemX (cols[0].s);
+                for (int flagIndex = 0; flagIndex < 2; ++flagIndex)
+                {
+                    const float dir = up ? 1.0f : -1.0f;
+                    const float fy = beamY + dir * flagIndex * sp * 0.72f;
+                    juce::Path flag;
+                    flag.startNewSubPath (x, fy);
+                    flag.quadraticTo (x + dir * sp, fy + dir * sp * 0.55f,
+                                      x + dir * sp * 0.45f, fy + dir * sp * 1.6f);
+                    g.strokePath (flag, juce::PathStrokeType (lineW));
+                }
             }
         }
+
+    g.setColour (notationInk.withAlpha (0.9f));
+    g.drawLine (staffR, yOf (8.0f), staffR, yOf (0.0f), lineW);
 }
 
 // optional grid
 constexpr int gridLabelW = 96;
-constexpr int gCellW = 48, gCellGap = 3, gBeatGap = 10;
-constexpr int gRowH = 21, gRowGap = 2;
-int gridStepX (int s)
-{
-    return gridLabelW + s * (gCellW + gCellGap) + (s / 4) * gBeatGap;
-}
+constexpr int gCellMaxW = 48, gCellGap = 3, gBeatGap = 10;
+constexpr int gRowH = 20, gRowGap = 1;
 } // namespace
 
 const int DrumOverlay::gridRowVoice[DrumOverlay::gridRows] = {
@@ -336,6 +536,13 @@ void DrumRibbon::paint (juce::Graphics& g)
 
     const float staffX = 258.0f, staffR = (float) getWidth() - 108.0f;
     const float bw = (staffR - staffX) / (float) drum::barsPerSection;
+    const int ub = engine.uiBar.load();
+
+    const juce::Rectangle<float> paper (staffX - 4.0f, 3.0f,
+                                        staffR - staffX + 4.0f,
+                                        (float) getHeight() - 6.0f);
+    fillNotationPaper (g, paper, 3.5f, 0.24f);
+
     for (int i = 0; i < drum::barsPerSection; ++i)
     {
         const int bar = base + i;
@@ -343,18 +550,13 @@ void DrumRibbon::paint (juce::Graphics& g)
         for (int v = 0; v < drum::numVoices; ++v)
             for (int s = 0; s < drum::maxStepsPerBar; ++s)
                 pat[v][s] = engine.pattern[bar][v][s].load();
-        drawMiniBar (g, { staffX + i * bw, 5.0f, bw - 3.0f, (float) getHeight() - 10.0f },
-                     pat, engine.meterNum (bar), engine.meterDen (bar));
-    }
-
-    const int ub = engine.uiBar.load();
-    if (playing && ub >= base && ub < base + drum::barsPerSection)
-    {
-        const int steps = engine.barSteps (ub);
-        const int st = juce::jlimit (0, steps - 1, engine.uiStep.load());
-        const float fx = staffX + (ub - base) * bw + (st + 0.5f) / (float) steps * (bw - 3.0f);
-        g.setColour (ui::accent);
-        g.fillRect (fx, 5.0f, 2.0f, (float) getHeight() - 10.0f);
+        const bool meterChanged = i == 0
+                               || engine.meterNum (bar) != engine.meterNum (bar - 1)
+                               || engine.meterDen (bar) != engine.meterDen (bar - 1);
+        const int activeStep = playing && ub == bar ? engine.uiStep.load() : -1;
+        drawMiniBar (g, { staffX + i * bw, 5.0f, bw, (float) getHeight() - 10.0f },
+                     pat, engine.meterNum (bar), engine.meterDen (bar),
+                     i == 0, meterChanged, false, activeStep);
     }
 
     g.setColour (ui::textFaint);
@@ -837,24 +1039,78 @@ void DrumOverlay::paint (juce::Graphics& g)
         g.setFont (ui::uiFont (8.5f));
         g.drawText ("signal chain", margin, gtrRibY + 26, 84, 12, juce::Justification::centredLeft);
 
-        // one label per effect group, in chain order (name-only slots get a chip)
+        auto drawPower = [&g] (float cx, float cy, bool on)
+        {
+            g.setColour (on ? ui::green : ui::textFaint);
+            g.drawEllipse (cx - 3.5f, cy - 2.5f, 7.0f, 7.0f, 1.2f);
+            g.drawLine (cx, cy - 5.0f, cx, cy + 0.5f, 1.4f);
+        };
+
+        // Functional miniature of the real chain: every group is a card and
+        // its status lamp reflects the actual bypass parameter.
         for (const auto& grp : gtrGroups)
         {
-            const bool amp = grp.name == "AMP";
-            const bool nameOnly = grp.last < grp.first;
-            g.setColour (amp ? juce::Colour (0xffe0b072) : ui::accent);
-            g.setFont (ui::monoFont (8.0f, true));
-            g.drawText (grp.name, grp.x, gtrRibY + 1, grp.w, 9, juce::Justification::centred);
-            if (nameOnly)   // draw a small pedal chip so the slot reads as active
+            const bool amp = grp.rigLane >= 0;
+            bool enabled = true;
+            if (auto* p = processor.apvts.getRawParameterValue (grp.onParam); p != nullptr)
+                enabled = p->load() > 0.5f;
+
+            if (amp)
             {
-                juce::Rectangle<float> chip ((float) grp.x + 3.0f, (float) gtrRibY + 14.0f,
-                                             (float) grp.w - 6.0f, (float) gtrRibH - 22.0f);
-                g.setColour (ui::accent.withAlpha (0.10f));
-                g.fillRect (chip);
-                g.setColour (ui::accent.withAlpha (0.45f));
-                g.drawRect (chip, 1.0f);
-                g.setColour (ui::accent);
-                g.fillEllipse (chip.getCentreX() - 3.0f, chip.getCentreY() - 3.0f, 6.0f, 6.0f);
+                const int rigs = processor.getRigCount();
+                const int cardH = rigs == 1 ? 140 : (rigs == 2 ? 76 : 50);
+                const int totalH = rigs * cardH + 4 * juce::jmax (0, rigs - 1);
+                const int y = gtrRibY + (gtrRibH - totalH) / 2
+                              + grp.rigLane * (cardH + 4);
+                const int ampW = juce::roundToInt (grp.w * 0.68f);
+                const juce::Rectangle<int> ampCard (grp.x, y, ampW, cardH);
+                const juce::Rectangle<int> irCard (grp.x + ampW + 3, y,
+                                                   grp.w - ampW - 3, cardH);
+                for (auto card : { ampCard, irCard })
+                {
+                    g.setColour (ui::cardTop); g.fillRoundedRectangle (card.toFloat(), 3.0f);
+                    g.setColour (juce::Colour (0xffe0b072).withAlpha (0.5f));
+                    g.drawRoundedRectangle (card.toFloat(), 3.0f, 1.0f);
+                }
+                drawPower (ampCard.getX() + 7.0f, ampCard.getY() + 7.0f, enabled);
+                const bool cabOn = processor.apvts.getRawParameterValue ("cabOn")->load() > 0.5f;
+                drawPower (irCard.getX() + 7.0f, irCard.getY() + 7.0f, cabOn);
+                g.setColour (juce::Colour (0xffe0b072));
+                g.setFont (ui::monoFont (6.5f, true));
+                g.drawText ("AMP" + juce::String (grp.rigLane + 1),
+                            ampCard.getX() + 13, ampCard.getY() + 2,
+                            ampCard.getWidth() - 17, 10,
+                            juce::Justification::centredLeft);
+                g.drawText ("IR" + juce::String (grp.rigLane + 1),
+                            irCard.getX() + 13, irCard.getY() + 2,
+                            irCard.getWidth() - 17, 10,
+                            juce::Justification::centredLeft);
+            }
+            else
+            {
+                juce::Rectangle<float> card ((float) grp.x, (float) gtrRibY + 10.0f,
+                                             (float) grp.w, (float) gtrRibH - 20.0f);
+                g.setColour (ui::cardTop); g.fillRoundedRectangle (card, 4.0f);
+                g.setColour ((enabled ? ui::accent : ui::textFaint).withAlpha (0.55f));
+                g.drawRoundedRectangle (card, 4.0f, 1.0f);
+                drawPower (card.getRight() - 7.0f, card.getY() + 7.0f, enabled);
+                g.setColour (enabled ? ui::accent : ui::textMuted);
+                g.setFont (ui::monoFont (7.0f, true));
+                g.drawText (grp.name, card.getX() + 3.0f, card.getY() + 2.0f,
+                            card.getWidth() - 14.0f, 9.0f, juce::Justification::centredLeft);
+            }
+        }
+        for (size_t i = 1; i < gtrGroups.size(); ++i)
+        {
+            const auto& a = gtrGroups[i - 1];
+            const auto& b = gtrGroups[i];
+            if (a.rigLane >= 0 && b.rigLane >= 0) continue;
+            const float x1 = (float) a.x + a.w + 3.0f, x2 = (float) b.x - 3.0f;
+            if (x2 > x1)
+            {
+                g.setColour (ui::textMuted);
+                g.drawLine (x1, gtrRibY + gtrRibH * 0.57f,
+                            x2, gtrRibY + gtrRibH * 0.57f, 1.2f);
             }
         }
     }
@@ -872,10 +1128,10 @@ void DrumOverlay::paint (juce::Graphics& g)
     g.setFont (ui::monoFont (16.0f, true));
     g.setColour (ui::textBright);
     g.drawText (juce::String ((int) engine.bpm.load()),
-                area.getX() + 262, headerY, 46, headerH, juce::Justification::centred);
+                area.getX() + 244, headerY, 50, headerH, juce::Justification::centred);
     g.setFont (ui::uiFont (9.0f, true));
     g.setColour (ui::textMuted);
-    g.drawText ("BPM", area.getX() + 262, headerY - 6, 46, 10, juce::Justification::centred);
+    g.drawText ("BPM", area.getX() + 244, headerY - 6, 50, 10, juce::Justification::centred);
     g.drawText ("SWING " + juce::String ((int) engine.swingPct.load()) + "%",
                 area.getX() + 362, headerY - 6, 110, 10, juce::Justification::centredLeft);
 
@@ -894,8 +1150,8 @@ void DrumOverlay::paint (juce::Graphics& g)
 
     g.setFont (ui::uiFont (9.0f, true));
     g.setColour (ui::textMuted);
-    g.drawText ("VOLUME", getWidth() - margin - 130, sourceY - 10, 130, 10,
-                juce::Justification::centredLeft);
+    g.drawText ("VOLUME", getWidth() - margin - 184, sourceY + 3, 50, 26,
+                juce::Justification::centredRight);
 
     // humanize labels
     // (humanize labels now live inside the HumanizePanel popover)
@@ -948,39 +1204,88 @@ void DrumOverlay::resized()
 
     playButton.setBounds (x0 + 96, headerY, 96, headerH);
     bpmDown.setBounds (x0 + 204, headerY + 4, 24, 26);
-    bpmUp.setBounds (x0 + 204 + 24 + 50, headerY + 4, 24, 26);
+    bpmUp.setBounds (x0 + 310, headerY + 4, 24, 26);
     swingSlider.setBounds (x0 + 362, headerY + 5, 108, 24);
     metroChip.setBounds (x0 + 484, headerY + 3, 78, 28);
-    // FOLLOW | GRID | EDIT read as one segmented control (adjacent chips)
+    // GRID and GENERATE live in the lower action row.
     followChip.setBounds (x0 + 578, headerY + 3, 70, 28);
-    gridChip.setBounds (x0 + 648, headerY + 3, 56, 28);
-    editChip.setBounds (x0 + 704, headerY + 3, 56, 28);
-    genChip.setBounds (x0 + 776, headerY + 3, 92, 28);
+    editChip.setBounds (x0 + 648, headerY + 3, 56, 28);
 
     // ---- guitar ribbon (band below the transport), in chain order
     {
-        const int ky = gtrRibY + 1, kw = 26, kh = 52;
+        const int ky = gtrRibY + 24, kh = 72;
         const int rightLimit = W - margin - 130;   // leave room for "open guitar"
         int gx = margin + 96;
+        const int rigCount = processor.getRigCount();
+        const int rigIdealW = rigCount == 1 ? 430 : (rigCount == 2 ? 360 : 306);
+        int ideal = 0;
+        for (const auto& grp : gtrGroups)
+            ideal += grp.rigLane >= 0 ? (grp.rigLane == 0 ? rigIdealW : 0)
+                                      : juce::jmax (44, (grp.last - grp.first + 1) * 28) + 10;
+        const int usable = juce::jmax (240, rightLimit - gx);
+        const float scale = juce::jmin (1.0f, usable / (float) juce::jmax (1, ideal));
+        const int kw = juce::jlimit (18, 26, juce::roundToInt (26.0f * scale));
+        int rigX = -1;
         for (auto& grp : gtrGroups)
         {
+            if (grp.rigLane >= 0)
+            {
+                if (grp.rigLane == 0)
+                {
+                    rigX = gx;
+                    gx += juce::roundToInt ((float) rigIdealW * scale);
+                }
+                grp.x = rigX;
+                grp.w = juce::roundToInt ((float) (rigIdealW - 10) * scale);
+                const int idealKnob = rigCount == 1 ? 36 : (rigCount == 2 ? 30 : 22);
+                const int ampKnobW = juce::jlimit (19, idealKnob,
+                                                   juce::roundToInt (idealKnob * scale));
+                const int cardH = rigCount == 1 ? 140 : (rigCount == 2 ? 76 : 50);
+                const int cardY = gtrRibY + (gtrRibH - (cardH * rigCount
+                                  + 4 * juce::jmax (0, rigCount - 1))) / 2
+                                  + grp.rigLane * (cardH + 4);
+                const bool compact = rigCount > 1;
+                const int componentH = ampKnobW + (compact ? 12 : 26);
+                const int contentTop = cardY + 12;     // dedicated AMP/IR title row
+                const int contentBottom = cardY + cardH - 4;
+                const int ay = contentTop + juce::jmax (0,
+                    (contentBottom - contentTop - componentH) / 2);
+                const int ampAreaW = juce::roundToInt (grp.w * 0.68f);
+                const int ampSetW = 6 * ampKnobW + 5 * 2;
+                int kx = grp.x + (ampAreaW - ampSetW) / 2;
+                for (int i = grp.first; i <= grp.last && i < gtrKnobs.size(); ++i)
+                {
+                    if (i == grp.first + 6)
+                    {
+                        const int irX = grp.x + ampAreaW + 3;
+                        const int irW = grp.w - ampAreaW - 3;
+                        const int irSetW = 3 * ampKnobW + 2 * 2;
+                        kx = irX + (irW - irSetW) / 2;
+                    }
+                    gtrKnobs[i]->setCompactLayout (compact);
+                    gtrKnobs[i]->setBounds (kx, ay, ampKnobW, componentH);
+                    kx += ampKnobW + 2;
+                }
+                continue;
+            }
             grp.x = gx;
             const int nKnobs = grp.last - grp.first + 1;
             if (nKnobs <= 0)                        // name-only mini-slot
             {
-                gx += 46;
+                grp.w = juce::roundToInt (44.0f * scale);
             }
             else
             {
+                const int knobsW = nKnobs * kw + juce::jmax (0, nKnobs - 1) * 2;
+                grp.w = juce::jmax (juce::roundToInt (44.0f * scale), knobsW + 8);
+                int knobX = grp.x + (grp.w - knobsW) / 2;
                 for (int i = grp.first; i <= grp.last && i < gtrKnobs.size(); ++i)
                 {
-                    gtrKnobs[i]->setBounds (gx, ky, kw, kh);
-                    gx += kw + 4;
+                    gtrKnobs[i]->setBounds (knobX, ky, kw, kh);
+                    knobX += kw + 2;
                 }
             }
-            grp.w = gx - grp.x;
-            gx += 16;                               // gap between groups
-            if (gx > rightLimit) break;             // don't overflow the button
+            gx = grp.x + grp.w + juce::roundToInt (12.0f * scale);
         }
         // same spot as the guitar screen's "open drums" (aligned bands)
         gtrOpenBtn.setBounds (W - margin - 116, gtrRibY + (gtrRibH - 26) / 2, 116, 26);
@@ -1001,7 +1306,7 @@ void DrumOverlay::resized()
 
     // bar headers + staff (widths follow the meter)
     scoreView.setBounds (margin, scoreY, W - 2 * margin, scoreH);
-    computeBarLayout (W - 2 * margin);
+    computeBarLayout (scoreView.getWidth() - 8);
     for (auto* h : barHeads)
     {
         const auto& L = barLay[h->barInSec];
@@ -1022,7 +1327,7 @@ void DrumOverlay::resized()
         tabGrooves.setBounds (listX, libY, tabW, 24);
         tabViradas.setBounds (listX + tabW + 4, libY, tabW, 24);
         listVp.setBounds (listX, libY + 28, listColW, libH - 28);
-        previewPane.setBounds (prevX, libY, prevW, libH - 38);
+        previewPane.setBounds (prevX, libY, prevW, libH - 36);
         applyBtn.setBounds (prevX, libBottom - 30, 190, 30);
         // humanize: one chip; the 3 sliders live in the popover panel above it
         humChip.setBounds (W - margin - 112, libBottom - 28, 112, 26);
@@ -1054,6 +1359,8 @@ void DrumOverlay::resized()
 
     kitChip.setBounds (margin, sourceY, 254, sourceH);
     saveChip.setBounds (margin + 262, sourceY + 2, 120, 28);
+    genChip.setBounds (W - margin - 396, sourceY + 2, 92, 28);
+    gridChip.setBounds (W - margin - 298, sourceY + 2, 62, 28);
     levelSlider.setBounds (W - margin - 130, sourceY + 3, 130, 26);
 }
 
@@ -1075,21 +1382,30 @@ void DrumOverlay::computeBarLayout (int availW)
             L.den = engine.meterDen (gb);
             meterGroups (L.num, L.den, L.steps, L.groups, L.nGroups);
             L.showTS = (b == 0) || L.num != prevN || L.den != prevD;
-            if (L.showTS) { L.tsX = x + tsW * 0.5f - 3.0f; x += tsW; }
+            const float meterW = timeSignatureWidth (L.num, L.den);
+            if (L.showTS) { L.tsX = x + meterW * 0.5f; x += meterW; }
             else L.tsX = -1.0f;
             L.notesX = x;
             L.width = L.steps * sw + (L.nGroups - 1) * bp;
             x += L.width + bpad;
             prevN = L.num; prevD = L.den;
         }
-        return x - bpad + 12.0f;
+        return x - bpad + sw * 0.5f + 4.0f;
     };
 
     float total = build (stepW, beatPad, barPad);
     const float avail = (float) juce::jmax (200, availW);
     if (total > avail)
     {
-        const float k = avail / total;
+        // The clef offset and engraved time signatures do not scale with note
+        // spacing. Solve only for the scalable part; scaling the entire total
+        // once left mixed/odd-meter final bars a few pixels outside the view.
+        float fixed = (float) scoreLeft + 4.0f;
+        for (const auto& L : barLay)
+            if (L.showTS)
+                fixed += timeSignatureWidth (L.num, L.den);
+        const float k = juce::jlimit (0.35f, 1.0f,
+                                     (avail - fixed) / juce::jmax (1.0f, total - fixed));
         curStepW = stepW * k; curBeatPad = beatPad * k; curBarPad = barPad * k;
         total = build (curStepW, curBeatPad, curBarPad);
     }
@@ -1232,8 +1548,8 @@ void DrumOverlay::rebuildBarHeads()
 
 void DrumOverlay::BarHead::paint (juce::Graphics& g)
 {
-    // clean UI: slim overlay ON the staff - no box; the selection is shown by
-    // the staff highlight below. Meter is engraved on the staff (not here).
+    // Slim controls above each bar. The meter remains engraved in the staff,
+    // while this compact pill is its explicit selector.
     const int H = getHeight(), W = getWidth();
     const int py = (H - 18) / 2;
     const bool hover = isMouseOver (true);
@@ -1255,12 +1571,16 @@ void DrumOverlay::BarHead::paint (juce::Graphics& g)
                     juce::Justification::centred);
     };
 
-    // ROLE pill (left) - color by role; dimmer when "auto"
+    // METER selector first, immediately followed by the ROLE selector.
+    const int mtw = juce::GlyphArrangement::getStringWidthInt (ui::monoFont (9.5f, true), meterText);
+    meterRect = { 6, py, mtw + 24, 18 };
+    pill (meterRect, meterText, ui::textDim, selected);
+
+    // ROLE pill - color by role; dimmer when "auto"
     const juce::Colour rc = roleId == 3 ? ui::textDim : (roleId >= 4 ? ui::glowOrange : ui::accent);
     const int rtw = juce::GlyphArrangement::getStringWidthInt (ui::uiFont (9.5f, true), roleText);
-    roleRect = { 6, py, rtw + 24, 18 };
+    roleRect = { meterRect.getRight() + 5, py, rtw + 24, 18 };
     pill (roleRect, roleText, rc, ! roleAuto);
-    meterRect = {};   // meter is edited by clicking the engraved signature
 
     // clear + save (right, on hover/selection so the staff stays clean)
     const bool showX = ! empty && (hover || selected);
@@ -1298,6 +1618,7 @@ void DrumOverlay::BarHead::mouseUp (const juce::MouseEvent& e)
     const auto p = e.getPosition();
     if (! empty && clearRect.contains (p)) { if (onClear)  onClear();  return; }
     if (! empty && saveRect.contains (p))  { if (onSave)   onSave();   return; }
+    if (meterRect.contains (p))            { if (onMeter)  onMeter();  return; }
     if (roleRect.contains (p))             { if (onRole)   onRole();   return; }
     if (onSelect) onSelect();
 }
@@ -1306,45 +1627,52 @@ void DrumOverlay::BarHead::mouseUp (const juce::MouseEvent& e)
 // The central staff (time signature per bar, variable widths)
 void DrumOverlay::ScoreView::paint (juce::Graphics& g)
 {
-    g.setColour (juce::Colour (0xff0c0e11));
-    g.fillRoundedRectangle (getLocalBounds().toFloat(), 2.0f);
-    g.setColour (ui::accentDark.withAlpha (0.55f));
-    g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 2.0f, 1.0f);
+    const auto bounds = getLocalBounds().toFloat();
+    g.setColour (notationFrame);
+    g.fillRoundedRectangle (bounds, 3.0f);
+    g.setColour (notationCyan.withAlpha (0.55f));
+    g.drawRoundedRectangle (bounds.reduced (0.5f), 3.0f, 1.0f);
 
-    owner.computeBarLayout (getWidth());
+    const juce::Rectangle<float> paper (4.0f, 30.0f,
+                                        (float) getWidth() - 8.0f,
+                                        (float) getHeight() - 34.0f);
+    fillNotationPaper (g, paper, 3.5f, 0.28f);
+
+    owner.computeBarLayout (getWidth() - 8);
     auto& engine = owner.engine;
-    const juce::Colour ink (0xffc9d2da), dim (0xff5a6570);
     const int sec0 = owner.curSection * drum::barsPerSection;
     auto sx = [&] (int b, int s) { return owner.stepXInBar (b, s); };
+    auto yOf = [] (float pos) { return staffY (pos); };
 
     // staff lines + percussion clef
-    g.setColour (dim);
+    g.setColour (notationStaff.withAlpha (0.86f));
     for (int i = 0; i <= 4; ++i)
-        g.drawHorizontalLine ((int) staffY ((float) (i * 2)), 16.0f, (float) getWidth() - 10.0f);
-    g.setColour (ink);
-    g.fillRect (22.0f, staffY (6), 3.6f, 4.0f * staffSP);
-    g.fillRect (29.0f, staffY (6), 3.6f, 4.0f * staffSP);
+        g.drawLine (paper.getX() + 8.0f, staffY ((float) (i * 2)),
+                    paper.getRight() - 8.0f, staffY ((float) (i * 2)), 0.9f);
+    drawMusicGlyph (g, smuflPercussionClef, { 29.0f, staffY (4.0f) },
+                    32.0f * staffSP, notationInk);
 
     // background of the selected bar
     {
         const auto& L = owner.barLay[owner.selBar];
         const float x0 = L.notesX - owner.curStepW * 0.5f - 5.0f, x1 = L.notesX + L.width + 5.0f;
-        g.setColour (ui::accent.withAlpha (0.05f));
+        g.setColour (notationCyan.withAlpha (0.065f));
         g.fillRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 2.0f);
-        g.setColour (ui::accent.withAlpha (0.35f));
+        g.setColour (notationCyan.withAlpha (0.42f));
         const float dash[] = { 3.0f, 3.0f };
-        juce::Path pth;
-        pth.addRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 2.0f);
-        juce::PathStrokeType (1.0f).createDashedStroke (pth, pth, dash, 2);
-        g.fillPath (pth);
+        juce::Path outline, dashed;
+        outline.addRoundedRectangle (x0, staffY (13.0f), x1 - x0,
+                                     staffY (-5.0f) - staffY (13.0f), 2.0f);
+        juce::PathStrokeType (1.0f).createDashedStroke (dashed, outline, dash, 2);
+        g.fillPath (dashed);
     }
     if (dragOverBar >= 0)
     {
         const auto& L = owner.barLay[dragOverBar];
         const float x0 = L.notesX - owner.curStepW * 0.5f - 5.0f, x1 = L.notesX + L.width + 5.0f;
-        g.setColour (ui::glowOrange.withAlpha (0.10f));
+        g.setColour (notationAmber.withAlpha (0.10f));
         g.fillRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 2.0f);
-        g.setColour (ui::glowOrange);
+        g.setColour (notationAmber);
         g.drawRoundedRectangle (x0, staffY (13.0f), x1 - x0, staffY (-5.0f) - staffY (13.0f), 2.0f, 1.4f);
     }
 
@@ -1352,78 +1680,78 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
     const int uiBar = engine.uiBar.load();
     if (uiBar >= 0 && uiBar / drum::barsPerSection == owner.curSection)
     {
-        const int b = uiBar % drum::barsPerSection, s = juce::jmax (0, engine.uiStep.load());
-        g.setColour (ui::accent.withAlpha (0.14f));
-        g.fillRoundedRectangle (sx (b, s) - owner.curStepW * 0.5f + 1, staffY (13.0f),
-                                owner.curStepW - 2, staffY (-5.0f) - staffY (13.0f), 3.0f);
+        const int b = uiBar % drum::barsPerSection;
+        const int s = juce::jlimit (0, owner.barLay[b].steps - 1, engine.uiStep.load());
+        const float px = sx (b, s);
+        g.setColour (notationCyan.withAlpha (0.11f));
+        g.fillRoundedRectangle (px - owner.curStepW * 0.45f, staffY (13.0f),
+                                owner.curStepW * 0.9f,
+                                staffY (-5.0f) - staffY (13.0f), 2.0f);
+        g.setColour (notationCyan);
+        g.fillRect (px - 0.8f, staffY (13.0f), 1.6f,
+                    staffY (-5.0f) - staffY (13.0f));
+        juce::Path marker;
+        marker.addTriangle (px - 4.0f, staffY (13.0f) - 1.0f,
+                            px + 4.0f, staffY (13.0f) - 1.0f,
+                            px, staffY (13.0f) + 5.0f);
+        g.fillPath (marker);
     }
 
     auto drawHead = [&] (float x, float y, bool cross, bool ghost)
     {
-        g.setColour (ink);
-        if (cross)
-        {
-            const float r = 3.9f;
-            g.drawLine (x - r, y - r, x + r, y + r, 1.7f);
-            g.drawLine (x - r, y + r, x + r, y - r, 1.7f);
-        }
-        else
-        {
-            juce::Path p;
-            p.addEllipse (x - 4.8f, y - 3.6f, 9.6f, 7.2f);
-            p.applyTransform (juce::AffineTransform::rotation (-0.31f, x, y));
-            g.fillPath (p);
-        }
+        drawMusicGlyph (g, cross ? smuflNoteheadXBlack : smuflNoteheadBlack,
+                        { x, y }, 22.0f * staffSP,
+                        ghost ? notationDim.withAlpha (0.74f) : notationInk);
         if (ghost)
         {
-            g.setFont (ui::monoFont (10.0f));
-            g.setColour (dim);
-            g.drawText ("(", (int) x - 13, (int) y - 6, 7, 12, juce::Justification::centred);
-            g.drawText (")", (int) x + 6, (int) y - 6, 7, 12, juce::Justification::centred);
-            g.setColour (ink);
+            drawMusicGlyph (g, smuflNoteheadParenthesisLeft,
+                            { x - 1.12f * staffSP, y }, 24.0f * staffSP,
+                            notationDim.withAlpha (0.86f));
+            drawMusicGlyph (g, smuflNoteheadParenthesisRight,
+                            { x + 1.12f * staffSP, y }, 24.0f * staffSP,
+                            notationDim.withAlpha (0.86f));
         }
     };
 
     const float beamYH = staffY (12.0f), beamYF = staffY (-4.0f);
+    const float headHalfW = staffSP * 0.90f;
+    const float stemW = 1.15f;
+    const float beamH = 3.0f;
 
     for (int b = 0; b < drum::barsPerSection; ++b)
     {
         const auto& L = owner.barLay[b];
         const int bar = sec0 + b;
 
-        // time signature (only when it changes) - engraved like a printed
-        // score: stacked bold serif numerals in the staff ink, numerator
-        // filling the top two spaces, denominator the bottom two
+        // Engraved time signature appears only at the start of the system or
+        // when the bar meter changes. Its selector remains in the bar header.
         if (L.showTS)
-        {
-            g.setColour (ink);
-            g.setFont (juce::Font (juce::FontOptions ("Georgia", staffSP * 5.0f,
-                                                      juce::Font::bold)));
-            g.drawText (juce::String (L.num), (int) L.tsX - 14, (int) staffY (8), 28,
-                        (int) (4 * staffSP), juce::Justification::centred);
-            g.drawText (juce::String (L.den), (int) L.tsX - 14, (int) staffY (4), 28,
-                        (int) (4 * staffSP), juce::Justification::centred);
-        }
+            drawMusicTimeSignature (g, L.tsX, staffSP, yOf,
+                                    L.num, L.den, notationInk);
 
         // bar line
         const float bx = L.notesX + L.width + owner.curBarPad * 0.5f - 2.0f;
-        g.setColour (ink);
-        g.drawLine (bx, staffY (8), bx, staffY (0), b == drum::barsPerSection - 1 ? 1.6f : 1.1f);
+        g.setColour (notationInk);
+        if (b == drum::barsPerSection - 1)
+        {
+            g.drawLine (bx - 3.2f, staffY (8), bx - 3.2f, staffY (0), 1.0f);
+            g.drawLine (bx, staffY (8), bx, staffY (0), 2.2f);
+        }
+        else
+            g.drawLine (bx, staffY (8), bx, staffY (0), 1.0f);
 
         // beat numbers (1 per group)
         g.setFont (ui::monoFont (9.0f));
-        g.setColour (dim);
+        g.setColour (notationDim.withAlpha (0.9f));
         for (int gi = 0, gs = 0; gi < L.nGroups; gs += L.groups[gi], ++gi)
             g.drawText (juce::String (gi + 1), (int) sx (b, gs) - 8,
-                        (int) staffY (-5.0f) + 12, 16, 12, juce::Justification::centred);
+                        getHeight() - 18, 16, 12, juce::Justification::centred);
 
         if (! engine.barUsed[bar].load())
         {
-            g.setFont (ui::monoFont (10.0f));
-            g.setColour (dim);
-            g.drawText (juce::CharPointer_UTF8 ("\xc2\xb7 \xc2\xb7 \xc2\xb7"),
-                        (int) L.notesX, (int) staffY (5.0f) - 8, (int) L.width, 16,
-                        juce::Justification::centred);
+            drawMusicGlyph (g, smuflRestWhole,
+                            { L.notesX + L.width * 0.5f, staffY (4.0f) },
+                            30.0f * staffSP, notationDim);
             continue;
         }
 
@@ -1464,41 +1792,61 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
                     continue;
 
                 const float beamY = up ? beamYH : beamYF;
-                auto stemX = [&] (int s) { return up ? sx (b, s) + 4.6f : sx (b, s) - 4.6f; };
+                auto stemX = [&] (int s) { return up ? sx (b, s) + headHalfW
+                                                      : sx (b, s) - headHalfW; };
 
-                g.setColour (ink);
+                g.setColour (notationInk);
                 for (int c = 0; c < numCols; ++c)
                 {
+                    g.setColour (notationInk);
                     g.drawLine (stemX (cols[c].s), cols[c].noteY + (up ? -2.0f : 2.0f),
-                                stemX (cols[c].s), beamY, 1.4f);
+                                stemX (cols[c].s), beamY, stemW);
                     if (cols[c].accent)
-                    {
-                        g.setColour (ui::glowOrange);
-                        g.setFont (ui::uiFont (12.0f, true));
-                        g.drawText (">", (int) sx (b, cols[c].s) - 8,
-                                    (int) (up ? beamY - 18.0f : beamY + 3.0f), 16, 15,
-                                    juce::Justification::centred);
-                        g.setColour (ink);
-                    }
+                        drawMusicGlyph (g, up ? smuflAccentAbove : smuflAccentBelow,
+                                        { sx (b, cols[c].s),
+                                          beamY + (up ? -1.45f : 1.45f) * staffSP },
+                                        28.0f * staffSP, notationAmber);
                 }
+                g.setColour (notationInk);
 
                 if (numCols > 1)
                 {
-                    const float y = up ? beamY : beamY - 3.0f;
-                    g.fillRect (stemX (cols[0].s), y,
-                                stemX (cols[numCols - 1].s) - stemX (cols[0].s), 3.0f);
+                    const float primaryY = up ? beamY : beamY - beamH;
+                    g.fillRect (stemX (cols[0].s), primaryY,
+                                stemX (cols[numCols - 1].s) - stemX (cols[0].s), beamH);
+                    const float secondaryY = primaryY + (up ? 1.65f : -1.65f) * beamH;
                     for (int c = 0; c < numCols - 1; ++c)
                         if (cols[c + 1].s - cols[c].s == 1)
-                            g.fillRect (stemX (cols[c].s), up ? beamY + 4.8f : beamY - 7.8f,
-                                        stemX (cols[c + 1].s) - stemX (cols[c].s), 3.0f);
+                            g.fillRect (stemX (cols[c].s), secondaryY,
+                                        stemX (cols[c + 1].s) - stemX (cols[c].s), beamH);
+
+                    for (int c = 0; c < numCols; ++c)
+                    {
+                        const bool joinsLeft = c > 0 && cols[c].s - cols[c - 1].s == 1;
+                        const bool joinsRight = c + 1 < numCols
+                                             && cols[c + 1].s - cols[c].s == 1;
+                        if (! joinsLeft && ! joinsRight)
+                        {
+                            const float len = staffSP * (c == numCols - 1 ? -1.1f : 1.1f);
+                            g.fillRect (juce::jmin (stemX (cols[c].s), stemX (cols[c].s) + len),
+                                        secondaryY, std::abs (len), beamH);
+                        }
+                    }
                 }
                 else
                 {
-                    juce::Path flag;
-                    const float x = stemX (cols[0].s), dir = up ? 1.0f : -1.0f;
-                    flag.startNewSubPath (x, beamY);
-                    flag.quadraticTo (x + 7.0f, beamY + 4.5f * dir, x + 3.5f, beamY + 13.0f * dir);
-                    g.strokePath (flag, juce::PathStrokeType (1.5f));
+                    const float x = stemX (cols[0].s);
+                    for (int flagIndex = 0; flagIndex < 2; ++flagIndex)
+                    {
+                        const float dir = up ? 1.0f : -1.0f;
+                        const float fy = beamY + dir * flagIndex * staffSP * 0.72f;
+                        juce::Path flag;
+                        flag.startNewSubPath (x, fy);
+                        flag.quadraticTo (x + dir * staffSP, fy + dir * staffSP * 0.55f,
+                                          x + dir * staffSP * 0.45f,
+                                          fy + dir * staffSP * 1.6f);
+                        g.strokePath (flag, juce::PathStrokeType (stemW));
+                    }
                 }
             }
         }
@@ -1511,25 +1859,7 @@ int DrumOverlay::ScoreView::barAtX (int x) const { return owner.barAtXlocal (x);
 
 void DrumOverlay::ScoreView::mouseDown (const juce::MouseEvent& e)
 {
-    owner.computeBarLayout (getWidth());
-
-    // clicking the bar's opening zone (the engraved signature, or the bar
-    // start when it is hidden by repetition) edits that bar's meter
-    for (int b = 0; b < drum::barsPerSection; ++b)
-    {
-        const auto& L = owner.barLay[b];
-        const float zx0 = L.tsX >= 0.0f ? L.tsX - tsW * 0.5f - 2.0f
-                                        : L.notesX - owner.curStepW - 6.0f;
-        const float zx1 = L.notesX - owner.curStepW * 0.55f;
-        if ((float) e.x >= zx0 && (float) e.x < zx1
-            && (float) e.y > staffY (10.0f) && (float) e.y < staffY (-3.0f))
-        {
-            owner.selBar = b;
-            owner.refreshAll();
-            owner.openMeterMenu (b, this);
-            return;
-        }
-    }
+    owner.computeBarLayout (getWidth() - 8);
 
     downBar = owner.barAtXlocal (e.x);
 
@@ -1929,10 +2259,19 @@ void DrumOverlay::buildGuitarRibbon()
     gtrGroups.clear();
     auto& apvts = processor.apvts;
 
-    auto add = [&] (const char* id, const char* lbl)
+    auto add = [&] (const juce::String& id, const juce::String& lbl)
     {
         if (apvts.getParameter (id) == nullptr) return;
-        auto* kn = new KnobComponent (apvts, id, lbl, [] (float v) { return juce::String (v, 1); });
+        auto* kn = new KnobComponent (apvts, id, lbl, [id] (float v)
+        {
+            if (id.endsWithIgnoreCase ("LowCut") || id.endsWithIgnoreCase ("HighCut"))
+            {
+                if (v >= 1000.0f)
+                    return juce::String (v / 1000.0f, v < 10000.0f ? 1 : 0) + "k";
+                return juce::String (juce::roundToInt (v));
+            }
+            return juce::String (v, 1);
+        });
         gtrKnobs.add (kn);
         addAndMakeVisible (*kn);
     };
@@ -1940,38 +2279,89 @@ void DrumOverlay::buildGuitarRibbon()
     struct KP { const char* id; const char* lbl; };
     auto defFor = [] (const juce::String& id, juce::String& name) -> std::vector<KP>
     {
-        if (id == "amp")      { name = "AMP";     return { {"ampGain","GAIN"},{"ampBass","BASS"},{"ampMid","MID"},{"ampTreble","TREB"},{"ampPresence","PRES"},{"ampMaster","MASTER"} }; }
-        if (id == "gate")     { name = "GATE";    return { {"gateThresh","THRSH"} }; }
-        if (id == "comp")     { name = "COMP";    return { {"compLevel","LVL"} }; }
-        if (id == "od")       { name = "OD";      return { {"odDrive","DRIVE"},{"odLevel","LVL"} }; }
+        if (id == "amp")      { name = "AMP";     return {}; }
+        if (id == "gate")     { name = "GATE";    return { {"gateThresh","THRESH"} }; }
+        if (id == "comp")     { name = "COMP";    return { {"compLevel","LEVEL"} }; }
+        if (id == "od")       { name = "OD";      return { {"odDrive","DRIVE"},{"odLevel","LEVEL"} }; }
         if (id == "preeq")    { name = "PRE-EQ";  return { {"preEqMid","MID"} }; }
         if (id == "eq")       { name = "EQ";      return { {"eqMid","MID"} }; }
         if (id == "mod")      { name = "MOD";     return { {"modMix","MIX"} }; }
         if (id == "delay")    { name = "DELAY";   return { {"delayMix","MIX"} }; }
         if (id == "reverb")   { name = "REVERB";  return { {"revMix","MIX"} }; }
         if (id == "pitch")    { name = "PITCH";   return { {"pitchMix","MIX"} }; }
-        if (id == "limiter")  { name = "LIMIT";   return { {"limCeil","CEIL"} }; }
-        if (id == "wah")      { name = "WAH";     return {}; }
-        if (id == "harm")     { name = "HARM";    return {}; }
-        if (id == "octaver")  { name = "OCT";     return {}; }
-        if (id == "ringmod")  { name = "RING";    return {}; }
-        if (id == "bitcrush") { name = "CRUSH";   return {}; }
-        if (id == "slowgear") { name = "SLOW";    return {}; }
-        if (id == "exciter")  { name = "EXCITE";  return {}; }
-        if (id == "deesser")  { name = "DE-ESS";  return {}; }
-        if (id == "tape")     { name = "TAPE";    return {}; }
-        if (id == "console")  { name = "CONSOLE"; return {}; }
+        if (id == "limiter")  { name = "LIMIT";   return { {"limCeiling","CEILING"} }; }
+        if (id == "wah")      { name = "WAH";     return { {"wahFreq","FREQ"} }; }
+        if (id == "harm")     { name = "HARM";    return { {"harmMix","MIX"} }; }
+        if (id == "octaver")  { name = "OCT";     return { {"octSub","SUB"} }; }
+        if (id == "ringmod")  { name = "RING";    return { {"rmMix","MIX"} }; }
+        if (id == "bitcrush") { name = "CRUSH";   return { {"bcMix","MIX"} }; }
+        if (id == "slowgear") { name = "SLOW";    return { {"sgRise","RISE"} }; }
+        if (id == "exciter")  { name = "EXCITE";  return { {"excAmt","AMOUNT"} }; }
+        if (id == "deesser")  { name = "DE-ESS";  return { {"dsAmt","AMOUNT"} }; }
+        if (id == "tape")     { name = "TAPE";    return { {"tapeDrive","DRIVE"} }; }
+        if (id == "console")  { name = "CONSOLE"; return { {"cnsAmt","AMOUNT"} }; }
         if (id.startsWith ("ext")) { name = "VST"; return {}; }
         name = {};            // looper / analyzer / cab / mixer -> skipped
         return {};
     };
 
+    auto onFor = [] (const juce::String& id)
+    {
+        if (id == "amp") return juce::String ("ampOn");
+        if (id == "gate") return juce::String ("gateOn");
+        if (id == "comp") return juce::String ("compOn");
+        if (id == "od") return juce::String ("odOn");
+        if (id == "preeq") return juce::String ("preEqOn");
+        if (id == "eq") return juce::String ("eqOn");
+        if (id == "mod") return juce::String ("modOn");
+        if (id == "delay") return juce::String ("delayOn");
+        if (id == "reverb") return juce::String ("revOn");
+        if (id == "pitch") return juce::String ("pitchOn");
+        if (id == "limiter") return juce::String ("limOn");
+        if (id == "looper") return juce::String ("looperOn");
+        if (id == "wah") return juce::String ("wahOn");
+        if (id == "harm") return juce::String ("harmOn");
+        if (id == "octaver") return juce::String ("octOn");
+        if (id == "ringmod") return juce::String ("rmOn");
+        if (id == "bitcrush") return juce::String ("bcOn");
+        if (id == "slowgear") return juce::String ("sgOn");
+        if (id == "exciter") return juce::String ("excOn");
+        if (id == "deesser") return juce::String ("dsOn");
+        if (id == "tape") return juce::String ("tapeOn");
+        if (id == "console") return juce::String ("cnsOn");
+        if (id == "analyzer") return juce::String ("anOn");
+        if (id.startsWith ("ext")) return id + "On";
+        return juce::String();
+    };
+
     for (const auto& id : processor.getChainOrder())
     {
+        if (id == "amp")
+        {
+            for (int r = 0; r < processor.getRigCount(); ++r)
+            {
+                GtrGroup grp;
+                grp.name = "AMP" + juce::String (r + 1) + "  >  IR" + juce::String (r + 1);
+                grp.onParam = "ampOn";
+                grp.first = gtrKnobs.size();
+                const auto prefix = r == 0 ? juce::String ("amp") : "amp" + juce::String (r + 1);
+                add (prefix + "Gain", "GAIN"); add (prefix + "Bass", "BASS");
+                add (prefix + "Mid", "MID"); add (prefix + "Treble", "TREBLE");
+                add (prefix + "Presence", "PRES"); add (prefix + "Master", "MASTER");
+                const auto cabPrefix = "cab" + juce::String (r + 1);
+                add (cabPrefix + "Blend", "MIX");
+                add (cabPrefix + "LowCut", "LO CUT");
+                add (cabPrefix + "HighCut", "HI CUT");
+                grp.last = gtrKnobs.size() - 1;
+                grp.rigLane = r;
+                gtrGroups.push_back (grp);
+            }
+            continue;
+        }
         juce::String name;
         const auto kps = defFor (id, name);
         if (name.isEmpty()) continue;
-        GtrGroup grp; grp.name = name; grp.first = gtrKnobs.size();
+        GtrGroup grp; grp.name = name; grp.onParam = onFor (id); grp.first = gtrKnobs.size();
         for (const auto& kp : kps) add (kp.id, kp.lbl);
         grp.last = gtrKnobs.size() - 1;   // < first when name-only
         gtrGroups.push_back (grp);
@@ -2263,8 +2653,10 @@ void DrumOverlay::PreviewPane::paint (juce::Graphics& g)
     g.drawText (juce::String (juce::CharPointer_UTF8 (tag.toRawUTF8())), getWidth() - 150, 9, 140, 16,
                 juce::Justification::centredRight);
 
-    drawMiniBar (g, { 14.0f, 34.0f, (float) getWidth() - 28.0f, (float) getHeight() - 74.0f },
-                 owner.selPat, owner.selNum, owner.selDen);
+    drawMiniBar (g, { 10.0f, 34.0f, (float) getWidth() - 20.0f,
+                      (float) getHeight() - 66.0f },
+                 owner.selPat, owner.selNum, owner.selDen,
+                 true, true, true);
 
     g.setFont (ui::monoFont (9.0f));
     g.setColour (ui::textFaint);
@@ -2286,9 +2678,23 @@ void DrumOverlay::PreviewPane::mouseDrag (const juce::MouseEvent& e)
 
 //==============================================================================
 // Optional grid (16 steps of the selected bar)
+int DrumOverlay::GridView::cellWidth() const
+{
+    const int steps = juce::jmax (1, owner.engine.barSteps (owner.selectedBar()));
+    const int beatGaps = (steps - 1) / 4;
+    const int fixed = gridLabelW + 4 + (steps - 1) * gCellGap + beatGaps * gBeatGap;
+    return juce::jlimit (10, gCellMaxW,
+                         juce::jmax (10, (getWidth() - fixed) / steps));
+}
+
+int DrumOverlay::GridView::stepX (int step) const
+{
+    return gridLabelW + step * (cellWidth() + gCellGap) + (step / 4) * gBeatGap;
+}
+
 juce::Rectangle<int> DrumOverlay::GridView::cellBounds (int row, int step) const
 {
-    return { gridStepX (step), 16 + row * (gRowH + gRowGap), gCellW, gRowH };
+    return { stepX (step), 16 + row * (gRowH + gRowGap), cellWidth(), gRowH };
 }
 
 void DrumOverlay::GridView::paint (juce::Graphics& g)
@@ -2310,7 +2716,9 @@ void DrumOverlay::GridView::paint (juce::Graphics& g)
         const juce::String lbl = s % 4 == 0 ? juce::String (s / 4 + 1)
                                             : (s % 2 == 0 ? juce::String ("&")
                                                           : juce::String::fromUTF8 ("\xc2\xb7"));
-        g.drawText (lbl, gridStepX (s), 0, gCellW, 14, juce::Justification::centred);
+        const auto cell = cellBounds (0, s);
+        g.drawText (lbl, cell.getX(), 0, cell.getWidth(), 14,
+                    juce::Justification::centred);
     }
 
     const int uiBar = engine.uiBar.load();
