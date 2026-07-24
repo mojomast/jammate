@@ -3672,13 +3672,121 @@ void RigContent::paintPerformanceView (juce::Graphics& g)
         }
     }
 
+    // ---- vNext: side tiles (large, operable from a distance) ----
+    {
+        auto tile = [&] (int idx, juce::Rectangle<int> r, const juce::String& label,
+                         const juce::String& big, const juce::String& sub, bool active)
+        {
+            stageTiles[idx] = r;
+            g.setColour (active ? ui::accent.withAlpha (0.10f)
+                                : ui::cardBottom.withAlpha (0.76f));
+            g.fillRoundedRectangle (r.toFloat(), 10.0f);
+            g.setColour (active ? ui::accent.withAlpha (0.7f) : ui::border());
+            g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 10.0f, 1.0f);
+            g.setColour (ui::textFaint);
+            g.setFont (ui::monoFont (9.0f, true));
+            g.drawText (label, r.getX(), r.getY() + 10, r.getWidth(), 12,
+                        juce::Justification::centred);
+            g.setColour (active ? ui::accentBright : ui::textDim);
+            g.setFont (ui::uiFont (24.0f, true));
+            g.drawText (big, r.getX(), r.getCentreY() - 16, r.getWidth(), 30,
+                        juce::Justification::centred);
+            g.setColour (ui::textFaint);
+            g.setFont (ui::monoFont (8.5f));
+            g.drawFittedText (sub, r.getX() + 8, r.getBottom() - 26, r.getWidth() - 16, 18,
+                              juce::Justification::centred, 1);
+        };
+
+        const int tileW = 196, tileH = (area.getHeight() - 206 - 2 * 12) / 3;
+        const int tileY0 = area.getY() + 76;
+        auto boolParam = [&] (const char* id)
+        {
+            auto* p = processor.apvts.getRawParameterValue (id);
+            return p != nullptr && p->load() > 0.5f;
+        };
+        auto choiceText = [&] (const char* id) -> juce::String
+        {
+            if (auto* p = processor.apvts.getParameter (id))
+                return p->getCurrentValueAsText();
+            return {};
+        };
+
+        // left: guitar blocks
+        const auto model = processor.getModelName (0);
+        tile (0, { 34, tileY0, tileW, tileH }, "AMP",
+              boolParam ("ampOn") ? "ON" : "OFF",
+              model.isNotEmpty() ? model : juce::String ("- no capture -"),
+              boolParam ("ampOn"));
+        tile (1, { 34, tileY0 + tileH + 12, tileW, tileH }, "DRIVE",
+              boolParam ("odOn") ? choiceText ("odType").toUpperCase() : "OFF",
+              "tap to bypass", boolParam ("odOn"));
+        tile (2, { 34, tileY0 + 2 * (tileH + 12), tileW, tileH }, "DELAY",
+              boolParam ("delayOn") ? "ON" : "OFF",
+              "mix " + choiceText ("delayMix"), boolParam ("delayOn"));
+
+        // right: drums / rec / input mute
+        const bool playing = processor.drumEngine.playing.load();
+        const int uiBar = processor.drumEngine.uiBar.load();
+        tile (3, { W - 34 - tileW, tileY0, tileW, tileH }, "DRUMS",
+              playing ? "PLAY" : "STOP",
+              playing && uiBar >= 0
+                  ? "bar " + juce::String (uiBar + 1) + "/"
+                        + juce::String (processor.drumEngine.totalBars())
+                  : juce::String ((int) processor.drumEngine.bpm.load()) + " BPM",
+              playing);
+        tile (4, { W - 34 - tileW, tileY0 + tileH + 12, tileW, tileH }, "RECORD",
+              processor.isRecording() ? "REC" : "READY", "24-bit WAV",
+              processor.isRecording());
+        tile (5, { W - 34 - tileW, tileY0 + 2 * (tileH + 12), tileW, tileH }, "INPUT",
+              tunerMuteWanted ? "MUTED" : "LIVE", "mute while tuning",
+              tunerMuteWanted);
+    }
+
+    // ---- vNext: footswitch-style action row ----
+    {
+        const char* labels[5] = { "\xe2\x80\xb9 PRESET", nullptr, "TAP TEMPO",
+                                  nullptr, "PRESET \xe2\x80\xba" };
+        const bool playing = processor.drumEngine.playing.load();
+        const juce::String drumsLbl = playing
+            ? juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0 STOP DRUMS"))
+            : juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6 PLAY DRUMS"));
+        const juce::String tunerLbl = isTunerOn() ? "TUNER ON" : "TUNER OFF";
+        const juce::String subs[5] = { "footswitch 1", "footswitch 2",
+                                       juce::String ((int) processor.drumEngine.bpm.load()) + " BPM",
+                                       "footswitch 4", "footswitch 5" };
+
+        const int rowY = area.getBottom() - 96, rowH = 74;
+        const int btnW = (W - 2 * 34 - 4 * 10) / 5;
+        for (int i = 0; i < 5; ++i)
+        {
+            const juce::Rectangle<int> r (34 + i * (btnW + 10), rowY, btnW, rowH);
+            stageActions[i] = r;
+            const bool hot = i == 1 && playing;
+            g.setColour (hot ? ui::accent : ui::cardBottom.withAlpha (0.85f));
+            g.fillRoundedRectangle (r.toFloat(), 9.0f);
+            g.setColour (hot ? ui::accent : ui::border());
+            g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 9.0f, 1.0f);
+            g.setColour (hot ? ui::accentTextDark : ui::text);
+            g.setFont (ui::uiFont (13.0f, true));
+            const juce::String big = i == 1 ? drumsLbl
+                                   : i == 3 ? tunerLbl
+                                            : juce::String (juce::CharPointer_UTF8 (labels[i]));
+            g.drawText (big, r.getX(), r.getY() + 16, r.getWidth(), 20,
+                        juce::Justification::centred);
+            g.setColour (hot ? ui::accentTextDark.withAlpha (0.75f) : ui::textFaint);
+            g.setFont (ui::monoFont (8.5f));
+            g.drawText (subs[i], r.getX(), r.getBottom() - 28, r.getWidth(), 14,
+                        juce::Justification::centred);
+        }
+    }
+
     // ---- hints
     g.setFont (ui::monoFont (10.0f));
     g.setColour (ui::textFaint);
     g.drawText (juce::CharPointer_UTF8 ("\xe2\x86\x90/\xe2\x86\x92 presets \xc2\xb7 "
                                         "space toggles the amp \xc2\xb7 "
                                         "T tuner \xc2\xb7 F/Esc back to editing"),
-                area.getX(), area.getBottom() - 26, area.getWidth(), 16,
+                area.getX(), area.getBottom() - 110, area.getWidth(), 14,
                 juce::Justification::centred);
 }
 
@@ -4315,9 +4423,52 @@ bool RigContent::keyPressed (const juce::KeyPress& key)
 
 void RigContent::mouseDown (const juce::MouseEvent& e)
 {
-    // stage mode: sides navigate presets, center opens the menu
     if (perfMode && e.y > 60 && e.y < getHeight() - 60)
     {
+        const auto p = e.getPosition();
+        auto toggleParam = [this] (const char* id)
+        {
+            if (auto* prm = processor.apvts.getParameter (id))
+                prm->setValueNotifyingHost (prm->getValue() > 0.5f ? 0.0f : 1.0f);
+        };
+
+        // vNext stage: tiles (amp/drive/delay - drums/rec/input)
+        if (stageTiles[0].contains (p)) { toggleParam ("ampOn"); repaint(); return; }
+        if (stageTiles[1].contains (p)) { toggleParam ("odOn"); repaint(); return; }
+        if (stageTiles[2].contains (p)) { toggleParam ("delayOn"); repaint(); return; }
+        if (stageTiles[3].contains (p))
+        {
+            processor.drumEngine.playing.store (! processor.drumEngine.playing.load());
+            repaint();
+            return;
+        }
+        if (stageTiles[4].contains (p)) { recChip.triggerClick(); repaint(); return; }
+        if (stageTiles[5].contains (p)) { muteChip.triggerClick(); repaint(); return; }
+
+        // vNext stage: footswitch action row
+        if (stageActions[0].contains (p)) { processor.loadAdjacentPreset (-1); return; }
+        if (stageActions[4].contains (p)) { processor.loadAdjacentPreset (1); return; }
+        if (stageActions[1].contains (p))
+        {
+            processor.drumEngine.playing.store (! processor.drumEngine.playing.load());
+            repaint();
+            return;
+        }
+        if (stageActions[2].contains (p))
+        {
+            // tap tempo: interval between consecutive taps -> BPM
+            const auto now = juce::Time::currentTimeMillis();
+            const auto dt = now - lastStageTapMs;
+            lastStageTapMs = now;
+            if (dt > 250 && dt < 2000)
+                processor.drumEngine.bpm.store (
+                    juce::jlimit (40.0f, 260.0f, 60000.0f / (float) dt));
+            repaint();
+            return;
+        }
+        if (stageActions[3].contains (p)) { tunerToggle.triggerClick(); repaint(); return; }
+
+        // remaining area: sides navigate presets, center opens the menu
         if (e.x < getWidth() / 4)
             processor.loadAdjacentPreset (-1);
         else if (e.x > getWidth() * 3 / 4)

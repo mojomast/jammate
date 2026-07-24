@@ -435,6 +435,10 @@ private:
 
     // performance mode (stage): hides the chain, shows the essentials large
     bool perfMode = false;
+    // vNext stage: clickable tiles/actions (rects computed in paint)
+    juce::Rectangle<int> stageTiles[6];     // L: amp, drive, delay - R: drums, rec, mute
+    juce::Rectangle<int> stageActions[5];   // <preset, drums, tap, tuner, preset>
+    juce::int64 lastStageTapMs = 0;         // tap tempo
     juce::TextButton perfChip { "STAGE" };
     void setPerfMode (bool shouldBeOn);
     void paintPerformanceView (juce::Graphics&);
