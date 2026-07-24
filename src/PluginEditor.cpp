@@ -892,24 +892,38 @@ juce::String ChainView::archBadgeForIr (int slot)
 
 int ChainView::toneIdForLane (int lane) const
 {
+    // cached by path: this is polled by the 30 Hz UI timer and by paint(),
+    // so it must not hit the filesystem on every call (vNext P0)
     const auto path = processor.getModelPathNormal (lane);
-    if (path.isEmpty())
-        return 0;
-    const juce::File meta (path + ".meta");
-    if (! meta.existsAsFile())
-        return 0;
-    return (int) juce::JSON::parse (meta.loadFileAsString()).getProperty ("tone_id", 0);
+    if (path == toneIdCachePath[lane])
+        return toneIdCacheVal[lane];
+    toneIdCachePath[lane] = path;
+    toneIdCacheVal[lane] = 0;
+    if (path.isNotEmpty())
+    {
+        const juce::File meta (path + ".meta");
+        if (meta.existsAsFile())
+            toneIdCacheVal[lane] = (int) juce::JSON::parse (meta.loadFileAsString())
+                                             .getProperty ("tone_id", 0);
+    }
+    return toneIdCacheVal[lane];
 }
 
 int ChainView::toneIdForCab (int slot) const
 {
     const auto path = processor.getIrPath (slot);
-    if (path.isEmpty())
-        return 0;
-    const juce::File meta (path + ".meta");
-    if (! meta.existsAsFile())
-        return 0;
-    return (int) juce::JSON::parse (meta.loadFileAsString()).getProperty ("tone_id", 0);
+    if (path == cabToneCachePath[slot])
+        return cabToneCacheVal[slot];
+    cabToneCachePath[slot] = path;
+    cabToneCacheVal[slot] = 0;
+    if (path.isNotEmpty())
+    {
+        const juce::File meta (path + ".meta");
+        if (meta.existsAsFile())
+            cabToneCacheVal[slot] = (int) juce::JSON::parse (meta.loadFileAsString())
+                                              .getProperty ("tone_id", 0);
+    }
+    return cabToneCacheVal[slot];
 }
 
 void ChainView::refreshDynamicText()

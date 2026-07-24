@@ -90,6 +90,12 @@ constexpr auto* kStatePresetName = "presetName";
 
 GuitarRigNAMProcessor::LoadedModel::~LoadedModel() = default;
 
+GuitarRigNAMProcessor::LoadedModel* GuitarRigNAMProcessor::unloadSentinel()
+{
+    static LoadedModel s;   // model == nullptr; never owned, never deleted
+    return &s;
+}
+
 //==============================================================================
 // Biquads RBJ (Audio EQ Cookbook), S=1 nos shelves.
 
@@ -762,8 +768,10 @@ GuitarRigNAMProcessor::~GuitarRigNAMProcessor()
     loaderPool.removeAllJobs (true, 5000);
     for (int r = 0; r < maxRigs; ++r)
     {
-        delete pendingModels[r].exchange (nullptr);
-        delete retiredModels[r].exchange (nullptr);
+        if (auto* q = pendingModels[r].exchange (nullptr); q != unloadSentinel())
+            delete q;
+        if (auto* q = retiredModels[r].exchange (nullptr); q != unloadSentinel())
+            delete q;
     }
     for (int s = 0; s < maxExtSlots; ++s)
     {
@@ -971,7 +979,8 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
             maxLatency = juce::jmax (maxLatency, activeModels[r]->latencySamples);
         }
         if (auto* p = pendingModels[r].load())
-            prepareLoadedModel (*p, sampleRate, samplesPerBlock);
+            if (p != unloadSentinel() && p->model != nullptr)
+                prepareLoadedModel (*p, sampleRate, samplesPerBlock);
     }
     setLatencySamples (maxLatency);
 }
@@ -979,7 +988,8 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
 void GuitarRigNAMProcessor::releaseResources()
 {
     for (int r = 0; r < maxRigs; ++r)
-        delete retiredModels[r].exchange (nullptr);
+        if (auto* q = retiredModels[r].exchange (nullptr); q != unloadSentinel())
+            delete q;
 }
 
 bool GuitarRigNAMProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -1011,10 +1021,10 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         if (auto* p = pendingModels[r].exchange (nullptr))
         {
             retiredModels[r].store (activeModels[r].release());
-            if (p->model == nullptr)
+            if (p == unloadSentinel() || p->model == nullptr)
             {
-                // "unload lane" sentinel: publishes an empty LoadedModel
-                delete p;
+                // "unload lane" sentinel: a static instance - NOTHING is
+                // deleted here (RT rule: no allocation/free on this thread)
                 modelIsActive[r].store (false);
                 resamplingActive[r].store (false);
             }
@@ -2853,8 +2863,10 @@ void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
 
         const int latency = lm->latencySamples;
 
-        delete retiredModels[lane].exchange (nullptr);
-        delete pendingModels[lane].exchange (lm.release());
+        if (auto* q = retiredModels[lane].exchange (nullptr); q != unloadSentinel())
+            delete q;
+        if (auto* q = pendingModels[lane].exchange (lm.release()); q != unloadSentinel())
+            delete q;
 
         juce::MessageManager::callAsync ([this, latency]
         {

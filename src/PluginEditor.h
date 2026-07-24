@@ -256,8 +256,13 @@ private:
     // "variations" selector on the amp card: lists the other captures of the
     // same TONE3000 tone (only shown when the loaded model came from the store).
     juce::TextButton ampVarButtons[maxRigs];
-    int toneIdForLane (int lane) const;   // reads tone_id from the model .meta
+    int toneIdForLane (int lane) const;   // tone_id from the model .meta (cached)
     bool lastVarLoaded[maxRigs] = {};     // relayout when a lane gains/loses a model
+    // vNext P0: the 30 Hz UI timer must not re-read files - cache per path
+    mutable juce::String toneIdCachePath[maxRigs];
+    mutable int toneIdCacheVal[maxRigs] = {};
+    mutable juce::String cabToneCachePath[maxRigs];
+    mutable int cabToneCacheVal[maxRigs] = {};
     // cab PER LANE (LC/HC/phase/CHANGE); blend lives in the Mixer card
     std::unique_ptr<KnobComponent> cabAirKnob;
     std::unique_ptr<KnobComponent> cabBlendKnob[maxRigs]; // in the Mixer

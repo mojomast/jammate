@@ -318,6 +318,11 @@ private:
     /// call on the audio thread.
     void prepareLoadedModel (LoadedModel&, double hostRate, int blockSize) const;
 
+    /// "Unload lane" sentinel: a static, never-owned LoadedModel with
+    /// model == nullptr. Publishing it through pendingModels tells the audio
+    /// thread to drop the lane WITHOUT any delete on the RT path (vNext P0).
+    static LoadedModel* unloadSentinel();
+
     void applyState (juce::ValueTree state);
     /// includeExtPluginState=false skips getStateInformation of the hosted
     /// plugin (the preset fingerprint runs at 2 Hz - it would be too costly).
