@@ -963,9 +963,10 @@ class VariationPickerContent : public juce::Component
 {
 public:
     VariationPickerContent (std::vector<Tone3000Client::Model> models,
-                            juce::String currentName,
+                            juce::String currentName, int currentModelId,
                             std::function<void (Tone3000Client::Model, ModelRowComponent*)> onPick)
-        : all (std::move (models)), current (std::move (currentName)), pick (std::move (onPick))
+        : all (std::move (models)), current (std::move (currentName)),
+          currentId (currentModelId), pick (std::move (onPick))
     {
         search.setTextToShowWhenEmpty ("Search variations\xe2\x80\xa6",
                                        juce::Colour (ui::textFaint));
@@ -1019,10 +1020,11 @@ private:
             if (q.isNotEmpty() && ! name.toLowerCase().contains (q))
                 continue;
             auto* row = rows.add (new ModelRowComponent (m, false));
-            // the loaded file is named "Title - Variant [A2]", the row shows only
-            // the variant, so match by containment (exact match rarely hits).
-            const bool isCurrent = current.isNotEmpty()
-                                   && (current == name || current.contains (name));
+            // prefer the exact model id saved in the loaded capture's .meta;
+            // fall back to name containment ("Title - Variant [A2]" vs "Variant").
+            const bool isCurrent = (currentId != 0 && m.id == currentId)
+                                   || (currentId == 0 && current.isNotEmpty()
+                                       && (current == name || current.contains (name)));
             if (isCurrent)
                 row->setInRig();
             auto* rp = row;
@@ -1044,6 +1046,7 @@ private:
 
     std::vector<Tone3000Client::Model> all;
     juce::String current;
+    int currentId = 0;
     std::function<void (Tone3000Client::Model, ModelRowComponent*)> pick;
     juce::TextEditor search;
     juce::Viewport vp;
@@ -1121,12 +1124,22 @@ void StoreOverlay::showVariationPicker (int lane, int toneId, juce::Component* a
     {
         // which capture is loaded now depends on the format: NAM -> the amp
         // lane's model; IR -> the cab slot's IR file (used to mark "In rig").
-        const juce::String currentName = toneInfo.formatBadge == "IR"
-            ? juce::File (processor.getIrPath (lane)).getFileNameWithoutExtension()
-            : processor.getModelName (lane);
+        const bool ir = toneInfo.formatBadge == "IR";
+        const juce::String loadedPath = ir ? processor.getIrPath (lane)
+                                           : processor.getModelPathNormal (lane);
+        const juce::String currentName = juce::File (loadedPath).getFileNameWithoutExtension();
+        // exact match: the model id persisted in the loaded capture's .meta
+        int currentModelId = 0;
+        if (loadedPath.isNotEmpty())
+        {
+            const juce::File meta (loadedPath + ".meta");
+            if (meta.existsAsFile())
+                currentModelId = (int) juce::JSON::parse (meta.loadFileAsString())
+                                            .getProperty ("model_id", 0);
+        }
 
         auto content = std::make_unique<VariationPickerContent> (
-            std::move (models), currentName,
+            std::move (models), currentName, currentModelId,
             [this, lane, toneInfo] (Tone3000Client::Model m, ModelRowComponent* r)
             {
                 loadVariationIntoLane (m, lane, toneInfo, r);

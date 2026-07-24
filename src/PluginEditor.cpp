@@ -2292,6 +2292,16 @@ void ChainView::paint (juce::Graphics& g)
                 g.drawText (irArch, badge, juce::Justification::centred);
             }
 
+            // TONE3000 mark on store IRs (design req 5) - top-right, left of the LED
+            if (t3kMark.isValid() && toneIdForCab (s) > 0)
+            {
+                const float mh = 13.0f;
+                const float mw = mh * t3kMark.getWidth() / (float) t3kMark.getHeight();
+                const float mx = (float) cabB.getRight() - (s == 0 ? 34.0f : 12.0f) - mw;
+                g.drawImage (t3kMark, juce::Rectangle<float> (mx, (float) cabB.getY() + 11.0f, mw, mh),
+                             juce::RectanglePlacement::centred);
+            }
+
             // photo (only on the large card) or IR name
             const auto irName = processor.getIrName (s);
             if (! compact && cabImages[s].isValid())
@@ -2398,19 +2408,28 @@ void ChainView::paint (juce::Graphics& g)
                     ampB.getX() + 18, ampB.getY() + (compact ? 10 : 19), 170, 14,
                     juce::Justification::centredLeft);
 
+        // the top-right corner holds the arch badge and, for store captures, the
+        // TONE3000 mark - reserve room so the name never runs under them.
+        const bool hasT3k = t3kMark.isValid() && modelName.isNotEmpty()
+                            && toneIdForLane (lane) > 0;
+        const float t3kAspect = t3kMark.isValid()
+            ? t3kMark.getWidth() / (float) t3kMark.getHeight() : 2.0f;
+
         if (compact)
         {
+            const int extra = hasT3k ? (int) (16.0f * t3kAspect) + 10 : 0;
             // capture name on the line below the title (no subtitle/info)
             g.setFont (ui::uiFont (13.0f, true));
             g.setColour (modelName.isNotEmpty() ? ui::textBright : ui::textMuted);
             g.drawText (modelName.isNotEmpty()
                             ? modelName
                             : juce::String ("- no capture -"),
-                        ampB.getX() + 18, ampB.getY() + 26, ampB.getWidth() - 36 - 34, 16,
+                        ampB.getX() + 18, ampB.getY() + 26, ampB.getWidth() - 36 - 34 - extra, 16,
                         juce::Justification::centredLeft);
         }
         else
         {
+            const int extra = hasT3k ? (int) (18.0f * t3kAspect) + 10 : 0;
             g.setFont (ui::monoFont (8.0f));
             g.setColour (ui::accent);
             g.drawText (juce::CharPointer_UTF8 ("AMPLIFIER \xc2\xb7 NAM CAPTURE"),
@@ -2418,10 +2437,10 @@ void ChainView::paint (juce::Graphics& g)
 
             g.setFont (ui::uiFont (18.0f, true));
             g.setColour (modelName.isNotEmpty() ? ui::textBright : ui::textMuted);
-            // -40 reserves the right corner for the V1/V2 badge
+            // reserve the right corner for the V1/V2 badge (+ TONE3000 mark)
             g.drawText (modelName.isNotEmpty() ? modelName
                                                : juce::String ("- no capture -"),
-                        ampB.getX() + 18, ampB.getY() + 54, ampB.getWidth() - 36 - 40, 22,
+                        ampB.getX() + 18, ampB.getY() + 54, ampB.getWidth() - 36 - 40 - extra, 22,
                         juce::Justification::centredLeft);
         }
 
@@ -3032,8 +3051,10 @@ void RigContent::paint (juce::Graphics& g)
                         juce::Justification::centredLeft);
         }
 
+        // divider between the meters/CPU group and the drums/audio/store buttons
+        // (was landing inside the Drums button's right edge)
         g.setColour (juce::Colours::white.withAlpha (0.08f));
-        g.fillRect (audioButton.getX() - 15, 16, 1, 28);
+        g.fillRect (drumButton.getX() - 12, 16, 1, 28);
     }
 
     // ---- tuner bar
