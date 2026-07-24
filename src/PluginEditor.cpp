@@ -3150,7 +3150,8 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     recChip.getProperties().set ("ghost", true);
     recChip.getProperties().set ("ghostHot", true);   // active = red (recording)
     recChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Records the output as WAV (Documents\\PedalForge NAM\\Recordings)")));
+        "Records WAVs in Documents\\PedalForge NAM\\Recordings: the mix plus "
+        "separate guitar and drum stems")));
     recChip.setMouseClickGrabsKeyboardFocus (false);
     recChip.onClick = [this]
     {

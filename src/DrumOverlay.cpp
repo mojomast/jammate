@@ -756,11 +756,48 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
             engine.barRole[g] = 0;
         }
         engine.numSections.store (n - 1);
+        processor.shiftScenesOnSectionRemove (curSection);   // scenes follow (F6)
         curSection = juce::jmin (curSection, n - 2);
         selBar = 0;
         refreshAll();
     };
     addAndMakeVisible (delSectionBtn);
+
+    // vNext F6 - Song/Scenes: rig snapshot per section
+    rigChip.getProperties().set ("chip", true);
+    rigChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Scenes: saves the current guitar rig in this section; with auto-switch "
+        "on, entering the section applies its rig at the bar start")));
+    rigChip.setMouseClickGrabsKeyboardFocus (false);
+    rigChip.onClick = [this]
+    {
+        auto* self = this;   // MSVC: 'this' in nested lambda init-capture resolves wrong
+        const int sec = curSection;
+        const bool has = processor.hasScene (sec);
+        juce::PopupMenu m;
+        m.addItem (1, "Save current rig to this section");
+        m.addItem (2, "Apply this section's rig now", has);
+        m.addItem (3, "Clear rig snapshot", has);
+        m.addSeparator();
+        m.addItem (4, "Auto-switch rig on section change",
+                   true, processor.scenesOn.load());
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (rigChip),
+                         [self, sec] (int r)
+                         {
+                             if (r == 1)
+                                 self->processor.saveSceneForSection (sec);
+                             else if (r == 2)
+                                 self->processor.applySceneForSection (sec);
+                             else if (r == 3)
+                                 self->processor.clearSceneForSection (sec);
+                             else if (r == 4)
+                                 self->processor.scenesOn.store (
+                                     ! self->processor.scenesOn.load());
+                             if (r != 0)
+                                 self->rebuildSectionTabs();
+                         });
+    };
+    addAndMakeVisible (rigChip);
 
     addAndMakeVisible (scoreView);
 
@@ -1317,6 +1354,8 @@ void DrumOverlay::resized()
         addSectionBtn.setBounds (sx, tabsY, 84, tabsH);
         sx += 90;
         delSectionBtn.setBounds (sx, tabsY, 86, tabsH);
+        sx += 92;
+        rigChip.setBounds (sx, tabsY, 64, tabsH);
     }
 
     // bar headers + staff (widths follow the meter)
@@ -1504,7 +1543,10 @@ void DrumOverlay::rebuildSectionTabs()
             juce::String ("SECTION ") + letter
             + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))
             + juce::String (i * 4 + 1) + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93"))
-            + juce::String (i * 4 + 4)));
+            + juce::String (i * 4 + 4)
+            // scene dot: the section carries a rig snapshot (vNext F6)
+            + (processor.hasScene (i)
+                   ? juce::String (juce::CharPointer_UTF8 (" \xe2\x97\x8f")) : juce::String())));
         t->getProperties().set ("chip", true);
         t->getProperties().set ("chipActive", i == curSection);
         if (i == playSec && i != curSection)
@@ -1520,6 +1562,9 @@ void DrumOverlay::rebuildSectionTabs()
     }
     addSectionBtn.setEnabled (nSec < drum::maxSections);
     delSectionBtn.setEnabled (nSec > 1);
+    rigChip.getProperties().set ("chipActive", processor.hasScene (curSection)
+                                                   || processor.scenesOn.load());
+    rigChip.repaint();
     resized();
 }
 

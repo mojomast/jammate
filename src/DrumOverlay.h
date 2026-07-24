@@ -225,6 +225,9 @@ private:
 
     juce::OwnedArray<juce::TextButton> sectionTabs;
     juce::TextButton addSectionBtn { "+ SECTION" };
+    // vNext F6 - Song/Scenes: rig snapshot of the SHOWN section (save/apply/
+    // clear + the auto-switch toggle live in the chip's menu)
+    juce::TextButton rigChip { juce::CharPointer_UTF8 ("RIG \xe2\x96\xbe") };
     juce::TextButton delSectionBtn { juce::CharPointer_UTF8 ("\xe2\x9c\x95 remove") };
 
     juce::OwnedArray<BarHead> barHeads;

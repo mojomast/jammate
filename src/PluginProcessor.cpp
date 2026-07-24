@@ -784,7 +784,11 @@ GuitarRigNAMProcessor::~GuitarRigNAMProcessor()
     drumActive.reset();
 
     recActive.store (nullptr);
+    recActiveGtr.store (nullptr);
+    recActiveDrm.store (nullptr);
     recWriter.reset();
+    recWriterGtr.reset();
+    recWriterDrm.reset();
     recThread.stopThread (2000);
 }
 
@@ -938,6 +942,7 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     // drums: engine + bus + (re)prepare the live drum VST
     drumEngine.prepare (sampleRate, samplesPerBlock);
     drumBuf.setSize (2, samplesPerBlock);
+    recDrumScratch.setSize (2, samplesPerBlock);
     drumMidi.ensureSize (256);
     for (auto* inst : { drumActive.get(), drumPending.load() })
         if (inst != nullptr)
@@ -1115,8 +1120,39 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             buffer.addFrom (1, 0, stereoExtra, 0, 0, n, outGain);
     }
 
+    // scenes (vNext F6): short fade-in after a scene lands, masking parameter
+    // and model jumps. Guitar only - the drums keep playing steadily.
+    if (int fadeLeft = sceneFadeLeft.load(); fadeLeft > 0)
+    {
+        const int total = juce::jmax (1, sceneFadeTotal.load());
+        const float g0 = (float) (total - fadeLeft) / (float) total;
+        const float g1 = (float) juce::jmin (total, total - fadeLeft + n) / (float) total;
+        for (int ch = 0; ch < juce::jmin (2, numOut); ++ch)
+            buffer.applyGainRamp (ch, 0, n, g0, g1);
+        sceneFadeLeft.store (juce::jmax (0, fadeLeft - n));
+    }
+
+    // guitar stem: the finished guitar bus, BEFORE the drum sum
+    if (auto* w = recActiveGtr.load())
+    {
+        const float* chans[2] = { buffer.getReadPointer (0),
+                                  numOut > 1 ? buffer.getReadPointer (1)
+                                             : buffer.getReadPointer (0) };
+        w->write (chans, n);
+    }
+    if (recActiveDrm.load() != nullptr && n <= recDrumScratch.getNumSamples())
+        recDrumScratch.clear();   // processDrums fills it when drums sound
+
     // drums: own bus summed AFTER the guitar chain
     processDrums (buffer, numOut, n);
+
+    // drum stem: what processDrums added to the mix in this block
+    if (auto* w = recActiveDrm.load(); w != nullptr && n <= recDrumScratch.getNumSamples())
+    {
+        const float* chans[2] = { recDrumScratch.getReadPointer (0),
+                                  recDrumScratch.getReadPointer (1) };
+        w->write (chans, n);
+    }
 
     outputPeak.store (buffer.getMagnitude (0, 0, n));
 
@@ -2176,18 +2212,32 @@ juce::File GuitarRigNAMProcessor::startRecording()
     auto file = dir.getChildFile ("Take " + stamp + ".wav");
 
     juce::WavAudioFormat wav;
-    if (auto stream = file.createOutputStream())
+    auto makeWriter = [&] (const juce::File& f)
+        -> std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter>
     {
-        if (auto* writer = wav.createWriterFor (stream.get(), hostSampleRate.load(), 2, 24, {}, 0))
-        {
-            stream.release(); // the writer owns the stream now
-            recWriter = std::make_unique<juce::AudioFormatWriter::ThreadedWriter> (
-                writer, recThread, 1 << 17);
-            recActive.store (recWriter.get());
-            return file;
-        }
-    }
-    return {};
+        if (auto stream = f.createOutputStream())
+            if (auto* writer = wav.createWriterFor (stream.get(), hostSampleRate.load(), 2, 24, {}, 0))
+            {
+                stream.release(); // the writer owns the stream now
+                return std::make_unique<juce::AudioFormatWriter::ThreadedWriter> (
+                    writer, recThread, 1 << 17);
+            }
+        return nullptr;
+    };
+
+    recWriter = makeWriter (file);
+    if (recWriter == nullptr)
+        return {};
+
+    // stems: separate guitar and drum tracks of the same take (same length,
+    // aligned - drop them into a DAW and they line up with the mix)
+    recWriterGtr = makeWriter (dir.getChildFile ("Take " + stamp + " (guitar).wav"));
+    recWriterDrm = makeWriter (dir.getChildFile ("Take " + stamp + " (drums).wav"));
+
+    recActiveGtr.store (recWriterGtr.get());
+    recActiveDrm.store (recWriterDrm.get());
+    recActive.store (recWriter.get());
+    return file;
 }
 
 void GuitarRigNAMProcessor::stopRecording()
@@ -2195,8 +2245,100 @@ void GuitarRigNAMProcessor::stopRecording()
     // message thread: removes from audio first; deletes with slack (the audio
     // may be mid-write with the old pointer)
     recActive.store (nullptr);
+    recActiveGtr.store (nullptr);
+    recActiveDrm.store (nullptr);
     if (auto* old = recWriter.release())
         juce::Timer::callAfterDelay (400, [old] { delete old; });
+    if (auto* old = recWriterGtr.release())
+        juce::Timer::callAfterDelay (400, [old] { delete old; });
+    if (auto* old = recWriterDrm.release())
+        juce::Timer::callAfterDelay (400, [old] { delete old; });
+}
+
+//==============================================================================
+// vNext F6 - Song/Scenes: full guitar-rig snapshot per drum section
+
+juce::ValueTree GuitarRigNAMProcessor::captureRigScene()
+{
+    auto t = captureState (true);
+
+    // guitar rig only: strip the drum domain and UI prefs so applying a scene
+    // never touches the playing drums nor flips view preferences
+    for (int b = 0; b < drum::maxBars; ++b)
+    {
+        const auto sfx = juce::String (b + 1);
+        t.removeProperty ("drumBar" + sfx, nullptr);
+        t.removeProperty ("drumBarName" + sfx, nullptr);
+        t.removeProperty ("drumMeter" + sfx, nullptr);
+        t.removeProperty ("drumBarRole" + sfx, nullptr);
+    }
+    t.removeProperty ("drumPattern", nullptr);
+    for (int i = 0; i < drum::maxSections * 2; ++i)
+        t.removeProperty ("drumSecPattern" + juce::String (i + 1), nullptr);
+    for (auto* key : { "drumNumSections", "drumBpm", "drumSwing", "drumLevel",
+                       "drumHumVel", "drumHumTime", "drumHumRR", "drumClick",
+                       "drumCountIn", "drumHostSync", "drumUseVst", "drumVstPath",
+                       "drumVstState", "chainCompact", "tunerOn", "uiTheme",
+                       "drumRibMin", "scenesOn" })
+        t.removeProperty (key, nullptr);
+    t.removeProperty (kStatePresetName, nullptr);
+    for (int i = 0; i < drum::maxSections; ++i)          // scenes don't nest
+        t.removeProperty ("sceneRig" + juce::String (i + 1), nullptr);
+    return t;
+}
+
+void GuitarRigNAMProcessor::saveSceneForSection (int sec)
+{
+    if (sec < 0 || sec >= drum::maxSections)
+        return;
+    sceneXml[sec] = captureRigScene().toXmlString (
+        juce::XmlElement::TextFormat().singleLine());
+}
+
+void GuitarRigNAMProcessor::clearSceneForSection (int sec)
+{
+    if (sec >= 0 && sec < drum::maxSections)
+        sceneXml[sec].clear();
+}
+
+void GuitarRigNAMProcessor::applySceneForSection (int sec)
+{
+    // message thread
+    if (! hasScene (sec))
+        return;
+    auto tree = juce::ValueTree::fromXml (sceneXml[sec]);
+    if (! tree.isValid())
+        return;
+
+    // live UI prefs survive the replaceState (the scene doesn't carry them)
+    for (auto* key : { "chainCompact", "tunerOn", "uiTheme", "drumRibMin" })
+        if (apvts.state.hasProperty (key))
+            tree.setProperty (key, apvts.state.getProperty (key), nullptr);
+
+    applyingSceneNow = true;
+    applyState (tree);
+    applyingSceneNow = false;
+
+    // anti-click: ~30 ms fade-in on the guitar bus after the jump
+    const int fade = juce::jmax (64, (int) (hostSampleRate.load() * 0.03));
+    sceneFadeTotal.store (fade);
+    sceneFadeLeft.store (fade);
+}
+
+void GuitarRigNAMProcessor::shiftScenesOnSectionRemove (int sec)
+{
+    if (sec < 0 || sec >= drum::maxSections)
+        return;
+    for (int i = sec; i < drum::maxSections - 1; ++i)
+        sceneXml[i] = sceneXml[i + 1];
+    sceneXml[drum::maxSections - 1].clear();
+}
+
+void GuitarRigNAMProcessor::handleAsyncUpdate()
+{
+    const int sec = scenePendingSection.exchange (-1);
+    if (sec >= 0)
+        applySceneForSection (sec);
 }
 
 void GuitarRigNAMProcessor::toggleAB()
@@ -2281,6 +2423,25 @@ void GuitarRigNAMProcessor::processDrums (juce::AudioBuffer<float>& buffer, int 
         drumLoaded.store (false);
     }
 
+    // scenes (vNext F6): entering a new section (bar start) requests the
+    // section's rig snapshot on the message thread. uiBar advances exactly at
+    // the bar boundary; stopping (-1) re-arms so a restart re-applies.
+    // Runs before the audibility early-return so the stop re-arm always fires.
+    if (scenesOn.load())
+    {
+        const int bar = drumEngine.uiBar.load();
+        const int sec = bar >= 0 ? bar / drum::barsPerSection : -1;
+        if (sec != sceneLastSection)
+        {
+            sceneLastSection = sec;
+            if (sec >= 0)
+            {
+                scenePendingSection.store (sec);
+                triggerAsyncUpdate();
+            }
+        }
+    }
+
     auto* vst = (drumEngine.useVst.load() && drumActive != nullptr) ? drumActive.get() : nullptr;
     if (n > drumBuf.getNumSamples() || (! drumEngine.isAudible() && vst == nullptr))
         return;
@@ -2292,6 +2453,14 @@ void GuitarRigNAMProcessor::processDrums (juce::AudioBuffer<float>& buffer, int 
     buffer.addFrom (0, 0, drumBuf, 0, 0, n, lv);
     if (numOut >= 2)
         buffer.addFrom (1, 0, drumBuf, 1, 0, n, lv);
+
+    // drum stem (recording): the same signal that entered the mix
+    if (recActiveDrm.load() != nullptr && n <= recDrumScratch.getNumSamples())
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            recDrumScratch.copyFrom (ch, 0, drumBuf, ch, 0, n);
+            recDrumScratch.applyGain (ch, 0, n, lv);
+        }
 }
 
 void GuitarRigNAMProcessor::loadDrumPluginAsync (const juce::File& file,
@@ -3191,6 +3360,18 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
             if (blob.getSize() > 0)
                 state.setProperty ("drumVstState", blob.toBase64Encoding(), nullptr);
         }
+
+    // scenes (vNext F6): strip stale keys (replaceState carryover) and write
+    // the live snapshots - the member array is the single source of truth
+    for (int i = 0; i < drum::maxSections; ++i)
+    {
+        const auto key = "sceneRig" + juce::String (i + 1);
+        state.removeProperty (key, nullptr);
+        if (sceneXml[i].isNotEmpty())
+            state.setProperty (key, sceneXml[i], nullptr);
+    }
+    state.setProperty ("scenesOn", scenesOn.load(), nullptr);
+
     return state;
 }
 
@@ -3216,7 +3397,17 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
             modelPathsEco[r] = ecoFile.existsAsFile() ? ecoFile.getFullPathName() : juce::String();
         }
         if (modelFile.existsAsFile())
-            loadModelAsync (r, modelFile);
+        {
+            // scenes/A-B switch the state often: same model already in the
+            // lane -> skip the reload (it would glitch and waste a worker pass)
+            if (modelFile.getFullPathName() != getModelPath (r))
+                loadModelAsync (r, modelFile);
+        }
+        else if (state.hasProperty ("modelPathStd" + suffix) && getModelPath (r).isNotEmpty())
+        {
+            // new-format state with an explicitly empty lane: honor it
+            unloadModelLane (r);
+        }
     }
 
     for (int s = 0; s < maxCabSlots; ++s)
@@ -3226,7 +3417,7 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
                              ? juce::String (kStateIrPath)
                              : "irPath" + juce::String (s + 1);
         const juce::File irFile (state.getProperty (key, "").toString());
-        if (irFile.existsAsFile())
+        if (irFile.existsAsFile() && irFile.getFullPathName() != getIrPath (s))
             loadIrAsync (s, irFile);
     }
 
@@ -3381,7 +3572,17 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
             drumEngine.useVst.store (false);
     }
 
-    setCurrentPresetName (state.getProperty (kStatePresetName, "").toString());
+    // scenes (vNext F6): restore the per-section snapshots - except when THIS
+    // apply is a scene landing (the scene tree deliberately carries none)
+    if (! applyingSceneNow)
+    {
+        scenesOn.store ((bool) state.getProperty ("scenesOn", false));
+        for (int i = 0; i < drum::maxSections; ++i)
+            sceneXml[i] = state.getProperty ("sceneRig" + juce::String (i + 1), "").toString();
+    }
+
+    if (state.hasProperty (kStatePresetName))
+        setCurrentPresetName (state.getProperty (kStatePresetName, "").toString());
 }
 
 void GuitarRigNAMProcessor::getStateInformation (juce::MemoryBlock& destData)

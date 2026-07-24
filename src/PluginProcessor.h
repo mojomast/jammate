@@ -21,7 +21,8 @@ template <typename T, int NCHANS, size_t A>
 class ResamplingContainer;
 }
 
-class GuitarRigNAMProcessor : public juce::AudioProcessor
+class GuitarRigNAMProcessor : public juce::AudioProcessor,
+                              private juce::AsyncUpdater
 {
 public:
     GuitarRigNAMProcessor();
@@ -269,10 +270,28 @@ public:
 
     //==========================================================================
     // Quick recorder: writes the OUTPUT to WAV via ThreadedWriter (RT-safe).
+    // Besides the mix, it writes separate stems - "(guitar)" (post-chain, before
+    // the drum sum) and "(drums)" (drum bus scaled by the drum level).
     // (message thread for start/stop)
     juce::File startRecording();
     void stopRecording();
     bool isRecording() const noexcept { return recActive.load() != nullptr; }
+
+    //==========================================================================
+    // vNext F6 - Song/Scenes: one full guitar-rig snapshot per drum SECTION.
+    // With scenesOn, entering a section (at the bar start) applies its scene
+    // with a short output fade-in to mask parameter/model jumps.
+    // (save/clear/apply: message thread; hasScene is thread-safe enough for UI)
+    void saveSceneForSection (int sec);
+    void clearSceneForSection (int sec);
+    bool hasScene (int sec) const
+    {
+        return sec >= 0 && sec < drum::maxSections && sceneXml[sec].isNotEmpty();
+    }
+    void applySceneForSection (int sec);
+    /// Keeps scenes aligned when a section is removed (shifts left from sec).
+    void shiftScenesOnSectionRemove (int sec);
+    std::atomic<bool> scenesOn { false };
 
     //==========================================================================
     // A/B: two full state snapshots; toggling saves the current one into the
@@ -292,6 +311,20 @@ private:
     juce::TimeSliceThread recThread { "recorder" };
     std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> recWriter;
     std::atomic<juce::AudioFormatWriter::ThreadedWriter*> recActive { nullptr };
+    // stems: guitar (pre-drum-sum) and drums (drum bus)
+    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> recWriterGtr, recWriterDrm;
+    std::atomic<juce::AudioFormatWriter::ThreadedWriter*> recActiveGtr { nullptr },
+        recActiveDrm { nullptr };
+    juce::AudioBuffer<float> recDrumScratch;   // drum bus scaled by level (RT)
+
+    // ---- scenes (vNext F6) --------------------------------------------------
+    void handleAsyncUpdate() override;         // applies the pending scene
+    juce::ValueTree captureRigScene();         // captureState minus drums/UI prefs
+    juce::String sceneXml[drum::maxSections];  // "" = section without a scene
+    bool applyingSceneNow = false;             // guards the scene-restore in applyState
+    std::atomic<int> scenePendingSection { -1 };
+    int sceneLastSection = -1;                 // audio thread only
+    std::atomic<int> sceneFadeTotal { 0 }, sceneFadeLeft { 0 };
 
     juce::ValueTree abSlots[2];
     int abCurrent = 0;
