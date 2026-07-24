@@ -116,6 +116,7 @@ public:
     void setAmpImage (int lane, juce::Image);
     void setCabImage (int lane, juce::Image);
     void refreshDynamicText();
+    juce::Component& getLoadButton (int lane) { return loadButtons[lane]; }
 
     // amp-card "variations" click -> host opens the Tone Store details for the
     // tone, targeting this lane so the pick replaces the current capture.
@@ -316,6 +317,7 @@ private:
     void analyseTuner();
     void refreshSidecarImages();
     void chooseModelFile (int lane);
+    void chooseModelSource (int lane);   // menu: TONE3000 store or local disk
     void chooseIrFile (int slot);
     void chooseExtPluginFile (int slot);
     void openExtPluginWindow (int slot);

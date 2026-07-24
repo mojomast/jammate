@@ -348,7 +348,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         makeKnob (ampMasterKnob[r], (prefix + "Master").toRawUTF8(), "MASTER", formatDb);
 
         loadButtons[r].setButtonText ("LOAD NAM CAPTURE");
-        loadButtons[r].setTooltip ("Choose a .nam file from disk");
+        loadButtons[r].setTooltip ("Add a capture from the TONE3000 store or a local .nam file");
         loadButtons[r].setMouseClickGrabsKeyboardFocus (false);
         loadButtons[r].onClick = [onLoadModel, r] { onLoadModel (r); };
         addChildComponent (loadButtons[r]);
@@ -2687,7 +2687,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     addAndMakeVisible (autoEcoChip);
 
     chainView = std::make_unique<ChainView> (processor,
-                                             [this] (int lane) { chooseModelFile (lane); },
+                                             [this] (int lane) { chooseModelSource (lane); },
                                              [this] (int slot) { chooseIrFile (slot); },
                                              [this] (int slot) { chooseExtPluginFile (slot); },
                                              [this] (int slot) { openExtPluginWindow (slot); });
@@ -3380,6 +3380,25 @@ void RigContent::refreshSidecarImages()
         refresh (processor.getIrPath (r), loadedIrPaths[r], cabImagesLoaded[r],
                  [this, r] (juce::Image img) { chainView->setCabImage (r, std::move (img)); });
     }
+}
+
+void RigContent::chooseModelSource (int lane)
+{
+    // Entry point from the signal chain (TONE3000 design requirement): the amp
+    // card's LOAD/CHANGE offers the Tone Store first, then a local .nam file.
+    juce::PopupMenu menu;
+    menu.setLookAndFeel (&getLookAndFeel());
+    menu.addSectionHeader (processor.hasModelLoaded (lane) ? "Change capture" : "Load capture");
+    menu.addItem (1, "Browse TONE3000 Tone Store\xe2\x80\xa6");
+    menu.addItem (2, "Load .nam file from disk\xe2\x80\xa6");
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&chainView->getLoadButton (lane)),
+        [safe = juce::Component::SafePointer<RigContent> (this), lane] (int r)
+        {
+            if (safe == nullptr) return;
+            if (r == 1)      safe->storeOverlay->open();
+            else if (r == 2) safe->chooseModelFile (lane);
+        });
 }
 
 void RigContent::chooseModelFile (int lane)
