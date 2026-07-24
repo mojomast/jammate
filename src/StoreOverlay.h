@@ -75,6 +75,7 @@ public:
     void resized() override;
     void setDownloading (int pct);
     void setInRig();
+    void reset();   // back to the idle "Add" state
 private:
     Tone3000Client::Model model;
     juce::TextButton dlButton;

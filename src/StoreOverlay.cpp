@@ -979,7 +979,7 @@ public:
         vp.setScrollBarsShown (true, false);
         addAndMakeVisible (vp);
 
-        setSize (330, juce::jmin (430, 60 + (int) all.size() * 44 + 10));
+        setSize (420, juce::jmin (440, 60 + (int) all.size() * 44 + 10));
         rebuild();
     }
 
@@ -1019,12 +1019,23 @@ private:
             if (q.isNotEmpty() && ! name.toLowerCase().contains (q))
                 continue;
             auto* row = rows.add (new ModelRowComponent (m, false));
-            const bool isCurrent = current.isNotEmpty() && name == current;
+            // the loaded file is named "Title - Variant [A2]", the row shows only
+            // the variant, so match by containment (exact match rarely hits).
+            const bool isCurrent = current.isNotEmpty()
+                                   && (current == name || current.contains (name));
             if (isCurrent)
                 row->setInRig();
             auto* rp = row;
             auto mm = m;
-            row->onDownloadClicked = [this, mm, rp] { if (pick) pick (mm, rp); };
+            row->onDownloadClicked = [this, mm, rp]
+            {
+                // clear the previous "In rig"/progress marks so only the row
+                // being switched to shows active (avoids a stale In-rig row).
+                for (auto* other : rows)
+                    if (other != rp)
+                        other->reset();
+                if (pick) pick (mm, rp);
+            };
             content.addAndMakeVisible (row);
         }
         layoutRows();
@@ -1842,6 +1853,14 @@ void ModelRowComponent::setInRig()
     repaint();
 }
 
+void ModelRowComponent::reset()
+{
+    progress = -1;
+    dlButton.setButtonText ("Add");
+    dlButton.setEnabled (true);
+    repaint();
+}
+
 void ModelRowComponent::resized()
 {
     dlButton.setBounds (getLocalBounds().reduced (7).removeFromRight (96));
@@ -1855,22 +1874,30 @@ void ModelRowComponent::paint (juce::Graphics& g)
     g.setColour (ui::border());
     g.drawRect (b, 1.0f);
 
-    g.setColour (ui::text);
-    g.setFont (ui::uiFont (12.5f, true));
-    const juce::String name = model.name.isNotEmpty() ? model.name
-                                                      : ("Model " + juce::String (model.id));
-    g.drawText (name, 12, 0, getWidth() - 250, getHeight(), juce::Justification::centredLeft);
-
+    // right side is the Add button (96) + a gap; the tag sits just left of it,
+    // and the name gets everything that's left (was a fixed -250 that crushed
+    // the name to nothing in the narrow inline picker).
     juce::String tag;
     if (model.arch == "2")      tag = "A2";
     else if (model.arch == "1") tag = "A1";
     if (model.size.isNotEmpty() && model.size != "standard")
         tag += (tag.isEmpty() ? juce::String() : juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))) + model.size;
+
+    const int btnW = 96 + 10;                       // Add button + gap
+    const int tagW = tag.isNotEmpty() ? 66 : 0;
+    const int nameW = juce::jmax (24, getWidth() - 12 - btnW - tagW);
+
+    g.setColour (ui::text);
+    g.setFont (ui::uiFont (12.5f, true));
+    const juce::String name = model.name.isNotEmpty() ? model.name
+                                                      : ("Model " + juce::String (model.id));
+    g.drawText (name, 12, 0, nameW, getHeight(), juce::Justification::centredLeft);
+
     if (tag.isNotEmpty())
     {
         g.setColour (model.arch == "2" ? ui::accentBright : ui::textDim);
         g.setFont (ui::monoFont (10.0f, true));
-        g.drawText (tag, getWidth() - 250, 0, 128, getHeight(), juce::Justification::centredRight);
+        g.drawText (tag, 12 + nameW, 0, tagW, getHeight(), juce::Justification::centredLeft);
     }
 }
 

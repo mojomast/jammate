@@ -357,7 +357,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         // same TONE3000 tone (inline picker). Shown whenever a model is loaded;
         // enabled only for store captures (those carry a tone_id in the .meta).
         ampVarButtons[r].setButtonText (juce::String (juce::CharPointer_UTF8 ("VARIANTS \xe2\x96\xbe")));
-        ampVarButtons[r].getProperties().set ("chip", true);
+        ampVarButtons[r].getProperties().set ("outlineAccent", true);
         ampVarButtons[r].setMouseClickGrabsKeyboardFocus (false);
         ampVarButtons[r].onClick = [this, r]
         {
