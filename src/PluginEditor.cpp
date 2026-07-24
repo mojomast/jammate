@@ -1800,8 +1800,9 @@ void ChainView::drawPhoto (juce::Graphics& g, const juce::Image& img, juce::Rect
 
 void ChainView::paint (juce::Graphics& g)
 {
+    g.fillAll (ui::bg);   // theme background behind the chain
     // subtle striped background
-    g.setColour (juce::Colours::white.withAlpha (0.018f));
+    g.setColour (ui::dividerBase().withAlpha (0.018f));
     for (int gx = 0; gx < getWidth(); gx += 44)
         g.fillRect (gx, 0, 1, getHeight());
 
@@ -2466,6 +2467,12 @@ void ChainView::paint (juce::Graphics& g)
 RigContent::RigContent (GuitarRigNAMProcessor& p)
     : processor (p)
 {
+    // restore the persisted theme (dark default) — press 'L' to toggle
+    if (processor.apvts.state.getProperty ("uiTheme", "dark").toString() == "light")
+    {
+        ui::applyTheme (true);
+        lookAndFeel.applyColours();
+    }
     setLookAndFeel (&lookAndFeel);
 
     addAndMakeVisible (inMeter);
@@ -3651,6 +3658,15 @@ bool RigContent::keyPressed (const juce::KeyPress& key)
     if (key.getTextCharacter() == 'f' || key.getTextCharacter() == 'F')
     {
         setPerfMode (! perfMode);
+        return true;
+    }
+    if (key.getTextCharacter() == 'l' || key.getTextCharacter() == 'L')   // light/dark theme
+    {
+        ui::applyTheme (! ui::lightTheme);
+        lookAndFeel.applyColours();
+        processor.apvts.state.setProperty ("uiTheme", ui::lightTheme ? "light" : "dark", nullptr);
+        if (auto* top = getTopLevelComponent())
+            top->repaint();
         return true;
     }
     if (key == juce::KeyPress::escapeKey && perfMode)

@@ -225,7 +225,7 @@ void DrumRibbon::timerCallback()
 void DrumRibbon::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat().reduced (0.5f);
-    g.setColour (juce::Colour (0xff141a20));
+    g.setColour (ui::cardBottom);
     g.fillRoundedRectangle (b, 2.0f);
     g.setColour (ui::accentDark.withAlpha (0.45f));
     g.drawRoundedRectangle (b, 2.0f, 1.0f);
@@ -691,12 +691,12 @@ void DrumOverlay::syncTransportUi()
 //==============================================================================
 void DrumOverlay::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xfb101318));
+    g.fillAll (ui::bg);
 
     // ---- guitar ribbon (top): background + labels ----
     {
         juce::Rectangle<float> rib (0.0f, 0.0f, (float) getWidth(), (float) gtrRibH);
-        g.setColour (juce::Colour (0xff141a20));
+        g.setColour (ui::cardBottom);
         g.fillRect (rib);
         g.setColour (ui::accentDark.withAlpha (0.35f));
         g.drawLine (0.0f, (float) gtrRibH, (float) getWidth(), (float) gtrRibH, 1.0f);
