@@ -171,6 +171,12 @@ public:
     void insertFxAt (const juce::String& id, int insertIndex);
     static juce::String fxDisplayNamePublic (const juce::String& id);
 
+    // vNext: compact view - unselected effects collapse to 64px name slots
+    // (LED stays as the state indicator); clicking a slot expands that effect.
+    // The amp/cab/mixer block always stays focused. Opt-in via the bottom bar.
+    void setCompactView (bool);
+    bool isCompactView() const { return compactView; }
+
     // Keep every stacked rig inside the editor viewport (including LOAD).
     static constexpr int chainHeight = 500;
 
@@ -220,6 +226,10 @@ private:
     // pan the chain by dragging the background
     bool panning = false;
     juce::Point<int> panStartMouse, panStartView;
+
+    // vNext compact view state (see setCompactView)
+    bool compactView = false;
+    juce::String selectedFxId;   // effect kept expanded while compact ("" = none)
 
     // hover tooltip zones (title areas -> card info), rebuilt each paint
     std::vector<std::pair<juce::Rectangle<int>, juce::String>> tipZones;
@@ -440,6 +450,7 @@ private:
     juce::Rectangle<int> stageActions[5];   // <preset, drums, tap, tuner, preset>
     juce::int64 lastStageTapMs = 0;         // tap tempo
     juce::TextButton perfChip { "STAGE" };
+    juce::TextButton compactChip { "COMPACT" };
     void setPerfMode (bool shouldBeOn);
     void paintPerformanceView (juce::Graphics&);
 

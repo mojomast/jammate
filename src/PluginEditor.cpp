@@ -1793,10 +1793,30 @@ void ChainView::mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelD
     }
 }
 
-void ChainView::mouseUp (const juce::MouseEvent&)
+void ChainView::mouseUp (const juce::MouseEvent& e)
 {
     setMouseCursor (juce::MouseCursor::NormalCursor);
     panning = false;
+
+    // vNext compact: a plain click (no drag) on a card selects/deselects it -
+    // the selected card expands with its knobs, the previous one collapses.
+    if (compactView && e.mouseWasClicked() && dropIndex < 0)
+    {
+        for (const auto& en : orderedEntries())
+        {
+            if (en.id == "amp" || ! en.box.contains (e.getPosition()))
+                continue;
+            if (removeHotspot (en.box).contains (e.getPosition()))
+                break;   // the "x" already handled it - don't also select
+            selectedFxId = (selectedFxId == en.id ? juce::String() : en.id);
+            draggingId.clear();
+            dropIndex = -1;
+            dragMouseX = -1.0f;
+            applyChainRelayout();
+            repaint();
+            return;
+        }
+    }
 
     if (draggingId.isNotEmpty() && dropIndex >= 0)
     {
@@ -1821,10 +1841,24 @@ void ChainView::mouseUp (const juce::MouseEvent&)
 
 int ChainView::effectCardWidth (const juce::String& id) const
 {
+    // vNext compact: unselected effects collapse to a narrow name slot
+    if (compactView && id != selectedFxId)
+        return 64;
     if (id == "eq" || id == "preeq" || id == "looper" || id == "harm" || id == "analyzer"
         || extSlotForId (id) >= 0)
         return 176;
     return 132;
+}
+
+void ChainView::setCompactView (bool on)
+{
+    if (compactView == on)
+        return;
+    compactView = on;
+    if (! on)
+        selectedFxId.clear();
+    applyChainRelayout();
+    repaint();
 }
 
 juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
@@ -1880,8 +1914,11 @@ void ChainView::resized()
     for (auto* id : allFxIds)
     {
         const bool present = chain.contains (id);
-        for (auto* c : componentsForFx (id))
-            c->setVisible (present);
+        // compact: collapsed cards keep only the LED (index 0) as state indicator
+        const bool collapsed = compactView && selectedFxId != id;
+        auto comps = componentsForFx (id);
+        for (int i = 0; i < comps.size(); ++i)
+            comps.getUnchecked (i)->setVisible (present && (i == 0 || ! collapsed));
     }
     gateB = odB = eqB = delayB = revB = compB = preEqB = pitchB = looperB = limB = {};
     for (auto& b : extB)
@@ -2231,6 +2268,28 @@ void ChainView::drawPedalFrame (juce::Graphics& g, juce::Rectangle<int> b,
     g.fillRoundedRectangle (bf, 2.0f);
     g.setColour (ui::border());
     g.drawRoundedRectangle (bf.reduced (0.5f), 2.0f, 1.0f);
+
+    // vNext compact slot: vertical title reading bottom-up; the LED (kept
+    // visible by resized()) stays as the on/off indicator at the top.
+    if (b.getWidth() <= 70)
+    {
+        g.saveState();
+        g.setFont (ui::uiFont (11.0f, true));
+        g.setColour (ui::text);
+        g.addTransform (juce::AffineTransform::rotation (
+            -juce::MathConstants<float>::halfPi, (float) b.getCentreX(), (float) b.getCentreY()));
+        // after the -90deg rotation this rect spans the card vertically,
+        // leaving the top ~36px free for the LED
+        g.drawText (title,
+                    b.getCentreX() - b.getHeight() / 2 + 14, b.getCentreY() - 8,
+                    b.getHeight() - 14 - 40, 16,
+                    juce::Justification::centredLeft);
+        g.restoreState();
+        tipZones.push_back ({ b, footer.trim().isNotEmpty()
+                                     ? title + " - " + footer
+                                     : title + " (click to expand)" });
+        return;
+    }
 
     g.setFont (ui::uiFont (12.0f, true));
     g.setColour (ui::text);
@@ -3132,6 +3191,22 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     perfChip.onClick = [this] { setPerfMode (! perfMode); };
     addAndMakeVisible (perfChip);
 
+    // vNext F1: COMPACT - collapses unselected effects to name slots (opt-in,
+    // persisted per session state; the classic full view remains the default)
+    compactChip.getProperties().set ("chip", true);
+    compactChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Compact chain: effects collapse to slots; click one to expand it")));
+    compactChip.setMouseClickGrabsKeyboardFocus (false);
+    compactChip.onClick = [this]
+    {
+        const bool on = ! chainView->isCompactView();
+        chainView->setCompactView (on);
+        processor.apvts.state.setProperty ("chainCompact", on, nullptr);
+        compactChip.getProperties().set ("chipActive", on);
+        compactChip.repaint();
+    };
+    addAndMakeVisible (compactChip);
+
     // AUTO-ECO: switches to the light capture by itself when CPU goes over 90%
     autoEcoChip.getProperties().set ("chip", true);
     autoEcoChip.setClickingTogglesState (true);
@@ -3156,6 +3231,13 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
             if (safe != nullptr)
                 safe->closeExtPluginWindow (slot);
         };
+    // restore the persisted compact preference (chainView exists from here on)
+    if ((bool) processor.apvts.state.getProperty ("chainCompact", false))
+    {
+        chainView->setCompactView (true);
+        compactChip.getProperties().set ("chipActive", true);
+    }
+
     chainViewport.setViewedComponent (chainView.get(), false);
     chainViewport.setScrollBarsShown (false, true);
     chainViewport.setScrollBarThickness (9);
@@ -3356,6 +3438,7 @@ void RigContent::resized()
     muteChip.setBounds (102, by, 48, 28);
     autoEcoChip.setBounds (154, by, 78, 28);
     perfChip.setBounds (236, by, 58, 28);
+    compactChip.setBounds (298, by, 84, 28);
 }
 
 void RigContent::setPerfMode (bool shouldBeOn)
