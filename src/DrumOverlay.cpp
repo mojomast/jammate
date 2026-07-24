@@ -406,18 +406,49 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     tabGrooves.onClick = [this] { currentKind = 1; rebuildList(); };
     tabViradas.onClick = [this] { currentKind = 2; rebuildList(); };
     saveChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Saves the selected bar to My bars "
-        "(Documents\\PedalForge NAM\\compassos)")));
+        "Save the selected bar as a reusable groove in \"My bars\" - then drag "
+        "it onto any bar (Documents\\PedalForge NAM\\compassos)")));
     saveChip.onClick = [this]
     {
-        currentGenre = "MINE";
-        if (gridOn)
+        const int g = selectedBar();
+        if (! engine.barUsed[g].load())
         {
-            gridOn = false;
-            gridChip.getProperties().set ("chipActive", false);
+            // nothing on the selected bar to save
+            auto* w = new juce::AlertWindow (
+                juce::String ("Nothing to save"),
+                juce::String ("Select a bar with notes first, then use SAVE BAR to "
+                              "store it in your reusable \"My bars\" library."),
+                juce::MessageBoxIconType::NoIcon);
+            w->addButton ("OK", 0, juce::KeyPress (juce::KeyPress::returnKey));
+            w->enterModalState (true, juce::ModalCallbackFunction::create (
+                [w] (int) { delete w; }));
+            return;
         }
-        refreshAll();
-        saveNameEditor.grabKeyboardFocus();
+
+        auto* w = new juce::AlertWindow (
+            juce::String ("Save bar to My bars"),
+            juce::String ("Name this bar. It appears under the \"My bars\" genre so you "
+                          "can drag it onto any bar later."),
+            juce::MessageBoxIconType::NoIcon);
+        w->addTextEditor ("name", engine.barNames[g], "Name");
+        w->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+        w->addButton (juce::String ("Cancel"), 0, juce::KeyPress (juce::KeyPress::escapeKey));
+        w->enterModalState (true, juce::ModalCallbackFunction::create (
+            [this, w] (int r)
+            {
+                if (r == 1)
+                {
+                    const auto name = w->getTextEditorContents ("name").trim();
+                    if (name.isNotEmpty())
+                    {
+                        saveUserGroove (name);
+                        currentGenre = "MINE";   // show the result in My bars
+                        rebuildGenreCol();
+                        refreshAll();
+                    }
+                }
+                delete w;
+            }));
     };
 
     addSectionBtn.onClick = [this]
@@ -502,20 +533,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
         addChildComponent (*hs.s);
     }
 
-    saveNameEditor.setFont (ui::monoFont (12.0f));
-    saveNameEditor.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff0c0e11));
-    saveNameEditor.setColour (juce::TextEditor::outlineColourId, ui::border());
-    saveNameEditor.setColour (juce::TextEditor::focusedOutlineColourId, ui::accentDark);
-    saveNameEditor.setColour (juce::TextEditor::textColourId, ui::text);
-    saveNameEditor.setTextToShowWhenEmpty (
-        juce::String (juce::CharPointer_UTF8 ("name for the selected bar\xe2\x80\xa6")),
-        ui::textMuted);
-    saveNameEditor.onReturnKey = [this] { saveUserGroove(); };
-    addChildComponent (saveNameEditor);
-
-    saveConfirm.getProperties().set ("outlineAccent", true);
-    saveConfirm.onClick = [this] { saveUserGroove(); };
-    addChildComponent (saveConfirm);
+    // (naming is now a one-shot popup from SAVE BAR; no inline editor)
 
     addChildComponent (gridView);
 
@@ -543,7 +561,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     addChildComponent (vstClearButton);
 
     for (auto* b : std::initializer_list<juce::Button*> {
-             &closeButton, &playButton, &bpmDown, &bpmUp, &saveConfirm,
+             &closeButton, &playButton, &bpmDown, &bpmUp,
              &addSectionBtn, &delSectionBtn,
              &vstLoadButton, &vstPanelButton, &vstClearButton })
         b->setMouseClickGrabsKeyboardFocus (false);
@@ -911,9 +929,6 @@ void DrumOverlay::resized()
         const int prevW = (W - margin) - prevX;
         previewPane.setBounds (prevX, libY, prevW, libH - 38);
         applyBtn.setBounds (prevX, libBottom - 30, 190, 30);
-        // MINE tab: save field to the right of "apply"
-        saveNameEditor.setBounds (prevX + 200, libBottom - 30, prevW - 200 - 72, 30);
-        saveConfirm.setBounds (W - margin - 66, libBottom - 30, 66, 30);
         // humanize (non-MINE): 3 sliders on the right
         const int hw = 62, hg = 8;
         const int hx = W - margin - (hw * 3 + hg * 2);
@@ -1028,8 +1043,6 @@ void DrumOverlay::refreshAll()
     tabGrooves.setVisible (lib && ! mine);
     tabViradas.setVisible (lib && ! mine);
     applyBtn.setVisible (lib && selValid);
-    saveNameEditor.setVisible (lib && mine);
-    saveConfirm.setVisible (lib && mine);
     const bool humShow = lib && ! mine;
     humVelSlider.setVisible (humShow);
     humTimeSlider.setVisible (humShow);
@@ -1986,15 +1999,11 @@ juce::File DrumOverlay::userGroovesDir()
     return dir;
 }
 
-void DrumOverlay::saveUserGroove()
+void DrumOverlay::saveUserGroove (const juce::String& name)
 {
-    const auto name = saveNameEditor.getText().trim();
     const int g = selectedBar();
     if (name.isEmpty() || ! engine.barUsed[g].load())
-    {
-        saveNameEditor.grabKeyboardFocus();
         return;
-    }
 
     auto* obj = new juce::DynamicObject();
     obj->setProperty ("name", name);
@@ -2005,7 +2014,6 @@ void DrumOverlay::saveUserGroove()
         .getChildFile (juce::File::createLegalFileName (name) + ".json")
         .replaceWithText (juce::JSON::toString (juce::var (obj), true));
 
-    saveNameEditor.setText ("");
     engine.barNames[g] = name;
     refreshAll();
 }

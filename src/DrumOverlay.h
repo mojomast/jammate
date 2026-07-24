@@ -160,7 +160,7 @@ private:
     int selectedBar() const { return curSection * drum::barsPerSection + selBar; }
     /// applies a groove (by dragId "f:<index>" or "u:<file>") to a bar
     void applyGrooveToBar (const juce::String& dragId, int globalBar);
-    void saveUserGroove();
+    void saveUserGroove (const juce::String& name);
     static juce::File userGroovesDir();
     void syncTransportUi();
 
@@ -214,8 +214,6 @@ private:
     PreviewPane previewPane { *this };
     juce::TextButton applyBtn;
     juce::Slider humVelSlider, humTimeSlider, humRRSlider;   // humanize
-    juce::TextEditor saveNameEditor;
-    juce::TextButton saveConfirm { "SAVE" };
     // groove selected in the preview
     juce::String selName, selDragId;
     int selBpm = 0;
