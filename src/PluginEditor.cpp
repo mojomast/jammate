@@ -353,10 +353,10 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         loadButtons[r].onClick = [onLoadModel, r] { onLoadModel (r); };
         addChildComponent (loadButtons[r]);
 
-        // variation selector (TONE3000 tones only): swaps the loaded capture for
-        // another model of the same tone via the store's Tone Details view.
-        ampVarButtons[r].setButtonText (juce::String (juce::CharPointer_UTF8 ("\xe2\x87\x86")));
-        ampVarButtons[r].setTooltip ("Other captures of this tone (TONE3000)");
+        // variation selector: swaps the loaded capture for another model of the
+        // same TONE3000 tone (inline picker). Shown whenever a model is loaded;
+        // enabled only for store captures (those carry a tone_id in the .meta).
+        ampVarButtons[r].setButtonText (juce::String (juce::CharPointer_UTF8 ("VARIANTS \xe2\x96\xbe")));
         ampVarButtons[r].getProperties().set ("chip", true);
         ampVarButtons[r].setMouseClickGrabsKeyboardFocus (false);
         ampVarButtons[r].onClick = [this, r]
@@ -859,10 +859,17 @@ void ChainView::refreshDynamicText()
 {
     for (int r = 0; r < maxRigs; ++r)
     {
-        loadButtons[r].setButtonText (processor.hasModelLoaded (r) ? "CHANGE NAM CAPTURE"
-                                                                   : "LOAD NAM CAPTURE");
-        // show the variations selector only for store captures with a tone id
-        ampVarButtons[r].setVisible (processor.hasModelLoaded (r) && toneIdForLane (r) > 0);
+        const bool loaded = processor.hasModelLoaded (r);
+        loadButtons[r].setButtonText (loaded ? "CHANGE NAM CAPTURE" : "LOAD NAM CAPTURE");
+        // the variations selector shows whenever a model is loaded; it only
+        // works for store captures (a tone_id in the .meta), so disable it for
+        // disk/old captures and explain via the tooltip.
+        const bool hasVariations = loaded && toneIdForLane (r) > 0;
+        ampVarButtons[r].setVisible (loaded);
+        ampVarButtons[r].setEnabled (hasVariations);
+        ampVarButtons[r].setTooltip (hasVariations
+            ? "Switch to another capture of this TONE3000 tone"
+            : "Add this capture from the TONE3000 store to switch between its variations");
     }
     ecoChip.setEnabled (processor.hasEcoVariant());
     refreshTypeButtons();
@@ -1723,8 +1730,11 @@ void ChainView::resized()
                 {
                     auto lb = juce::Rectangle<int> (ampB.getX() + 18, ampB.getBottom() - 15 - 32,
                                                     266 - 36, 32);
-                    ampVarButtons[r].setBounds (lb.removeFromRight (32));
-                    lb.removeFromRight (6);
+                    if (processor.hasModelLoaded (r))
+                    {
+                        ampVarButtons[r].setBounds (lb.removeFromRight (86));
+                        lb.removeFromRight (6);
+                    }
                     loadButtons[r].setBounds (lb);
                 }
             }
@@ -1740,8 +1750,11 @@ void ChainView::resized()
                 {
                     auto lb = juce::Rectangle<int> (ampB.getX() + 14, ampB.getBottom() - 28,
                                                     266 - 28, 22);
-                    ampVarButtons[r].setBounds (lb.removeFromRight (26));
-                    lb.removeFromRight (5);
+                    if (processor.hasModelLoaded (r))
+                    {
+                        ampVarButtons[r].setBounds (lb.removeFromRight (80));
+                        lb.removeFromRight (5);
+                    }
                     loadButtons[r].setBounds (lb);
                 }
             }
