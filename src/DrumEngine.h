@@ -95,6 +95,10 @@ public:
     std::atomic<float> bpm { 104.0f };
     std::atomic<float> swingPct { 0.0f };   // 0..60
     std::atomic<float> level { 0.8f };      // 0..1.5
+    // KIT MIXER (vNext): per-voice gain 0..1.5 applied on the hit velocity
+    // (internal sampler AND the MIDI sent to the hosted kit)
+    std::atomic<float> voiceGain[drum::numVoices] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+                                                      1.0f, 1.0f, 1.0f, 1.0f };
     // humanização (0..1): variação de velocity, micro-timing e round-robin
     std::atomic<float> humanVel { 0.30f };
     std::atomic<float> humanTime { 0.20f };

@@ -2283,7 +2283,12 @@ juce::ValueTree GuitarRigNAMProcessor::captureRigScene()
         t.removeProperty (key, nullptr);
     t.removeProperty (kStatePresetName, nullptr);
     for (int i = 0; i < drum::maxSections; ++i)          // scenes don't nest
+    {
         t.removeProperty ("sceneRig" + juce::String (i + 1), nullptr);
+        t.removeProperty ("sceneName" + juce::String (i + 1), nullptr);
+    }
+    for (int v = 0; v < drum::numVoices; ++v)            // kit mixer = drum domain
+        t.removeProperty ("drumVoiceGain" + juce::String (v + 1), nullptr);
     return t;
 }
 
@@ -2351,8 +2356,12 @@ void GuitarRigNAMProcessor::shiftScenesOnSectionRemove (int sec)
     if (sec < 0 || sec >= drum::maxSections)
         return;
     for (int i = sec; i < drum::maxSections - 1; ++i)
+    {
         sceneXml[i] = sceneXml[i + 1];
+        sceneNames[i] = sceneNames[i + 1];
+    }
     sceneXml[drum::maxSections - 1].clear();
+    sceneNames[drum::maxSections - 1].clear();
 }
 
 void GuitarRigNAMProcessor::handleAsyncUpdate()
@@ -3387,11 +3396,25 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
     for (int i = 0; i < drum::maxSections; ++i)
     {
         const auto key = "sceneRig" + juce::String (i + 1);
+        const auto nameKey = "sceneName" + juce::String (i + 1);
         state.removeProperty (key, nullptr);
+        state.removeProperty (nameKey, nullptr);
         if (sceneXml[i].isNotEmpty())
             state.setProperty (key, sceneXml[i], nullptr);
+        if (sceneNames[i].isNotEmpty())
+            state.setProperty (nameKey, sceneNames[i], nullptr);
     }
     state.setProperty ("scenesOn", scenesOn.load(), nullptr);
+
+    // drum KIT MIXER: per-voice gain (only when it strays from unity)
+    for (int v = 0; v < drum::numVoices; ++v)
+    {
+        const auto key = "drumVoiceGain" + juce::String (v + 1);
+        state.removeProperty (key, nullptr);
+        const float gv = drumEngine.voiceGain[v].load();
+        if (std::abs (gv - 1.0f) > 0.001f)
+            state.setProperty (key, gv, nullptr);
+    }
 
     return state;
 }
@@ -3599,7 +3622,13 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
     {
         scenesOn.store ((bool) state.getProperty ("scenesOn", false));
         for (int i = 0; i < drum::maxSections; ++i)
+        {
             sceneXml[i] = state.getProperty ("sceneRig" + juce::String (i + 1), "").toString();
+            sceneNames[i] = state.getProperty ("sceneName" + juce::String (i + 1), "").toString();
+        }
+        for (int v = 0; v < drum::numVoices; ++v)
+            drumEngine.voiceGain[v].store ((float) (double) state.getProperty (
+                "drumVoiceGain" + juce::String (v + 1), 1.0));
     }
 
     if (state.hasProperty (kStatePresetName))

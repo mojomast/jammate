@@ -293,6 +293,16 @@ public:
     void shiftScenesOnSectionRemove (int sec);
     /// Short human summary of a scene ("Mesa Dual... · 6 fx"); "" if none.
     juce::String sceneSummary (int sec) const;
+    /// User-editable scene name ("RHYTHM", "LEAD"...); "" = unnamed.
+    juce::String getSceneName (int sec) const
+    {
+        return sec >= 0 && sec < drum::maxSections ? sceneNames[sec] : juce::String();
+    }
+    void setSceneName (int sec, const juce::String& n)
+    {
+        if (sec >= 0 && sec < drum::maxSections)
+            sceneNames[sec] = n;
+    }
     std::atomic<bool> scenesOn { false };
 
     //==========================================================================
@@ -323,6 +333,7 @@ private:
     void handleAsyncUpdate() override;         // applies the pending scene
     juce::ValueTree captureRigScene();         // captureState minus drums/UI prefs
     juce::String sceneXml[drum::maxSections];  // "" = section without a scene
+    juce::String sceneNames[drum::maxSections];
     bool applyingSceneNow = false;             // guards the scene-restore in applyState
     std::atomic<int> scenePendingSection { -1 };
     int sceneLastSection = -1;                 // audio thread only

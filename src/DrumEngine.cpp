@@ -195,6 +195,8 @@ void DrumEngine::fireStep (int bar, int step, int sampleOffset,
             if (val == 0)
                 continue;
             float vel = val == 2 ? 1.0f : val == 3 ? 0.28f : 0.68f;
+            // KIT MIXER per-voice level (clamped: MIDI velocity is 7-bit)
+            vel = juce::jlimit (0.0f, 1.0f, vel * voiceGain[v].load());
 
             // humanização: velocity e micro-timing (offset só p/ frente, RT-safe)
             if (hv > 0.0f) vel = juce::jlimit (0.05f, 1.0f, vel * (1.0f + nextRnd() * hv * 0.35f));
