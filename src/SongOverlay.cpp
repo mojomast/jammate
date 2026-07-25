@@ -404,8 +404,8 @@ void SongOverlay::paint (juce::Graphics& g)
     g.fillRect (kSetlistW - 1, kTopH, 1, H - kTopH - kTransportH);
     g.setColour (ui::textDim);
     g.setFont (ui::monoFont (10.0f, true));
-    g.drawText ("SETLIST \xc2\xb7 PRESETS", 14, kTopH + 12, kSetlistW - 28, 14,
-                juce::Justification::centredLeft);
+    g.drawText (juce::String (juce::CharPointer_UTF8 ("SETLIST \xc2\xb7 PRESETS")),
+                14, kTopH + 12, kSetlistW - 28, 14, juce::Justification::centredLeft);
 
     for (const auto& it : setlist)
     {
@@ -438,7 +438,8 @@ void SongOverlay::paint (juce::Graphics& g)
 
     g.setColour (ui::textDim);
     g.setFont (ui::monoFont (10.0f, true));
-    g.drawText ("SCENE 0" + juce::String (selSection + 1) + " \xc2\xb7 "
+    g.drawText ("SCENE 0" + juce::String (selSection + 1)
+                    + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))
                     + sectionName (selSection).toUpperCase(),
                 ix + 14, kTopH + 12, kInspectorW - 28, 14, juce::Justification::centredLeft);
 
@@ -488,7 +489,8 @@ void SongOverlay::paint (juce::Graphics& g)
     // ---- arrangement header
     g.setColour (ui::textDim);
     g.setFont (ui::monoFont (10.0f, true));
-    g.drawText ("ARRANGEMENT \xc2\xb7 AUTO-SWITCH RIG SNAPSHOTS",
+    g.drawText (juce::String (juce::CharPointer_UTF8 (
+                    "ARRANGEMENT \xc2\xb7 AUTO-SWITCH RIG SNAPSHOTS")),
                 kSetlistW + 17, kTopH + 14, 360, 14, juce::Justification::centredLeft);
     if (processor.scenesOn.load())
     {
@@ -518,7 +520,8 @@ void SongOverlay::paint (juce::Graphics& g)
         const int x = c.bounds.getX() + 12;
         g.setColour (ui::textDim);
         g.setFont (ui::monoFont (8.0f, true));
-        g.drawText ("0" + juce::String (c.section + 1) + " \xc2\xb7 BARS "
+        g.drawText ("0" + juce::String (c.section + 1)
+                        + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 BARS "))
                         + juce::String (c.section * 4 + 1)
                         + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93"))
                         + juce::String (c.section * 4 + 4),
@@ -598,7 +601,8 @@ void SongOverlay::paint (juce::Graphics& g)
                     30, transportInfoArea.getHeight(), juce::Justification::centredLeft);
         g.setColour (bar >= 0 ? ui::accent : ui::textFaint);
         g.setFont (ui::monoFont (11.0f, true));
-        g.drawText (bar >= 0 ? "BAR " + juce::String (bar + 1) + " \xc2\xb7 BEAT "
+        g.drawText (bar >= 0 ? "BAR " + juce::String (bar + 1)
+                                   + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 BEAT "))
                                    + juce::String (step / 4 + 1)
                              : juce::String ("stopped"),
                     transportInfoArea.getX() + 96, transportInfoArea.getY(),

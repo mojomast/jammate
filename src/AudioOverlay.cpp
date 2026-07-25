@@ -648,7 +648,7 @@ void AudioOverlay::resized()
 
 void AudioOverlay::paint (juce::Graphics& g)
 {
-    g.fillAll (ui::bg.withAlpha (0.985f));
+    g.fillAll (ui::bg);   // fully opaque - the rig must not ghost through
 
     auto drawCard = [&g] (juce::Rectangle<int> r)
     {

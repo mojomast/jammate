@@ -531,10 +531,26 @@ void DrumRibbon::paint (juce::Graphics& g)
     g.setColour (ui::textBright);
     g.setFont (ui::uiFont (12.0f, true));
     g.drawText ("DRUMS", 58, 7, 130, 14, juce::Justification::centredLeft);
+
+    // mockup .rlabel: "Section A · Verse" (dominant role of the shown section)
+    juce::String role ("Verse");
+    for (int bi = base; bi < base + drum::barsPerSection && bi < drum::maxBars; ++bi)
+        if (engine.barRole[bi] > 0)
+        {
+            switch (engine.barRole[bi])
+            {
+                case 2: role = "Chorus"; break;
+                case 3: role = "Bridge"; break;
+                case 4: role = "Breakdown"; break;
+                case 5: role = "Fill"; break;
+                default: break;
+            }
+            break;
+        }
     g.setColour (ui::textFaint);
     g.setFont (ui::uiFont (9.0f));
-    g.drawText (playing ? juce::String (juce::CharPointer_UTF8 ("playing \xc2\xb7 follow along"))
-                        : juce::String ("stopped"),
+    g.drawText ("Section " + juce::String::charToString ((juce::juce_wchar) ('A' + sectionShown))
+                    + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 ")) + role,
                 58, 22, 150, 12, juce::Justification::centredLeft);
 
     g.setColour (ui::textBright);
@@ -567,6 +583,23 @@ void DrumRibbon::paint (juce::Graphics& g)
         drawMiniBar (g, { staffX + i * bw, 5.0f, bw, (float) getHeight() - 10.0f },
                      pat, engine.meterNum (bar), engine.meterDen (bar),
                      i == 0, meterChanged, false, activeStep);
+    }
+
+    // mockup: green "PLAYING BAR n" tag while the transport runs
+    if (playing && ub >= 0)
+    {
+        const auto tag = "PLAYING BAR " + juce::String (ub % drum::barsPerSection + 1);
+        g.setFont (ui::monoFont (7.5f, true));
+        const int tw = 14 + juce::GlyphArrangement::getStringWidthInt (g.getCurrentFont(), tag);
+        // sits on the paper's top-right corner - needs an opaque backdrop
+        const juce::Rectangle<float> r ((float) getWidth() - 112.0f - tw, 7.0f,
+                                        (float) tw, 16.0f);
+        g.setColour (ui::cardBottom);
+        g.fillRoundedRectangle (r, 4.0f);
+        g.setColour (ui::green.withAlpha (0.55f));
+        g.drawRoundedRectangle (r, 4.0f, 1.0f);
+        g.setColour (ui::green);
+        g.drawText (tag, r.toNearestInt(), juce::Justification::centred);
     }
 
     g.setColour (ui::textFaint);

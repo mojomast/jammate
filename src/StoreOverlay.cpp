@@ -1141,7 +1141,8 @@ public:
         : all (std::move (models)), current (std::move (currentName)),
           currentId (currentModelId), pick (std::move (onPick))
     {
-        search.setTextToShowWhenEmpty ("Search variations\xe2\x80\xa6",
+        search.setTextToShowWhenEmpty (juce::String (juce::CharPointer_UTF8 (
+                                           "Search variations\xe2\x80\xa6")),
                                        juce::Colour (ui::textFaint));
         search.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff14171b));
         search.setColour (juce::TextEditor::outlineColourId, ui::border());
