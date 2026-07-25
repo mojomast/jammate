@@ -2,6 +2,7 @@
 
 #include "DrumOverlay.h"
 #include "SongOverlay.h"
+#include "AudioOverlay.h"
 #include "PluginCatalog.h"
 
 #include <BinaryData.h>
@@ -80,7 +81,6 @@ double detectPitchHz (const float* x, int n, double sr)
 
 const char* kNoteNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 const double kStringFreqs[] = { 82.407, 110.0, 146.83, 196.0, 246.94, 329.63 };
-const char* kStringNames[] = { "E", "A", "D", "G", "B", "e" };
 } // namespace
 
 //==============================================================================
@@ -603,8 +603,6 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         addAndMakeVisible (*dest);
     };
 
-    makeKnob (inputKnob, "inputGain", "GAIN", formatDb);
-    makeKnob (outputKnob, "outputGain", "LEVEL", formatDb);
     makeKnob (gateThreshKnob, "gateThresh", "THRESH", formatDbInt);
     makeKnob (gateHoldKnob, "gateHold", "HOLD", formatMs);
     makeKnob (gateReleaseKnob, "gateRelease", "RELEASE", formatMs);
@@ -622,7 +620,6 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     makeKnob (odDriveKnob, "odDrive", "DRIVE", formatTen);
     makeKnob (odToneKnob, "odTone", "TONE", formatTen);
     makeKnob (odLevelKnob, "odLevel", "LEVEL", formatTen);
-    makeKnob (cabAirKnob, "cabAir", "AIR", formatTen);
 
     auto formatHz = [] (float v)
     {
@@ -659,9 +656,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         };
         addChildComponent (ampVarButtons[r]);
 
-        // the lane's blend lives in the Mixer card
-        makeKnob (cabBlendKnob[r], ("cab" + n + "Blend").toRawUTF8(),
-                  ("RIG " + n).toRawUTF8(), formatPct);
+        // the lane's blend/level lives in the OUTPUT card (RigContent)
         makeKnob (cabLcKnob[r], ("cab" + n + "LowCut").toRawUTF8(), "LO CUT", formatHz);
         makeKnob (cabHcKnob[r], ("cab" + n + "HighCut").toRawUTF8(), "HI CUT", formatHz);
 
@@ -729,26 +724,6 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
                      juce::String (juce::CharPointer_UTF8 (
                          "Diatonic interval of the second voice \xc2\xb7 ref: rkrlv2/rakarrack")));
 
-    rigAddButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Add an AMP+CAB rig in parallel (up to 3)")));
-    rigRemoveButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Remove the last AMP+CAB rig")));
-    for (auto* b : { &rigAddButton, &rigRemoveButton })
-        b->setMouseClickGrabsKeyboardFocus (false);
-    auto changeCount = [this] (int delta)
-    {
-        if (auto* param = processor.apvts.getParameter ("cabCount"))
-        {
-            const int c = juce::jlimit (1, (int) GuitarRigNAMProcessor::maxRigs,
-                                        processor.getRigCount() + delta);
-            param->setValueNotifyingHost (param->getNormalisableRange()
-                                              .convertTo0to1 ((float) c));
-        }
-    };
-    rigAddButton.onClick = [changeCount] { changeCount (1); };
-    rigRemoveButton.onClick = [changeCount] { changeCount (-1); };
-    addAndMakeVisible (rigAddButton);
-    addAndMakeVisible (rigRemoveButton);
     makeKnob (eqLowKnob, "eqLow", "LOW", formatDbInt);
     makeKnob (eqMidKnob, "eqMid", "MID", formatDbInt);
     makeKnob (eqHighKnob, "eqHigh", "HIGH", formatDbInt);
@@ -950,8 +925,6 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     // knob tooltips
     auto tip = [] (std::unique_ptr<KnobComponent>& k, const char* utf8)
     { k->setKnobTooltip (juce::String (juce::CharPointer_UTF8 (utf8))); };
-    tip (inputKnob, "Input gain (before everything)");
-    tip (outputKnob, "Final output volume");
     tip (gateThreshKnob, "Opens at this level; only closes 6 dB below (preserves sustain)");
     tip (gateHoldKnob, "Holds the gate open after the signal drops");
     tip (gateReleaseKnob, "Time for the gate to close");
@@ -968,7 +941,6 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     tip (odDriveKnob, "Amount of pedal saturation");
     tip (odToneKnob, "Overdrive brightness");
     tip (odLevelKnob, "Overdrive volume");
-    tip (cabAirKnob, "Air/brightness after the rig mix (8 kHz shelf)");
     for (int r = 0; r < maxRigs; ++r)
     {
         tip (ampGainKnob[r], "Pushes the signal into the capture - acts like the real amp's gain");
@@ -977,7 +949,6 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         tip (ampTrebleKnob[r], "Treble (1.8 kHz)");
         tip (ampPresKnob[r], "Presence (4.5 kHz)");
         tip (ampMasterKnob[r], "Amp section volume");
-        tip (cabBlendKnob[r], "How much of this rig enters the Mixer sum");
         tip (cabLcKnob[r], "Cuts this cab's bass (20 Hz = off)");
         tip (cabHcKnob[r], "Cuts this cab's treble (20 kHz = off)");
     }
@@ -1025,21 +996,38 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     updateLayout();
 }
 
+// amp-focus / cab-focus metrics (mockup FINAL PASS)
+namespace
+{
+constexpr int kAmpFocusW = 310;
+constexpr int kCabFocusW = 150;
+constexpr int kMiniW = 110;      // fx-mini card width
+constexpr int kMiniH = 178;      // fx-mini card height
+}
+
 // width of the rig block (stacked lanes, constant width):
-// bus 18 + amp 266 + 24 + cab 144 + bus 18 + 12 + mixer 170
+// split bus 18 + amp 310 + 24 + cab 150 + sum bus 18
 int ChainView::rigBlockWidth() const
 {
-    return 18 + 266 + 24 + 144 + 18 + 12 + 170;
+    return 18 + kAmpFocusW + 24 + kCabFocusW + 18;
 }
 
 void ChainView::updateLayout()
 {
-    // design metrics + 30 px connectors; the rig block is dynamic
-    int x = 26 + 90 + 30; // margin + IN card + connector
+    // fx-mini metrics + 30 px connectors; the rig block is dynamic
+    int x = 44; // left margin (room for the first connector "+")
     for (const auto& id : processor.getChainOrder())
         x += (id == "amp" ? rigBlockWidth() : effectCardWidth (id)) + 30;
-    x += 74 + 30; // "+ EFFECT" button
-    setSize (x + 90 + 26, chainHeight);
+    setSize (x + 44, chainHeight);
+}
+
+void ChainView::setChainHeight (int newHeight)
+{
+    newHeight = juce::jmax (260, newHeight);
+    if (chainHeight == newHeight)
+        return;
+    chainHeight = newHeight;
+    applyChainRelayout();
 }
 
 void ChainView::setAmpImage (int lane, juce::Image img)
@@ -1417,9 +1405,10 @@ juce::String ChainView::fxDisplayName (const juce::String& id)
 
 std::vector<std::pair<juce::Rectangle<int>, int>> ChainView::insertSpots() const
 {
-    // one "+" in the middle of each connector: insert BEFORE card i = index i
+    // one "+" in the middle of each connector: insert BEFORE card i = index i;
+    // a trailing "+" after the last card appends at the end of the chain
     std::vector<std::pair<juce::Rectangle<int>, int>> spots;
-    juce::Rectangle<int> prev = ioInB;
+    juce::Rectangle<int> prev (0, chainHeight / 2, 8, 1);   // virtual input node
     const auto entries = orderedEntries();
     for (int i = 0; i < (int) entries.size(); ++i)
     {
@@ -1430,6 +1419,10 @@ std::vector<std::pair<juce::Rectangle<int>, int>> ChainView::insertSpots() const
         spots.push_back ({ juce::Rectangle<int> (midX - 11, chainHeight / 2 - 11, 22, 22), i });
         prev = box;
     }
+    if (! entries.empty() && ! prev.isEmpty() && prev.getRight() > 8)
+        spots.push_back ({ juce::Rectangle<int> (prev.getRight() + 15 - 11,
+                                                 chainHeight / 2 - 11, 22, 22),
+                           (int) entries.size() });
     return spots;
 }
 
@@ -1550,6 +1543,10 @@ void ChainView::removeFxFromChain (const juce::String& id)
     auto order = processor.getChainOrder();
     order.removeString (id);
     processor.setChainOrder (order);
+    if (selectedFxId == id)
+        selectedFxId.clear();
+    if (expandedFxId == id)
+        expandedFxId.clear();
     applyChainRelayout(); // layout updates immediately, not on the next tick
 }
 
@@ -1569,13 +1566,6 @@ void ChainView::mouseDown (const juce::MouseEvent& e)
 {
     draggingId.clear();
     panning = false;
-
-    // "+ EFFECT" button (end of the chain)
-    if (addFxB.contains (e.getPosition()))
-    {
-        showAddFxMenu (-1, addFxB);
-        return;
-    }
 
     // connector "+": adds an effect AT THAT position
     for (const auto& [rect, idx] : insertSpots())
@@ -1666,9 +1656,6 @@ void ChainView::mouseMove (const juce::MouseEvent& e)
                 hot = removeHotspot (entry.box);
                 break;
             }
-    if (hot.isEmpty() && addFxB.contains (e.getPosition()))
-        hot = addFxB;
-
     if (hot != hoverHotspot)
     {
         hoverHotspot = hot;
@@ -1799,9 +1786,10 @@ void ChainView::mouseUp (const juce::MouseEvent& e)
     setMouseCursor (juce::MouseCursor::NormalCursor);
     panning = false;
 
-    // vNext compact: a plain click (no drag) on a card selects/deselects it -
-    // the selected card expands with its knobs, the previous one collapses.
-    if (compactView && e.mouseWasClicked() && dropIndex < 0)
+    // vNext fx-mini: a plain click (no drag) on a card selects it; a click on
+    // the already-selected card (or a double-click) expands it inline with the
+    // full knob layout. Clicking an expanded card's background collapses it.
+    if (e.mouseWasClicked() && dropIndex < 0)
     {
         for (const auto& en : orderedEntries())
         {
@@ -1809,11 +1797,19 @@ void ChainView::mouseUp (const juce::MouseEvent& e)
                 continue;
             if (removeHotspot (en.box).contains (e.getPosition()))
                 break;   // the "x" already handled it - don't also select
-            selectedFxId = (selectedFxId == en.id ? juce::String() : en.id);
+            const bool wasSelected = selectedFxId == en.id;
+            const bool wasExpanded = expandedFxId == en.id;
+            if (wasExpanded)
+                expandedFxId.clear();
+            else if (wasSelected || e.getNumberOfClicks() >= 2)
+                expandedFxId = en.id;
+            selectedFxId = en.id;
             draggingId.clear();
             dropIndex = -1;
             dragMouseX = -1.0f;
             applyChainRelayout();
+            if (expandedFxId == en.id)
+                centreFxInViewport (en.id);  // double-click centers (mockup hint)
             repaint();
             return;
         }
@@ -1842,24 +1838,71 @@ void ChainView::mouseUp (const juce::MouseEvent& e)
 
 int ChainView::effectCardWidth (const juce::String& id) const
 {
-    // vNext compact: unselected effects collapse to a narrow name slot
-    if (compactView && id != selectedFxId)
-        return 64;
+    // fx-mini default; the expanded card keeps the full (classic) width
+    if (id != expandedFxId)
+        return kMiniW;
     if (id == "eq" || id == "preeq" || id == "looper" || id == "harm" || id == "analyzer"
         || extSlotForId (id) >= 0)
         return 176;
     return 132;
 }
 
-void ChainView::setCompactView (bool on)
+void ChainView::centreFxInViewport (const juce::String& id)
 {
-    if (compactView == on)
-        return;
-    compactView = on;
-    if (! on)
-        selectedFxId.clear();
-    applyChainRelayout();
-    repaint();
+    if (auto* vp = findParentComponentOfClass<juce::Viewport>())
+    {
+        const auto b = boxForFx (id);
+        if (! b.isEmpty())
+            vp->setViewPosition (juce::jmax (0, b.getCentreX() - vp->getWidth() / 2),
+                                 vp->getViewPositionY());
+    }
+}
+
+std::vector<std::pair<juce::Rectangle<int>, bool>> ChainView::minimapBlocks() const
+{
+    std::vector<std::pair<juce::Rectangle<int>, bool>> out;
+    for (const auto& en : orderedEntries())
+        if (! en.box.isEmpty())
+            out.push_back ({ en.box, en.id == "amp" });
+    return out;
+}
+
+juce::TextButton* ChainView::typeButtonForFx (const juce::String& id)
+{
+    if (id == "od")     return &odTypeButton;
+    if (id == "comp")   return &compTypeButton;
+    if (id == "delay")  return &delayTypeButton;
+    if (id == "reverb") return &revTypeButton;
+    if (id == "mod")    return &modTypeButton;
+    if (id == "pitch")  return &pitchTypeButton;
+    if (id == "wah")    return &wahModeButton;
+    if (id == "harm")   return &harmIntervalButton;
+    return nullptr;
+}
+
+juce::String ChainView::miniFooterFor (const juce::String& id) const
+{
+    if (const int s = extSlotForId (id); s >= 0)
+    {
+        const auto n = processor.getExternalPluginName (s);
+        return n.isNotEmpty() ? n.toUpperCase() : juce::String ("VST3 SLOT");
+    }
+    const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
+    if (id == "gate")     return "SMART" + dot + "6 dB HYST";
+    if (id == "preeq")    return "3-BAND PRE";
+    if (id == "eq")       return "3-BAND POST";
+    if (id == "limiter")  return "BRICKWALL";
+    if (id == "octaver")  return "ANALOG SUB";
+    if (id == "ringmod")  return "SINE CARRIER";
+    if (id == "bitcrush") return "LO-FI";
+    if (id == "slowgear") return "AUTO SWELL";
+    if (id == "exciter")  return "HARMONICS";
+    if (id == "deesser")  return "DYNAMIC CUT";
+    if (id == "tape")     return "SATURATION";
+    if (id == "console")  return "BUSS GLUE";
+    if (id == "analyzer") return "SPECTRUM";
+    if (id == "looper")   return "60 s" + dot + "WAV";
+    return {};
 }
 
 juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
@@ -1887,7 +1930,14 @@ juce::Rectangle<int> ChainView::boxForFx (const juce::String& id) const
     if (id == "tape") return tapeB;
     if (id == "console") return cnsB;
     if (id == "analyzer") return anB;
-    return ampLaneB[0].getUnion (mixerB); // "amp" = bloco rigs+mixer
+    // "amp" = whole rigs block (all stacked amp+cab lanes)
+    auto block = ampLaneB[0];
+    for (int r = 0; r < maxRigs; ++r)
+    {
+        if (! ampLaneB[r].isEmpty()) block = block.getUnion (ampLaneB[r]);
+        if (! cabLaneB[r].isEmpty()) block = block.getUnion (cabLaneB[r]);
+    }
+    return block;
 }
 
 std::vector<ChainView::ChainEntry> ChainView::orderedEntries() const
@@ -1912,14 +1962,29 @@ void ChainView::resized()
                                       "slowgear", "exciter", "deesser", "tape", "console",
                                       "analyzer" };
     const auto chain = processor.getChainOrder();
-    for (auto* id : allFxIds)
+    for (auto* idc : allFxIds)
     {
+        const juce::String id (idc);
         const bool present = chain.contains (id);
-        // compact: collapsed cards keep only the LED (index 0) as state indicator
-        const bool collapsed = compactView && selectedFxId != id;
+        // fx-mini: collapsed cards keep the LED, the first 2 knobs and the
+        // type selector; the expanded card shows everything
+        const bool mini = present && id != expandedFxId;
         auto comps = componentsForFx (id);
+        auto* typeBtn = typeButtonForFx (id);
+        int knobsShown = 0;
         for (int i = 0; i < comps.size(); ++i)
-            comps.getUnchecked (i)->setVisible (present && (i == 0 || ! collapsed));
+        {
+            auto* c = comps.getUnchecked (i);
+            bool vis = present;
+            if (mini && i > 0)
+            {
+                if (dynamic_cast<KnobComponent*> (c) != nullptr)
+                    vis = ++knobsShown <= 2;
+                else
+                    vis = c == typeBtn;
+            }
+            c->setVisible (vis);
+        }
     }
     gateB = odB = eqB = delayB = revB = compB = preEqB = pitchB = looperB = limB = {};
     for (auto& b : extB)
@@ -1927,20 +1992,20 @@ void ChainView::resized()
     wahB = harmB = octB = rmB = bcB = sgB = excB = dsB = tapeB = cnsB = anB = {};
 
     // position the cards following the chain's dynamic order
-    int x = 26;
-    ioInB = { x, cardY (330), 90, 330 };
-    x += 90 + 30;
+    const int bigH = juce::jmin (330, H - 16);   // expanded effect card height
+    const int miniH = juce::jmin (kMiniH, H - 16);
+    int x = 44;
 
     for (const auto& id : processor.getChainOrder())
     {
         if (id == "amp")
         {
-            // STACKED AMP+CAB lanes (true parallel): one row per
-            // rig, split bus on the left and sum bus entering the Mixer
+            // STACKED AMP+CAB lanes (true parallel): one row per rig, split
+            // bus on the left and sum bus on the right (mix in the OUTPUT card)
             const int count = processor.getRigCount();
             const int rowGap = 12, busW = 18;
-            const int availH = H - 40;
-            const int rowH = juce::jmin (360, (availH - (count - 1) * rowGap) / count);
+            const int availH = H - 20;
+            const int rowH = juce::jmin (390, (availH - (count - 1) * rowGap) / count);
             const int totalH = count * rowH + (count - 1) * rowGap;
             const int topY = (H - totalH) / 2;
             const int pairX = x + busW;
@@ -1953,17 +2018,18 @@ void ChainView::resized()
                     continue;
                 }
                 const int ry = topY + r * (rowH + rowGap);
-                const int cabH = juce::jmin (rowH, 330);
-                ampLaneB[r] = { pairX, ry, 266, rowH };
-                cabLaneB[r] = { pairX + 266 + 24, ry + (rowH - cabH) / 2, 144, cabH };
+                const int cabH = juce::jmin (rowH, 290);
+                ampLaneB[r] = { pairX, ry, kAmpFocusW, rowH };
+                cabLaneB[r] = { pairX + kAmpFocusW + 24, ry + (rowH - cabH) / 2,
+                                kCabFocusW, cabH };
             }
-            mixerB = { pairX + 266 + 24 + 144 + busW + 12, cardY (330), 170, 330 };
-            x = mixerB.getRight() + 30;
+            x = cabLaneB[0].getRight() + busW + 30;
         }
         else
         {
             const int w = effectCardWidth (id);
-            auto box = juce::Rectangle<int> { x, cardY (330), w, 330 };
+            const int cardH = id == expandedFxId ? bigH : miniH;
+            auto box = juce::Rectangle<int> { x, cardY (cardH), w, cardH };
             if (id == "gate") gateB = box;
             else if (id == "od") odB = box;
             else if (id == "eq") eqB = box;
@@ -1990,14 +2056,6 @@ void ChainView::resized()
             x += w + 30;
         }
     }
-
-    addFxB = { x, cardY (330), 74, 330 };
-    x += 74 + 30;
-    ioOutB = { x, cardY (330), 90, 330 };
-
-    // ---- IO
-    inputKnob->setBounds (ioInB.getX() + (90 - 50) / 2, ioInB.getCentreY() - 34, 50, 50 + 26);
-    outputKnob->setBounds (ioOutB.getX() + (90 - 50) / 2, ioOutB.getCentreY() - 34, 50, 50 + 26);
 
     // ---- generic pedal: knobs wrapped in 2 columns (46 px)
     auto layoutPedal = [] (juce::Rectangle<int> b, LedButton& led,
@@ -2118,7 +2176,7 @@ void ChainView::resized()
         preEqHighKnob->setBounds (gx + 2 * (kw + gap), ky, kw, kh);
     }
 
-    // ---- parallel rigs: AMP+CAB pair per lane + Mixer
+    // ---- parallel rigs: AMP+CAB pair per lane (mix lives in the OUTPUT card)
     {
         const int count = processor.getRigCount();
 
@@ -2137,7 +2195,6 @@ void ChainView::resized()
             cabHcKnob[r]->setVisible (active);
             cabPhaseChips[r].setVisible (active);
             cabIrButtons[r].setVisible (active);
-            cabBlendKnob[r]->setVisible (active);
             if (! active)
                 continue;
 
@@ -2156,14 +2213,14 @@ void ChainView::resized()
                 // classic 3x2 grid (optional photo between header and knobs)
                 const bool photo = ampImages[r].isValid();
                 const int kw = 42, kh = kw + 26, gapX = 26, gapY = 4;
-                const int gx = ampB.getX() + (266 - (3 * kw + 2 * gapX)) / 2;
+                const int gx = ampB.getX() + (ampB.getWidth() - (3 * kw + 2 * gapX)) / 2;
                 const int gy = ampB.getY() + (photo ? 152 : 118);
                 for (int i = 0; i < 6; ++i)
                     grid[i]->setBounds (gx + (i % 3) * (kw + gapX), gy + (i / 3) * (kh + gapY), kw, kh);
 
                 {
                     auto lb = juce::Rectangle<int> (ampB.getX() + 18, ampB.getBottom() - 15 - 32,
-                                                    266 - 36, 32);
+                                                    ampB.getWidth() - 36, 32);
                     if (processor.hasModelLoaded (r))
                     {
                         ampVarButtons[r].setBounds (lb.removeFromRight (86));
@@ -2176,14 +2233,14 @@ void ChainView::resized()
             {
                 // single row of 6 smaller knobs
                 const int kw = 32, kh = kw + 26, gapX = 6;
-                const int gx = ampB.getX() + (266 - (6 * kw + 5 * gapX)) / 2;
+                const int gx = ampB.getX() + (ampB.getWidth() - (6 * kw + 5 * gapX)) / 2;
                 const int gy = ampB.getY() + 46 + (ampB.getHeight() - 46 - 32 - kh) / 2;
                 for (int i = 0; i < 6; ++i)
                     grid[i]->setBounds (gx + i * (kw + gapX), gy, kw, kh);
 
                 {
                     auto lb = juce::Rectangle<int> (ampB.getX() + 14, ampB.getBottom() - 28,
-                                                    266 - 28, 22);
+                                                    ampB.getWidth() - 28, 22);
                     if (processor.hasModelLoaded (r))
                     {
                         ampVarButtons[r].setBounds (lb.removeFromRight (80));
@@ -2199,8 +2256,8 @@ void ChainView::resized()
             if (! compact)
             {
                 cabPhaseChips[r].setBounds (cabB.getRight() - 12 - 26, cabB.getY() + 36, 26, 20);
-                cabLcKnob[r]->setBounds (cabB.getX() + 18, cabB.getY() + 176, 40, 40 + 26);
-                cabHcKnob[r]->setBounds (cabB.getX() + 78, cabB.getY() + 176, 40, 40 + 26);
+                cabLcKnob[r]->setBounds (cabB.getX() + 25, cabB.getY() + 156, 40, 40 + 26);
+                cabHcKnob[r]->setBounds (cabB.getX() + 85, cabB.getY() + 156, 40, 40 + 26);
                 {
                     auto cb = juce::Rectangle<int> (cabB.getX() + 10, cabB.getBottom() - 12 - 24,
                                                     cabB.getWidth() - 20, 24);
@@ -2217,8 +2274,8 @@ void ChainView::resized()
                 cabPhaseChips[r].setBounds (cabB.getRight() - 10 - 26, cabB.getY() + 32, 26, 20);
                 const int kh2 = 36 + 26;
                 const int ky = cabB.getY() + 34 + (cabB.getHeight() - 34 - 30 - kh2) / 2;
-                cabLcKnob[r]->setBounds (cabB.getX() + 26, ky, 36, kh2);
-                cabHcKnob[r]->setBounds (cabB.getX() + 82, ky, 36, kh2);
+                cabLcKnob[r]->setBounds (cabB.getX() + 27, ky, 36, kh2);
+                cabHcKnob[r]->setBounds (cabB.getX() + 87, ky, 36, kh2);
                 {
                     auto cb = juce::Rectangle<int> (cabB.getX() + 10, cabB.getBottom() - 28,
                                                     cabB.getWidth() - 20, 22);
@@ -2231,19 +2288,6 @@ void ChainView::resized()
                 }
             }
         }
-
-        // Mixer: rig +/-, per-lane blend and global AIR
-        rigRemoveButton.setBounds (mixerB.getRight() - 12 - 22, mixerB.getY() + 8, 22, 22);
-        rigAddButton.setBounds (rigRemoveButton.getX() - 4 - 22, mixerB.getY() + 8, 22, 22);
-        rigAddButton.setEnabled (count < GuitarRigNAMProcessor::maxRigs);
-        rigRemoveButton.setEnabled (count > 1);
-
-        for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
-            if (r < count)
-                cabBlendKnob[r]->setBounds (mixerB.getX() + 18, mixerB.getY() + 44 + r * 88,
-                                            44, 44 + 26);
-        cabAirKnob->setBounds (mixerB.getRight() - 18 - 44, mixerB.getCentreY() - 20,
-                               44, 44 + 26);
     }
 
     // ---- EQ
@@ -2256,39 +2300,96 @@ void ChainView::resized()
         eqMidKnob->setBounds (gx + kw + gap, ky, kw, kh);
         eqHighKnob->setBounds (gx + 2 * (kw + gap), ky, kw, kh);
     }
+
+    // ---- fx-mini pass: overrides the legacy positions for collapsed cards
+    // (LED top-right, up to 2 main knobs centered, type box in the footer)
+    for (auto* idc : allFxIds)
+    {
+        const juce::String id (idc);
+        if (! chain.contains (id))
+            continue;
+        auto comps = componentsForFx (id);
+        const bool mini = id != expandedFxId;
+        if (! mini)
+        {
+            for (int i = 1; i < comps.size(); ++i)
+                if (auto* k = dynamic_cast<KnobComponent*> (comps.getUnchecked (i)))
+                    k->setCompactLayout (false);
+            continue;
+        }
+
+        const auto box = boxForFx (id);
+        if (box.isEmpty())
+            continue;
+        comps.getUnchecked (0)->setBounds (box.getRight() - 10 - 16, box.getY() + 8, 16, 16);
+
+        juce::Array<KnobComponent*> knobs;
+        for (int i = 1; i < comps.size() && knobs.size() < 2; ++i)
+            if (auto* k = dynamic_cast<KnobComponent*> (comps.getUnchecked (i)))
+                knobs.add (k);
+        const int kw = 40, kh = kw + 16, gap = 10;
+        const int rowW = knobs.size() * kw + juce::jmax (0, knobs.size() - 1) * gap;
+        int kx = box.getCentreX() - rowW / 2;
+        for (auto* k : knobs)
+        {
+            k->setCompactLayout (true);
+            k->setBounds (kx, box.getY() + 54, kw, kh);
+            kx += kw + gap;
+        }
+
+        if (auto* typeBtn = typeButtonForFx (id))
+            typeBtn->setBounds (box.getX() + 8, box.getBottom() - 8 - 24,
+                                box.getWidth() - 16, 24);
+    }
 }
 
 void ChainView::drawPedalFrame (juce::Graphics& g, juce::Rectangle<int> b,
-                                const juce::String& title, const juce::String& footer)
+                                const juce::String& title, const juce::String& footer,
+                                const juce::String& id)
 {
     if (b.isEmpty()) // effect in the drawer (outside the current chain)
         return;
 
+    const bool selected = id.isNotEmpty() && id == selectedFxId;
     auto bf = b.toFloat();
     g.setGradientFill ({ ui::cardTop, 0.0f, bf.getY(), ui::cardBottom, 0.0f, bf.getBottom(), false });
     g.fillRoundedRectangle (bf, 2.0f);
-    g.setColour (ui::border());
-    g.drawRoundedRectangle (bf.reduced (0.5f), 2.0f, 1.0f);
+    g.setColour (selected ? ui::accent.withAlpha (0.85f) : ui::border());
+    g.drawRoundedRectangle (bf.reduced (0.5f), 2.0f, selected ? 1.4f : 1.0f);
 
-    // vNext compact slot: vertical title reading bottom-up; the LED (kept
-    // visible by resized()) stays as the on/off indicator at the top.
-    if (b.getWidth() <= 70)
+    // vNext fx-mini card: title + status + footer type box (knobs/LED are
+    // children placed by resized(); effects with a variation selector show
+    // their type button in the footer instead of the static caption)
+    if (id.isNotEmpty() && b.getWidth() <= kMiniW + 6)
     {
-        g.saveState();
         g.setFont (ui::uiFont (11.0f, true));
         g.setColour (ui::text);
-        g.addTransform (juce::AffineTransform::rotation (
-            -juce::MathConstants<float>::halfPi, (float) b.getCentreX(), (float) b.getCentreY()));
-        // after the -90deg rotation this rect spans the card vertically,
-        // leaving the top ~36px free for the LED
-        g.drawText (title,
-                    b.getCentreX() - b.getHeight() / 2 + 14, b.getCentreY() - 8,
-                    b.getHeight() - 14 - 40, 16,
-                    juce::Justification::centredLeft);
-        g.restoreState();
-        tipZones.push_back ({ b, footer.trim().isNotEmpty()
-                                     ? title + " - " + footer
-                                     : title + " (click to expand)" });
+        g.drawFittedText (title, b.getX() + 10, b.getY() + 9, b.getWidth() - 54, 14,
+                          juce::Justification::centredLeft, 1);
+
+        auto* onParam = processor.apvts.getRawParameterValue (onParamIdForFx (id));
+        const bool on = onParam == nullptr || onParam->load() > 0.5f;
+        g.setFont (ui::monoFont (7.5f, on));
+        g.setColour (on ? ui::accent : ui::textFaint);
+        g.drawText (on ? "ACTIVE" : "BYPASS", b.getX() + 10, b.getY() + 25,
+                    b.getWidth() - 20, 10, juce::Justification::centredLeft);
+
+        if (typeButtonForFx (id) == nullptr)
+        {
+            auto typeBox = juce::Rectangle<int> (b.getX() + 8, b.getBottom() - 8 - 24,
+                                                 b.getWidth() - 16, 24).toFloat();
+            g.setColour (ui::border());
+            g.drawRoundedRectangle (typeBox.reduced (0.5f), 4.0f, 1.0f);
+            g.setColour (ui::textFaint);
+            g.setFont (ui::monoFont (7.5f, true));
+            g.drawFittedText (miniFooterFor (id), typeBox.toNearestInt().reduced (3, 0),
+                              juce::Justification::centred, 1);
+        }
+
+        tipZones.push_back ({ { b.getX() + 8, b.getY() + 6, b.getWidth() - 36, 30 },
+                              footer.trim().isNotEmpty()
+                                  ? title + " - " + footer
+                                  : title + " (click again to expand)" });
         return;
     }
 
@@ -2342,11 +2443,7 @@ void ChainView::paint (juce::Graphics& g)
     for (int gx = 0; gx < getWidth(); gx += 44)
         g.fillRect (gx, 0, 1, getHeight());
 
-    g.setFont (ui::monoFont (9.0f));
-    g.setColour (juce::Colour (0xff525b66));
-    g.drawText ("SIGNAL FLOW", 24, 14, 200, 12, juce::Justification::centredLeft);
-
-    // ---- directional connectors
+    // ---- directional connectors ("SIGNAL FLOW" title lives in the chain header)
     auto connector = [&g] (juce::Rectangle<int> a, juce::Rectangle<int> b)
     {
         const float y = (float) a.getCentreY();
@@ -2363,7 +2460,7 @@ void ChainView::paint (juce::Graphics& g)
     // connectors follow the dynamic order (amp -> cabs is internal to the block)
     {
         const auto entries = orderedEntries();
-        juce::Rectangle<int> prev = ioInB;
+        juce::Rectangle<int> prev (0, chainHeight / 2, 8, 1);   // virtual input node
         for (const auto& e : entries)
         {
             if (e.id == "amp")
@@ -2374,12 +2471,12 @@ void ChainView::paint (juce::Graphics& g)
                 {
                     connector (prev, ampLaneB[0]);
                     connector (ampLaneB[0], cabLaneB[0]);
-                    connector (cabLaneB[0], mixerB);
+                    prev = cabLaneB[0];
                 }
                 else
                 {
                     // PARALLEL topology: split node -> one branch per lane
-                    // (amp -> cab) -> sum bus entering the Mixer
+                    // (amp -> cab) -> sum bus (mix lives in the OUTPUT card)
                     auto hLine = [&g] (float x1, float x2, float y)
                     {
                         g.setGradientFill ({ ui::accent.withAlpha (0.7f), x1, 0.0f,
@@ -2395,7 +2492,7 @@ void ChainView::paint (juce::Graphics& g)
                     const float busInX = (float) ampLaneB[0].getX() - 9.0f;
                     const float busOutX = (float) cabLaneB[0].getRight() + 9.0f;
                     const float yPrev = (float) prev.getCentreY();
-                    const float yMix = (float) mixerB.getCentreY();
+                    const float yOut = (float) chainHeight / 2.0f;
                     const float yTop = (float) ampLaneB[0].getCentreY();
                     const float yBot = (float) ampLaneB[count - 1].getCentreY();
 
@@ -2420,12 +2517,9 @@ void ChainView::paint (juce::Graphics& g)
                         hLine ((float) cabLaneB[r].getRight() + 10.0f, busOutX, ry);
                     }
 
-                    vBar (busOutX, juce::jmin (yTop, yMix), juce::jmax (yBot, yMix));
-                    hLine (busOutX, (float) mixerB.getX() - 3.0f, yMix);
-                    g.setColour (ui::accent.withAlpha (0.4f));
-                    g.fillEllipse ((float) mixerB.getX() - 8.0f, yMix - 2.5f, 5.0f, 5.0f);
+                    vBar (busOutX, juce::jmin (yTop, yOut), juce::jmax (yBot, yOut));
+                    prev = juce::Rectangle<int> ((int) busOutX - 4, (int) yOut - 2, 4, 4);
                 }
-                prev = mixerB;
             }
             else
             {
@@ -2433,73 +2527,44 @@ void ChainView::paint (juce::Graphics& g)
                 prev = e.box;
             }
         }
-        connector (prev, addFxB);
-        connector (addFxB, ioOutB);
+        // tail: the chain leaves toward the OUTPUT card on the right
+        connector (prev, juce::Rectangle<int> (getWidth() - 10, chainHeight / 2, 8, 1));
     }
 
-    // ---- IO
-    auto drawIo = [&] (juce::Rectangle<int> b, const juce::String& name, const juce::String& lbl)
-    {
-        auto bf = b.toFloat();
-        g.setGradientFill ({ juce::Colour (0xff1e232a), 0.0f, bf.getY(),
-                             juce::Colour (0xff101318), 0.0f, bf.getBottom(), false });
-        g.fillRoundedRectangle (bf, 2.0f);
-        g.setColour (ui::border());
-        g.drawRoundedRectangle (bf.reduced (0.5f), 2.0f, 1.0f);
-
-        g.setFont (ui::monoFont (9.0f));
-        g.setColour (juce::Colour (0xff8a929c));
-        g.drawText (name, b.withTrimmedTop (16).withHeight (12), juce::Justification::centred);
-
-        const float jackY = bf.getY() + 58.0f;
-        g.setColour (juce::Colours::black);
-        g.fillEllipse (bf.getCentreX() - 19.0f, jackY, 38.0f, 38.0f);
-        g.setColour (juce::Colour (0xff363c45));
-        g.drawEllipse (bf.getCentreX() - 19.0f, jackY, 38.0f, 38.0f, 3.0f);
-
-        g.setColour (ui::green);
-        g.fillEllipse (bf.getCentreX() - 22.0f, bf.getBottom() - 26.0f, 6.0f, 6.0f);
-        g.setFont (ui::monoFont (8.0f));
-        g.setColour (juce::Colour (0xff6b747f));
-        g.drawText (lbl, b.withTrimmedLeft (b.getWidth() / 2 - 9)
-                            .withY (b.getBottom() - 30).withHeight (14),
-                    juce::Justification::centredLeft);
-    };
-    drawIo (ioInB, "INPUT", "IN");
-    drawIo (ioOutB, "OUTPUT", "OUT");
-
     // ---- pedals (those with variations have a selector in the footer instead of text)
-    drawPedalFrame (g, gateB, "Noise Gate", juce::String (juce::CharPointer_UTF8 ("Hysteresis 6 dB \xc2\xb7 hold")));
-    drawPedalFrame (g, odB, "Drive", " ");
-    drawPedalFrame (g, delayB, "Delay", " ");
-    drawPedalFrame (g, revB, "Reverb", " ");
-    drawPedalFrame (g, compB, "Compressor", " ");
-    drawPedalFrame (g, modB, "Modulation", " ");
-    drawPedalFrame (g, pitchB, "Pitch", " ");
-    drawPedalFrame (g, wahB, "Wah", " ");
+    drawPedalFrame (g, gateB, "Noise Gate", juce::String (juce::CharPointer_UTF8 ("Hysteresis 6 dB \xc2\xb7 hold")), "gate");
+    drawPedalFrame (g, odB, "Drive", " ", "od");
+    drawPedalFrame (g, delayB, "Delay", " ", "delay");
+    drawPedalFrame (g, revB, "Reverb", " ", "reverb");
+    drawPedalFrame (g, compB, "Compressor", " ", "comp");
+    drawPedalFrame (g, modB, "Modulation", " ", "mod");
+    drawPedalFrame (g, pitchB, "Pitch", " ", "pitch");
+    drawPedalFrame (g, wahB, "Wah", " ", "wah");
     drawPedalFrame (g, sgB, "Slow Gear",
-                    juce::String (juce::CharPointer_UTF8 ("automatic swell")));
+                    juce::String (juce::CharPointer_UTF8 ("automatic swell")), "slowgear");
     drawPedalFrame (g, octB, "Octaver",
-                    juce::String (juce::CharPointer_UTF8 ("analog sub-octave")));
+                    juce::String (juce::CharPointer_UTF8 ("analog sub-octave")), "octaver");
     drawPedalFrame (g, rmB, "Ring Mod",
-                    juce::String (juce::CharPointer_UTF8 ("sine carrier")));
+                    juce::String (juce::CharPointer_UTF8 ("sine carrier")), "ringmod");
     drawPedalFrame (g, bcB, "Bitcrusher",
-                    juce::String (juce::CharPointer_UTF8 ("lo-fi \xc2\xb7 bits + rate")));
-    drawPedalFrame (g, harmB, "Harmonizer", " ");
+                    juce::String (juce::CharPointer_UTF8 ("lo-fi \xc2\xb7 bits + rate")), "bitcrush");
+    drawPedalFrame (g, harmB, "Harmonizer", " ", "harm");
     drawPedalFrame (g, excB, "Exciter",
-                    juce::String (juce::CharPointer_UTF8 ("harmonic brightness")));
+                    juce::String (juce::CharPointer_UTF8 ("harmonic brightness")), "exciter");
     drawPedalFrame (g, dsB, "De-esser",
-                    juce::String (juce::CharPointer_UTF8 ("tames the harsh band")));
+                    juce::String (juce::CharPointer_UTF8 ("tames the harsh band")), "deesser");
     drawPedalFrame (g, tapeB, "Tape",
-                    juce::String (juce::CharPointer_UTF8 ("saturation \xc2\xb7 bump \xc2\xb7 rolloff")));
+                    juce::String (juce::CharPointer_UTF8 ("saturation \xc2\xb7 bump \xc2\xb7 rolloff")), "tape");
     drawPedalFrame (g, cnsB, "Console",
-                    juce::String (juce::CharPointer_UTF8 ("analog buss glue")));
+                    juce::String (juce::CharPointer_UTF8 ("analog buss glue")), "console");
 
-    // ---- looper (state + time drawn live)
+    // ---- looper (state + time drawn live; mini shows only knob + footer)
     if (! looperB.isEmpty())
     {
-        drawPedalFrame (g, looperB, "Looper", {});
-
+        drawPedalFrame (g, looperB, "Looper", {}, "looper");
+    }
+    if (! looperB.isEmpty() && expandedFxId == "looper")
+    {
         const auto st = processor.getLooperState();
         juce::String status;
         juce::Colour c = ui::textFaint;
@@ -2549,13 +2614,16 @@ void ChainView::paint (juce::Graphics& g)
         }
     }
 
-    // ---- external VST3 plugin slots
+    // ---- external VST3 plugin slots (mini keeps the name in the footer box)
     for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
     {
         const auto& b = extB[s];
         if (b.isEmpty())
             continue;
-        drawPedalFrame (g, b, "Plugin VST3 " + juce::String (s + 1), {});
+        const auto extId = s == 0 ? juce::String ("ext") : "ext" + juce::String (s + 1);
+        drawPedalFrame (g, b, "Plugin VST3 " + juce::String (s + 1), {}, extId);
+        if (expandedFxId != extId)
+            continue;
 
         const auto extName = processor.getExternalPluginName (s);
         g.setFont (ui::monoFont (8.0f));
@@ -2572,12 +2640,13 @@ void ChainView::paint (juce::Graphics& g)
                           juce::Justification::topLeft, 2);
     }
 
-    // ---- spectrum analyzer (live FFT 2048)
+    // ---- spectrum analyzer (live FFT 2048; expand the card to see it)
     if (! anB.isEmpty())
-    {
         drawPedalFrame (g, anB, "Analyzer",
-                        juce::String (juce::CharPointer_UTF8 ("spectrum \xc2\xb7 40 Hz-16 kHz")));
-
+                        juce::String (juce::CharPointer_UTF8 ("spectrum \xc2\xb7 40 Hz-16 kHz")),
+                        "analyzer");
+    if (! anB.isEmpty() && expandedFxId == "analyzer")
+    {
         auto viz = juce::Rectangle<float> ((float) anB.getX() + 13.0f, (float) anB.getY() + 40.0f,
                                            (float) anB.getWidth() - 26.0f,
                                            (float) anB.getHeight() - 40.0f - 84.0f);
@@ -2626,11 +2695,13 @@ void ChainView::paint (juce::Graphics& g)
         }
     }
 
-    // ---- limiter (with a little gain reduction bar)
+    // ---- limiter (with a little gain reduction bar when expanded)
     if (! limB.isEmpty())
+        drawPedalFrame (g, limB, "Limiter",
+                        juce::String (juce::CharPointer_UTF8 ("brickwall \xc2\xb7 end of the chain")),
+                        "limiter");
+    if (! limB.isEmpty() && expandedFxId == "limiter")
     {
-        drawPedalFrame (g, limB, "Limiter", juce::String (juce::CharPointer_UTF8 ("brickwall \xc2\xb7 end of the chain")));
-
         const float gr = processor.getLimiterGrDb();
         auto bar = juce::Rectangle<float> ((float) limB.getX() + 13.0f, (float) limB.getY() + 40.0f,
                                            (float) limB.getWidth() - 26.0f, 6.0f);
@@ -2651,10 +2722,11 @@ void ChainView::paint (juce::Graphics& g)
 
     // ---- pre-EQ (with live bars, like the post EQ)
     if (! preEqB.isEmpty())
-    {
         drawPedalFrame (g, preEqB, juce::String (juce::CharPointer_UTF8 ("Pre-EQ")),
-                        juce::String (juce::CharPointer_UTF8 ("shapes the saturation \xc2\xb7 pre-amp")));
-
+                        juce::String (juce::CharPointer_UTF8 ("shapes the saturation \xc2\xb7 pre-amp")),
+                        "preeq");
+    if (! preEqB.isEmpty() && expandedFxId == "preeq")
+    {
         auto viz = juce::Rectangle<float> ((float) preEqB.getX() + 13.0f, (float) preEqB.getY() + 38.0f,
                                            (float) preEqB.getWidth() - 26.0f, 62.0f);
         g.setColour (ui::meterBg);
@@ -2685,7 +2757,7 @@ void ChainView::paint (juce::Graphics& g)
         for (int s = 0; s < count; ++s)
         {
             const auto cabB = cabLaneB[s];
-            const bool compact = cabB.getHeight() < 300;
+            const bool compact = cabB.getHeight() < 260;
             drawPedalFrame (g, cabB, count > 1 ? "Cab " + juce::String (s + 1)
                                                : juce::String ("Cab IR"), {});
 
@@ -2732,33 +2804,12 @@ void ChainView::paint (juce::Graphics& g)
         }
     }
 
-    // ---- Mixer (sum of the rigs; +/- controls the AMP+CAB pairs)
-    {
-        const int count = processor.getRigCount();
-        drawPedalFrame (g, mixerB, "Mixer", {});
-
-        g.setFont (ui::monoFont (8.0f));
-        g.setColour (ui::accent);
-        g.drawText (juce::CharPointer_UTF8 ("SUM \xce\xa3 \xc2\xb7 " ),
-                    mixerB.getX() + 12, mixerB.getY() + 30, 60, 11,
-                    juce::Justification::centredLeft);
-        g.setColour (ui::textFaint);
-        g.drawText (juce::String (count) + (count > 1 ? " rigs" : " rig"),
-                    mixerB.getX() + 52, mixerB.getY() + 30, 60, 11,
-                    juce::Justification::centredLeft);
-
-        // AIR column label
-        g.setFont (ui::monoFont (8.0f));
-        g.setColour (ui::textFaint);
-        g.drawText ("GLOBAL", mixerB.getRight() - 18 - 44 - 6, mixerB.getCentreY() - 34,
-                    56, 12, juce::Justification::centred);
-    }
-
     // ---- EQ (with live bars reflecting LOW/MID/HIGH)
     if (! eqB.isEmpty())
+        drawPedalFrame (g, eqB, "EQ",
+                        juce::String (juce::CharPointer_UTF8 ("3 bands \xc2\xb7 post-cab")), "eq");
+    if (! eqB.isEmpty() && expandedFxId == "eq")
     {
-        drawPedalFrame (g, eqB, "EQ", juce::String (juce::CharPointer_UTF8 ("3 bands \xc2\xb7 post-cab")));
-
         auto viz = juce::Rectangle<float> ((float) eqB.getX() + 13.0f, (float) eqB.getY() + 38.0f,
                                            (float) eqB.getWidth() - 26.0f, 62.0f);
         g.setColour (ui::meterBg);
@@ -2974,27 +3025,6 @@ void ChainView::paint (juce::Graphics& g)
         g.fillRoundedRectangle (dropHighlight.toFloat(), 2.0f);
     }
 
-    // ---- "+ EFFECT" button (drawer)
-    {
-        auto bf = addFxB.toFloat();
-        g.setColour (ui::accent.withAlpha (addFxB == hoverHotspot ? 0.8f : 0.35f));
-        const float dash[] = { 5.0f, 4.0f };
-        juce::Path outline;
-        outline.addRoundedRectangle (bf.reduced (1.0f), 2.0f);
-        juce::PathStrokeType stroke (1.4f);
-        juce::Path dashed;
-        stroke.createDashedStroke (dashed, outline, dash, 2);
-        g.fillPath (dashed);
-
-        g.setColour (ui::accent.withAlpha (0.9f));
-        g.setFont (ui::uiFont (26.0f, true));
-        g.drawText ("+", addFxB.withHeight (40).withY (addFxB.getCentreY() - 34),
-                    juce::Justification::centred);
-        g.setFont (ui::monoFont (9.0f, true));
-        g.drawText ("EFFECT", addFxB.withHeight (14).withY (addFxB.getCentreY() + 8),
-                    juce::Justification::centred);
-    }
-
     // ---- drag-and-drop feedback (ghost + insertion indicator)
     if (draggingId.isNotEmpty())
     {
@@ -3030,6 +3060,73 @@ void ChainView::paint (juce::Graphics& g)
 }
 
 //==============================================================================
+// Chain minimap (vNext R1): proportional blocks per card - the amp block is
+// larger and accent-tinted - plus a frame showing the viewport window.
+// Clicking or dragging scrolls the chain.
+class ChainMinimap : public juce::Component
+{
+public:
+    ChainMinimap (ChainView& cv, juce::Viewport& vpIn) : chain (cv), vp (vpIn)
+    {
+        setRepaintsOnMouseActivity (true);
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat();
+        g.setColour (ui::glass());
+        g.fillRoundedRectangle (b, 4.0f);
+        g.setColour (ui::border());
+        g.drawRoundedRectangle (b.reduced (0.5f), 4.0f, 1.0f);
+
+        const float totalW = (float) juce::jmax (1, chain.getWidth());
+        const auto inner = getLocalBounds().reduced (6, 7);
+        auto toMap = [&] (int x) {
+            return (float) inner.getX() + (float) x / totalW * (float) inner.getWidth();
+        };
+
+        for (const auto& [box, isAmp] : chain.minimapBlocks())
+        {
+            const float x1 = toMap (box.getX());
+            const float x2 = toMap (box.getRight());
+            g.setColour (isAmp ? ui::accent.withAlpha (0.45f)
+                               : ui::text.withAlpha (0.18f));
+            g.fillRoundedRectangle (x1, (float) inner.getY(),
+                                    juce::jmax (2.0f, x2 - x1 - 2.0f),
+                                    (float) inner.getHeight(), 2.0f);
+        }
+
+        // viewport window
+        const float vx1 = toMap (vp.getViewPositionX());
+        const float vx2 = toMap (vp.getViewPositionX() + vp.getWidth());
+        g.setColour (ui::accent.withAlpha (0.9f));
+        g.drawRoundedRectangle (vx1, (float) inner.getY() - 3.0f,
+                                juce::jmax (8.0f, vx2 - vx1), (float) inner.getHeight() + 6.0f,
+                                3.0f, 1.2f);
+    }
+
+    void mouseDown (const juce::MouseEvent& e) override { scrollTo (e.x); }
+    void mouseDrag (const juce::MouseEvent& e) override { scrollTo (e.x); }
+
+private:
+    void scrollTo (int mx)
+    {
+        const auto inner = getLocalBounds().reduced (6, 7);
+        if (inner.getWidth() <= 0)
+            return;
+        const float frac = juce::jlimit (0.0f, 1.0f,
+                                         (float) (mx - inner.getX()) / (float) inner.getWidth());
+        vp.setViewPosition (juce::jmax (0, (int) (frac * (float) chain.getWidth())
+                                               - vp.getWidth() / 2),
+                            vp.getViewPositionY());
+        repaint();
+    }
+
+    ChainView& chain;
+    juce::Viewport& vp;
+};
+
+//==============================================================================
 RigContent::RigContent (GuitarRigNAMProcessor& p)
     : processor (p)
 {
@@ -3045,13 +3142,21 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     addAndMakeVisible (outMeter);
     addAndMakeVisible (cpuMeter);
 
-    audioButton.onClick = []
+    // vNext: dedicated Audio & MIDI screen (staged device changes); in the
+    // plugin the device is host-managed but meters/health still show
+    audioButton.onClick = [this]
     {
-        if (auto* holder = juce::StandalonePluginHolder::getInstance())
-            holder->showAudioSettingsDialog();
+        if (audioOverlay == nullptr)
+        {
+            auto* holder = juce::StandalonePluginHolder::getInstance();
+            audioOverlay = std::make_unique<AudioOverlay> (
+                processor, holder != nullptr ? &holder->deviceManager : nullptr);
+            addAndMakeVisible (*audioOverlay);
+            audioOverlay->setBounds (getLocalBounds());
+        }
+        audioOverlay->open();
     };
-    addChildComponent (audioButton);
-    audioButton.setVisible (juce::JUCEApplicationBase::isStandaloneApp());
+    addAndMakeVisible (audioButton);
 
     storeButton.getProperties().set ("accent", true);
     storeButton.onClick = [this] { storeOverlay->open(); };
@@ -3193,22 +3298,6 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     perfChip.onClick = [this] { setPerfMode (! perfMode); };
     addAndMakeVisible (perfChip);
 
-    // vNext F1: COMPACT - collapses unselected effects to name slots (opt-in,
-    // persisted per session state; the classic full view remains the default)
-    compactChip.getProperties().set ("chip", true);
-    compactChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Compact chain: effects collapse to slots; click one to expand it")));
-    compactChip.setMouseClickGrabsKeyboardFocus (false);
-    compactChip.onClick = [this]
-    {
-        const bool on = ! chainView->isCompactView();
-        chainView->setCompactView (on);
-        processor.apvts.state.setProperty ("chainCompact", on, nullptr);
-        compactChip.getProperties().set ("chipActive", on);
-        compactChip.repaint();
-    };
-    addAndMakeVisible (compactChip);
-
     // AUTO-ECO: switches to the light capture by itself when CPU goes over 90%
     autoEcoChip.getProperties().set ("chip", true);
     autoEcoChip.setClickingTogglesState (true);
@@ -3233,17 +3322,83 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
             if (safe != nullptr)
                 safe->closeExtPluginWindow (slot);
         };
-    // restore the persisted compact preference (chainView exists from here on)
-    if ((bool) processor.apvts.state.getProperty ("chainCompact", false))
-    {
-        chainView->setCompactView (true);
-        compactChip.getProperties().set ("chipActive", true);
-    }
 
     chainViewport.setViewedComponent (chainView.get(), false);
-    chainViewport.setScrollBarsShown (false, true);
-    chainViewport.setScrollBarThickness (9);
+    chainViewport.setScrollBarsShown (false, false);   // the minimap navigates
     addAndMakeVisible (chainViewport);
+
+    // chain header "+ EFFECT" (opens the drawer at the canonical position)
+    addFxHeaderButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xef\xbc\x8b EFFECT")));
+    addFxHeaderButton.getProperties().set ("chip", true);
+    addFxHeaderButton.setTooltip ("Add an effect to the chain");
+    addFxHeaderButton.setMouseClickGrabsKeyboardFocus (false);
+    addFxHeaderButton.onClick = [this]
+    {
+        if (fxDrawer != nullptr)
+            fxDrawer->open (-1);
+    };
+    addAndMakeVisible (addFxHeaderButton);
+
+    // footer minimap (proportional blocks + viewport window; click/drag scrolls)
+    chainMinimap = std::make_unique<ChainMinimap> (*chainView, chainViewport);
+    addAndMakeVisible (*chainMinimap);
+
+    // ---- vNext R1: fixed side cards (INPUT left, OUTPUT/MIXER right) --------
+    auto formatDb = [] (float v) { return juce::String (v, 1) + " dB"; };
+    auto formatPct = [] (float v) { return juce::String ((int) v) + "%"; };
+    auto formatTen = [] (float v) { return juce::String (v, 1); };
+
+    inGainKnob = std::make_unique<KnobComponent> (processor.apvts, "inputGain", "GAIN", formatDb);
+    inGainKnob->setKnobTooltip ("Input gain (before everything)");
+    addAndMakeVisible (*inGainKnob);
+
+    outLevelKnob = std::make_unique<KnobComponent> (processor.apvts, "outputGain", "LEVEL",
+                                                    formatDb);
+    outLevelKnob->setKnobTooltip ("Final output volume");
+    addAndMakeVisible (*outLevelKnob);
+
+    airKnob = std::make_unique<KnobComponent> (processor.apvts, "cabAir", "AIR", formatTen);
+    airKnob->setKnobTooltip ("Air/brightness after the rig mix (8 kHz shelf)");
+    addAndMakeVisible (*airKnob);
+
+    for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+    {
+        const auto n = juce::String (r + 1);
+        rigLevelKnob[r] = std::make_unique<KnobComponent> (
+            processor.apvts, "cab" + n + "Blend", "RIG " + n, formatPct);
+        rigLevelKnob[r]->setKnobTooltip ("How much of rig " + n + " enters the output sum");
+        addChildComponent (*rigLevelKnob[r]);
+
+        rigSegButtons[r].setButtonText (n);
+        rigSegButtons[r].getProperties().set ("chip", true);
+        rigSegButtons[r].setTooltip (juce::String (juce::CharPointer_UTF8 (
+            "Number of parallel AMP+IR rigs")));
+        rigSegButtons[r].setMouseClickGrabsKeyboardFocus (false);
+        rigSegButtons[r].onClick = [this, r] { setRigCountParam (r + 1); };
+        addAndMakeVisible (rigSegButtons[r]);
+    }
+
+    addRigButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xef\xbc\x8b PARALLEL RIG")));
+    addRigButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Add an AMP+CAB rig in parallel (up to 3)")));
+    addRigButton.setMouseClickGrabsKeyboardFocus (false);
+    addRigButton.onClick = [this] { setRigCountParam (processor.getRigCount() + 1); };
+    addAndMakeVisible (addRigButton);
+
+    // ---- vNext R2: chain-order undo/redo --------------------------------
+    chainUndoButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xe2\x86\xb6")));
+    chainRedoButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xe2\x86\xb7")));
+    chainUndoButton.setTooltip ("Undo the last chain change (Ctrl+Z)");
+    chainRedoButton.setTooltip ("Redo the undone chain change (Ctrl+Y)");
+    for (auto* b : { &chainUndoButton, &chainRedoButton })
+    {
+        b->getProperties().set ("ghost", true);
+        b->setMouseClickGrabsKeyboardFocus (false);
+        addAndMakeVisible (*b);
+    }
+    chainUndoButton.onClick = [this] { undoChainOrder(); };
+    chainRedoButton.onClick = [this] { redoChainOrder(); };
+    chainOrderSeen = processor.getChainOrder();
 
     // vNext: the "+" spots open the searchable drawer instead of a popup menu
     fxDrawer = std::make_unique<FxDrawer> (processor);
@@ -3276,6 +3431,11 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     addChildComponent (*drumOverlay);
     drumOverlay->onChooseVst = [this] { chooseDrumVstFile(); };
     drumOverlay->onOpenVstPanel = [this] { openDrumVstWindow(); };
+    drumOverlay->onOpenSongMap = [this]
+    {
+        if (songOverlay != nullptr)
+            songOverlay->open();
+    };
     drumButton.onClick = [this] { drumOverlay->open(); };
     drumButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Electronic drums: grooves by genre, score and grid")));
@@ -3286,6 +3446,20 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     songOverlay = std::make_unique<SongOverlay> (processor);
     addChildComponent (*songOverlay);
     songOverlay->onSaveSong = [this] { saveCurrentPreset(); };
+    songOverlay->onAddSong = [this]
+    {
+        // new song = new preset seeded from the current state, unique name
+        auto dir = processor.getPresetsDirectory();
+        juce::File f;
+        for (int n = 1; n < 100; ++n)
+        {
+            f = dir.getChildFile ("New Song" + (n == 1 ? juce::String()
+                                                       : " " + juce::String (n)) + ".xml");
+            if (! f.existsAsFile())
+                break;
+        }
+        processor.savePreset (f);
+    };
     songButton.onClick = [this] { songOverlay->open(); };
     songButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Song/Scenes: one rig snapshot per drum section, auto-switch on play")));
@@ -3400,6 +3574,61 @@ RigContent::~RigContent()
     setLookAndFeel (nullptr);
 }
 
+void RigContent::setRigCountParam (int count)
+{
+    if (auto* param = processor.apvts.getParameter ("cabCount"))
+    {
+        const int c = juce::jlimit (1, (int) GuitarRigNAMProcessor::maxRigs, count);
+        param->setValueNotifyingHost (param->getNormalisableRange().convertTo0to1 ((float) c));
+    }
+}
+
+//==============================================================================
+// vNext R2: chain-order history. Every change lands in the undo stack (the
+// 30 Hz timer watches setChainOrder from any source: drag, drawer, "x", preset).
+void RigContent::undoChainOrder()
+{
+    if (chainUndoStack.empty())
+        return;
+    chainRedoStack.push_back (processor.getChainOrder());
+    const auto prev = chainUndoStack.back();
+    chainUndoStack.pop_back();
+    chainOrderSeen = prev;          // the watcher must not re-push this change
+    processor.setChainOrder (prev);
+    if (chainMinimap != nullptr)
+        chainMinimap->repaint();
+}
+
+void RigContent::redoChainOrder()
+{
+    if (chainRedoStack.empty())
+        return;
+    chainUndoStack.push_back (processor.getChainOrder());
+    const auto next = chainRedoStack.back();
+    chainRedoStack.pop_back();
+    chainOrderSeen = next;
+    processor.setChainOrder (next);
+    if (chainMinimap != nullptr)
+        chainMinimap->repaint();
+}
+
+//==============================================================================
+// vNext S1: next-scene helpers (stage view)
+int RigContent::nextDrumSection() const
+{
+    const int uiBar = processor.drumEngine.uiBar.load();
+    const int sec = uiBar >= 0 ? uiBar / drum::barsPerSection : 0;
+    const int next = sec + 1;
+    return next < processor.drumEngine.numSections.load() ? next : -1;
+}
+
+void RigContent::applyNextScene()
+{
+    const int next = nextDrumSection();
+    if (next >= 0 && processor.hasScene (next))
+        processor.applySceneForSection (next);
+}
+
 void RigContent::resized()
 {
     const int W = getWidth();
@@ -3440,26 +3669,100 @@ void RigContent::resized()
         recChip.setBounds (x, 16, 62, 28);
     }
 
-    // ---- drum ribbon (top, collapsible) + chain (scrollable) + bottom bar
+    // ---- drum ribbon (top, collapsible) + 3-column workspace + bottom bar
     const int ribH = (drumRibbon != nullptr && drumRibbon->isMinimal()) ? 26 : 54;
     if (drumRibbon != nullptr)
         drumRibbon->setBounds (18, 62, W - 36, ribH);
     const int chainTop = 62 + ribH + 4;
-    chainViewport.setBounds (0, chainTop, W, getHeight() - chainTop - 60);
+    const int wsBottom = getHeight() - 60 - 8;   // above the bottom bar
+
+    // rig-work grid (mockup): INPUT 132 | chain 1fr | OUTPUT 176, gap 10
+    inputCardB = { 18, chainTop, 132, wsBottom - chainTop };
+    outputCardB = { W - 18 - 176, chainTop, 176, wsBottom - chainTop };
+    chainWrapB = { inputCardB.getRight() + 10, chainTop,
+                   outputCardB.getX() - 10 - (inputCardB.getRight() + 10),
+                   wsBottom - chainTop };
+
+    // INPUT card children
+    if (inGainKnob != nullptr)
+        inGainKnob->setBounds (inputCardB.getCentreX() - 25, inputCardB.getY() + 128, 50, 76);
+    inputMeterB = { inputCardB.getCentreX() - 5, inputCardB.getY() + 218,
+                    10, inputCardB.getBottom() - 54 - (inputCardB.getY() + 218) };
+
+    // OUTPUT / MIXER card children
+    {
+        const int cx = outputCardB.getCentreX();
+        const int segW = 3 * 28 + 2 * 4;
+        for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+            rigSegButtons[r].setBounds (cx - segW / 2 + r * 32, outputCardB.getY() + 48, 28, 22);
+
+        const int count = processor.getRigCount();
+        const int kw = 40, kh = kw + 26;
+        const int rowW = count * kw + (count - 1) * 8;
+        for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+        {
+            if (rigLevelKnob[r] == nullptr)
+                continue;
+            rigLevelKnob[r]->setVisible (! perfMode && r < count);
+            if (r < count)
+                rigLevelKnob[r]->setBounds (cx - rowW / 2 + r * (kw + 8),
+                                            outputCardB.getY() + 82, kw, kh);
+        }
+        if (airKnob != nullptr)
+            airKnob->setBounds (cx - 46, outputCardB.getY() + 158, 42, 42 + 26);
+        if (outLevelKnob != nullptr)
+            outLevelKnob->setBounds (cx + 4, outputCardB.getY() + 158, 42, 42 + 26);
+
+        outputMeterB = { cx - 5, outputCardB.getY() + 240,
+                         10, outputCardB.getBottom() - 88 - (outputCardB.getY() + 240) };
+        addRigButton.setBounds (outputCardB.getX() + 12, outputCardB.getBottom() - 38,
+                                outputCardB.getWidth() - 24, 26);
+    }
+
+    // chain container: 38 px header, viewport, 32 px minimap footer
+    addFxHeaderButton.setBounds (chainWrapB.getRight() - 8 - 86, chainWrapB.getY() + 5, 86, 28);
+    const int vpY = chainWrapB.getY() + 39;
+    const int vpH = chainWrapB.getBottom() - 48 - vpY;
+    chainViewport.setBounds (chainWrapB.getX() + 1, vpY, chainWrapB.getWidth() - 2, vpH);
+    if (chainView != nullptr)
+        chainView->setChainHeight (vpH);
+    if (chainMinimap != nullptr)
+        chainMinimap->setBounds (chainWrapB.getX() + 10, chainWrapB.getBottom() - 42,
+                                 chainWrapB.getWidth() - 20, 32);
+
     if (fxDrawer != nullptr)
         fxDrawer->setBounds (W - 352, chainTop, 352, getHeight() - chainTop - 60);
+
+    // ---- bottom bar (mockup .rig-bottom): undo/redo, pills, tuneline, tags
     const int by = getHeight() - 60 + 16;
-    tunerToggle.setBounds (22, by, 76, 28);
-    muteChip.setBounds (102, by, 48, 28);
-    autoEcoChip.setBounds (154, by, 78, 28);
-    perfChip.setBounds (236, by, 58, 28);
-    compactChip.setBounds (298, by, 84, 28);
+    chainUndoButton.setBounds (18, by, 30, 28);
+    chainRedoButton.setBounds (50, by, 30, 28);
+    tunerToggle.setBounds (92, by, 72, 28);
+    muteChip.setBounds (168, by, 48, 28);
+    autoEcoChip.setBounds (220, by, 78, 28);
+    perfChip.setBounds (302, by, 58, 28);
 }
 
 void RigContent::setPerfMode (bool shouldBeOn)
 {
     perfMode = shouldBeOn;
     chainViewport.setVisible (! perfMode);
+    // hide the whole rig workspace (side cards, chain header, minimap, ribbon)
+    const bool ws = ! perfMode;
+    if (chainMinimap != nullptr) chainMinimap->setVisible (ws);
+    addFxHeaderButton.setVisible (ws);
+    if (inGainKnob != nullptr)  inGainKnob->setVisible (ws);
+    if (outLevelKnob != nullptr) outLevelKnob->setVisible (ws);
+    if (airKnob != nullptr)      airKnob->setVisible (ws);
+    for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+    {
+        if (rigLevelKnob[r] != nullptr)
+            rigLevelKnob[r]->setVisible (ws && r < processor.getRigCount());
+        rigSegButtons[r].setVisible (ws);
+    }
+    addRigButton.setVisible (ws);
+    if (drumRibbon != nullptr)
+        drumRibbon->setVisible (ws);
     perfChip.getProperties().set ("chipActive", perfMode);
     perfChip.repaint();
     repaint();
@@ -3552,7 +3855,122 @@ void RigContent::paint (juce::Graphics& g)
         g.fillRect (drumButton.getX() - 12, 16, 1, 28);
     }
 
-    // ---- tuner bar
+    // ---- rig workspace: fixed side cards + chain container frame (vNext R1)
+    if (! perfMode)
+    {
+        auto cardFrame = [&g] (juce::Rectangle<int> b)
+        {
+            auto bf = b.toFloat();
+            g.setGradientFill ({ ui::cardTop, 0.0f, bf.getY(),
+                                 ui::cardBottom, 0.0f, bf.getBottom(), false });
+            g.fillRoundedRectangle (bf, 3.0f);
+            g.setColour (ui::border());
+            g.drawRoundedRectangle (bf.reduced (0.5f), 3.0f, 1.0f);
+        };
+        auto vMeter = [&g] (juce::Rectangle<int> r, float db)
+        {
+            g.setColour (ui::meterBg);
+            g.fillRoundedRectangle (r.toFloat(), 4.0f);
+            const float frac = juce::jlimit (0.0f, 1.0f, (db + 60.0f) / 60.0f);
+            if (frac > 0.01f)
+            {
+                auto fill = r.toFloat();
+                fill = fill.removeFromBottom (fill.getHeight() * frac);
+                g.setGradientFill ({ ui::glowOrange, 0.0f, fill.getY(),
+                                     ui::accent, 0.0f, fill.getBottom(), false });
+                g.fillRoundedRectangle (fill, 4.0f);
+            }
+        };
+        auto tag = [&g] (juce::Rectangle<int> r, const juce::String& text, juce::Colour c)
+        {
+            g.setColour (c.withAlpha (0.55f));
+            g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 4.0f, 1.0f);
+            g.setColour (c);
+            g.setFont (ui::monoFont (7.5f, true));
+            g.drawText (text, r, juce::Justification::centred);
+        };
+
+        // INPUT card (left)
+        {
+            const auto& b = inputCardB;
+            cardFrame (b);
+            g.setFont (ui::uiFont (12.0f, true));
+            g.setColour (ui::textBright);
+            g.drawText ("INPUT", b.getX(), b.getY() + 12, b.getWidth(), 14,
+                        juce::Justification::centred);
+            g.setFont (ui::monoFont (8.0f));
+            g.setColour (ui::textFaint);
+            g.drawFittedText (inputDeviceName.isNotEmpty() ? inputDeviceName
+                                                           : juce::String ("audio in"),
+                              b.getX() + 8, b.getY() + 30, b.getWidth() - 16, 12,
+                              juce::Justification::centred, 1);
+
+            // jack graphic (radial circle, as in the mockup)
+            const float jx = (float) b.getCentreX(), jy = (float) b.getY() + 88.0f;
+            g.setColour (juce::Colours::black);
+            g.fillEllipse (jx - 24.0f, jy - 24.0f, 48.0f, 48.0f);
+            g.setColour (juce::Colour (0xff363c45));
+            g.drawEllipse (jx - 24.0f, jy - 24.0f, 48.0f, 48.0f, 3.0f);
+            g.setColour (juce::Colour (0xff1e292e));
+            g.drawEllipse (jx - 13.0f, jy - 13.0f, 26.0f, 26.0f, 5.0f);
+
+            vMeter (inputMeterB, inMeterDb);
+            const bool signalOk = inMeterDb > -50.0f;
+            tag ({ b.getX() + 14, b.getBottom() - 40, b.getWidth() - 28, 20 },
+                 signalOk ? "SIGNAL OK" : "NO SIGNAL",
+                 signalOk ? ui::green : ui::textFaint);
+        }
+
+        // OUTPUT / MIXER card (right)
+        {
+            const auto& b = outputCardB;
+            const int count = processor.getRigCount();
+            cardFrame (b);
+            g.setFont (ui::uiFont (12.0f, true));
+            g.setColour (ui::textBright);
+            g.drawText ("OUTPUT / MIXER", b.getX(), b.getY() + 12, b.getWidth(), 14,
+                        juce::Justification::centred);
+            g.setFont (ui::monoFont (8.0f));
+            g.setColour (ui::textFaint);
+            g.drawText (juce::String (count) + " parallel rig" + (count > 1 ? "s" : ""),
+                        b.getX(), b.getY() + 30, b.getWidth(), 12,
+                        juce::Justification::centred);
+
+            vMeter (outputMeterB, outMeterDb);
+            const auto peakText = clipTicks > 0
+                ? juce::String ("CLIP")
+                : "PEAK " + juce::String (juce::jmax (-60.0f, outMeterDb), 1) + " dB";
+            tag ({ b.getX() + 14, b.getBottom() - 72, b.getWidth() - 28, 20 },
+                 peakText, clipTicks > 0 ? ui::red : ui::textDim);
+        }
+
+        // chain container: frame + 38 px header strip ("SIGNAL FLOW" + hint;
+        // the "+ EFFECT" button and the minimap are child components)
+        {
+            const auto& b = chainWrapB;
+            auto bf = b.toFloat();
+            g.setColour (ui::bg);
+            g.fillRoundedRectangle (bf, 3.0f);
+            g.setColour (ui::border());
+            g.drawRoundedRectangle (bf.reduced (0.5f), 3.0f, 1.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.05f));
+            g.fillRect (b.getX() + 1, b.getY() + 38, b.getWidth() - 2, 1);
+
+            g.setFont (ui::monoFont (9.0f, true));
+            g.setColour (ui::text);
+            g.drawText ("SIGNAL FLOW", b.getX() + 14, b.getY() + 13, 120, 12,
+                        juce::Justification::centredLeft);
+            g.setFont (ui::monoFont (8.0f));
+            g.setColour (ui::textFaint);
+            g.drawText (juce::String (juce::CharPointer_UTF8 (
+                            "double-click centers \xc2\xb7 drag reorders \xc2\xb7 Ctrl+Z undo")),
+                        b.getX() + 130, b.getY() + 13,
+                        juce::jmax (60, b.getWidth() - 130 - 104), 12,
+                        juce::Justification::centredRight);
+        }
+    }
+
+    // ---- bottom bar (mockup .rig-bottom): tuneline + tech tags on the right
     {
         const int barY = H - 60;
         g.setGradientFill ({ ui::barTop, 0.0f, (float) barY, ui::barBottom, 0.0f, (float) H, false });
@@ -3560,120 +3978,103 @@ void RigContent::paint (juce::Graphics& g)
         g.setColour (juce::Colours::white.withAlpha (0.06f));
         g.fillRect (0, barY, W, 1);
 
-        const int cy = barY + 30;
-        const bool tunerOn = isTunerOn();
-        // clean UI: with the tuner OFF nothing is drawn (no dimmed chrome
-        // distracting while playing) - TUNER is a real toggle
-        if (tunerOn)
-        {
-        // strings
-        int sx = 300;
-        for (int i = 0; i < 6; ++i)
-        {
-            auto chip = juce::Rectangle<float> ((float) sx, (float) cy - 12, 24.0f, 24.0f);
-            const bool active = i == tunerStringIndex;
-            g.setColour (active ? ui::accent.withAlpha (0.14f) : ui::glass());
-            g.fillRoundedRectangle (chip, 7.0f);
-            g.setColour (active ? ui::accent : juce::Colours::white.withAlpha (0.09f));
-            g.drawRoundedRectangle (chip, 7.0f, 1.0f);
-            g.setFont (ui::monoFont (10.0f, true));
-            g.setColour (active ? ui::accent : juce::Colour (0xff99a1ab));
-            g.drawText (kStringNames[i], chip, juce::Justification::centred);
-            sx += 30;
-        }
-
-        g.setColour (juce::Colours::white.withAlpha (0.08f));
-        g.fillRect (sx + 8, cy - 14, 1, 28);
-
-        // note + cents
-        const bool hasPitch = tunerFreq > 0.0;
-        g.setFont (ui::uiFont (30.0f, true));
-        g.setColour (hasPitch ? ui::accent : ui::textMuted);
-        g.drawText (hasPitch ? tunerNote : juce::String ("-"), sx + 22, barY + 10, 64, 40,
-                    juce::Justification::centred);
-        // needle/readout colour tracks the distance from center:
-        // green in tune, amber getting off, red far off
-        const double absCents = std::abs (tunerCents);
-        const juce::Colour needleC = absCents < 5.0 ? ui::green
-                                     : absCents < 15.0 ? ui::yellow
-                                                       : ui::red;
-        if (hasPitch)
-        {
-            g.setFont (ui::monoFont (11.0f));
-            g.setColour (needleC);
-            g.drawText ((tunerCents >= 0 ? "+" : "") + juce::String ((int) tunerCents)
-                            + juce::String (juce::CharPointer_UTF8 ("\xc2\xa2")),
-                        sx + 86, cy - 8, 40, 16, juce::Justification::centredLeft);
-        }
-
-        // cents ruler
-        {
-            auto meter = juce::Rectangle<float> ((float) sx + 136, (float) barY + 14, 240.0f, 32.0f);
-            g.setColour (juce::Colours::white.withAlpha (0.10f));
-            for (float mx = meter.getX(); mx <= meter.getRight(); mx += 12.0f)
-                g.fillRect (mx, meter.getY() + 6.0f, 1.0f, 20.0f);
-
-            juce::ColourGradient grad (ui::red, meter.getX(), 0.0f, ui::red, meter.getRight(), 0.0f, false);
-            grad.addColour (0.44, ui::green);
-            grad.addColour (0.56, ui::green);
-            g.setGradientFill (grad);
-            g.setOpacity (0.4f);
-            g.fillRect (meter.getX(), meter.getCentreY() - 1.5f, meter.getWidth(), 3.0f);
-            g.setOpacity (1.0f);
-
-            // center clearly marked: brighter tick + little triangle on top
-            g.setColour (juce::Colours::white.withAlpha (0.55f));
-            g.fillRect (meter.getCentreX() - 0.75f, meter.getY(), 1.5f, meter.getHeight());
-            {
-                juce::Path tri;
-                tri.addTriangle (meter.getCentreX() - 5.0f, meter.getY() - 6.0f,
-                                 meter.getCentreX() + 5.0f, meter.getY() - 6.0f,
-                                 meter.getCentreX(), meter.getY() + 1.0f);
-                g.setColour (ui::green.withAlpha (hasPitch && absCents < 5.0 ? 1.0f : 0.55f));
-                g.fillPath (tri);
-            }
-
-            if (hasPitch)
-            {
-                const float nx = meter.getCentreX()
-                                 + (float) juce::jlimit (-50.0, 50.0, tunerCents) / 50.0f
-                                       * (meter.getWidth() / 2.0f - 6.0f);
-                g.setColour (needleC.withAlpha (0.4f));
-                g.fillRoundedRectangle (nx - 3.0f, meter.getY() - 2.0f, 6.0f, meter.getHeight() + 4.0f, 3.0f);
-                g.setColour (needleC);
-                g.fillRoundedRectangle (nx - 1.5f, meter.getY() - 2.0f, 3.0f, meter.getHeight() + 4.0f, 2.0f);
-            }
-        }
-
-        } // tunerOn
-
-        // compact status on the right
+        // right tags: real host rate/buffer + reference pitch/latency
+        // (load errors and the auto-ECO notice take over the same corner)
+        int tagsLeft = W - 22;
         {
             const double sr = processor.getSampleRate();
             const int bs = processor.getBlockSize();
             const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
-
-            juce::String status = "A = 440 Hz";
-            if (sr > 0)
-                status = juce::String (sr / 1000.0, 1) + " kHz" + dot + juce::String (bs) + " smp"
-                         + dot + "A = 440 Hz";
-
             const auto err = processor.getLoadError();
-            juce::Colour c = ui::textFaint;
-            if (err.isNotEmpty())
+
+            if (err.isNotEmpty() || ecoNoticeTicks > 0)
             {
-                status = "Error: " + err;
-                c = ui::red;
+                const bool isErr = err.isNotEmpty();
+                g.setFont (ui::monoFont (9.5f));
+                g.setColour (isErr ? ui::red : ui::accent);
+                g.drawText (isErr ? "Error: " + err
+                                  : juce::String (juce::CharPointer_UTF8 (
+                                        "Auto ECO enabled (high CPU)")),
+                            W - 22 - 360, barY, 360, 60, juce::Justification::centredRight);
+                tagsLeft = W - 22 - 360;
             }
-            else if (ecoNoticeTicks > 0)
+            else
             {
-                status = juce::String (juce::CharPointer_UTF8 (
-                    "Auto ECO enabled (high CPU)"));
-                c = ui::accent;
+                const auto hostText = sr > 0
+                    ? "HOST " + juce::String (sr / 1000.0, sr == 44100.0 ? 1 : 0) + " kHz"
+                          + dot + juce::String (bs) + " smp"
+                    : juce::String (juce::CharPointer_UTF8 ("HOST \xe2\x80\x94"));
+                const auto latText = sr > 0
+                    ? "A = 440 Hz" + dot + "latency "
+                          + juce::String (bs * 1000.0 / sr, 1) + " ms"
+                    : juce::String ("A = 440 Hz");
+
+                g.setFont (ui::monoFont (8.5f));
+                g.setColour (ui::textFaint);
+                const int latW = 16 + 6 * latText.length();
+                g.drawText (latText, W - 22 - latW, barY + 16, latW, 28,
+                            juce::Justification::centredRight);
+
+                const int hostW = 16 + 6 * hostText.length();
+                auto hostR = juce::Rectangle<int> (W - 22 - latW - 8 - hostW, barY + 17,
+                                                   hostW, 26);
+                g.setColour (ui::green.withAlpha (0.5f));
+                g.drawRoundedRectangle (hostR.toFloat().reduced (0.5f), 4.0f, 1.0f);
+                g.setColour (ui::green);
+                g.setFont (ui::monoFont (8.0f, true));
+                g.drawText (hostText, hostR, juce::Justification::centred);
+                tagsLeft = hostR.getX();
             }
-            g.setFont (ui::monoFont (9.5f));
-            g.setColour (c);
-            g.drawText (status, W - 22 - 360, barY, 360, 60, juce::Justification::centredRight);
+        }
+
+        // inline tuneline (vNext R2): baseline + center tick + cents needle
+        // with the usual green/amber/red colours and a central note label.
+        // Nothing is drawn while the tuner is off (real toggle).
+        if (isTunerOn())
+        {
+            const int tlX = 380;
+            const int tlRight = juce::jmin (tlX + 420, tagsLeft - 16);
+            if (tlRight - tlX > 140)
+            {
+                const float cy = (float) barY + 42.0f;
+                const float cx = (float) (tlX + tlRight) / 2.0f;
+
+                g.setColour (juce::Colours::white.withAlpha (0.14f));
+                g.fillRect ((float) tlX, cy, (float) (tlRight - tlX), 1.0f);
+                g.setColour (ui::accent.withAlpha (0.9f));
+                g.fillRect (cx - 1.0f, (float) barY + 14.0f, 2.0f, cy - (float) barY - 8.0f);
+
+                const bool hasPitch = tunerFreq > 0.0 && tunerNote.isNotEmpty();
+                const double absCents = std::abs (tunerCents);
+                const juce::Colour needleC = absCents < 5.0 ? ui::green
+                                             : absCents < 15.0 ? ui::yellow
+                                                               : ui::red;
+                if (hasPitch)
+                {
+                    const float half = (float) (tlRight - tlX) / 2.0f - 10.0f;
+                    const float nx = cx + (float) juce::jlimit (-50.0, 50.0, tunerCents)
+                                              / 50.0f * half;
+                    g.setColour (needleC.withAlpha (0.35f));
+                    g.fillRoundedRectangle (nx - 3.0f, cy - 16.0f, 6.0f, 20.0f, 3.0f);
+                    g.setColour (needleC);
+                    g.fillRoundedRectangle (nx - 1.5f, cy - 16.0f, 3.0f, 20.0f, 1.5f);
+
+                    const auto label = tunerNote + juce::String (tunerOctave)
+                                       + juce::String::fromUTF8 (" \xc2\xb7 ")
+                                       + juce::String (tunerCents, 1) + " cents";
+                    g.setFont (ui::monoFont (10.0f, true));
+                    g.setColour (needleC);
+                    g.drawText (label, (int) cx - 90, barY + 8, 180, 14,
+                                juce::Justification::centred);
+                }
+                else
+                {
+                    g.setFont (ui::monoFont (9.0f));
+                    g.setColour (ui::textFaint);
+                    g.drawText (juce::String (juce::CharPointer_UTF8 ("\xc2\xb7 \xc2\xb7 \xc2\xb7")),
+                                (int) cx - 40, barY + 8, 80, 14, juce::Justification::centred);
+                }
+            }
         }
     }
 
@@ -3685,6 +4086,47 @@ void RigContent::paintPerformanceView (juce::Graphics& g)
 {
     const int W = getWidth(), H = getHeight();
     const auto area = juce::Rectangle<int> (0, 60, W, H - 120);
+
+    // ---- vNext S1: status boxes (input/output/CPU/sync), mockup .stage-status
+    {
+        struct Box { juce::String text; juce::Colour c; };
+        const float cpu = processor.cpuLoad.load();
+        const bool sync = processor.drumHostSync.load() && processor.getHostBpm() > 0.0f;
+        const float bpm = sync ? processor.getHostBpm()
+                               : processor.drumEngine.bpm.load();
+        const auto dot = juce::String::fromUTF8 (" \xc2\xb7 ");
+        const Box boxes[4] = {
+            { "INPUT " + juce::String ((int) juce::jmax (-60.0f, inMeterDb)) + " dB",
+              inMeterDb > -50.0f ? ui::green : ui::textFaint },
+            { "OUT " + juce::String ((int) juce::jmax (-60.0f, outMeterDb)) + " dB",
+              clipTicks > 0 ? ui::red : ui::textDim },
+            { "CPU " + juce::String ((int) (cpu * 100.0f)) + "%",
+              cpu > 0.8f ? ui::red : ui::textDim },
+            { (sync ? juce::String ("DAW SYNC") : juce::String ("INTERNAL"))
+                  + dot + juce::String ((int) bpm) + " BPM",
+              sync ? ui::green : ui::textFaint },
+        };
+
+        int widths[4], total = 0;
+        for (int i = 0; i < 4; ++i)
+        {
+            widths[i] = 26 + 6 * boxes[i].text.length();
+            total += widths[i] + (i > 0 ? 8 : 0);
+        }
+        int bx = (W - total) / 2;
+        for (int i = 0; i < 4; ++i)
+        {
+            const juce::Rectangle<int> r (bx, area.getY() + 6, widths[i], 26);
+            g.setColour (ui::cardBottom.withAlpha (0.7f));
+            g.fillRoundedRectangle (r.toFloat(), 6.0f);
+            g.setColour (ui::border());
+            g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 6.0f, 1.0f);
+            g.setColour (boxes[i].c);
+            g.setFont (ui::monoFont (8.5f, true));
+            g.drawText (boxes[i].text, r, juce::Justification::centred);
+            bx += widths[i] + 8;
+        }
+    }
 
     // ---- huge preset (click: left = previous, right = next,
     //      center = menu)
@@ -3714,6 +4156,19 @@ void RigContent::paintPerformanceView (juce::Graphics& g)
         if (processor.getRigCount() > 1)
             info += juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))
                     + juce::String (processor.getRigCount()) + " rigs";
+        // vNext S1: "· SCENE X" when the playing section has a scene
+        {
+            const int uiBar = processor.drumEngine.uiBar.load();
+            const int sec = uiBar >= 0 ? uiBar / drum::barsPerSection : 0;
+            if (processor.hasScene (sec))
+            {
+                auto sceneName = processor.getSceneName (sec);
+                if (sceneName.isEmpty())
+                    sceneName = juce::String::charToString ((juce::juce_wchar) ('A' + sec));
+                info += juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 SCENE "))
+                        + sceneName.toUpperCase();
+            }
+        }
         g.setFont (ui::monoFont (14.0f));
         g.setColour (ui::accent);
         g.drawText (info, area.getX(), area.getY() + 108, area.getWidth(), 20,
@@ -3835,23 +4290,60 @@ void RigContent::paintPerformanceView (juce::Graphics& g)
         tile (4, { W - 34 - tileW, tileY0 + tileH + 12, tileW, tileH }, "RECORD",
               processor.isRecording() ? "REC" : "READY", "24-bit WAV",
               processor.isRecording());
-        tile (5, { W - 34 - tileW, tileY0 + 2 * (tileH + 12), tileW, tileH }, "INPUT",
-              tunerMuteWanted ? "MUTED" : "LIVE", "mute while tuning",
-              tunerMuteWanted);
+
+        // vNext S1: NEXT SCENE tile (replaces INPUT) - upcoming section's scene
+        {
+            const int next = nextDrumSection();
+            juce::String big (juce::CharPointer_UTF8 ("\xe2\x80\x94")), sub ("last section");
+            bool active = false;
+            if (next >= 0)
+            {
+                auto name = processor.getSceneName (next);
+                if (name.isEmpty())
+                    name = "Section " + juce::String::charToString (
+                               (juce::juce_wchar) ('A' + next));
+                big = name.toUpperCase();
+                active = processor.hasScene (next);
+                if (playing && uiBar >= 0)
+                {
+                    const int barsLeft = drum::barsPerSection
+                                         - (uiBar % drum::barsPerSection);
+                    sub = "in " + juce::String (barsLeft)
+                          + (barsLeft == 1 ? " bar" : " bars");
+                }
+                else
+                {
+                    sub = "tap to apply";
+                }
+            }
+            tile (5, { W - 34 - tileW, tileY0 + 2 * (tileH + 12), tileW, tileH },
+                  "NEXT SCENE", big, sub, active);
+        }
     }
 
     // ---- vNext: footswitch-style action row ----
     {
         const char* labels[5] = { "\xe2\x80\xb9 PRESET", nullptr, "TAP TEMPO",
-                                  nullptr, "PRESET \xe2\x80\xba" };
+                                  nullptr, nullptr };
         const bool playing = processor.drumEngine.playing.load();
         const juce::String drumsLbl = playing
             ? juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0 STOP DRUMS"))
             : juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6 PLAY DRUMS"));
         const juce::String tunerLbl = isTunerOn() ? "TUNER ON" : "TUNER OFF";
+        const juce::String sceneLbl (juce::CharPointer_UTF8 ("NEXT SCENE \xe2\x80\xba"));
+        // 5th action applies the next section's scene on the spot (vNext S1)
+        juce::String sceneSub (juce::CharPointer_UTF8 ("\xe2\x80\x94"));
+        if (const int next = nextDrumSection(); next >= 0 && processor.hasScene (next))
+        {
+            auto name = processor.getSceneName (next);
+            if (name.isEmpty())
+                name = "Section " + juce::String::charToString (
+                           (juce::juce_wchar) ('A' + next));
+            sceneSub = name;
+        }
         const juce::String subs[5] = { "footswitch 1", "footswitch 2",
                                        juce::String ((int) processor.drumEngine.bpm.load()) + " BPM",
-                                       "footswitch 4", "footswitch 5" };
+                                       "footswitch 4", sceneSub };
 
         const int rowY = area.getBottom() - 96, rowH = 74;
         const int btnW = (W - 2 * 34 - 4 * 10) / 5;
@@ -3868,6 +4360,7 @@ void RigContent::paintPerformanceView (juce::Graphics& g)
             g.setFont (ui::uiFont (13.0f, true));
             const juce::String big = i == 1 ? drumsLbl
                                    : i == 3 ? tunerLbl
+                                   : i == 4 ? sceneLbl
                                             : juce::String (juce::CharPointer_UTF8 (labels[i]));
             g.drawText (big, r.getX(), r.getY() + 16, r.getWidth(), 20,
                         juce::Justification::centred);
@@ -3937,6 +4430,58 @@ void RigContent::timerCallback()
     chainView->refreshDynamicText();
     refreshSidecarImages();
 
+    // vNext R2: chain-order history watcher - captures changes from any
+    // source (drag reorder, drawer insert, "x" remove, presets)
+    {
+        const auto orderNow = processor.getChainOrder();
+        if (orderNow != chainOrderSeen)
+        {
+            chainUndoStack.push_back (chainOrderSeen);
+            if (chainUndoStack.size() > 40)
+                chainUndoStack.erase (chainUndoStack.begin());
+            chainRedoStack.clear();
+            chainOrderSeen = orderNow;
+        }
+        chainUndoButton.setEnabled (! chainUndoStack.empty());
+        chainRedoButton.setEnabled (! chainRedoStack.empty());
+    }
+
+    // OUTPUT card: the 1/2/3 segment mirrors the real rig count; the knob
+    // row relayouts when the count changes (params can move under presets)
+    {
+        const int count = processor.getRigCount();
+        if (count != rigCountSeen)
+        {
+            rigCountSeen = count;
+            resized();
+            repaint();
+        }
+        for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+        {
+            const bool on = count == r + 1;
+            if ((bool) rigSegButtons[r].getProperties()["chipActive"] != on)
+            {
+                rigSegButtons[r].getProperties().set ("chipActive", on);
+                rigSegButtons[r].repaint();
+            }
+        }
+        addRigButton.setEnabled (count < GuitarRigNAMProcessor::maxRigs);
+    }
+
+    // INPUT card subtitle: audio device name, polled at 2 Hz (standalone)
+    if (tunerTick % 15 == 0)
+    {
+        juce::String dev ("host audio");
+        if (auto* holder = juce::StandalonePluginHolder::getInstance())
+            if (auto* d = holder->deviceManager.getCurrentAudioDevice())
+                dev = d->getName();
+        if (dev != inputDeviceName)
+        {
+            inputDeviceName = dev;
+            repaint (inputCardB);
+        }
+    }
+
     // retired VST3 instance is deleted here (message thread, outside audio)
     processor.collectExternalRetired();
 
@@ -3991,6 +4536,13 @@ void RigContent::timerCallback()
     {
         repaint (0, 0, getWidth(), 60);
         repaint (0, getHeight() - 60, getWidth(), 60);
+        // live side-card meters/tags + minimap viewport window
+        repaint (inputMeterB.expanded (4));
+        repaint (inputCardB.getX(), inputCardB.getBottom() - 44, inputCardB.getWidth(), 28);
+        repaint (outputMeterB.expanded (4));
+        repaint (outputCardB.getX(), outputCardB.getBottom() - 78, outputCardB.getWidth(), 30);
+        if (chainMinimap != nullptr)
+            chainMinimap->repaint();
     }
 }
 
@@ -4052,6 +4604,7 @@ void RigContent::analyseTuner()
         const int nearest = juce::roundToInt (midi);
         tunerCents = (midi - nearest) * 100.0;
         tunerNote = kNoteNames[((nearest % 12) + 12) % 12];
+        tunerOctave = nearest / 12 - 1;   // scientific pitch ("E2" for 82.4 Hz)
 
         tunerStringIndex = -1;
         double bestDiff = 1.0e9;
@@ -4476,6 +5029,18 @@ bool RigContent::keyPressed (const juce::KeyPress& key)
         return true;
     }
 
+    // vNext R2: chain-order undo/redo (Ctrl+Z / Ctrl+Y)
+    if (key == juce::KeyPress ('z', juce::ModifierKeys::commandModifier, 0))
+    {
+        undoChainOrder();
+        return true;
+    }
+    if (key == juce::KeyPress ('y', juce::ModifierKeys::commandModifier, 0))
+    {
+        redoChainOrder();
+        return true;
+    }
+
     if (key == juce::KeyPress::spaceKey)
     {
         if (auto* p = processor.apvts.getParameter ("ampOn"))
@@ -4541,11 +5106,11 @@ void RigContent::mouseDown (const juce::MouseEvent& e)
             return;
         }
         if (stageTiles[4].contains (p)) { recChip.triggerClick(); repaint(); return; }
-        if (stageTiles[5].contains (p)) { muteChip.triggerClick(); repaint(); return; }
+        if (stageTiles[5].contains (p)) { applyNextScene(); repaint(); return; }
 
         // vNext stage: footswitch action row
         if (stageActions[0].contains (p)) { processor.loadAdjacentPreset (-1); return; }
-        if (stageActions[4].contains (p)) { processor.loadAdjacentPreset (1); return; }
+        if (stageActions[4].contains (p)) { applyNextScene(); repaint(); return; }
         if (stageActions[1].contains (p))
         {
             processor.drumEngine.playing.store (! processor.drumEngine.playing.load());

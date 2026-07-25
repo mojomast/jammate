@@ -50,6 +50,16 @@ public:
     // vNext: temporary A/B preview (loads into AMP 1 without committing)
     std::function<void (ToneCardComponent&)> onPreview;
 
+    // ST1: contextual primary action - the overlay computes the label from the
+    // rig state ("LOAD IN AMP 1" / "REPLACE AMP 1" / "REPLACE IR").
+    void setPrimaryLabel (const juce::String&);
+    // card body click (outside the buttons) opens the Tone Details view
+    std::function<void (ToneCardComponent&)> onOpenDetails;
+    // small dropdown next to the primary action (also via right-click):
+    // replace a specific amp/IR slot or add as parallel rig
+    std::function<void (ToneCardComponent&)> onShowMenu;
+
+    void mouseUp (const juce::MouseEvent&) override;
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -58,11 +68,13 @@ private:
     Status status = Status::add;
     int progress = 0;
     bool favorite = false;
+    juce::String primaryLabel { "Add" };
     juce::Image image, avatar;
     juce::TextButton addButton;
     juce::TextButton favButton;
     juce::TextButton linkButton;   // open the tone's page on tone3000.com
-    juce::TextButton previewButton { juce::CharPointer_UTF8 ("\xe2\x96\xb6") };
+    juce::TextButton previewButton { juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6 PREVIEW")) };
+    juce::TextButton menuButton;   // "load options" dropdown
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToneCardComponent)
 };
@@ -152,9 +164,18 @@ private:
     void updateRigStatuses();
     /// Add flow: lists the tone's models; only one -> download directly,
     /// several -> choice menu (like on the TONE3000 site).
-    void startAddFlow (ToneCardComponent&);
-    void showModelChoices (ToneCardComponent&, const std::vector<Tone3000Client::Model>&);
-    void startDownload (ToneCardComponent&, const Tone3000Client::Model&);
+    /// forceLane >= 0 targets that amp lane / IR slot; -1 = first free.
+    void startAddFlow (ToneCardComponent&, int forceLane = -1);
+    void showModelChoices (ToneCardComponent&, const std::vector<Tone3000Client::Model>&,
+                           int forceLane = -1);
+    void startDownload (ToneCardComponent&, const Tone3000Client::Model&, int forceLane = -1);
+    /// ST1: contextual card actions - routes a card into a specific lane/slot
+    /// (local files load directly; TONE3000 tones go through the add flow).
+    void loadCardIntoLane (ToneCardComponent&, int lane);
+    /// "Replace AMP 1/2/3" (loaded lanes) / "Add as parallel rig" (free lane) /
+    /// "Replace IR 1/2/3" - shown by the card's "\xe2\x96\xbe" button or right-click.
+    void showCardMenu (ToneCardComponent&);
+    juce::String primaryLabelFor (const ToneCardComponent::Info&) const;
     /// After downloading a capture: writes .meta, resolves the ECO pair
     /// (lighter variation with the same name) and hands the pair to the processor.
     /// forceLane >= 0 loads into that exact lane (variation swap); -1 = first free.
@@ -209,9 +230,12 @@ private:
     void previewLoad (ToneCardComponent&, const Tone3000Client::Model&, const juce::File&);
     void endPreview (bool apply);
 
-    // filters (clean UI: tags/A2/favorites collapse behind "Filters")
-    juce::TextButton filtersChip { juce::String (juce::CharPointer_UTF8 ("Filters \xe2\x96\xbe")) };
+    // filters (mockup store-tools row 1): the extra chips (tags/A2/favorites)
+    // collapse behind the "MORE FILTERS" pill and expand on a third row
+    juce::TextButton filtersChip { "MORE FILTERS" };
     bool filtersOpen = false;
+    // right-aligned tones count tag ("48+ TONES" / "4 LOCAL TONES")
+    juce::String countText;
     juce::OwnedArray<juce::TextButton> gearChips;
     juce::OwnedArray<juce::TextButton> tagChips;   // multi-toggle; enter the query
     juce::TextButton a2Chip { "A2 only" };

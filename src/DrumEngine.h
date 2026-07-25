@@ -38,7 +38,7 @@ enum Voice { kick = 0, snare, hat, hatPedal, ride, crash, tom1, tom2, floorTom }
 
 extern const int gmNote[numVoices];             // General MIDI (canal 10)
 extern const char* const voiceIds[numVoices];   // "kick"... (persistência)
-extern const char* const voiceNames[numVoices]; // "Bumbo"... (UI, UTF-8)
+extern const char* const voiceNames[numVoices]; // "Kick"... (UI, UTF-8)
 
 //==============================================================================
 // Biblioteca de fábrica: grooves e viradas de 1 COMPASSO, por gênero.
@@ -78,7 +78,10 @@ public:
     void process (juce::AudioBuffer<float>& out, int n,
                   juce::AudioPluginInstance* drumVst, juce::MidiBuffer& midiScratch);
 
-    bool isAudible() const noexcept { return playing.load() || anyVoiceActive.load(); }
+    bool isAudible() const noexcept
+    {
+        return playing.load() || auditionOn.load() || anyVoiceActive.load();
+    }
 
     // ---- timeline compartilhada UI <-> áudio --------------------------------
     std::atomic<juce::uint8> pattern[drum::maxBars][drum::numVoices][drum::maxStepsPerBar] = {};
@@ -111,6 +114,20 @@ public:
     std::atomic<int> uiBar { -1 };          // compasso global tocando (-1 parado)
     std::atomic<int> uiStep { -1 };         // step dentro do compasso
 
+    // ---- library AUDITION (vNext): loop a 1-bar pattern WITHOUT touching the
+    // timeline. The UI writes auditionPat/auditionSteps and flips auditionOn;
+    // while it is on, process() loops that pattern at the current BPM and the
+    // timeline transport stays paused with its position preserved (it resumes
+    // from the same bar/step when the audition stops).
+    std::atomic<bool> auditionOn { false };
+    std::atomic<juce::uint8> auditionPat[drum::numVoices][drum::maxStepsPerBar] = {};
+    std::atomic<int> auditionSteps { drum::stepsPerBar };
+
+    // per-voice trigger flash for the KIT MIXER meters: the audio thread stores
+    // the hit velocity here; the UI reads (and consumes) it and decays its own
+    // copy towards zero. Purely cosmetic - races are harmless.
+    std::atomic<float> uiVoiceFlash[drum::numVoices] = {};
+
     // nome do groove aplicado em cada compasso — SÓ message thread (UI e
     // persistência; o áudio nunca lê)
     juce::String barNames[drum::maxBars];
@@ -138,8 +155,14 @@ public:
     void loadEmbeddedSamples();
 
 private:
+    /// One hit of one voice: velocity from the cell state (hit/accent/ghost) ×
+    /// voiceGain, humanized, then routed to the VST (GM MIDI) or the sampler.
+    void fireHit (int voice, int val, int sampleOffset,
+                  juce::AudioPluginInstance* vst, juce::MidiBuffer& midi);
     void fireStep (int bar, int step, int sampleOffset,
                    juce::AudioPluginInstance* vst, juce::MidiBuffer& midi);
+    void fireAuditionStep (int step, int sampleOffset,
+                           juce::AudioPluginInstance* vst, juce::MidiBuffer& midi);
     void trigger (int synthType, float vel, int delaySamples);
     double stepLenSamples (int stepIdx) const;
     float nextRnd() noexcept   // ruído barato [-1,1) — só thread de áudio
@@ -155,6 +178,12 @@ private:
     int playBar = 0;     // compasso global tocando (thread de áudio)
     int countInLeft = 0;
     bool wasPlaying = false;
+
+    // audition sequencer (audio thread only)
+    double audSamplesToNext = 0.0;
+    int audStep = 0;
+    bool wasAudition = false;
+    bool pausedByAudition = false;   // timeline paused (not stopped) by audition
 
     struct PendingOff { int note = -1; int samplesLeft = 0; };
     PendingOff pendingOffs[64];

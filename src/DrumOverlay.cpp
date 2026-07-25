@@ -5,6 +5,8 @@
 
 #include <BinaryData.h>
 
+#include <algorithm>
+
 //==============================================================================
 // Fixed layout inside the editor's 1100x700 content (v4: the staff is the track).
 // Clean UI: the TRANSPORT band sits on top (mirroring the guitar top bar) and
@@ -17,11 +19,15 @@ constexpr int gtrRibY = 62, gtrRibH = 160;   // larger controls with uniform hit
 constexpr int margin = 26;
 constexpr int headerY = 13, headerH = 34;
 constexpr int tabsY = 230, tabsH = 26;
+// notation editor (vNext D1): toolbar row + [voice palette | paper | inspector]
+constexpr int ntbY = 260, ntbH = 30;                      // notation toolbar
+constexpr int scoreY = 292, scoreH = 152;                 // notation body band
+constexpr int paletteW = 126, inspectW = 170, scoreColGap = 4;
 // clean UI: the bar options overlay the TOP of the staff area (no extra row)
-constexpr int scoreY = 260, scoreH = 152;
 constexpr int barHeadsY = scoreY + 2, barHeadsH = 26;
-constexpr int libY = 420;                                 // top of the browser/grid
-constexpr int gridY = 424, gridH = 216;                   // grid in place of the lib
+// bottom panel: LIBRARY | KIT MIXER tabs + content
+constexpr int panelTabsY = 450, panelTabsH = 24;
+constexpr int libY = 478;                                 // top of the browser/grid
 constexpr int sourceY = 648, sourceH = 32;
 // column browser: Genre | Grooves/Fills | Preview
 constexpr int colGap = 8, genreColW = 150, listColW = 208, colRowH = 26;
@@ -217,6 +223,10 @@ void meterGroups (int num, int den, int& steps, int groups[8], int& nGroups)
 
 // staff position / x-head / hand-or-foot per voice - drum::Voice indices
 constexpr float staffPos[drum::numVoices] = { 1, 5, 9, -1, 8, 10, 7, 6, 3 };
+// voice palette / mixer glyphs (● drum · × cymbal · ◇ ride · ⊗ crash)
+const char* const voiceGlyphs[drum::numVoices] = {
+    "\xe2\x97\x8f", "\xe2\x97\x8f", "\xc3\x97", "\xc3\x97", "\xe2\x97\x87",
+    "\xe2\x8a\x97", "\xe2\x97\x8f", "\xe2\x97\x8f", "\xe2\x97\x8f" };
 constexpr bool staffXHead[drum::numVoices] = { false, false, true, true, true, true,
                                                false, false, false };
 constexpr bool staffIsHand[drum::numVoices] = { false, true, true, false, true, true,
@@ -582,6 +592,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     playButton.getProperties().set ("accent", true);
     playButton.onClick = [this]
     {
+        stopAudition();   // PLAY takes over from a running library audition
         engine.playing.store (! engine.playing.load());
         syncTransportUi();
     };
@@ -687,6 +698,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     gridChip.onClick = [this]
     {
         gridOn = ! gridOn;
+        mixerOn = false;   // the grid lives in the LIBRARY panel view
         if (gridOn) { genOn = false; genChip.getProperties().set ("chipActive", false); genChip.repaint(); }
         gridChip.getProperties().set ("chipActive", gridOn);
         gridChip.repaint();
@@ -698,6 +710,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     genChip.onClick = [this]
     {
         genOn = ! genOn;
+        mixerOn = false;   // the generator lives in the LIBRARY panel view
         if (genOn) { gridOn = false; gridChip.getProperties().set ("chipActive", false); gridChip.repaint(); }
         genChip.getProperties().set ("chipActive", genOn);
         genChip.repaint();
@@ -834,7 +847,11 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
         hs.s->setColour (juce::Slider::trackColourId, ui::glowOrange.withAlpha (0.7f));
         auto* p = hs.p;
         auto* sl = hs.s;
-        hs.s->onValueChange = [p, sl] { p->store ((float) sl->getValue()); };
+        hs.s->onValueChange = [this, p, sl]
+        {
+            p->store ((float) sl->getValue());
+            updateHumChipText();   // chip mirrors the mean of the 3 sliders
+        };
         hs.s->setMouseClickGrabsKeyboardFocus (false);
         addChildComponent (*hs.s);
     }
@@ -913,6 +930,91 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (helpChip);
 
+    // ---- notation toolbar tools (vNext D1): selection, durations, rest,
+    // accent and ghost. The duration tools snap the click-to-add position to
+    // their step grid (quarter = every 4th step, eighth = every 2nd).
+    {
+        static const char* const labels[7] = {
+            "\xe2\x86\x96", "\xe2\x99\xa9", "\xe2\x99\xaa", "\xe2\x99\xab",
+            "REST", "ACCENT", "GHOST" };
+        static const char* const tips[7] = {
+            "Select: click cycles hit > accent > ghost > empty "
+            "(staff pitch picks the voice)",
+            "Quarter: click writes a hit snapped to every 4th step",
+            "Eighth: click writes a hit snapped to every 2nd step",
+            "Sixteenth: click writes a hit on the exact step",
+            "Rest: click erases the step",
+            "Accent: click writes an accented hit",
+            "Ghost: click writes a ghost note" };
+        for (int i = 0; i < 7; ++i)
+        {
+            toolBtn[i].setButtonText (juce::String (juce::CharPointer_UTF8 (labels[i])));
+            toolBtn[i].setTooltip (juce::String (juce::CharPointer_UTF8 (tips[i])));
+            toolBtn[i].getProperties().set ("chip", true);
+            toolBtn[i].getProperties().set ("chipActive", i == 0);
+            toolBtn[i].setMouseClickGrabsKeyboardFocus (false);
+            toolBtn[i].onClick = [this, i] { setScoreTool ((ScoreTool) i); };
+            addAndMakeVisible (toolBtn[i]);
+        }
+    }
+    addAndMakeVisible (voicePalette);
+    addAndMakeVisible (noteInspector);
+
+    // ---- bottom panel tabs: LIBRARY | KIT MIXER (vNext D2)
+    for (auto* t : { &libTabBtn, &mixTabBtn })
+    {
+        t->getProperties().set ("chip", true);
+        t->setMouseClickGrabsKeyboardFocus (false);
+        addAndMakeVisible (*t);
+    }
+    libTabBtn.onClick = [this] { if (mixerOn) { mixerOn = false; refreshAll(); } };
+    mixTabBtn.onClick = [this]
+    {
+        if (! mixerOn)
+        {
+            mixerOn = true;
+            kitMixer.syncKnobs();
+            refreshAll();
+        }
+    };
+    addChildComponent (kitMixer);
+
+    // ---- COPY BAR (vNext D3): pattern + meter + name + role onto another bar
+    copyChip.getProperties().set ("chip", true);
+    copyChip.setMouseClickGrabsKeyboardFocus (false);
+    copyChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Copy the selected bar (notes, meter, name and role) onto another bar "
+        "of this section")));
+    copyChip.onClick = [this] { openCopyBarMenu(); };
+    addAndMakeVisible (copyChip);
+
+    // ---- preview actions (vNext D3): audition loop + favorite star
+    auditionBtn.getProperties().set ("chip", true);
+    auditionBtn.setMouseClickGrabsKeyboardFocus (false);
+    auditionBtn.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Loop the selected groove without touching the timeline (the transport "
+        "pauses and resumes where it was)")));
+    auditionBtn.onClick = [this] { toggleAudition(); };
+    addChildComponent (auditionBtn);
+
+    favBtn.getProperties().set ("chip", true);
+    favBtn.setMouseClickGrabsKeyboardFocus (false);
+    favBtn.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Favorite groove - listed under the FAVORITES genre")));
+    favBtn.onClick = [this] { toggleFavourite(); };
+    addChildComponent (favBtn);
+
+    // ---- SONG MAP (vNext D3): the shell wires this to the SongOverlay
+    songMapBtn.getProperties().set ("chip", true);
+    songMapBtn.setMouseClickGrabsKeyboardFocus (false);
+    songMapBtn.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Open the song map (sections, scenes and arrangement)")));
+    songMapBtn.onClick = [this] { if (onOpenSongMap) onOpenSongMap(); };
+    addAndMakeVisible (songMapBtn);
+
+    loadFavs();
+    updateHumChipText();
+
     for (auto* b : std::initializer_list<juce::Button*> {
              &closeButton, &playButton, &bpmDown, &bpmUp,
              &addSectionBtn, &delSectionBtn, &kitChip, &helpChip })
@@ -941,12 +1043,17 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     startTimerHz (30);
 }
 
-DrumOverlay::~DrumOverlay() = default;
+DrumOverlay::~DrumOverlay()
+{
+    engine.auditionOn.store (false);   // never leave a library audition looping
+}
 
 void DrumOverlay::open()
 {
     syncTransportUi();
     refreshSourceRow();
+    kitMixer.syncKnobs();      // state load may have changed the voice gains
+    updateHumChipText();
     buildGuitarRibbon();   // mirror the current guitar chain
     refreshAll();
     morphT = 0.0f; morphTarget = 1.0f; morphing = true;  // grows from the top strip
@@ -957,6 +1064,7 @@ void DrumOverlay::open()
 
 void DrumOverlay::closeAnimated()
 {
+    stopAudition();                        // the audition is a browsing aid only
     morphTarget = 0.0f; morphing = true;   // shrinks back to the strip
 }
 
@@ -1021,8 +1129,12 @@ void DrumOverlay::timerCallback()
         scoreView.repaint();
         if (gridOn)
             gridView.repaint();
-        repaint (getWidth() - 220, headerY, 200, headerH); // position on the label
+        // position label + DAW SYNC tag live on the right of the header
+        repaint (getWidth() - 420, headerY, 400, headerH);
     }
+
+    if (mixerOn && kitMixer.isVisible())
+        kitMixer.decayFlashes();   // KIT MIXER meters follow the voice triggers
 
     const bool playing = engine.playing.load();
     const auto want = playing ? juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0 STOP"))
@@ -1197,6 +1309,73 @@ void DrumOverlay::paint (juce::Graphics& g)
                              : juce::String (engine.totalBars()) + " bars";
         g.drawText (txt, getWidth() - margin - 44 - 180, headerY, 170, headerH,
                     juce::Justification::centredRight);
+
+        // vNext D3: "DAW SYNC · BAR n" while following the host transport
+        if (processor.drumHostSync.load() && uiBar >= 0)
+        {
+            const auto label = "DAW SYNC "
+                             + juce::String (juce::CharPointer_UTF8 ("\xc2\xb7"))
+                             + " BAR " + juce::String (uiBar + 1);
+            const auto f = ui::monoFont (7.5f, true);
+            const int tw = juce::GlyphArrangement::getStringWidthInt (f, label) + 16;
+            const juce::Rectangle<int> r (getWidth() - margin - 44 - 184 - tw,
+                                          headerY + 8, tw, 18);
+            g.setColour (ui::green.withAlpha (0.55f));
+            g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 4.0f, 1.0f);
+            g.setColour (ui::green);
+            g.setFont (f);
+            g.drawText (label, r, juce::Justification::centred);
+        }
+    }
+
+    // ---- vNext D3: SCENE tag - the shown section carries a rig snapshot ----
+    if (processor.hasScene (curSection))
+    {
+        const auto nm = processor.getSceneName (curSection);
+        const auto label = nm.isNotEmpty()
+                               ? "SCENE: " + nm.toUpperCase()
+                               : juce::String (juce::CharPointer_UTF8 ("SCENE \xe2\x97\x8f"));
+        const auto f = ui::monoFont (7.5f, true);
+        const int tw = juce::GlyphArrangement::getStringWidthInt (f, label) + 16;
+        const juce::Rectangle<int> r (getWidth() - margin - tw, tabsY + 3, tw, tabsH - 6);
+        g.setColour (ui::accent.withAlpha (0.5f));
+        g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 4.0f, 1.0f);
+        g.setColour (ui::accentBright);
+        g.setFont (f);
+        g.drawText (label, r, juce::Justification::centred);
+    }
+
+    // ---- notation toolbar band (vNext D1): title, tools row bg, status tags
+    {
+        const juce::Rectangle<int> band (margin, ntbY, getWidth() - 2 * margin, ntbH);
+        g.setColour (ui::cardTop);
+        g.fillRoundedRectangle (band.toFloat(), 3.0f);
+        g.setColour (ui::border());
+        g.drawRoundedRectangle (band.toFloat().reduced (0.5f), 3.0f, 1.0f);
+
+        g.setColour (ui::textBright);
+        g.setFont (ui::uiFont (10.5f, true));
+        g.drawText ("DRUM SCORE", band.getX() + 10, ntbY + 3, 100, 12,
+                    juce::Justification::centredLeft);
+        g.setColour (ui::textFaint);
+        g.setFont (ui::monoFont (6.8f));
+        g.drawText (juce::String (juce::CharPointer_UTF8 (
+                        "Leland \xc2\xb7 SMuFL engraving")),
+                    band.getX() + 10, ntbY + 16, 160, 9,
+                    juce::Justification::centredLeft);
+
+        auto tag = [&g] (juce::Rectangle<int> r, const juce::String& t, juce::Colour c)
+        {
+            g.setColour (c.withAlpha (0.55f));
+            g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 4.0f, 1.0f);
+            g.setColour (c);
+            g.setFont (ui::monoFont (7.0f, true));
+            g.drawText (t, r, juce::Justification::centred);
+        };
+        tag ({ getWidth() - margin - 220, ntbY + 7, 100, 16 }, "SMOKED IVORY",
+             ui::glowOrange);
+        tag ({ getWidth() - margin - 114, ntbY + 7, 82, 16 }, "AUTO-SAVED",
+             ui::green);
     }
 
     g.setFont (ui::uiFont (9.0f, true));
@@ -1356,17 +1535,40 @@ void DrumOverlay::resized()
         delSectionBtn.setBounds (sx, tabsY, 86, tabsH);
         sx += 92;
         rigChip.setBounds (sx, tabsY, 64, tabsH);
+        sx += 70;
+        songMapBtn.setBounds (sx, tabsY, 82, tabsH);
     }
 
-    // bar headers + staff (widths follow the meter)
-    scoreView.setBounds (margin, scoreY, W - 2 * margin, scoreH);
+    // ---- notation toolbar (vNext D1): tools row above the staff
+    {
+        int tx = x0 + 182;
+        const int tw[7] = { 30, 30, 30, 30, 46, 58, 52 };
+        for (int i = 0; i < 7; ++i)
+        {
+            toolBtn[i].setBounds (tx, ntbY + 3, tw[i], 24);
+            tx += tw[i] + 4;
+        }
+        helpChip.setBounds (W - margin - 26, ntbY + 5, 22, 20);
+    }
+
+    // notation body: voice palette | staff paper | note inspector (mockup grid)
+    voicePalette.setBounds (margin, scoreY, paletteW, scoreH);
+    noteInspector.setBounds (W - margin - inspectW, scoreY, inspectW, scoreH);
+    scoreView.setBounds (margin + paletteW + scoreColGap, scoreY,
+                         W - 2 * margin - paletteW - inspectW - 2 * scoreColGap,
+                         scoreH);
+    // bar headers overlay the top of the paper (widths follow the meter)
     computeBarLayout (scoreView.getWidth() - 8);
     for (auto* h : barHeads)
     {
         const auto& L = barLay[h->barInSec];
-        const int x0 = margin + (int) (L.notesX - curStepW * 0.5f - 5.0f);
-        h->setBounds (x0, barHeadsY, (int) (L.width + curStepW + 10.0f), barHeadsH - 2);
+        const int hx = scoreView.getX() + (int) (L.notesX - curStepW * 0.5f - 5.0f);
+        h->setBounds (hx, barHeadsY, (int) (L.width + curStepW + 10.0f), barHeadsH - 2);
     }
+
+    // ---- bottom panel tabs: LIBRARY | KIT MIXER (vNext D2)
+    libTabBtn.setBounds (margin, panelTabsY, 82, panelTabsH);
+    mixTabBtn.setBounds (margin + 86, panelTabsY, 92, panelTabsH);
 
     // library (column browser); GRID and the GENERATOR replace only the
     // preview column, so the genre + groove list never disappear (clean UI)
@@ -1382,13 +1584,15 @@ void DrumOverlay::resized()
         tabViradas.setBounds (listX + tabW + 4, libY, tabW, 24);
         listVp.setBounds (listX, libY + 28, listColW, libH - 28);
         previewPane.setBounds (prevX, libY, prevW, libH - 36);
-        applyBtn.setBounds (prevX, libBottom - 30, 190, 30);
+        applyBtn.setBounds (prevX, libBottom - 30, 170, 30);
+        auditionBtn.setBounds (prevX + 176, libBottom - 29, 108, 28);
+        favBtn.setBounds (prevX + 290, libBottom - 29, 40, 28);
         // humanize: one chip; the 3 sliders live in the popover panel above it
-        humChip.setBounds (W - margin - 112, libBottom - 28, 112, 26);
+        humChip.setBounds (W - margin - 118, libBottom - 28, 118, 26);
         if (humPanel != nullptr)
             humPanel->setBounds (W - margin - 214, libBottom - 28 - 106, 214, 100);
     }
-    helpChip.setBounds (W - margin - 26, scoreY + 6, 22, 20);
+    kitMixer.setBounds (margin, libY, W - 2 * margin, libH);
     gridView.setBounds (prevX, libY, prevW, libH);
 
     // generator, inside the preview slot: selects row + 2-column sliders +
@@ -1403,16 +1607,17 @@ void DrumOverlay::resized()
         for (int i = 0; i < 5; ++i)
         {
             const int col = i % 2, row = i / 2;
-            ps[i]->setBounds (prevX + 4 + 92 + col * colW, libY + 78 + row * 34,
-                              colW - 100, 22);
+            ps[i]->setBounds (prevX + 4 + 92 + col * colW, libY + 64 + row * 26,
+                              colW - 100, 20);
         }
 
-        genOneBtn.setBounds (prevX + prevW - 168, libY + libH - 40, 168, 34);
-        genAllBtn.setBounds (prevX + prevW - 168 - 8 - 140, libY + libH - 40, 140, 34);
+        genOneBtn.setBounds (prevX + prevW - 168, libY + libH - 32, 168, 30);
+        genAllBtn.setBounds (prevX + prevW - 168 - 8 - 140, libY + libH - 32, 140, 30);
     }
 
     kitChip.setBounds (margin, sourceY, 254, sourceH);
     saveChip.setBounds (margin + 262, sourceY + 2, 120, 28);
+    copyChip.setBounds (margin + 388, sourceY + 2, 104, 28);
     genChip.setBounds (W - margin - 396, sourceY + 2, 92, 28);
     gridChip.setBounds (W - margin - 298, sourceY + 2, 62, 28);
     levelSlider.setBounds (W - margin - 130, sourceY + 3, 130, 26);
@@ -1498,33 +1703,35 @@ void DrumOverlay::refreshAll()
     rebuildGenreCol();
     rebuildList();
 
-    // clean UI: the genre + groove list stay visible; GRID and the GENERATOR
-    // replace only the preview column
-    const bool prev = ! gridOn && ! genOn;
-    const bool mine = currentGenre == "MINE";
-    genreVp.setVisible (true);
-    listVp.setVisible (true);
-    previewPane.setVisible (prev);
-    tabGrooves.setVisible (! mine);
-    tabViradas.setVisible (! mine);
-    applyBtn.setVisible (prev && selValid);
-    const bool humShow = prev && ! mine;
-    humChip.setVisible (humShow);
-    if (! humShow && humPanel != nullptr && humPanel->isVisible())
-    {
-        humPanel->setVisible (false);
-        humChip.getProperties().set ("chipActive", false);
-    }
-    gridView.setVisible (gridOn);
+    // bottom panel: LIBRARY | KIT MIXER; inside the library view the genre +
+    // groove list stay visible and GRID/GENERATOR replace only the preview
+    const bool lib = ! mixerOn;
+    const bool pseudo = currentGenre == "MINE" || currentGenre == "FAVORITES"
+                     || currentGenre == "RECENT";
+    libTabBtn.getProperties().set ("chipActive", ! mixerOn);
+    mixTabBtn.getProperties().set ("chipActive", mixerOn);
+    libTabBtn.repaint();
+    mixTabBtn.repaint();
+    kitMixer.setVisible (mixerOn);
+    genreVp.setVisible (lib);
+    listVp.setVisible (lib);
+    previewPane.setVisible (lib && ! gridOn && ! genOn);
+    tabGrooves.setVisible (lib && ! pseudo);
+    tabViradas.setVisible (lib && ! pseudo);
+    updatePreviewActionVis();
+    gridView.setVisible (lib && gridOn);
 
     juce::Component* genComps[] = { &genGenreBox, &genStyleBox, &genDrummerBox,
                                     &genComplex, &genDynamics, &genHuman, &genFill, &genSwing,
                                     &genOneBtn, &genAllBtn };
     for (auto* c : genComps)
-        c->setVisible (genOn);
+        c->setVisible (lib && genOn);
+
+    copyChip.setEnabled (engine.barUsed[selectedBar()].load());
 
     gridView.repaint();
     scoreView.repaint();
+    noteInspector.repaint();
     repaint();
 }
 
@@ -1565,6 +1772,7 @@ void DrumOverlay::rebuildSectionTabs()
     rigChip.getProperties().set ("chipActive", processor.hasScene (curSection)
                                                    || processor.scenesOn.load());
     rigChip.repaint();
+    repaint (0, tabsY, getWidth(), tabsH + 2);   // SCENE tag lives on this row
     resized();
 }
 
@@ -1912,6 +2120,20 @@ void DrumOverlay::ScoreView::paint (juce::Graphics& g)
         }
     }
 
+    // selection ring around the note picked for the SELECTED NOTE inspector
+    if (owner.hasNoteSelection()
+        && owner.noteSelBar / drum::barsPerSection == owner.curSection)
+    {
+        const int b = owner.noteSelBar % drum::barsPerSection;
+        if (owner.noteSelStep < owner.barLay[b].steps)
+        {
+            const float x = sx (b, owner.noteSelStep);
+            const float y = staffY (staffPos[owner.noteSelVoice]);
+            g.setColour (notationCyan);
+            g.drawEllipse (x - 7.0f, y - 7.0f, 14.0f, 14.0f, 1.6f);
+        }
+    }
+
     // (the permanent legend line moved into the "?" popover - clean UI)
 }
 
@@ -1930,7 +2152,7 @@ void DrumOverlay::ScoreView::mouseDown (const juce::MouseEvent& e)
         return;
     }
 
-    // EDIT: find step/voice and edit the note
+    // EDIT: find step/voice and edit the note with the active toolbar tool
     int bb = -1, ss = -1;
     for (int b = 0; b < drum::barsPerSection && bb < 0; ++b)
         for (int s = 0; s < owner.barLay[b].steps; ++s)
@@ -1939,14 +2161,31 @@ void DrumOverlay::ScoreView::mouseDown (const juce::MouseEvent& e)
                 bb = b; ss = s; break;
             }
     if (bb < 0)
-        return;
-
-    int voice = -1;
-    float best = 8.0f;
-    for (int v = 0; v < drum::numVoices; ++v)
     {
-        const float d = std::abs ((float) e.y - staffY (staffPos[v]));
-        if (d < best) { best = d; voice = v; }
+        owner.clearNoteSelection();
+        return;
+    }
+
+    // duration tools quantize the insert position to their step grid
+    const int snap = owner.stepSnapForTool();
+    if (snap > 1)
+        ss -= ss % snap;
+
+    // the note tools insert the palette's ACTIVE voice regardless of the
+    // click height; the selection tool keeps the staff-pitch mapping
+    int voice = -1;
+    if (owner.scoreTool != ScoreTool::select && owner.activeVoice >= 0)
+    {
+        voice = owner.activeVoice;
+    }
+    else
+    {
+        float best = 8.0f;
+        for (int v = 0; v < drum::numVoices; ++v)
+        {
+            const float d = std::abs ((float) e.y - staffY (staffPos[v]));
+            if (d < best) { best = d; voice = v; }
+        }
     }
     if (voice < 0)
         return;
@@ -1960,7 +2199,20 @@ void DrumOverlay::ScoreView::mouseDown (const juce::MouseEvent& e)
         owner.engine.barNames[bar] = "new";
     }
     auto& cell = owner.engine.pattern[bar][voice][ss];
-    cell.store ((juce::uint8) ((cell.load() + 1) % 4));
+    juce::uint8 nv = 0;
+    switch (owner.scoreTool)
+    {
+        case ScoreTool::select: nv = (juce::uint8) ((cell.load() + 1) % 4); break;
+        case ScoreTool::rest:   nv = 0; break;
+        case ScoreTool::accent: nv = 2; break;
+        case ScoreTool::ghost:  nv = 3; break;
+        default:                nv = 1; break;   // duration tools write a hit
+    }
+    cell.store (nv);
+    if (nv != 0)
+        owner.selectNote (bar, voice, ss);
+    else
+        owner.clearNoteSelection();
     owner.rebuildBarHeads();
     repaint();
     if (owner.gridOn)
@@ -2102,13 +2354,25 @@ void DrumOverlay::openRoleMenu (int barInSec, juce::Component* anchor)
 void DrumOverlay::rebuildGenreCol()
 {
     genreRows.clear();
-    auto names = drum::genres();
-    names.add (juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x85 MINE")));
-    const auto star = juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x85"));
-    int y = 0;
-    for (const auto& n : names)
+    // vNext D3: FAVORITES + RECENT pseudo-genres on top, "MINE" at the bottom
+    juce::StringArray labels, keys;
+    labels.add (juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x86 FAVORITES")));
+    keys.add ("FAVORITES");
+    labels.add ("RECENT");
+    keys.add ("RECENT");
+    for (const auto& n : drum::genres())
     {
-        const auto key = n.startsWith (star) ? juce::String ("MINE") : n;
+        labels.add (n);
+        keys.add (n);
+    }
+    labels.add (juce::String (juce::CharPointer_UTF8 ("\xe2\x98\x85 MINE")));
+    keys.add ("MINE");
+
+    int y = 0;
+    for (int i = 0; i < labels.size(); ++i)
+    {
+        const auto n = labels[i];
+        const auto key = keys[i];
 
         // clean UI: no per-genre counters (visual noise without navigation value)
         auto* b = genreRows.add (new juce::TextButton());
@@ -2164,6 +2428,38 @@ void DrumOverlay::rebuildList()
                  [this, f] { f.deleteFile(); selValid = false; rebuildList(); updatePreview(); });
         }
     }
+    else if (currentGenre == "FAVORITES")
+    {
+        // resolved by name + genre (the persisted key of a favorite)
+        const auto& lib = drum::library();
+        for (const auto& fv : favs)
+        {
+            if (fv.genre == "MINE")
+            {
+                const auto f = userGroovesDir().getChildFile (
+                    juce::File::createLegalFileName (fv.name) + ".json");
+                if (f.existsAsFile())
+                    add (fv.name, "u:" + f.getFullPathName(), false, false, nullptr);
+                continue;
+            }
+            for (int i = 0; i < (int) lib.size(); ++i)
+            {
+                const auto& g = lib[(size_t) i];
+                if (fv.genre == juce::String (juce::CharPointer_UTF8 (g.genre))
+                    && fv.name == juce::String (juce::CharPointer_UTF8 (g.name)))
+                {
+                    add (fv.name, "f:" + juce::String (i), g.fill, false, nullptr);
+                    break;
+                }
+            }
+        }
+    }
+    else if (currentGenre == "RECENT")
+    {
+        // session-only: the last 8 grooves applied to the timeline
+        for (const auto& r : recents)
+            add (r.name, r.dragId, r.fill, false, nullptr);
+    }
     else
     {
         const auto& lib = drum::library();
@@ -2202,6 +2498,8 @@ void DrumOverlay::selectEntry (const juce::String& dragId, const juce::String& n
     selBpm = 0;
     selNum = 4; selDen = 4;
 
+    selGenre = "MINE";   // user bars (favorites persist them under this key)
+
     if (dragId.startsWith ("f:"))
     {
         const int i = dragId.substring (2).getIntValue();
@@ -2212,6 +2510,7 @@ void DrumOverlay::selectEntry (const juce::String& dragId, const juce::String& n
             selBpm = lib[(size_t) i].bpm;
             selNum = lib[(size_t) i].num;
             selDen = lib[(size_t) i].den;
+            selGenre = juce::String (juce::CharPointer_UTF8 (lib[(size_t) i].genre));
         }
     }
     else if (dragId.startsWith ("u:"))
@@ -2233,6 +2532,8 @@ void DrumOverlay::selectEntry (const juce::String& dragId, const juce::String& n
         const bool on = r->dragId == dragId;
         if (r->selected != on) { r->selected = on; r->repaint(); }
     }
+    if (engine.auditionOn.load())
+        updateAuditionPattern();   // audition follows the selection live
     updatePreview();
 }
 
@@ -2240,8 +2541,37 @@ void DrumOverlay::updatePreview()
 {
     applyBtn.setButtonText (juce::String ("apply to bar ")
                             + juce::String (selectedBar() + 1));
-    applyBtn.setVisible (! gridOn && selValid);
+    auditionBtn.setButtonText (engine.auditionOn.load()
+        ? juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0 STOP"))
+        : juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xb6 AUDITION")));
+    auditionBtn.getProperties().set ("chipActive", engine.auditionOn.load());
+    auditionBtn.repaint();
+    favBtn.setButtonText (juce::String (juce::CharPointer_UTF8 (
+        isFavourite (selName, selGenre) ? "\xe2\x98\x85" : "\xe2\x98\x86")));
+    updatePreviewActionVis();
     previewPane.repaint();
+}
+
+void DrumOverlay::updatePreviewActionVis()
+{
+    const bool prev = ! mixerOn && ! gridOn && ! genOn;
+    applyBtn.setVisible (prev && selValid);
+    auditionBtn.setVisible (prev && selValid);
+    favBtn.setVisible (prev && selValid);
+    humChip.setVisible (prev);
+    if (! prev && humPanel != nullptr && humPanel->isVisible())
+    {
+        humPanel->setVisible (false);
+        humChip.getProperties().set ("chipActive", false);
+        humChip.repaint();
+    }
+}
+
+void DrumOverlay::updateHumChipText()
+{
+    const int pct = juce::roundToInt ((engine.humanVel.load() + engine.humanTime.load()
+                                       + engine.humanRR.load()) / 3.0f * 100.0f);
+    humChip.setButtonText ("HUMANIZE " + juce::String (pct) + "%");
 }
 
 void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
@@ -2252,6 +2582,7 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
     juce::uint8 pat[drum::numVoices][drum::maxStepsPerBar] = {};
     juce::String name;
     int gNum = 4, gDen = 4;   // groove meter (library grooves may be odd)
+    bool fillFlag = false;
 
     if (dragId.startsWith ("f:"))
     {
@@ -2263,6 +2594,7 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
         drum::parseSpec (g, pat);
         name = juce::String (juce::CharPointer_UTF8 (g.name));
         gNum = g.num; gDen = g.den;
+        fillFlag = g.fill;
     }
     else if (dragId.startsWith ("u:"))
     {
@@ -2293,6 +2625,8 @@ void DrumOverlay::applyGrooveToBar (const juce::String& dragId, int globalBar)
     engine.setMeter (globalBar, gNum, gDen);
     engine.setBarPattern (pat, globalBar);
     engine.barNames[globalBar] = name;
+
+    pushRecent (dragId, name, fillFlag);   // session RECENT pseudo-genre
 
     curSection = globalBar / drum::barsPerSection;
     selBar = globalBar % drum::barsPerSection;
@@ -2752,9 +3086,15 @@ int DrumOverlay::GridView::stepX (int step) const
     return gridLabelW + step * (cellWidth() + gCellGap) + (step / 4) * gBeatGap;
 }
 
+int DrumOverlay::GridView::rowH() const
+{
+    // the panel height varies (LIBRARY | KIT MIXER tabs) - never clip a row
+    return juce::jlimit (12, gRowH, (getHeight() - 18) / DrumOverlay::gridRows);
+}
+
 juce::Rectangle<int> DrumOverlay::GridView::cellBounds (int row, int step) const
 {
-    return { stepX (step), 16 + row * (gRowH + gRowGap), cellWidth(), gRowH };
+    return { stepX (step), 16 + row * (rowH() + gRowGap), cellWidth(), rowH() };
 }
 
 void DrumOverlay::GridView::paint (juce::Graphics& g)
@@ -2787,10 +3127,11 @@ void DrumOverlay::GridView::paint (juce::Graphics& g)
     for (int row = 0; row < gridRows; ++row)
     {
         const int v = gridRowVoice[row];
+        const auto labelCell = cellBounds (row, 0);
         g.setFont (ui::uiFont (11.0f, true));
         g.setColour (ui::textDim);
         g.drawText (juce::String (juce::CharPointer_UTF8 (drum::voiceNames[v])),
-                    0, 16 + row * (gRowH + gRowGap), gridLabelW - 10, gRowH,
+                    0, labelCell.getY(), gridLabelW - 10, labelCell.getHeight(),
                     juce::Justification::centredRight);
 
         for (int s = 0; s < steps; ++s)
@@ -2854,4 +3195,477 @@ void DrumOverlay::refreshSourceRow()
         : "INTERNAL KIT" + caret);
     kitChip.getProperties().set ("chipActive", vstOn);
     kitChip.repaint();
+}
+
+//==============================================================================
+// ---- vNext D1: notation toolbar tools + selected-note plumbing --------------
+void DrumOverlay::setScoreTool (ScoreTool t)
+{
+    scoreTool = t;
+    if (t != ScoreTool::select && ! editMode)
+        editChip.triggerClick();   // the note tools imply EDIT mode
+    for (int i = 0; i < 7; ++i)
+    {
+        toolBtn[i].getProperties().set ("chipActive", (int) t == i);
+        toolBtn[i].repaint();
+    }
+}
+
+int DrumOverlay::stepSnapForTool() const
+{
+    return scoreTool == ScoreTool::quarter ? 4
+         : scoreTool == ScoreTool::eighth  ? 2 : 1;
+}
+
+bool DrumOverlay::hasNoteSelection() const
+{
+    return noteSelBar >= 0 && noteSelBar < engine.totalBars()
+        && noteSelVoice >= 0 && noteSelVoice < drum::numVoices
+        && noteSelStep >= 0 && noteSelStep < engine.barSteps (noteSelBar)
+        && engine.pattern[noteSelBar][noteSelVoice][noteSelStep].load() != 0;
+}
+
+void DrumOverlay::selectNote (int globalBar, int voice, int step)
+{
+    noteSelBar = globalBar;
+    noteSelVoice = voice;
+    noteSelStep = step;
+    noteInspector.repaint();
+    scoreView.repaint();
+}
+
+void DrumOverlay::clearNoteSelection()
+{
+    if (noteSelBar < 0)
+        return;
+    noteSelBar = noteSelVoice = noteSelStep = -1;
+    noteInspector.repaint();
+    scoreView.repaint();
+}
+
+void DrumOverlay::noteInspectorAction (int action)
+{
+    if (! hasNoteSelection())
+        return;
+    const int bar = noteSelBar, v = noteSelVoice, s = noteSelStep;
+    const int steps = engine.barSteps (bar);
+    const auto val = engine.pattern[bar][v][s].load();
+
+    if (action == 0)          // DUPLICATE: onto the next free step of the voice
+    {
+        for (int t = s + 1; t < steps; ++t)
+            if (engine.pattern[bar][v][t].load() == 0)
+            {
+                engine.pattern[bar][v][t].store (val);
+                selectNote (bar, v, t);
+                break;
+            }
+    }
+    else if (action == 1)     // DELETE
+    {
+        engine.pattern[bar][v][s].store (0);
+        clearNoteSelection();
+    }
+    else                      // NUDGE ± 1 step (clamped to the bar)
+    {
+        const int t = s + (action == 2 ? -1 : 1);
+        if (t >= 0 && t < steps)
+        {
+            engine.pattern[bar][v][s].store (0);
+            engine.pattern[bar][v][t].store (val);
+            selectNote (bar, v, t);
+        }
+    }
+    scoreView.repaint();
+    if (gridOn)
+        gridView.repaint();
+    noteInspector.repaint();
+}
+
+//==============================================================================
+// ---- vNext D1: DRUM VOICES palette (left column of the notation body) -------
+void DrumOverlay::VoicePalette::paint (juce::Graphics& g)
+{
+    auto b = getLocalBounds().toFloat().reduced (0.5f);
+    g.setColour (ui::cardBottom);
+    g.fillRoundedRectangle (b, 3.0f);
+    g.setColour (ui::border());
+    g.drawRoundedRectangle (b, 3.0f, 1.0f);
+
+    g.setColour (ui::textFaint);
+    g.setFont (ui::monoFont (7.0f, true));
+    g.drawText ("DRUM VOICES", 8, 4, getWidth() - 16, 10,
+                juce::Justification::centredLeft);
+
+    const int rh = juce::jmax (12, (getHeight() - 20) / drum::numVoices);
+    for (int v = 0; v < drum::numVoices; ++v)
+    {
+        const juce::Rectangle<int> r (4, 18 + v * rh, getWidth() - 8, rh - 1);
+        const bool on = owner.activeVoice == v;
+        const bool hover = r.contains (getMouseXYRelative());
+        if (on)
+        {
+            g.setColour (ui::accent.withAlpha (0.14f));
+            g.fillRoundedRectangle (r.toFloat(), 3.0f);
+            g.setColour (ui::accent.withAlpha (0.55f));
+            g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 3.0f, 1.0f);
+        }
+        else if (hover)
+        {
+            g.setColour (ui::glass());
+            g.fillRoundedRectangle (r.toFloat(), 3.0f);
+        }
+        g.setColour (on ? ui::accent : ui::textDim);
+        g.setFont (ui::uiFont (11.0f));
+        g.drawText (juce::String (juce::CharPointer_UTF8 (voiceGlyphs[v])),
+                    r.getX() + 2, r.getY(), 16, r.getHeight(),
+                    juce::Justification::centred);
+        g.setFont (ui::uiFont (8.5f, true));
+        g.drawText (juce::String (juce::CharPointer_UTF8 (drum::voiceNames[v]))
+                        .toUpperCase(),
+                    r.getX() + 20, r.getY(), r.getWidth() - 22, r.getHeight(),
+                    juce::Justification::centredLeft);
+    }
+}
+
+int DrumOverlay::VoicePalette::rowAt (int y) const
+{
+    const int rh = juce::jmax (12, (getHeight() - 20) / drum::numVoices);
+    const int v = (y - 18) / rh;
+    return juce::isPositiveAndBelow (v, drum::numVoices) && y >= 18 ? v : -1;
+}
+
+void DrumOverlay::VoicePalette::mouseUp (const juce::MouseEvent& e)
+{
+    const int v = rowAt (e.y);
+    if (v < 0)
+        return;
+    // toggling off returns the note tools to the staff-pitch mapping
+    owner.activeVoice = owner.activeVoice == v ? -1 : v;
+    repaint();
+}
+
+//==============================================================================
+// ---- vNext D1: SELECTED NOTE inspector (right column) -----------------------
+void DrumOverlay::NoteInspector::paint (juce::Graphics& g)
+{
+    auto b = getLocalBounds().toFloat().reduced (0.5f);
+    g.setColour (ui::cardBottom);
+    g.fillRoundedRectangle (b, 3.0f);
+    g.setColour (ui::border());
+    g.drawRoundedRectangle (b, 3.0f, 1.0f);
+
+    g.setColour (ui::textFaint);
+    g.setFont (ui::monoFont (7.0f, true));
+    g.drawText ("SELECTED NOTE", 8, 4, getWidth() - 16, 10,
+                juce::Justification::centredLeft);
+
+    const bool has = owner.hasNoteSelection();
+    auto field = [&] (int i, const juce::String& label, const juce::String& val)
+    {
+        const int y = 20 + i * 20;
+        g.setColour (ui::border());
+        g.drawLine (7.0f, (float) y, (float) getWidth() - 7.0f, (float) y, 0.6f);
+        g.setColour (ui::textFaint);
+        g.setFont (ui::monoFont (7.0f));
+        g.drawText (label, 8, y + 4, 72, 12, juce::Justification::centredLeft);
+        g.setColour (ui::textBright);
+        g.setFont (ui::monoFont (7.5f, true));
+        g.drawText (val, getWidth() - 96, y + 4, 88, 12,
+                    juce::Justification::centredRight);
+    };
+    if (has)
+    {
+        const int val = owner.engine.pattern[owner.noteSelBar][owner.noteSelVoice]
+                                           [owner.noteSelStep].load();
+        field (0, "VOICE",
+               juce::String (juce::CharPointer_UTF8 (
+                   drum::voiceNames[owner.noteSelVoice])).toUpperCase());
+        field (1, "POSITION",
+               juce::String (owner.noteSelBar + 1)
+                   + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))
+                   + juce::String (owner.noteSelStep + 1));
+        field (2, "STATE", val == 2 ? "ACCENT" : val == 3 ? "GHOST" : "HIT");
+    }
+    else
+    {
+        g.setColour (ui::textMuted);
+        g.setFont (ui::uiFont (8.5f));
+        g.drawText ("click a note on the staff", 8, 30, getWidth() - 16, 30,
+                    juce::Justification::centredLeft);
+    }
+
+    // actions: DUPLICATE · DELETE · NUDGE ←/→ (2 × 2 pills)
+    static const char* const names[4] = {
+        "DUPLICATE", "DELETE", "\xe2\x86\x90 NUDGE", "NUDGE \xe2\x86\x92" };
+    const int bw = (getWidth() - 20) / 2, bh = 20;
+    for (int i = 0; i < 4; ++i)
+    {
+        const int cx = 7 + (i % 2) * (bw + 6);
+        const int cy = getHeight() - 51 + (i / 2) * (bh + 5);
+        actionRects[i] = { cx, cy, bw, bh };
+        const bool hover = has && actionRects[i].contains (getMouseXYRelative());
+        g.setColour (hover ? ui::glassHover() : ui::glass());
+        g.fillRoundedRectangle (actionRects[i].toFloat(), 4.0f);
+        g.setColour (has ? (hover ? ui::borderHover() : ui::border())
+                         : ui::border().withAlpha (0.06f));
+        g.drawRoundedRectangle (actionRects[i].toFloat().reduced (0.5f), 4.0f, 1.0f);
+        g.setColour (has ? (hover ? ui::accent : ui::textDim) : ui::textMuted);
+        g.setFont (ui::uiFont (8.0f, true));
+        g.drawText (juce::String (juce::CharPointer_UTF8 (names[i])),
+                    actionRects[i], juce::Justification::centred);
+    }
+}
+
+void DrumOverlay::NoteInspector::mouseUp (const juce::MouseEvent& e)
+{
+    for (int i = 0; i < 4; ++i)
+        if (actionRects[i].contains (e.getPosition()))
+        {
+            owner.noteInspectorAction (i);
+            return;
+        }
+}
+
+//==============================================================================
+// ---- vNext D2: KIT MIXER (9 strips: trigger meter + LEVEL knob) -------------
+DrumOverlay::KitMixerView::KitMixerView (DrumOverlay& o) : owner (o)
+{
+    for (int v = 0; v < drum::numVoices; ++v)
+    {
+        auto& k = knobs[v];
+        k.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+        k.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
+        k.setRange (0.0, 1.5, 0.01);
+        k.setDoubleClickReturnValue (true, 1.0);
+        k.setMouseClickGrabsKeyboardFocus (false);
+        k.setTooltip ("LEVEL 0..1.5 (double-click resets)");
+        k.onValueChange = [this, v]
+        {
+            owner.engine.voiceGain[v].store ((float) knobs[v].getValue());
+            repaint();
+        };
+        addAndMakeVisible (k);
+    }
+}
+
+void DrumOverlay::KitMixerView::syncKnobs()
+{
+    for (int v = 0; v < drum::numVoices; ++v)
+        knobs[v].setValue (owner.engine.voiceGain[v].load(),
+                           juce::dontSendNotification);
+}
+
+void DrumOverlay::KitMixerView::resized()
+{
+    const int sw = getWidth() / drum::numVoices;
+    for (int v = 0; v < drum::numVoices; ++v)
+        knobs[v].setBounds (v * sw + (sw - 34) / 2, getHeight() - 48, 34, 34);
+}
+
+void DrumOverlay::KitMixerView::decayFlashes()
+{
+    bool changed = false;
+    for (int v = 0; v < drum::numVoices; ++v)
+    {
+        const float hit = owner.engine.uiVoiceFlash[v].exchange (0.0f);
+        float f = juce::jmax (flash[v] * 0.80f, hit);
+        if (f < 0.01f)
+            f = 0.0f;
+        if (std::abs (f - flash[v]) > 0.002f)
+            changed = true;
+        flash[v] = f;
+    }
+    if (changed)
+        repaint();
+}
+
+void DrumOverlay::KitMixerView::paint (juce::Graphics& g)
+{
+    const int sw = getWidth() / drum::numVoices;
+    for (int v = 0; v < drum::numVoices; ++v)
+    {
+        const juce::Rectangle<float> strip ((float) (v * sw) + 3.0f, 0.0f,
+                                            (float) sw - 6.0f, (float) getHeight());
+        g.setColour (ui::cardBottom);
+        g.fillRoundedRectangle (strip, 4.0f);
+        g.setColour (ui::border());
+        g.drawRoundedRectangle (strip.reduced (0.5f), 4.0f, 1.0f);
+
+        g.setColour (ui::textDim);
+        g.setFont (ui::uiFont (8.5f, true));
+        g.drawText (juce::String (juce::CharPointer_UTF8 (drum::voiceNames[v]))
+                        .toUpperCase(),
+                    strip.withHeight (16.0f).toNearestInt(),
+                    juce::Justification::centred);
+
+        // vertical meter: flashes with the voice trigger; the thin marker
+        // shows the LEVEL knob position (0..1.5)
+        const juce::Rectangle<float> track (strip.getCentreX() - 3.5f, 20.0f,
+                                            7.0f, (float) getHeight() - 20.0f - 54.0f);
+        g.setColour (ui::meterBg);
+        g.fillRoundedRectangle (track, 3.0f);
+        const float f = juce::jlimit (0.0f, 1.0f, flash[v]);
+        if (f > 0.01f)
+        {
+            auto fill = track.withTop (track.getBottom() - track.getHeight() * f);
+            g.setGradientFill ({ ui::glowOrange, 0.0f, fill.getY(),
+                                 ui::accent, 0.0f, fill.getBottom(), false });
+            g.fillRoundedRectangle (fill, 3.0f);
+        }
+        const float lvl = juce::jlimit (0.0f, 1.0f,
+                                        (float) knobs[v].getValue() / 1.5f);
+        const float my = track.getBottom() - track.getHeight() * lvl;
+        g.setColour (ui::textFaint);
+        g.fillRect (track.getX() - 2.0f, my - 0.7f, track.getWidth() + 4.0f, 1.4f);
+
+        g.setColour (ui::textFaint);
+        g.setFont (ui::monoFont (6.5f, true));
+        g.drawText ("LEVEL", (int) strip.getX(), getHeight() - 12,
+                    (int) strip.getWidth(), 10, juce::Justification::centred);
+    }
+}
+
+//==============================================================================
+// ---- vNext D3: COPY BAR ------------------------------------------------------
+void DrumOverlay::openCopyBarMenu()
+{
+    const int src = selectedBar();
+    if (! engine.barUsed[src].load())
+        return;
+
+    juce::PopupMenu m;
+    m.setLookAndFeel (&getLookAndFeel());
+    m.addSectionHeader ("COPY BAR " + juce::String (src + 1) + " TO");
+    const int base = curSection * drum::barsPerSection;
+    for (int b = 0; b < drum::barsPerSection; ++b)
+    {
+        const int dst = base + b;
+        auto label = "bar " + juce::String (dst + 1);
+        if (engine.barNames[dst].isNotEmpty())
+            label << juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))
+                  << engine.barNames[dst];
+        m.addItem (b + 1, label, dst != src);
+    }
+    auto* self = this;   // MSVC: 'this' in a nested lambda init-capture resolves wrong
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&copyChip),
+        [safe = juce::Component::SafePointer<DrumOverlay> (self), src, base] (int r)
+        {
+            if (safe == nullptr || r <= 0)
+                return;
+            const int dst = base + (r - 1);
+            if (dst == src)
+                return;
+            auto& eng = safe->engine;
+            eng.setMeter (dst, eng.meterNum (src), eng.meterDen (src));
+            eng.barFromString (eng.barToString (src), dst);   // honors the meter
+            eng.barNames[dst] = eng.barNames[src];
+            eng.barRole[dst] = eng.barRole[src];
+            safe->selBar = dst % drum::barsPerSection;
+            safe->refreshAll();
+        });
+}
+
+//==============================================================================
+// ---- vNext D3: library AUDITION ---------------------------------------------
+void DrumOverlay::updateAuditionPattern()
+{
+    for (int v = 0; v < drum::numVoices; ++v)
+        for (int s = 0; s < drum::maxStepsPerBar; ++s)
+            engine.auditionPat[v][s].store (selPat[v][s]);
+    engine.auditionSteps.store (drum::stepsForMeter (selNum, selDen));
+}
+
+void DrumOverlay::toggleAudition()
+{
+    if (engine.auditionOn.load())
+    {
+        stopAudition();
+        return;
+    }
+    if (! selValid)
+        return;
+    updateAuditionPattern();
+    engine.auditionOn.store (true);
+    updatePreview();
+}
+
+void DrumOverlay::stopAudition()
+{
+    if (! engine.auditionOn.load())
+        return;
+    engine.auditionOn.store (false);
+    updatePreview();
+}
+
+//==============================================================================
+// ---- vNext D3: favorites (persisted) + session recents ----------------------
+juce::File DrumOverlay::favsFile()
+{
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+        .getChildFile ("PedalForge NAM").getChildFile ("groove-favs.json");
+}
+
+void DrumOverlay::loadFavs()
+{
+    favs.clear();
+    const auto parsed = juce::JSON::parse (favsFile().loadFileAsString());
+    if (auto* arr = parsed.getArray())
+        for (const auto& v : *arr)
+        {
+            FavEntry e { v.getProperty ("name", "").toString(),
+                         v.getProperty ("genre", "").toString() };
+            if (e.name.isNotEmpty())
+                favs.push_back (std::move (e));
+        }
+}
+
+void DrumOverlay::saveFavs() const
+{
+    juce::Array<juce::var> arr;
+    for (const auto& f : favs)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("name", f.name);
+        o->setProperty ("genre", f.genre);
+        arr.add (juce::var (o));
+    }
+    favsFile().getParentDirectory().createDirectory();
+    favsFile().replaceWithText (juce::JSON::toString (juce::var (arr), true));
+}
+
+bool DrumOverlay::isFavourite (const juce::String& name, const juce::String& genre) const
+{
+    for (const auto& f : favs)
+        if (f.name == name && f.genre == genre)
+            return true;
+    return false;
+}
+
+void DrumOverlay::toggleFavourite()
+{
+    if (! selValid)
+        return;
+    if (isFavourite (selName, selGenre))
+        favs.erase (std::remove_if (favs.begin(), favs.end(),
+                        [this] (const FavEntry& f)
+                        { return f.name == selName && f.genre == selGenre; }),
+                    favs.end());
+    else
+        favs.push_back ({ selName, selGenre });
+    saveFavs();
+    if (currentGenre == "FAVORITES")
+        rebuildList();
+    updatePreview();
+}
+
+void DrumOverlay::pushRecent (const juce::String& dragId, const juce::String& name,
+                              bool fill)
+{
+    recents.erase (std::remove_if (recents.begin(), recents.end(),
+                       [&] (const RecentEntry& r) { return r.dragId == dragId; }),
+                   recents.end());
+    recents.insert (recents.begin(), { dragId, name, fill });
+    if (recents.size() > 8)
+        recents.resize (8);
 }

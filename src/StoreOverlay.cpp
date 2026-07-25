@@ -28,6 +28,17 @@ juce::String gearChipLabel (const juce::String& gear)
     return "All";
 }
 
+// TYPE pill labels (mockup store-tools row 1: ALL / AMP / AMP + CAB / ...).
+juce::String gearPillLabel (const juce::String& gear)
+{
+    if (gear == "amp") return "AMP";
+    if (gear == "amp-cab") return "AMP + CAB";
+    if (gear == "pedal") return "PEDAL";
+    if (gear == "full-rig") return "FULL RIG";
+    if (gear == "ir") return "IR";
+    return "ALL";
+}
+
 // Type label shown ON THE CARD (fallback: raw capitalized value, for
 // gear values the API may add in the future).
 juce::String gearDisplay (const juce::String& gear)
@@ -90,7 +101,38 @@ ToneCardComponent::ToneCardComponent (Info cardInfo, std::function<void (ToneCar
     addChildComponent (previewButton);
     previewButton.setVisible (info.toneId != 0);
 
+    // ST1: "load options" dropdown next to the primary action (the same menu
+    // opens on right-click anywhere on the card)
+    menuButton.getProperties().set ("chip", true);
+    menuButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xbe")));
+    menuButton.setTooltip ("Load options: replace a specific amp/IR or add as parallel rig");
+    menuButton.setMouseClickGrabsKeyboardFocus (false);
+    menuButton.onClick = [this] { if (onShowMenu) onShowMenu (*this); };
+    addAndMakeVisible (menuButton);
+
     setStatus (Status::add);
+}
+
+void ToneCardComponent::setPrimaryLabel (const juce::String& label)
+{
+    if (primaryLabel == label)
+        return;
+    primaryLabel = label;
+    if (status == Status::add)
+        addButton.setButtonText (primaryLabel);
+}
+
+void ToneCardComponent::mouseUp (const juce::MouseEvent& e)
+{
+    if (e.mods.isPopupMenu())
+    {
+        if (onShowMenu)
+            onShowMenu (*this);
+        return;
+    }
+    // body click (child buttons consume their own clicks) -> details view
+    if (e.mouseWasClicked() && onOpenDetails)
+        onOpenDetails (*this);
 }
 
 void ToneCardComponent::setFavorite (bool fav)
@@ -107,7 +149,7 @@ void ToneCardComponent::setStatus (Status s)
     switch (status)
     {
         case Status::add:
-            addButton.setButtonText ("Add");
+            addButton.setButtonText (primaryLabel);
             addButton.setEnabled (true);
             break;
         case Status::downloading:
@@ -155,10 +197,13 @@ void ToneCardComponent::setLocalFile (const juce::File& file)
 
 void ToneCardComponent::resized()
 {
+    // mockup .tone-actions: secondary "PREVIEW" + contextual primary + "v" menu
     auto row = getLocalBounds().reduced (12).removeFromBottom (34);
+    menuButton.setBounds (row.removeFromRight (26));
+    row.removeFromRight (6);
     if (previewButton.isVisible())
     {
-        previewButton.setBounds (row.removeFromLeft (40));
+        previewButton.setBounds (row.removeFromLeft ((row.getWidth() - 6) / 2));
         row.removeFromLeft (6);
     }
     addButton.setBounds (row);
@@ -215,12 +260,13 @@ void ToneCardComponent::paint (juce::Graphics& g)
             g.drawText (gearLabel (info.gear), header, juce::Justification::centred);
         }
 
-        // type chip (top left)
+        // type chip (top left) - mockup .tone-badges .tag: solid dark backdrop
+        // (rgba(7,12,14,.74)) so the text stays readable over any tone photo
         const auto typeText = gearDisplay (info.gear);
         g.setFont (ui::monoFont (9.0f, true));
         const int tw = 14 + 6 * typeText.length();
         auto typeChip = juce::Rectangle<float> (9.0f, 9.0f, (float) tw, 17.0f);
-        g.setColour (juce::Colours::black.withAlpha (0.45f));
+        g.setColour (juce::Colour (0xff070c0e).withAlpha (0.74f));
         g.fillRoundedRectangle (typeChip, 5.0f);
         g.setColour (juce::Colours::white.withAlpha (0.12f));
         g.drawRoundedRectangle (typeChip, 5.0f, 1.0f);
@@ -235,7 +281,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
                 const float bw = 14.0f + 6.5f * (float) text.length();
                 badgeX -= bw;
                 auto badge = juce::Rectangle<float> (badgeX, 9.0f, bw, 17.0f);
-                g.setColour (juce::Colours::black.withAlpha (0.4f));
+                g.setColour (juce::Colour (0xff070c0e).withAlpha (0.74f));
                 g.fillRoundedRectangle (badge, 5.0f);
                 g.setColour (strong ? ui::accent : ui::border());
                 g.drawRoundedRectangle (badge, 5.0f, 1.0f);
@@ -350,7 +396,8 @@ void ToneCardComponent::paint (juce::Graphics& g)
     // "In rig" button gets a green check over the disabled style
     if (status == Status::inRig)
     {
-        auto btn = getLocalBounds().reduced (12).removeFromBottom (34).toFloat();
+        // matches the (hidden) primary button - preview/menu keep their spots
+        auto btn = addButton.getBounds().toFloat();
         g.setColour (ui::green.withAlpha (0.12f));
         g.fillRoundedRectangle (btn, 2.0f);
         g.setColour (ui::green.withAlpha (0.5f));
@@ -592,10 +639,12 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     };
     addChildComponent (userChip);
 
+    // TYPE pills (mockup row 1): always visible, map straight to gearFilter
     for (const auto* gear : { "", "amp", "amp-cab", "pedal", "full-rig", "ir" })
     {
-        auto* chip = gearChips.add (new juce::TextButton (gearChipLabel (gear)));
+        auto* chip = gearChips.add (new juce::TextButton (gearPillLabel (gear)));
         chip->getProperties().set ("chip", true);
+        chip->getProperties().set ("gearValue", juce::String (gear));
         chip->getProperties().set ("chipActive", juce::String (gear) == gearFilter);
         const juce::String value (gear);
         chip->onClick = [this, value]
@@ -603,7 +652,7 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
             gearFilter = value;
             for (int i = 0; i < gearChips.size(); ++i)
                 gearChips[i]->getProperties().set ("chipActive",
-                    gearChips[i]->getButtonText() == gearChipLabel (value));
+                    gearChips[i]->getProperties() ["gearValue"].toString() == value);
             repaint();
             doSearch (1);
         };
@@ -644,7 +693,8 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (favChip);
 
-    // "Filters" reveals the extra chips (tags / A2 / favorites) on demand
+    // "MORE FILTERS" reveals the extra chips (tags / A2 / favorites) on a
+    // third tools row (mockup keeps the TYPE pills fixed on row 1)
     filtersChip.getProperties().set ("chip", true);
     filtersChip.setMouseClickGrabsKeyboardFocus (false);
     filtersChip.setTooltip ("More filters: tags, A2 only, favorites");
@@ -653,7 +703,8 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
         filtersOpen = ! filtersOpen;
         filtersChip.getProperties().set ("chipActive", filtersOpen);
         filtersChip.repaint();
-        setTab (tab);   // re-applies chip visibility + layout
+        setTab (tab);   // re-applies chip visibility
+        resized();      // the extra row moves the banner/grid down
     };
     addAndMakeVisible (filtersChip);
 
@@ -757,6 +808,9 @@ void StoreOverlay::updateRigStatuses()
     // captures and IRs: any active lane/slot counts as "in rig"
     for (auto* card : cards)
     {
+        // contextual primary label tracks the rig (AMP 1 fills up / frees)
+        card->setPrimaryLabel (primaryLabelFor (card->getInfo()));
+
         if (card->getStatus() == ToneCardComponent::Status::downloading)
             continue;
 
@@ -859,6 +913,7 @@ void StoreOverlay::setTab (Tab newTab)
         else
         {
             cards.clear();
+            countText.clear();
             layoutCards();
         }
     }
@@ -962,11 +1017,16 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
     info.downloads = formatCount (tone.downloads);
     info.favorites = formatCount (tone.favorites);
 
+    // ST1: the primary button loads straight into AMP 1 / IR 1; the details
+    // view now opens from a click on the card body.
     auto* card = cards.add (new ToneCardComponent (info,
-        [this] (ToneCardComponent& c) { openDetails (c); }));
+        [this] (ToneCardComponent& c) { loadCardIntoLane (c, 0); }));
+    card->setPrimaryLabel (primaryLabelFor (info));
     card->setFavorite (favIds.contains (juce::String (tone.id)));
     card->onToggleFavorite = [this] (ToneCardComponent& c) { toggleFavorite (c); };
     card->onPreview = [this] (ToneCardComponent& c) { startPreview (c); };
+    card->onOpenDetails = [this] (ToneCardComponent& c) { openDetails (c); };
+    card->onShowMenu = [this] (ToneCardComponent& c) { showCardMenu (c); };
     gridContent.addAndMakeVisible (card);
 
     if (info.imageUrl.isNotEmpty())
@@ -993,6 +1053,79 @@ void StoreOverlay::openDetails (ToneCardComponent& card)
     ensureDetailsView();
     detailsView->setBounds (getLocalBounds());
     detailsView->open (detailsInfo);
+}
+
+//==============================================================================
+// ST1: contextual card actions (mockup .tone-actions).
+juce::String StoreOverlay::primaryLabelFor (const ToneCardComponent::Info& info) const
+{
+    if (info.formatBadge == "IR")
+        return "REPLACE IR";
+    return processor.hasModelLoaded (0) ? "REPLACE AMP 1" : "LOAD IN AMP 1";
+}
+
+void StoreOverlay::loadCardIntoLane (ToneCardComponent& card, int lane)
+{
+    const auto& info = card.getInfo();
+
+    if (info.toneId == 0)
+    {
+        // local file (My library): load directly, no API round-trip
+        if (info.formatBadge == "IR")
+            processor.loadIrAsync (lane, info.localFile);
+        else
+            processor.setModelPair (lane, info.localFile, {});
+        updateRigStatuses();
+        return;
+    }
+
+    startAddFlow (card, lane);
+}
+
+void StoreOverlay::showCardMenu (ToneCardComponent& card)
+{
+    const auto info = card.getInfo();
+
+    juce::PopupMenu menu;
+    menu.setLookAndFeel (&getLookAndFeel());
+
+    // item ids: 1..3 = amp lane, 10 = parallel rig, 101..103 = IR slot
+    if (info.formatBadge == "IR")
+    {
+        const int cabs = juce::jlimit (1, GuitarRigNAMProcessor::maxCabSlots,
+                                       processor.getCabCount());
+        for (int s = 0; s < cabs; ++s)
+            menu.addItem (101 + s,
+                          juce::String (processor.hasIrLoaded (s) ? "Replace IR "
+                                                                  : "Load in IR ")
+                              + juce::String (s + 1));
+    }
+    else
+    {
+        for (int l = 0; l < GuitarRigNAMProcessor::maxRigs; ++l)
+            if (processor.hasModelLoaded (l))
+                menu.addItem (1 + l, "Replace AMP " + juce::String (l + 1));
+        if (processor.firstFreeModelLane() >= 0)
+            menu.addItem (10, "Add as parallel rig");
+    }
+
+    juce::Component::SafePointer<ToneCardComponent> safe (&card);
+    menu.showMenuAsync (
+        juce::PopupMenu::Options().withTargetComponent (&card),
+        [this, safe] (int result)
+        {
+            if (safe == nullptr || result == 0)
+                return;
+
+            int lane = -1;
+            if (result >= 101)      lane = result - 101;                       // IR slot
+            else if (result == 10)  lane = processor.firstFreeModelLane();     // parallel rig
+            else                    lane = result - 1;                         // amp lane
+
+            if (lane < 0)
+                return;   // the free lane vanished meanwhile
+            loadCardIntoLane (*safe, lane);
+        });
 }
 
 //==============================================================================
@@ -1398,14 +1531,14 @@ void StoreOverlay::downloadFromDetails (const Tone3000Client::Model& model, Mode
     loadVariationIntoLane (model, detailsTargetLane, detailsInfo, row);
 }
 
-void StoreOverlay::startAddFlow (ToneCardComponent& card)
+void StoreOverlay::startAddFlow (ToneCardComponent& card, int forceLane)
 {
     const int toneId = card.getInfo().toneId;
 
     // Variations already cached: no API call.
     if (const auto it = modelsCache.find (toneId); it != modelsCache.end())
     {
-        showModelChoices (card, it->second);
+        showModelChoices (card, it->second, forceLane);
         return;
     }
 
@@ -1414,7 +1547,8 @@ void StoreOverlay::startAddFlow (ToneCardComponent& card)
     card.setStatus (ToneCardComponent::Status::downloading);
 
     client.listModels (toneId,
-        [this, toneId, safe = juce::Component::SafePointer<ToneCardComponent> (&card)]
+        [this, toneId, forceLane,
+         safe = juce::Component::SafePointer<ToneCardComponent> (&card)]
         (std::vector<Tone3000Client::Model> models, juce::String error)
         {
             if (safe == nullptr)
@@ -1430,16 +1564,17 @@ void StoreOverlay::startAddFlow (ToneCardComponent& card)
             }
 
             modelsCache[toneId] = models;
-            showModelChoices (*safe, models);
+            showModelChoices (*safe, models, forceLane);
         });
 }
 
 void StoreOverlay::showModelChoices (ToneCardComponent& card,
-                                     const std::vector<Tone3000Client::Model>& models)
+                                     const std::vector<Tone3000Client::Model>& models,
+                                     int forceLane)
 {
     if (models.size() == 1)
     {
-        startDownload (card, models.front());
+        startDownload (card, models.front(), forceLane);
         return;
     }
 
@@ -1464,7 +1599,7 @@ void StoreOverlay::showModelChoices (ToneCardComponent& card,
 
     menu.showMenuAsync (
         juce::PopupMenu::Options().withTargetComponent (&card),
-        [this, safe, models] (int result)
+        [this, safe, models, forceLane] (int result)
         {
             if (safe == nullptr)
                 return;
@@ -1473,7 +1608,7 @@ void StoreOverlay::showModelChoices (ToneCardComponent& card,
                 safe->setStatus (ToneCardComponent::Status::add); // canceled
                 return;
             }
-            startDownload (*safe, models[(size_t) (result - 1)]);
+            startDownload (*safe, models[(size_t) (result - 1)], forceLane);
         });
 }
 
@@ -1558,7 +1693,8 @@ void StoreOverlay::finalizeNamModel (const juce::File& mainFile, int toneId,
         });
 }
 
-void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client::Model& model)
+void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client::Model& model,
+                                  int forceLane)
 {
     // Routes by FORMAT (not by gear): there are tones with gear "cab"
     // whose format is IR, for example.
@@ -1584,11 +1720,13 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
         if (kind == "ir")
         {
             writeModelMeta (local, model, card.getInfo().toneId);
-            processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), local);
+            const int slot = forceLane >= 0 ? forceLane
+                                            : juce::jmax (0, processor.firstFreeIrSlot());
+            processor.loadIrAsync (slot, local);
         }
         else
         {
-            finalizeNamModel (local, card.getInfo().toneId, model, baseName);
+            finalizeNamModel (local, card.getInfo().toneId, model, baseName, forceLane);
         }
         return;
     }
@@ -1602,7 +1740,8 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
             if (safe != nullptr)
                 safe->setProgress (pct);
         },
-        [this, model, baseName, safe = juce::Component::SafePointer<ToneCardComponent> (&card)]
+        [this, model, baseName, forceLane,
+         safe = juce::Component::SafePointer<ToneCardComponent> (&card)]
         (juce::File file, juce::String error)
         {
             if (safe == nullptr)
@@ -1624,11 +1763,13 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
             if (safe->getInfo().formatBadge == "IR")
             {
                 writeModelMeta (file, model, safe->getInfo().toneId);
-                processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), file);
+                const int slot = forceLane >= 0 ? forceLane
+                                                : juce::jmax (0, processor.firstFreeIrSlot());
+                processor.loadIrAsync (slot, file);
             }
             else
             {
-                finalizeNamModel (file, safe->getInfo().toneId, model, baseName);
+                finalizeNamModel (file, safe->getInfo().toneId, model, baseName, forceLane);
             }
         });
 }
@@ -1663,6 +1804,15 @@ void StoreOverlay::doSearch (int page)
                 self->cards.clear();
             for (const auto& tone : result.tones)
                 self->addCardFor (tone, true);
+            // tones count tag (row 1, right). The client does not expose the
+            // API's grand total, so this counts the loaded cards; "+" marks
+            // that more pages exist.
+            {
+                const int n = self->cards.size();
+                self->countText = juce::String (n)
+                                  + (self->currentPage < self->totalPages ? "+" : "")
+                                  + (n == 1 ? " TONE" : " TONES");
+            }
             self->layoutCards();
             self->resized();
             self->repaint();
@@ -1697,25 +1847,13 @@ void StoreOverlay::refreshLibrary()
         info.formatBadge = badge;
         info.offline = true;
 
+        // ST1: local cards get the same contextual primary (AMP 1 / IR 1) and
+        // the lane menu; statuses refresh via the rig-status timer, so the
+        // card is no longer destroyed inside its own onClick.
         auto* card = cards.add (new ToneCardComponent (info,
-            [this] (ToneCardComponent& c)
-            {
-                const auto& ci = c.getInfo();
-                if (ci.gear == "ir")
-                    processor.loadIrAsync (juce::jmax (0, processor.firstFreeIrSlot()), ci.localFile);
-                else
-                    processor.setModelPair (juce::jmax (0, processor.firstFreeModelLane()),
-                                            ci.localFile, {});
-                // Deferred: refreshLibrary() destroys the card that originated the
-                // click; we can't delete it inside its own onClick.
-                auto* self = this; // MSVC: 'this' in a nested lambda init-capture resolves wrong
-                juce::MessageManager::callAsync (
-                    [safe = juce::Component::SafePointer<StoreOverlay> (self)]
-                    {
-                        if (safe != nullptr)
-                            safe->refreshLibrary();
-                    });
-            }));
+            [this] (ToneCardComponent& c) { loadCardIntoLane (c, 0); }));
+        card->setPrimaryLabel (primaryLabelFor (info));
+        card->onShowMenu = [this] (ToneCardComponent& c) { showCardMenu (c); };
 
         if (file.getFullPathName() == loadedPath)
             card->setStatus (ToneCardComponent::Status::inRig);
@@ -1736,6 +1874,9 @@ void StoreOverlay::refreshLibrary()
     for (const auto& f : Tone3000Client::irsDir().findChildFiles (juce::File::findFiles, false,
                                                                   "*.wav;*.aif;*.aiff;*.flac"))
         addLocal (f, "ir", "IR", processor.isIrFileLoaded (f.getFullPathName()) ? f.getFullPathName() : juce::String());
+
+    countText = juce::String (cards.size())
+                + (cards.size() == 1 ? " LOCAL TONE" : " LOCAL TONES");
 
     layoutCards();
     resized();
@@ -1797,39 +1938,51 @@ void StoreOverlay::resized()
     searchBox.setBounds ((connectButton.isVisible() ? connectButton.getX()
                                                     : userChip.getX()) - 12 - 300, 15, 300, 34);
 
-    // filters: gear chips + "Filters" toggle; the extra chips lay out only
-    // when expanded (clean UI)
-    int cx = 66;
+    // ---- tools row 1 (mockup): TYPE pills always visible + MORE FILTERS +
+    // tones count tag (painted, right-aligned)
+    int cx = 64;
     for (auto* chip : gearChips)
     {
         const int w = 28 + 7 * chip->getButtonText().length();
-        chip->setBounds (cx, 74, w, 28);
+        chip->setBounds (cx, 72, w, 28);
         cx += w + 9;
     }
     cx += 6;
-    filtersChip.setBounds (cx, 74, 78, 28);
-    cx += 78 + 14;
+    filtersChip.setBounds (cx, 72, 112, 28);
+
+    // ---- tools row 2 (mockup): VIEW (collections) + SORT selects
+    int rx = 22;
+    if (sourceCombo.isVisible())
+    {
+        rx += 42;   // "VIEW" label (painted)
+        sourceCombo.setBounds (rx, 108, 150, 32);
+        rx = sourceCombo.getRight() + 18;
+    }
+    if (sortCombo.isVisible())
+    {
+        rx += 42;   // "SORT" label (painted)
+        sortCombo.setBounds (rx, 108, 160, 32);
+    }
+
+    // ---- collapsed extra filters (MORE FILTERS): a third row while open
     if (filtersOpen)
     {
-        cx += 34; // divider + TAGS label (painted in paint)
+        int fx = 64;   // after the "TAGS" label (painted)
         for (auto* chip : tagChips)
         {
             const int w = 22 + 6 * chip->getButtonText().length();
-            chip->setBounds (cx, 74, w, 28);
-            cx += w + 7;
+            chip->setBounds (fx, 150, w, 28);
+            fx += w + 7;
         }
-        cx += 8;
-        a2Chip.setBounds (cx, 74, 62, 28);
-        favChip.setBounds (cx + 68, 74, 58, 28);
+        fx += 8;
+        a2Chip.setBounds (fx, 150, 62, 28);
+        favChip.setBounds (fx + 68, 150, 58, 28);
     }
-    // Collections and sorting have their own row.  Keeping them beside the
-    // type chips made the Explore combo cover the Filters button at narrower
-    // logical widths / high-DPI display scales.
-    sortCombo.setBounds (W - 22 - 150, 108, 150, 32);
-    sourceCombo.setBounds (sortCombo.getX() - 8 - 140, 108, 140, 32);
 
-    // error banner
-    const int bannerY = 150;
+    // error banner (below the tools rows)
+    const bool extraRow = tab != Tab::plugins && filtersOpen;
+    const int toolsBottom = extraRow ? 186 : 146;
+    const int bannerY = toolsBottom + 4;
     const bool banner = bannerError.isNotEmpty();
     retryButton.setVisible (banner);
     dismissButton.setVisible (banner);
@@ -1885,19 +2038,36 @@ void StoreOverlay::paint (juce::Graphics& g)
     g.setColour (juce::Colour (0xff24262a));
     g.fillRect (0, 64, W, 1);
 
-    // ---- filter labels (only on the TONE3000 tabs)
+    // ---- tools rows (only on the TONE3000 tabs): row 1 = TYPE pills + count
+    // tag; row 2 = VIEW/SORT selects; optional third row = extra filters
+    const bool extraRow = tab != Tab::plugins && filtersOpen;
+    const int toolsBottom = extraRow ? 186 : 146;   // keep in sync with resized()
     if (tab != Tab::plugins)
     {
         g.setFont (ui::monoFont (9.0f));
         g.setColour (ui::textMuted);
-        g.drawText ("TYPE", 22, 74, 40, 28, juce::Justification::centredLeft);
-        if (filtersOpen && ! tagChips.isEmpty())
+        g.drawText ("TYPE", 22, 72, 40, 28, juce::Justification::centredLeft);
+        if (sourceCombo.isVisible())
+            g.drawText ("VIEW", 22, 108, 40, 32, juce::Justification::centredLeft);
+        if (sortCombo.isVisible())
+            g.drawText ("SORT", sortCombo.getX() - 42, 108, 40, 32,
+                        juce::Justification::centredLeft);
+        if (filtersOpen)
+            g.drawText ("TAGS", 22, 150, 40, 28, juce::Justification::centredLeft);
+
+        // tones count tag, right end of row 1 (mockup "1.248 TONES")
+        if (countText.isNotEmpty())
         {
-            const int divX = tagChips.getFirst()->getX() - 48;
-            g.setColour (juce::Colours::white.withAlpha (0.1f));
-            g.fillRect (divX + 4, 78, 1, 20);
-            g.setColour (ui::textMuted);
-            g.drawText ("TAGS", divX + 12, 74, 36, 28, juce::Justification::centredLeft);
+            g.setFont (ui::monoFont (9.0f, true));
+            const int tw = 20 + 6 * countText.length();
+            auto tag = juce::Rectangle<float> ((float) (W - 22 - tw), 75.0f,
+                                               (float) tw, 22.0f);
+            g.setColour (juce::Colour (0xff070c0e).withAlpha (0.74f));
+            g.fillRoundedRectangle (tag, 5.0f);
+            g.setColour (ui::border());
+            g.drawRoundedRectangle (tag, 5.0f, 1.0f);
+            g.setColour (ui::textDim);
+            g.drawText (countText, tag, juce::Justification::centred);
         }
     }
     else
@@ -1912,12 +2082,13 @@ void StoreOverlay::paint (juce::Graphics& g)
     }
 
     g.setColour (juce::Colour (0xff1e2023));
-    g.fillRect (0, 110, W, 1);
+    g.fillRect (0, toolsBottom, W, 1);
 
     // ---- error banner
     if (bannerError.isNotEmpty())
     {
-        auto banner = juce::Rectangle<float> (22.0f, 114.0f, (float) W - 44.0f, 36.0f);
+        auto banner = juce::Rectangle<float> (22.0f, (float) toolsBottom + 4.0f,
+                                              (float) W - 44.0f, 36.0f);
         g.setColour (ui::red.withAlpha (0.1f));
         g.fillRoundedRectangle (banner, 2.0f);
         g.setColour (ui::red.withAlpha (0.4f));

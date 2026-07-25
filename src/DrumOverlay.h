@@ -60,8 +60,23 @@ public:
     void devOpenGrid() { if (! gridOn) gridChip.triggerClick(); }      // dev flag
     void devGenerateAll() { generateAll(); }                          // dev flag
 
+public:
+    std::function<void()> onOpenSongMap;   // SONG MAP button (wired by the shell)
+
 private:
     void timerCallback() override;
+
+    // ---- notation editor (vNext D1): toolbar tool + palette voice + selection
+    enum class ScoreTool { select = 0, quarter, eighth, sixteenth, rest, accent, ghost };
+    ScoreTool scoreTool = ScoreTool::select;
+    int activeVoice = -1;    // palette voice used by the note tools; -1 = staff Y map
+    int noteSelBar = -1, noteSelVoice = -1, noteSelStep = -1;  // selected note (global bar)
+    bool hasNoteSelection() const;
+    void selectNote (int globalBar, int voice, int step);
+    void clearNoteSelection();
+    void noteInspectorAction (int action);   // 0 duplicate · 1 delete · 2 nudge L · 3 nudge R
+    void setScoreTool (ScoreTool);
+    int stepSnapForTool() const;             // 4 (quarter) / 2 (eighth) / 1 otherwise
 
     // ---- the central staff (4 bars, drag & drop target, click edits)
     class ScoreView : public juce::Component,
@@ -115,6 +130,48 @@ private:
         juce::Rectangle<int> cellBounds (int row, int step) const;
         int cellWidth() const;
         int stepX (int step) const;
+        int rowH() const;        // adapts to the panel height (no clipped rows)
+        DrumOverlay& owner;
+    };
+
+    // ---- left column of the notation body: the 9 drum voices (active voice)
+    class VoicePalette : public juce::Component
+    {
+    public:
+        explicit VoicePalette (DrumOverlay& o) : owner (o)
+        { setRepaintsOnMouseActivity (true); }
+        void paint (juce::Graphics&) override;
+        void mouseUp (const juce::MouseEvent&) override;
+    private:
+        int rowAt (int y) const;
+        DrumOverlay& owner;
+    };
+
+    // ---- right column: data + actions of the note selected on the staff
+    class NoteInspector : public juce::Component
+    {
+    public:
+        explicit NoteInspector (DrumOverlay& o) : owner (o)
+        { setRepaintsOnMouseActivity (true); }
+        void paint (juce::Graphics&) override;
+        void mouseUp (const juce::MouseEvent&) override;
+    private:
+        juce::Rectangle<int> actionRects[4];
+        DrumOverlay& owner;
+    };
+
+    // ---- KIT MIXER (vNext D2): 9 strips with trigger meter + LEVEL knob
+    class KitMixerView : public juce::Component
+    {
+    public:
+        explicit KitMixerView (DrumOverlay& o);
+        void paint (juce::Graphics&) override;
+        void resized() override;
+        void syncKnobs();      // knob positions <- engine.voiceGain
+        void decayFlashes();   // timer tick: meter flash decay (repaints)
+    private:
+        juce::Slider knobs[drum::numVoices];
+        float flash[drum::numVoices] = {};
         DrumOverlay& owner;
     };
 
@@ -216,6 +273,7 @@ private:
     juce::TextButton genChip { "GENERATE" };
     juce::TextButton editChip { "EDIT" };
     juce::TextButton saveChip { "SAVE BAR" };
+    juce::TextButton copyChip { "COPY BAR" };   // vNext D3: copy bar N to...
     // clean UI: humanize sliders live in a small popover panel; the drum sound
     // source row collapses into a single kit chip with a menu
     juce::TextButton humChip { juce::CharPointer_UTF8 ("HUMANIZE \xe2\x96\xbe") };
@@ -229,9 +287,20 @@ private:
     // clear + the auto-switch toggle live in the chip's menu)
     juce::TextButton rigChip { juce::CharPointer_UTF8 ("RIG \xe2\x96\xbe") };
     juce::TextButton delSectionBtn { juce::CharPointer_UTF8 ("\xe2\x9c\x95 remove") };
+    juce::TextButton songMapBtn { "SONG MAP" };   // vNext D3: opens the SongOverlay
 
     juce::OwnedArray<BarHead> barHeads;
     ScoreView scoreView { *this };
+
+    // notation editor chrome: toolbar tools + flanking columns
+    juce::TextButton toolBtn[7];              // select · quarter/eighth/sixteenth · rest · accent · ghost
+    VoicePalette voicePalette { *this };
+    NoteInspector noteInspector { *this };
+
+    // bottom panel tabs: LIBRARY | KIT MIXER (GRID/GENERATOR stay in the footer)
+    juce::TextButton libTabBtn { "LIBRARY" }, mixTabBtn { "KIT MIXER" };
+    KitMixerView kitMixer { *this };
+    bool mixerOn = false;
 
     // ---- column browser: Genre | Grooves/Fills | Preview
     juce::Viewport genreVp;
@@ -243,9 +312,11 @@ private:
     juce::OwnedArray<LibRow> libRows;
     PreviewPane previewPane { *this };
     juce::TextButton applyBtn;
+    juce::TextButton auditionBtn;    // vNext D3: loop the groove (timeline paused)
+    juce::TextButton favBtn;         // vNext D3: favorite star
     juce::Slider humVelSlider, humTimeSlider, humRRSlider;   // humanize
     // groove selected in the preview
-    juce::String selName, selDragId;
+    juce::String selName, selDragId, selGenre;
     int selBpm = 0;
     int selNum = 4, selDen = 4;   // time signature of the selected groove
     bool selFill = false, selValid = false;
@@ -254,6 +325,24 @@ private:
     void rebuildList();
     void selectEntry (const juce::String& dragId, const juce::String& name, bool fill);
     void updatePreview();
+    void updatePreviewActionVis();
+    void updateHumChipText();     // "HUMANIZE n%" (mean of the 3 sliders)
+
+    // ---- vNext D3: copy bar / audition / favorites / recents ---------------
+    void openCopyBarMenu();
+    void toggleAudition();
+    void stopAudition();
+    void updateAuditionPattern();  // selPat -> engine audition atomics
+    struct RecentEntry { juce::String dragId, name; bool fill = false; };
+    std::vector<RecentEntry> recents;   // session only, newest first (max 8)
+    void pushRecent (const juce::String& dragId, const juce::String& name, bool fill);
+    struct FavEntry { juce::String name, genre; };
+    std::vector<FavEntry> favs;         // persisted in groove-favs.json
+    bool isFavourite (const juce::String& name, const juce::String& genre) const;
+    void toggleFavourite();
+    void loadFavs();
+    void saveFavs() const;
+    static juce::File favsFile();
 
     GridView gridView { *this };
 

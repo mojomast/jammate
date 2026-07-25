@@ -14,8 +14,8 @@ const char* const voiceIds[numVoices] =
     { "kick", "snare", "hat", "hatpedal", "ride", "crash", "tom1", "tom2", "floor" };
 
 const char* const voiceNames[numVoices] =
-    { "Bumbo", "Caixa", "Chimbal", "P. Chimbal", "Ride", "Crash",
-      "Tom 1", "Tom 2", "Surdo" };
+    { "Kick", "Snare", "Hi-hat", "Hat pedal", "Ride", "Crash",
+      "Tom 1", "Tom 2", "Floor" };
 
 static int voiceForCode (const juce::String& code)
 {
@@ -86,6 +86,11 @@ void DrumEngine::prepare (double sampleRate, int)
     playBar = 0;
     wasPlaying = false;
     countInLeft = 0;
+    audSamplesToNext = 0.0;
+    audStep = 0;
+    wasAudition = false;
+    pausedByAudition = false;
+    auditionOn.store (false);
     for (auto& v : svoices)
         v.active = false;
     for (auto& o : pendingOffs)
@@ -184,44 +189,57 @@ void DrumEngine::trigger (int synthType, float vel, int delaySamples)
     anyVoiceActive.store (true);
 }
 
+void DrumEngine::fireHit (int v, int val, int sampleOffset,
+                          juce::AudioPluginInstance* vst, juce::MidiBuffer& midi)
+{
+    if (val == 0)
+        return;
+    float vel = val == 2 ? 1.0f : val == 3 ? 0.28f : 0.68f;
+    // KIT MIXER per-voice level (clamped: MIDI velocity is 7-bit)
+    vel = juce::jlimit (0.0f, 1.0f, vel * voiceGain[v].load());
+
+    // humanização: velocity e micro-timing (offset só p/ frente, RT-safe)
+    const float hv = humanVel.load(), ht = humanTime.load();
+    if (hv > 0.0f) vel = juce::jlimit (0.05f, 1.0f, vel * (1.0f + nextRnd() * hv * 0.35f));
+    int off = sampleOffset;
+    if (ht > 0.0f) off = juce::jmax (0, off + (int) (nextRnd() * ht * 0.018f * (float) sr));
+
+    // KIT MIXER meter flash (UI consumes and decays this)
+    uiVoiceFlash[v].store (juce::jmax (uiVoiceFlash[v].load(), vel));
+
+    if (vst != nullptr)
+    {
+        const int note = drum::gmNote[v];
+        midi.addEvent (juce::MidiMessage::noteOn (10, note,
+                                                  (juce::uint8) (vel * 127.0f)), off);
+        for (auto& o : pendingOffs)
+            if (o.note < 0)
+            {
+                o.note = note;
+                o.samplesLeft = off + (int) (0.25 * sr);
+                break;
+            }
+    }
+    else
+        trigger (v, vel, off);
+}
+
 void DrumEngine::fireStep (int bar, int step, int sampleOffset,
                            juce::AudioPluginInstance* vst, juce::MidiBuffer& midi)
 {
-    const float hv = humanVel.load(), ht = humanTime.load();
     if (barUsed[bar].load())
         for (int v = 0; v < drum::numVoices; ++v)
-        {
-            const int val = pattern[bar][v][step].load();
-            if (val == 0)
-                continue;
-            float vel = val == 2 ? 1.0f : val == 3 ? 0.28f : 0.68f;
-            // KIT MIXER per-voice level (clamped: MIDI velocity is 7-bit)
-            vel = juce::jlimit (0.0f, 1.0f, vel * voiceGain[v].load());
-
-            // humanização: velocity e micro-timing (offset só p/ frente, RT-safe)
-            if (hv > 0.0f) vel = juce::jlimit (0.05f, 1.0f, vel * (1.0f + nextRnd() * hv * 0.35f));
-            int off = sampleOffset;
-            if (ht > 0.0f) off = juce::jmax (0, off + (int) (nextRnd() * ht * 0.018f * (float) sr));
-
-            if (vst != nullptr)
-            {
-                const int note = drum::gmNote[v];
-                midi.addEvent (juce::MidiMessage::noteOn (10, note,
-                                                          (juce::uint8) (vel * 127.0f)), off);
-                for (auto& o : pendingOffs)
-                    if (o.note < 0)
-                    {
-                        o.note = note;
-                        o.samplesLeft = off + (int) (0.25 * sr);
-                        break;
-                    }
-            }
-            else
-                trigger (v, vel, off);
-        }
+            fireHit (v, pattern[bar][v][step].load(), sampleOffset, vst, midi);
 
     if (clickOn.load() && step % 4 == 0)
         trigger (step == 0 ? 10 : 9, 1.0f, sampleOffset);
+}
+
+void DrumEngine::fireAuditionStep (int step, int sampleOffset,
+                                   juce::AudioPluginInstance* vst, juce::MidiBuffer& midi)
+{
+    for (int v = 0; v < drum::numVoices; ++v)
+        fireHit (v, auditionPat[v][step].load(), sampleOffset, vst, midi);
 }
 
 void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
@@ -231,16 +249,28 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
     out.clear (1, 0, n);
     midi.clear();
 
-    const bool playNow = playing.load();
+    // AUDITION: while on, loop the audition pattern and pause (not stop) the
+    // timeline - its bar/step position is preserved and resumes afterwards.
+    const bool audNow = auditionOn.load();
+    const bool playNow = playing.load() && ! audNow;
+    if (! playing.load())
+        pausedByAudition = false;   // user stopped: next play restarts from 0
 
     if (playNow)
     {
         if (! wasPlaying)
         {
-            nextStep = 0;
-            playBar = 0;
-            samplesToNext = 8.0;
-            countInLeft = countInOn.load() ? drum::stepsPerBar : 0;
+            if (pausedByAudition)
+            {
+                pausedByAudition = false;   // resume exactly where audition paused
+            }
+            else
+            {
+                nextStep = 0;
+                playBar = 0;
+                samplesToNext = 8.0;
+                countInLeft = countInOn.load() ? drum::stepsPerBar : 0;
+            }
             uiStep.store (-1);
             uiBar.store (-1);
         }
@@ -291,6 +321,38 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
             o.note = -1;
     }
     wasPlaying = playNow;
+
+    // AUDITION loop - scheduled after the timeline stop-cleanup so a pause
+    // triggered by the audition never clobbers the notes scheduled here.
+    if (audNow)
+    {
+        if (! wasAudition)
+        {
+            audStep = 0;
+            audSamplesToNext = 8.0;
+            if (playing.load())
+                pausedByAudition = true;   // timeline resumes from here later
+        }
+        const int aSteps = juce::jlimit (1, drum::maxStepsPerBar, auditionSteps.load());
+        if (audStep >= aSteps)
+            audStep = 0;
+        double pos = 0.0;
+        while (pos < (double) n)
+        {
+            if (audSamplesToNext <= 0.5)
+            {
+                const int offset = juce::jlimit (0, n - 1, (int) pos);
+                fireAuditionStep (audStep, offset, vst, midi);
+                audSamplesToNext += stepLenSamples (audStep);
+                audStep = (audStep + 1) % aSteps;
+                continue;
+            }
+            const double adv = juce::jmin (audSamplesToNext, (double) n - pos);
+            audSamplesToNext -= adv;
+            pos += adv;
+        }
+    }
+    wasAudition = audNow;
 
     if (vst != nullptr)
         for (auto& o : pendingOffs)

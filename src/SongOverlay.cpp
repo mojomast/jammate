@@ -38,9 +38,34 @@ SongOverlay::SongOverlay (GuitarRigNAMProcessor& p) : processor (p)
         if (onSaveSong != nullptr)
             onSaveSong();
         rebuildSetlist();
+        refreshDirtyFlag();
         repaint();
     };
     addAndMakeVisible (saveSongBtn);
+
+    // editable scene name (mockup: the scene card's h4 / rigsnap title)
+    nameEditor.setFont (ui::uiFont (13.0f, true));
+    nameEditor.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff14181d));
+    nameEditor.setColour (juce::TextEditor::outlineColourId, ui::border());
+    nameEditor.setColour (juce::TextEditor::focusedOutlineColourId, ui::accent);
+    nameEditor.setColour (juce::TextEditor::textColourId, ui::text);
+    nameEditor.setTextToShowWhenEmpty (juce::String (juce::CharPointer_UTF8 ("Name this scene\xe2\x80\xa6")),
+                                       ui::textFaint);
+    nameEditor.onTextChange = [this]
+    {
+        processor.setSceneName (selSection, nameEditor.getText().trim());
+        repaint();   // timeline card mirrors the name live
+    };
+    nameEditor.onFocusLost = [this]
+    { processor.setSceneName (selSection, nameEditor.getText().trim()); };
+    nameEditor.onReturnKey = [this]
+    {
+        processor.setSceneName (selSection, nameEditor.getText().trim());
+        grabKeyboardFocus();   // back to the overlay (esc etc.)
+        repaint();
+    };
+    nameEditor.onEscapeKey = [this] { grabKeyboardFocus(); };
+    addAndMakeVisible (nameEditor);
 
     captureBtn.getProperties().set ("chip", true);
     captureBtn.getProperties().set ("chipActive", true);
@@ -52,6 +77,9 @@ SongOverlay::SongOverlay (GuitarRigNAMProcessor& p) : processor (p)
         refreshSummaries();
         refreshInspector();
         repaint();
+        // a fresh unnamed scene: invite the player to name it
+        if (processor.getSceneName (selSection).trim().isEmpty())
+            nameEditor.grabKeyboardFocus();
     };
     addAndMakeVisible (captureBtn);
 
@@ -120,6 +148,21 @@ SongOverlay::SongOverlay (GuitarRigNAMProcessor& p) : processor (p)
         countChip.repaint();
     };
     addAndMakeVisible (countChip);
+
+    addSongBtn.getProperties().set ("chip", true);
+    addSongBtn.setTooltip ("Creates a new song (preset)");
+    addSongBtn.setMouseClickGrabsKeyboardFocus (false);
+    addSongBtn.onClick = [this]
+    {
+        if (onAddSong != nullptr)
+            onAddSong();
+        refreshSummaries();
+        rebuildSetlist();
+        rebuildScenes();
+        refreshDirtyFlag();
+        repaint();
+    };
+    addChildComponent (addSongBtn);   // shown only while onAddSong is wired
 }
 
 SongOverlay::~SongOverlay() = default;
@@ -128,6 +171,7 @@ void SongOverlay::open()
 {
     selSection = juce::jlimit (0, processor.drumEngine.numSections.load() - 1, selSection);
     refreshSummaries();
+    refreshDirtyFlag();
     rebuildSetlist();
     rebuildScenes();
     refreshInspector();
@@ -164,6 +208,21 @@ void SongOverlay::timerCallback()
         lastPlaying = playing;
         repaint();   // playing highlight + transport readout
     }
+
+    // SAVED tag: hashing the whole state is not free, poll at ~1 Hz
+    if (++dirtyPollTick >= 10)
+    {
+        dirtyPollTick = 0;
+        const bool wasDirty = presetDirtyCached;
+        refreshDirtyFlag();
+        if (presetDirtyCached != wasDirty)
+            repaint();
+    }
+}
+
+void SongOverlay::refreshDirtyFlag()
+{
+    presetDirtyCached = processor.isPresetDirty();
 }
 
 void SongOverlay::refreshSummaries()
@@ -191,6 +250,9 @@ void SongOverlay::rebuildSetlist()
         for (int i = 1; i <= drum::maxSections; ++i)
             if (txt.contains ("sceneRig" + juce::String (i) + "="))
                 ++it.scenes;
+        const int bp = txt.indexOf ("drumBpm=\"");
+        if (bp >= 0)   // bounded substring - preset blobs can be large
+            it.bpm = (int) txt.substring (bp + 9, bp + 24).getDoubleValue();
         setlist.push_back (std::move (it));
     }
     resized();
@@ -213,6 +275,7 @@ void SongOverlay::refreshInspector()
     const bool has = processor.hasScene (selSection);
     applyBtn.setEnabled (has);
     clearBtn.setEnabled (has);
+    nameEditor.setText (processor.getSceneName (selSection), false);   // no onTextChange echo
     autoChip.getProperties().set ("chipActive", processor.scenesOn.load());
     autoChip.repaint();
     countChip.getProperties().set ("chipActive", processor.drumEngine.countInOn.load());
@@ -244,7 +307,7 @@ void SongOverlay::resized()
     closeBtn.setBounds (W - 46, 14, 32, 32);
     saveSongBtn.setBounds (W - 46 - 8 - 96, 16, 96, 28);
 
-    // setlist items
+    // setlist items + ADD SONG footer button
     {
         int y = kTopH + 40;
         for (auto& it : setlist)
@@ -252,6 +315,9 @@ void SongOverlay::resized()
             it.bounds = { 14, y, kSetlistW - 28, 50 };
             y += 56;
         }
+        const bool fits = y + 30 <= H - kTransportH - 6;
+        addSongBtn.setVisible (onAddSong != nullptr && fits);
+        addSongBtn.setBounds (14, y + 2, kSetlistW - 28, 30);
     }
 
     // scene cards (equal split with a sensible minimum, like the mockup)
@@ -272,6 +338,8 @@ void SongOverlay::resized()
     {
         const int ix = W - kInspectorW + 14, iw = kInspectorW - 28;
         int y = kTopH + 40;
+        y += 14;                                     // "SCENE NAME" label (painted)
+        nameEditor.setBounds (ix, y, iw, 28); y += 36;
         y += 118;                                    // info card (painted)
         captureBtn.setBounds (ix + 10, y, iw - 20, 30); y += 36;
         applyBtn.setBounds (ix + 10, y, (iw - 26) / 2, 28);
@@ -307,11 +375,27 @@ void SongOverlay::paint (juce::Graphics& g)
     g.setColour (ui::text);
     g.setFont (ui::uiFont (15.0f, true));
     g.drawText ("SONG / SCENES", 38, 0, 150, kTopH, juce::Justification::centredLeft);
-    g.setFont (ui::uiFont (17.0f, true));
+    const auto titleFont = ui::uiFont (17.0f, true);
+    g.setFont (titleFont);
     const auto title = processor.getCurrentPresetName().isNotEmpty()
                            ? processor.getCurrentPresetName()
                            : juce::String ("Untitled song");
     g.drawText (title, 200, 0, W - 420, kTopH, juce::Justification::centredLeft);
+    if (processor.getCurrentPresetName().isNotEmpty() && ! presetDirtyCached)
+    {
+        // mockup: green SAVED tag right after the song title
+        const int tw = juce::jmin (W - 420,
+                                   juce::GlyphArrangement::getStringWidthInt (titleFont, title));
+        auto tag = juce::Rectangle<float> ((float) (200 + tw + 12),
+                                           kTopH / 2.0f - 9.0f, 52.0f, 18.0f);
+        g.setColour (ui::green.withAlpha (0.12f));
+        g.fillRoundedRectangle (tag, 9.0f);
+        g.setColour (ui::green.withAlpha (0.5f));
+        g.drawRoundedRectangle (tag.reduced (0.5f), 9.0f, 1.0f);
+        g.setColour (ui::green);
+        g.setFont (ui::monoFont (8.0f, true));
+        g.drawText ("SAVED", tag.toNearestInt(), juce::Justification::centred);
+    }
 
     // ---- setlist column
     g.setColour (ui::chainBottom);
@@ -338,8 +422,10 @@ void SongOverlay::paint (juce::Graphics& g)
                     it.bounds.getWidth() - 20, 15, juce::Justification::centredLeft);
         g.setColour (ui::textDim);
         g.setFont (ui::monoFont (9.0f));
-        g.drawText (juce::String (it.scenes) + " scenes",
-                    it.bounds.getX() + 10, it.bounds.getY() + 27,
+        auto meta = juce::String (it.scenes) + " scenes";
+        if (it.bpm > 0)
+            meta += juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 ")) + juce::String (it.bpm) + " BPM";
+        g.drawText (meta, it.bounds.getX() + 10, it.bounds.getY() + 27,
                     it.bounds.getWidth() - 20, 12, juce::Justification::centredLeft);
     }
 
@@ -356,8 +442,14 @@ void SongOverlay::paint (juce::Graphics& g)
                     + sectionName (selSection).toUpperCase(),
                 ix + 14, kTopH + 12, kInspectorW - 28, 14, juce::Justification::centredLeft);
 
+    // scene name editor label (the TextEditor itself sits right below)
+    g.setColour (ui::textDim);
+    g.setFont (ui::monoFont (8.0f, true));
+    g.drawText ("SCENE NAME", ix + 14, kTopH + 40, kInspectorW - 28, 11,
+                juce::Justification::centredLeft);
+
     {
-        auto card = juce::Rectangle<float> ((float) ix + 14, (float) kTopH + 40,
+        auto card = juce::Rectangle<float> ((float) ix + 14, (float) kTopH + 90,
                                             (float) kInspectorW - 28, 110.0f);
         g.setColour (ui::cardBottom);
         g.fillRoundedRectangle (card, 7.0f);
@@ -365,7 +457,7 @@ void SongOverlay::paint (juce::Graphics& g)
         g.drawRoundedRectangle (card.reduced (0.5f), 7.0f, 1.0f);
 
         const int cx = ix + 24;
-        int y = kTopH + 50;
+        int y = kTopH + 100;
         auto label = [&] (const char* t)
         {
             g.setColour (ui::textDim);
@@ -432,18 +524,32 @@ void SongOverlay::paint (juce::Graphics& g)
                         + juce::String (c.section * 4 + 4),
                     x, c.bounds.getY() + 12, c.bounds.getWidth() - 24, 11,
                     juce::Justification::centredLeft);
+        // h4 = scene name when set (mockup "VERSE"/"WIDE RHYTHM"); the section's
+        // paper name (Verse/Chorus) then drops to a small subtitle underneath
+        const auto sceneNm = processor.getSceneName (c.section).trim();
+        const bool named = sceneNm.isNotEmpty();
         g.setColour (ui::text);
         g.setFont (ui::uiFont (14.0f, true));
-        g.drawText (sectionName (c.section).toUpperCase(), x, c.bounds.getY() + 28,
+        g.drawText (named ? sceneNm.toUpperCase() : sectionName (c.section).toUpperCase(),
+                    x, c.bounds.getY() + 28,
                     c.bounds.getWidth() - 24, 18, juce::Justification::centredLeft);
+        if (named)
+        {
+            g.setColour (ui::textDim);
+            g.setFont (ui::uiFont (9.5f));
+            g.drawText (sectionName (c.section), x, c.bounds.getY() + 47,
+                        c.bounds.getWidth() - 24, 12, juce::Justification::centredLeft);
+        }
+        const int meterY = c.bounds.getY() + (named ? 62 : 52);
+        g.setColour (ui::text);
         g.setFont (ui::monoFont (24.0f, true));
-        g.drawText (sectionMeter (c.section), x, c.bounds.getY() + 52,
+        g.drawText (sectionMeter (c.section), x, meterY,
                     c.bounds.getWidth() - 24, 30, juce::Justification::centredLeft);
         if (c.section == playSec)
         {
             g.setColour (ui::glowOrange);
             g.setFont (ui::monoFont (8.0f, true));
-            g.drawText ("PLAYING", x, c.bounds.getY() + 88, c.bounds.getWidth() - 24, 11,
+            g.drawText ("PLAYING", x, meterY + 36, c.bounds.getWidth() - 24, 11,
                         juce::Justification::centredLeft);
         }
 
@@ -457,7 +563,10 @@ void SongOverlay::paint (juce::Graphics& g)
         const auto& sum = sceneSummaryCache[c.section];
         g.setFont (ui::uiFont (10.0f, true));
         g.setColour (sum.isNotEmpty() ? ui::text : ui::textFaint);
-        g.drawText (sum.isNotEmpty() ? "RIG SNAPSHOT" : "NO SNAPSHOT",
+        // mockup rigsnap: <b> is the scene name when it has one ("RHYTHM")
+        g.drawText (sum.isNotEmpty() ? (named ? sceneNm.toUpperCase()
+                                              : juce::String ("RIG SNAPSHOT"))
+                                     : juce::String ("NO SNAPSHOT"),
                     (int) snap.getX() + 8, (int) snap.getY() + 8,
                     (int) snap.getWidth() - 16, 12, juce::Justification::centredLeft);
         g.setFont (ui::monoFont (8.0f));
@@ -514,6 +623,7 @@ void SongOverlay::mouseDown (const juce::MouseEvent& e)
             processor.loadPreset (it.file);
             selSection = 0;
             refreshSummaries();
+            refreshDirtyFlag();
             rebuildSetlist();
             rebuildScenes();
             repaint();

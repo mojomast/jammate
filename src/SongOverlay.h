@@ -22,6 +22,8 @@ public:
 
     void open();
     std::function<void()> onSaveSong;   // wired to the editor's preset save
+    std::function<void()> onAddSong;    // wired to the editor's "new preset" flow
+                                        // (the button hides while unset)
 
     bool keyPressed (const juce::KeyPress&) override;
     void paint (juce::Graphics&) override;
@@ -54,10 +56,13 @@ private:
         juce::File file;
         juce::String name;
         int scenes = 0;
+        int bpm = 0;        // scanned from the preset XML (drumBpm attribute)
         bool current = false;
     };
     std::vector<SetlistItem> setlist;
 
+    juce::TextEditor nameEditor;        // editable scene name (inspector)
+    juce::TextButton addSongBtn { juce::CharPointer_UTF8 ("\xef\xbc\x8b ADD SONG") };
     juce::TextButton closeBtn { juce::String (juce::CharPointer_UTF8 ("\xe2\x9c\x95")) };
     juce::TextButton saveSongBtn { "SAVE SONG" };
     juce::TextButton captureBtn { "CAPTURE CURRENT RIG" };
@@ -77,6 +82,11 @@ private:
     juce::Rectangle<int> transportInfoArea;
     int lastUiBar = -2, lastUiStep = -2;
     bool lastPlaying = false;
+
+    // "SAVED" tag state - isPresetDirty() hashes the whole state, so poll slowly
+    bool presetDirtyCached = false;
+    int dirtyPollTick = 0;
+    void refreshDirtyFlag();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SongOverlay)
 };

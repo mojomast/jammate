@@ -171,14 +171,16 @@ public:
     void insertFxAt (const juce::String& id, int insertIndex);
     static juce::String fxDisplayNamePublic (const juce::String& id);
 
-    // vNext: compact view - unselected effects collapse to 64px name slots
-    // (LED stays as the state indicator); clicking a slot expands that effect.
-    // The amp/cab/mixer block always stays focused. Opt-in via the bottom bar.
-    void setCompactView (bool);
-    bool isCompactView() const { return compactView; }
+    // vNext R1 (fx-mini): effects render as ~110 px mini cards (LED, status,
+    // 2 main knobs, type box). Clicking selects (accent border); clicking the
+    // selected card again (or double-clicking) expands it inline with the full
+    // knob layout. The amp/cab block always stays focused.
+    // The chain height follows the workspace (set by RigContent).
+    void setChainHeight (int newHeight);
+    int getChainHeight() const { return chainHeight; }
 
-    // Keep every stacked rig inside the editor viewport (including LOAD).
-    static constexpr int chainHeight = 500;
+    // minimap feed: {box, isAmpBlock} per chain entry, in visual order
+    std::vector<std::pair<juce::Rectangle<int>, bool>> minimapBlocks() const;
 
 private:
     static constexpr int maxRigs = GuitarRigNAMProcessor::maxRigs;
@@ -203,8 +205,8 @@ private:
     int dropIndex = -1;
     juce::String lastOrderSeen;      // relayout when the order changes via preset
 
-    // effects drawer: the chain shows only what is in use
-    juce::Rectangle<int> addFxB;     // "+ EFFECT" button at the end of the chain
+    // effects drawer: the chain shows only what is in use ("+ EFFECT" lives in
+    // the chain header, owned by RigContent; connectors keep their "+" spots)
     /// insertIndex >= 0 inserts at the exact position; -1 = canonical position
     void showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea);
     void removeFxFromChain (const juce::String& id);
@@ -227,9 +229,16 @@ private:
     bool panning = false;
     juce::Point<int> panStartMouse, panStartView;
 
-    // vNext compact view state (see setCompactView)
-    bool compactView = false;
-    juce::String selectedFxId;   // effect kept expanded while compact ("" = none)
+    // vNext fx-mini state: selection (accent border) + inline expansion
+    juce::String selectedFxId;   // clicked card ("" = none)
+    juce::String expandedFxId;   // card expanded inline with all knobs
+    int chainHeight = 430;       // workspace-driven (setChainHeight)
+    /// The type/variation selector shown in the mini footer (nullptr = none).
+    juce::TextButton* typeButtonForFx (const juce::String& id);
+    /// Static footer caption for effects without a variation selector.
+    juce::String miniFooterFor (const juce::String& id) const;
+    /// Scrolls the parent viewport so this card sits centered.
+    void centreFxInViewport (const juce::String& id);
 
     // hover tooltip zones (title areas -> card info), rebuilt each paint
     std::vector<std::pair<juce::Rectangle<int>, juce::String>> tipZones;
@@ -250,23 +259,24 @@ private:
 public:
 
 private:
+    /// id identifies the card (mini rendering + selection border); "" for
+    /// non-effect frames (cab lanes).
     void drawPedalFrame (juce::Graphics&, juce::Rectangle<int>, const juce::String& title,
-                         const juce::String& footer);
+                         const juce::String& footer, const juce::String& id = {});
     void drawPhoto (juce::Graphics&, const juce::Image&, juce::Rectangle<int>);
 
     GuitarRigNAMProcessor& processor;
 
-    juce::Rectangle<int> ioInB, gateB, odB, eqB, delayB, revB, ioOutB;
+    juce::Rectangle<int> gateB, odB, eqB, delayB, revB;
     juce::Rectangle<int> compB, preEqB, pitchB, looperB, limB;
     juce::Rectangle<int> extB[GuitarRigNAMProcessor::maxExtSlots];
     juce::Rectangle<int> wahB, harmB, octB, rmB, bcB, sgB, excB, dsB, tapeB, cnsB, anB;
-    // parallel rigs: one amp+cab pair per lane + the Mixer card that sums everything
-    juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs], mixerB;
+    // parallel rigs: one amp+cab pair per lane (mix/level moved to RigContent)
+    juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs];
     juce::Image ampImages[maxRigs], cabImages[maxRigs];
     juce::Image t3kMark;   // TONE3000 mark shown on store-loaded signal blocks
 
     // knobs / LEDs / buttons
-    std::unique_ptr<KnobComponent> inputKnob, outputKnob;
     LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed, compLed, preEqLed,
         pitchLed, looperLed, limLed;
     LedButton extLed[GuitarRigNAMProcessor::maxExtSlots];
@@ -308,9 +318,7 @@ private:
     mutable int toneIdCacheVal[maxRigs] = {};
     mutable juce::String cabToneCachePath[maxRigs];
     mutable int cabToneCacheVal[maxRigs] = {};
-    // cab PER LANE (LC/HC/phase/CHANGE); blend lives in the Mixer card
-    std::unique_ptr<KnobComponent> cabAirKnob;
-    std::unique_ptr<KnobComponent> cabBlendKnob[maxRigs]; // in the Mixer
+    // cab PER LANE (LC/HC/phase/CHANGE); blend/AIR moved to the OUTPUT card
     std::unique_ptr<KnobComponent> cabLcKnob[maxRigs];
     std::unique_ptr<KnobComponent> cabHcKnob[maxRigs];
     juce::TextButton cabPhaseChips[maxRigs];
@@ -320,8 +328,6 @@ private:
     juce::TextButton cabVarButtons[maxRigs];
     int toneIdForCab (int slot) const;    // reads tone_id from the IR .meta
     bool lastCabVarLoaded[maxRigs] = {};  // relayout when the cab gains/loses an IR
-    // Mixer: sum of the lanes; +/- adds/removes an entire AMP+CAB pair
-    juce::TextButton rigAddButton { "+" }, rigRemoveButton { "-" };
     int lastRigCount = 0;
     std::unique_ptr<KnobComponent> eqLowKnob, eqMidKnob, eqHighKnob;
     std::unique_ptr<KnobComponent> delayTimeKnob, delayFbKnob, delayMixKnob;
@@ -370,7 +376,9 @@ private:
 // Fixed logical canvas 1100x700 scaled by the editor.
 class DrumOverlay;
 class SongOverlay;
+class AudioOverlay;
 class DrumRibbon;
+class ChainMinimap;   // footer minimap of the chain (defined in the .cpp)
 
 class RigContent : public juce::Component,
                    private juce::Timer
@@ -423,9 +431,35 @@ private:
     bool presetDirtyCached = false;
     juce::TooltipWindow tooltipWindow { this, 600 };
 
-    // chain
+    // chain (center column of the rig workspace, per the vNext mockup):
+    // 38 px header strip + viewport + 32 px minimap inside a framed container
     juce::Viewport chainViewport;
     std::unique_ptr<ChainView> chainView;
+    std::unique_ptr<ChainMinimap> chainMinimap;
+    juce::TextButton addFxHeaderButton;   // "+ EFFECT" in the chain header
+    juce::Rectangle<int> chainWrapB;      // container frame (painted)
+
+    // vNext R1: fixed side cards of the workspace
+    // left INPUT card: gain + jack + vertical meter + SIGNAL OK tag
+    juce::Rectangle<int> inputCardB, inputMeterB;
+    std::unique_ptr<KnobComponent> inGainKnob;
+    juce::String inputDeviceName;         // cached at 2 Hz (standalone device)
+    // right OUTPUT/MIXER card: 1/2/3 rig segment, per-rig levels, AIR, LEVEL,
+    // vertical meter + PEAK tag + "+ PARALLEL RIG"
+    juce::Rectangle<int> outputCardB, outputMeterB;
+    std::unique_ptr<KnobComponent> rigLevelKnob[GuitarRigNAMProcessor::maxRigs];
+    std::unique_ptr<KnobComponent> airKnob, outLevelKnob;
+    juce::TextButton rigSegButtons[GuitarRigNAMProcessor::maxRigs];
+    juce::TextButton addRigButton;
+    int rigCountSeen = 0;                 // relayout the OUTPUT card on change
+    void setRigCountParam (int count);
+
+    // vNext R2: chain-order undo/redo (watched from the 30 Hz timer)
+    juce::TextButton chainUndoButton, chainRedoButton;
+    std::vector<juce::StringArray> chainUndoStack, chainRedoStack;
+    juce::StringArray chainOrderSeen;
+    void undoChainOrder();
+    void redoChainOrder();
 
     std::unique_ptr<juce::FileChooser> fileChooser;
     std::unique_ptr<StoreOverlay> storeOverlay;
@@ -433,6 +467,9 @@ private:
     // vNext: SONG / SCENES screen (rig snapshots per drum section)
     std::unique_ptr<SongOverlay> songOverlay;
     juce::TextButton songButton { "Song" };
+
+    // vNext: Audio & MIDI screen (lazy - built on first open)
+    std::unique_ptr<AudioOverlay> audioOverlay;
 
     // Drums module (overlay + drum VST panel window)
     std::unique_ptr<DrumOverlay> drumOverlay;
@@ -451,13 +488,15 @@ private:
     // performance mode (stage): hides the chain, shows the essentials large
     bool perfMode = false;
     // vNext stage: clickable tiles/actions (rects computed in paint)
-    juce::Rectangle<int> stageTiles[6];     // L: amp, drive, delay - R: drums, rec, mute
-    juce::Rectangle<int> stageActions[5];   // <preset, drums, tap, tuner, preset>
+    juce::Rectangle<int> stageTiles[6];     // L: amp, drive, delay - R: drums, rec, next scene
+    juce::Rectangle<int> stageActions[5];   // <preset, drums, tap, tuner, next scene>
     juce::int64 lastStageTapMs = 0;         // tap tempo
     juce::TextButton perfChip { "STAGE" };
-    juce::TextButton compactChip { "COMPACT" };
     void setPerfMode (bool shouldBeOn);
     void paintPerformanceView (juce::Graphics&);
+    /// Section after the one currently playing; -1 when there is none.
+    int nextDrumSection() const;
+    void applyNextScene();
 
     // tuner mute (silences the output while tuning)
     juce::TextButton muteChip { "MUTE" };
@@ -478,6 +517,7 @@ private:
     double tunerFreq = -1.0;
     double tunerCents = 0.0;
     juce::String tunerNote;
+    int tunerOctave = -1;        // scientific octave for the tuneline ("E2")
     int tunerStringIndex = -1;
     int tunerTick = 0;
 
