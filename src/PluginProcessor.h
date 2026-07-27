@@ -288,6 +288,10 @@ public:
     {
         return sec >= 0 && sec < drum::maxSections && sceneXml[sec].isNotEmpty();
     }
+    /// Applies a section's scene. The swap is DEFERRED on purpose: the guitar
+    /// bus fades out first, the state lands while it is silent, and the fade-in
+    /// waits until the new capture has really loaded. Same path as the
+    /// automatic switch at the bar boundary. (message thread)
     void applySceneForSection (int sec);
     /// Keeps scenes aligned when a section is removed (shifts left from sec).
     void shiftScenesOnSectionRemove (int sec);
@@ -337,7 +341,37 @@ private:
     bool applyingSceneNow = false;             // guards the scene-restore in applyState
     std::atomic<int> scenePendingSection { -1 };
     int sceneLastSection = -1;                 // audio thread only
-    std::atomic<int> sceneFadeTotal { 0 }, sceneFadeLeft { 0 };
+
+    // Scene change envelope. A scene swaps every parameter at once (no
+    // smoothing) and its capture only lands tens/hundreds of ms later, on the
+    // loader thread - a plain fade-in was over long before the new model
+    // arrived, leaving the swap exposed. So the guitar bus now runs
+    //     fadeOut -> hold (silent) -> fadeIn
+    // the state is applied at the START of the hold (the audio thread asks for
+    // it once it is actually silent) and the hold only ends when every async
+    // model load fired by that state has published. sceneHoldMaxSec is the
+    // safety net: a capture that never loads must not mute the rig forever.
+    enum class SceneEnv { idle = 0, fadeOut, hold, fadeIn };
+    static constexpr double sceneFadeOutSec = 0.012;
+    static constexpr double sceneFadeInSec  = 0.030;
+    static constexpr double sceneHoldMaxSec = 1.5;
+
+    std::atomic<int> sceneEnvState { (int) SceneEnv::idle };
+    std::atomic<int> sceneHoldLeft { 0 };          // samples left on the safety net
+    // Generation, not a flag: a scene armed WHILE the message thread is still
+    // inside applySceneNow (a long IR/VST3 load, say) would otherwise have its
+    // "not applied yet" overwritten by the previous scene finishing, and the
+    // hold would release before the new state ever landed.
+    std::atomic<int> sceneGen { 0 };               // bumped by every arm
+    std::atomic<int> sceneAppliedGen { 0 };        // generation actually applied
+    std::atomic<int> sceneLoadsPending { 0 };      // scene's own async loads in flight
+    std::atomic<bool> sceneArmed[drum::maxSections] = {};  // hasScene() for the audio thread
+    float sceneEnvGain = 1.0f;                     // audio thread only
+    std::shared_ptr<int> sceneLifetime { std::make_shared<int> (0) };  // late-callback guard
+
+    void armSceneEnvelope (int sec);   // any thread: queue sec and start the fade out
+    void applySceneNow (int sec);      // the real swap; only from handleAsyncUpdate
+    void refreshSceneFlags();          // message thread: sceneXml[] -> sceneArmed[]
 
     juce::ValueTree abSlots[2];
     int abCurrent = 0;

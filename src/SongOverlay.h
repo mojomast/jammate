@@ -28,19 +28,20 @@ public:
     bool keyPressed (const juce::KeyPress&) override;
     void paint (juce::Graphics&) override;
     void resized() override;
-    void mouseDown (const juce::MouseEvent&) override;
 
 private:
     void timerCallback() override;
     void rebuildSetlist();
     void rebuildScenes();     // scene cards + inspector state
     void refreshInspector();
+    void ensureSceneVisible();   // scrolls the strip so the selected card shows
     juce::String sectionName (int sec) const;   // dominant role or "Section A"
     juce::String sectionMeter (int sec) const;  // meter of the first used bar
 
     GuitarRigNAMProcessor& processor;
 
-    // one card per drum section (custom-drawn; SongOverlay handles the click)
+    // one card per drum section (custom-drawn; the strip content handles the
+    // click - bounds are relative to that content, not to the overlay)
     struct SceneCard
     {
         juce::Rectangle<int> bounds;
@@ -49,7 +50,7 @@ private:
     std::vector<SceneCard> sceneCards;
     int selSection = 0;
 
-    // setlist item (preset file)
+    // setlist item (preset file); bounds are relative to the setlist content
     struct SetlistItem
     {
         juce::Rectangle<int> bounds;
@@ -60,6 +61,30 @@ private:
         bool current = false;
     };
     std::vector<SetlistItem> setlist;
+
+    // Scrollable contents: a long setlist scrolls vertically and a wide scene
+    // strip scrolls horizontally, so neither can spill over the inspector or
+    // off-screen. Both are laid out by SongOverlay::resized().
+    struct SetlistContent : public juce::Component
+    {
+        explicit SetlistContent (SongOverlay& o) : owner (o) {}
+        void paint (juce::Graphics&) override;
+        void mouseDown (const juce::MouseEvent&) override;
+        SongOverlay& owner;
+    };
+
+    struct SceneStripContent : public juce::Component
+    {
+        explicit SceneStripContent (SongOverlay& o) : owner (o) {}
+        void paint (juce::Graphics&) override;
+        void mouseDown (const juce::MouseEvent&) override;
+        SongOverlay& owner;
+    };
+
+    juce::Viewport setlistVp;
+    SetlistContent setlistContent { *this };
+    juce::Viewport sceneVp;
+    SceneStripContent sceneContent { *this };
 
     juce::TextEditor nameEditor;        // editable scene name (inspector)
     juce::TextButton addSongBtn { juce::CharPointer_UTF8 ("\xef\xbc\x8b ADD SONG") };

@@ -160,7 +160,13 @@ private:
         DrumOverlay& owner;
     };
 
-    // ---- KIT MIXER (vNext D2): 9 strips with trigger meter + LEVEL knob
+    // ---- KIT MIXER (vNext D2): 9 piece strips (meter + LEVEL knob) plus the
+    // drum MIX meter. B4-UI: with the INTERNAL sampler the per-piece meters
+    // show the REAL audio peak of each piece (engine.uiVoicePeak, dBFS, our own
+    // ballistics). With a hosted drum VST3 there is no per-piece audio at all,
+    // so they fall back to the MIDI trigger velocity (engine.uiVoiceFlash) and
+    // are drawn as an amber segmented ladder + labelled as triggers, so nobody
+    // reads them as a level. The MIX meter is real audio in BOTH modes.
     class KitMixerView : public juce::Component
     {
     public:
@@ -168,10 +174,22 @@ private:
         void paint (juce::Graphics&) override;
         void resized() override;
         void syncKnobs();      // knob positions <- engine.voiceGain
-        void decayFlashes();   // timer tick: meter flash decay (repaints)
+        void tickMeters();     // timer tick: drain the engine + ballistics (repaints)
+        void drainMeters();    // tab opened: drop the stale max-hold peaks
     private:
+        static constexpr float floorDb = -60.0f;   // bottom of the meter scale
+        static constexpr int bannerH = 15;         // "what these meters mean" row
+        /// strip i: 0..numVoices-1 = pieces, numVoices = the MIX column
+        juce::Rectangle<int> stripRect (int i) const;
+
         juce::Slider knobs[drum::numVoices];
-        float flash[drum::numVoices] = {};
+        float flash[drum::numVoices] = {};    // VST mode: trigger velocity 0..1
+        float db[drum::numVoices] = {};       // internal: audio peak, dBFS
+        float holdDb[drum::numVoices] = {};   // peak-hold marker, dBFS
+        int holdCnt[drum::numVoices] = {};
+        float mixDb = floorDb, mixHoldDb = floorDb;
+        int mixHoldCnt = 0;
+        bool fromVst = false;                 // engine.uiMixFromVst, last tick
         DrumOverlay& owner;
     };
 
@@ -205,6 +223,23 @@ private:
     void rebuildSectionTabs();
     void rebuildBarHeads();
     void refreshAll();
+
+    // ---- section tab row (B2) -------------------------------------------
+    // The row holds the section tabs plus a fixed-width cluster
+    // (+ SECTION | remove | RIG | SONG MAP) and, painted flush right, the
+    // SCENE tag. With 6+ sections the tabs alone are wider than the row, so
+    // the tabs have to give way - never the cluster. This struct is the ONLY
+    // source of truth for the row geometry so rebuildSectionTabs() (labels)
+    // and resized() (positions) can never disagree about the same nSec.
+    struct TabRowLayout
+    {
+        int pitch = 124;        // x advance between two tabs
+        int tabW = 120;         // tab width (pitch minus the 4 px gap)
+        int clusterX = 0;       // x of "+ SECTION"
+        bool compact = false;   // short tab labels ("A · 1-4")
+    };
+    TabRowLayout tabRowLayout (int nSec) const;
+    juce::String sectionTabText (int index, bool compact) const;
 
     // ---- meter-aware staff layout (time signature per bar) ----
     struct BarLayout
@@ -258,6 +293,15 @@ private:
     juce::TextButton gtrOpenBtn { juce::CharPointer_UTF8 ("open guitar \xe2\xa4\xa2") };
     void setupGuitarRibbon();
     void buildGuitarRibbon();                   // (re)build from getChainOrder()
+    // B1: a Scene switch rewrites the guitar chain (rig count and/or effect
+    // order) behind our back and the processor has no callback for it, so the
+    // timer watches this baseline and rebuilds the ribbon when it drifts
+    // (1 tick of latency). gtrRibDirty defers the rebuild while a mouse button
+    // is down - the rebuild DELETES the knobs.
+    void refreshGuitarRibbon();
+    int gtrRibRigCount = -1;
+    juce::String gtrRibOrder;
+    bool gtrRibDirty = false;
 public:
     std::function<void()> onClose;   // "open guitar" -> back to the chain
 private:

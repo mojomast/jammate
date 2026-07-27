@@ -126,7 +126,44 @@ public:
     // per-voice trigger flash for the KIT MIXER meters: the audio thread stores
     // the hit velocity here; the UI reads (and consumes) it and decays its own
     // copy towards zero. Purely cosmetic - races are harmless.
+    // NOTE: this is the TRIGGER (velocity of the scheduled hit), NOT the audio
+    // level - see uiVoicePeak below for the real measurement.
     std::atomic<float> uiVoiceFlash[drum::numVoices] = {};
+
+    // ---- REAL audio metering (vNext) ----------------------------------------
+    // Everything in this block is written ONCE PER BLOCK by the audio thread
+    // (never once per sample) and is meant to be DRAINED by the UI: read it
+    // with exchange (0.0f), which both consumes the value and re-arms the
+    // max-hold. The engine only publishes the LOUDEST peak seen since the last
+    // drain (linear amplitude 0..1+, NOT dB, NOT smoothed); every bit of
+    // ballistics (attack/decay/peak-hold) belongs to the UI, exactly like it
+    // already does for uiVoiceFlash. Max-hold instead of a plain store because
+    // several audio blocks happen per UI frame (~12 at 48 kHz / 128 samples vs
+    // 30 Hz) and a plain store would drop the drum transients that live in the
+    // blocks the UI never looked at.
+    // While the transport is silent the processor does not even call process(),
+    // so the values simply stay at 0 after the UI drains them.
+
+    // Real peak of each drum piece, measured on the audio the INTERNAL SAMPLER
+    // actually summed into the drum bus (post per-voice gain/velocity/pan,
+    // pre module LEVEL). Overlapping hits of the same piece take the max, not
+    // the sum. Stays at 0 whenever a hosted drum VST3 is the source (see
+    // uiMixFromVst): that instance is 0-in/2-out, so per-piece audio does not
+    // exist there and uiVoiceFlash is the only per-piece information available.
+    std::atomic<float> uiVoicePeak[drum::numVoices] = {};
+
+    // Real peak of the WHOLE drum bus for the last processed block. Works in
+    // BOTH modes: it is measured on the output buffer at the very end of
+    // process(), so it already includes the hosted VST3 and the metronome
+    // click. Measured BEFORE the module LEVEL fader - multiply by level.load()
+    // for a post-fader reading.
+    std::atomic<float> uiMixPeak { 0.0f };
+
+    // Source of the audio measured above for the last processed block:
+    // true = hosted drum VST3 (uiVoicePeak is meaningless/zero, the UI should
+    // label the per-piece meters as triggers), false = internal sampler.
+    // Plain state flag - do NOT drain it, read it with load().
+    std::atomic<bool> uiMixFromVst { false };
 
     // nome do groove aplicado em cada compasso — SÓ message thread (UI e
     // persistência; o áudio nunca lê)

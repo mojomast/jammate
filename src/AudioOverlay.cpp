@@ -417,6 +417,12 @@ void AudioOverlay::applyPending()
 
     bannerError.clear();
 
+    // Rollback snapshot: a staged configuration that fails to open must never
+    // leave the app silent, so remember exactly what is running right now.
+    const auto prevType = deviceManager->getCurrentAudioDeviceType();
+    const auto prevSetup = deviceManager->getAudioDeviceSetup();
+    const bool wasOnline = deviceManager->getCurrentAudioDevice() != nullptr;
+
     // Order matters: switching the type opens that type's default device, then
     // one setAudioDeviceSetup call restarts it with the staged configuration.
     if (pending.type.isNotEmpty()
@@ -470,11 +476,42 @@ void AudioOverlay::applyPending()
         setup.useDefaultOutputChannels = true;
     }
 
-    const auto error = deviceManager->setAudioDeviceSetup (setup, true);
-    if (error.isNotEmpty())
-        bannerError = error;
+    auto error = deviceManager->setAudioDeviceSetup (setup, true);
 
-    captureCurrent();
+    // Silent failures count too: some drivers report no error yet leave no open
+    // device (ASIO already taken by another host, refused rate, unplugged box).
+    if (error.isEmpty() && deviceManager->getCurrentAudioDevice() == nullptr)
+        error = "the device did not open";
+
+    if (error.isNotEmpty() && wasOnline)
+    {
+        // Put the previous device back, in the same order Apply used.
+        // (restartLastAudioDevice() is useless here: a failed setup ends in
+        // deleteCurrentDevice(), which clears the device names it needs.)
+        if (deviceManager->getCurrentAudioDeviceType() != prevType)
+            deviceManager->setCurrentAudioDeviceType (prevType, true);
+        deviceManager->setAudioDeviceSetup (prevSetup, true);
+
+        // No silent fallback to the default output: on stage, suddenly playing
+        // through the laptop speaker is worse than a clear "no device" state.
+        bannerError = deviceManager->getCurrentAudioDevice() != nullptr
+                          ? error + dot() + "kept the previous device"
+                          : error + dot() + "could not restore the previous device"
+                                  + dot() + "pick a device above";
+
+        // Keep the staged edit so the failed choice stays visible and editable;
+        // only the "applied" baseline follows the device that is really running.
+        const auto staged = pending;
+        captureCurrent();
+        pending = staged;
+    }
+    else
+    {
+        if (error.isNotEmpty())
+            bannerError = error;
+        captureCurrent();
+    }
+
     rebuildAll();
     updateActionButtons();
 }

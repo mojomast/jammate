@@ -19,6 +19,16 @@ constexpr int gtrRibY = 62, gtrRibH = 160;   // larger controls with uniform hit
 constexpr int margin = 26;
 constexpr int headerY = 13, headerH = 34;
 constexpr int tabsY = 230, tabsH = 26;
+// section tab row (B2). The right-hand cluster has a FIXED width
+// (+ SECTION 84 +6 | remove 86 +6 | RIG 64 +6 | SONG MAP 82) and the SCENE tag
+// is painted flush right on this same row, so both keep a reserved slot and
+// only the tabs are allowed to shrink. With the stock 1100 px content the tabs
+// stop fitting at 6 sections (26 + 124*6 + 334 = 1104 > 1074).
+constexpr int tabClusterW = 90 + 92 + 70 + 82;   // 334
+constexpr int sceneTagSlotW = 68;                // 60 px tag + 8 px gap
+constexpr int tabPitchMax = 124;                 // pitch with room to spare
+constexpr int tabPitchMin = 64;                  // last resort on a tiny window
+constexpr int tabGap = 4;                        // pitch - tab width
 // notation editor (vNext D1): toolbar row + [voice palette | paper | inspector]
 constexpr int ntbY = 260, ntbH = 30;                      // notation toolbar
 constexpr int scoreY = 292, scoreH = 152;                 // notation body band
@@ -1007,6 +1017,9 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
         {
             mixerOn = true;
             kitMixer.syncKnobs();
+            // the engine max-holds its peaks: throw away whatever piled up
+            // while the tab was closed, so frame 1 is not an ancient peak
+            kitMixer.drainMeters();
             refreshAll();
         }
     };
@@ -1086,6 +1099,8 @@ void DrumOverlay::open()
     syncTransportUi();
     refreshSourceRow();
     kitMixer.syncKnobs();      // state load may have changed the voice gains
+    if (mixerOn)
+        kitMixer.drainMeters();   // no stale max-hold on the first frame
     updateHumChipText();
     buildGuitarRibbon();   // mirror the current guitar chain
     refreshAll();
@@ -1167,7 +1182,7 @@ void DrumOverlay::timerCallback()
     }
 
     if (mixerOn && kitMixer.isVisible())
-        kitMixer.decayFlashes();   // KIT MIXER meters follow the voice triggers
+        kitMixer.tickMeters();   // KIT MIXER: drain the engine peaks + ballistics
 
     const bool playing = engine.playing.load();
     const auto want = playing ? juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xa0 STOP"))
@@ -1189,6 +1204,19 @@ void DrumOverlay::timerCallback()
     {
         lastHasVst = hasVst;
         refreshSourceRow();
+    }
+
+    // ---- B1: the guitar ribbon mirrors the real chain, and a Scene switch can
+    // change the rig count or the effect order without telling us. Compare the
+    // baseline stored by buildGuitarRibbon(); rebuild ONLY on a difference
+    // (never per tick).
+    {
+        const int rigNow = processor.getRigCount();
+        const auto orderNow = processor.getChainOrder().joinIntoString (",");
+        if (rigNow != gtrRibRigCount || orderNow != gtrRibOrder)
+            gtrRibDirty = true;
+        if (gtrRibDirty)
+            refreshGuitarRibbon();
     }
 }
 
@@ -1369,13 +1397,24 @@ void DrumOverlay::paint (juce::Graphics& g)
                                ? "SCENE: " + nm.toUpperCase()
                                : juce::String (juce::CharPointer_UTF8 ("SCENE \xe2\x97\x8f"));
         const auto f = ui::monoFont (7.5f, true);
-        const int tw = juce::GlyphArrangement::getStringWidthInt (f, label) + 16;
-        const juce::Rectangle<int> r (getWidth() - margin - tw, tabsY + 3, tw, tabsH - 6);
-        g.setColour (ui::accent.withAlpha (0.5f));
-        g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 4.0f, 1.0f);
-        g.setColour (ui::accentBright);
-        g.setFont (f);
-        g.drawText (label, r, juce::Justification::centred);
+        // B2: the tag shares the row with SONG MAP - a long scene name shrinks
+        // the tag instead of running over the button (or off the screen).
+        const int ideal = juce::GlyphArrangement::getStringWidthInt (f, label) + 16;
+        const int left = songMapBtn.getRight() + 8;
+        const int tw = juce::jmin (ideal, getWidth() - margin - left);
+        if (tw >= 34)
+        {
+            const juce::Rectangle<int> r (getWidth() - margin - tw, tabsY + 3, tw, tabsH - 6);
+            g.setColour (ui::accent.withAlpha (0.5f));
+            g.drawRoundedRectangle (r.toFloat().reduced (0.5f), 4.0f, 1.0f);
+            g.setColour (ui::accentBright);
+            g.setFont (f);
+            if (tw >= ideal)
+                g.drawText (label, r, juce::Justification::centred);   // unchanged
+            else
+                g.drawFittedText (label, r.reduced (5, 0),
+                                  juce::Justification::centred, 1, 0.7f);
+        }
     }
 
     // ---- notation toolbar band (vNext D1): title, tools row bg, status tags
@@ -1555,14 +1594,22 @@ void DrumOverlay::resized()
         gtrOpenBtn.setBounds (W - margin - 116, gtrRibY + (gtrRibH - 26) / 2, 116, 26);
     }
 
-    // section tabs
+    // section tabs (B2: the tabs give way, the cluster never leaves the screen)
     {
+        const auto L = tabRowLayout (sectionTabs.size());
         int sx = x0;
+        int idx = 0;
         for (auto* t : sectionTabs)
         {
-            t->setBounds (sx, tabsY, 120, tabsH);
-            sx += 124;
+            // the label style follows the SAME layout that positions the tab
+            const auto want = sectionTabText (idx, L.compact);
+            if (t->getButtonText() != want)
+                t->setButtonText (want);
+            t->setBounds (sx, tabsY, L.tabW, tabsH);
+            sx += L.pitch;
+            ++idx;
         }
+        sx = L.clusterX;
         addSectionBtn.setBounds (sx, tabsY, 84, tabsH);
         sx += 90;
         delSectionBtn.setBounds (sx, tabsY, 86, tabsH);
@@ -1768,6 +1815,42 @@ void DrumOverlay::refreshAll()
     repaint();
 }
 
+//==============================================================================
+// B2: geometry of the section tab row. The tabs keep their stock 120/124 px as
+// long as everything fits (1..5 sections on the 1100 px content => PIXEL
+// IDENTICAL to before); past that the pitch shrinks and the labels go compact,
+// but the cluster and the SCENE tag always keep their slot on screen.
+DrumOverlay::TabRowLayout DrumOverlay::tabRowLayout (int nSec) const
+{
+    TabRowLayout L;
+    nSec = juce::jmax (1, nSec);
+
+    const int rightLimit = getWidth() - margin - sceneTagSlotW;
+    const int clusterMaxX = juce::jmax (margin, rightLimit - tabClusterW);
+    const int avail = juce::jmax (0, clusterMaxX - margin);
+
+    L.pitch = juce::jlimit (tabPitchMin, tabPitchMax, avail / nSec);
+    L.tabW = L.pitch - tabGap;
+    L.clusterX = juce::jmin (margin + L.pitch * nSec, clusterMaxX);
+    L.compact = L.pitch < tabPitchMax;
+    return L;
+}
+
+juce::String DrumOverlay::sectionTabText (int index, bool compact) const
+{
+    const auto letter = juce::String::charToString ((juce::juce_wchar) ('A' + index));
+    const int first = index * drum::barsPerSection + 1;
+    juce::String s = compact ? letter : juce::String ("SECTION ") + letter;
+    s += juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))
+       + juce::String (first)
+       + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93"))
+       + juce::String (first + drum::barsPerSection - 1);
+    // scene dot: the section carries a rig snapshot (vNext F6)
+    if (processor.hasScene (index))
+        s += juce::String (juce::CharPointer_UTF8 (" \xe2\x97\x8f"));
+    return s;
+}
+
 void DrumOverlay::rebuildSectionTabs()
 {
     sectionTabs.clear();
@@ -1776,17 +1859,12 @@ void DrumOverlay::rebuildSectionTabs()
     const int playSec = engine.uiBar.load() >= 0
                             ? engine.uiBar.load() / drum::barsPerSection : -1;
 
+    // the label style and the tab pitch MUST come from the same nSec
+    const bool compact = tabRowLayout (nSec).compact;
+
     for (int i = 0; i < nSec; ++i)
     {
-        const auto letter = juce::String::charToString ((juce::juce_wchar) ('A' + i));
-        auto* t = sectionTabs.add (new juce::TextButton (
-            juce::String ("SECTION ") + letter
-            + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))
-            + juce::String (i * 4 + 1) + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93"))
-            + juce::String (i * 4 + 4)
-            // scene dot: the section carries a rig snapshot (vNext F6)
-            + (processor.hasScene (i)
-                   ? juce::String (juce::CharPointer_UTF8 (" \xe2\x97\x8f")) : juce::String())));
+        auto* t = sectionTabs.add (new juce::TextButton (sectionTabText (i, compact)));
         t->getProperties().set ("chip", true);
         t->getProperties().set ("chipActive", i == curSection);
         if (i == playSec && i != curSection)
@@ -2793,8 +2871,31 @@ void DrumOverlay::buildGuitarRibbon()
         grp.last = gtrKnobs.size() - 1;   // < first when name-only
         gtrGroups.push_back (grp);
     }
+    // B1: baseline of the chain this ribbon was built from - timerCallback()
+    // compares it against the processor and calls refreshGuitarRibbon() when a
+    // Scene (or anything else) changes the chain underneath us.
+    gtrRibRigCount = processor.getRigCount();
+    gtrRibOrder = processor.getChainOrder().joinIntoString (",");
+    gtrRibDirty = false;
+
     resized();
     repaint();
+}
+
+//==============================================================================
+// B1: rebuild the guitar ribbon after the chain changed. NEVER while a mouse
+// button is down: buildGuitarRibbon() calls gtrKnobs.clear(), which deletes the
+// KnobComponents - dropping a slider mid-drag crashes, and the reflow under the
+// cursor corrupts the knob value. Same idiom as ChainView::timerCallback()
+// in PluginEditor.cpp; the timer retries every tick until the button is released.
+void DrumOverlay::refreshGuitarRibbon()
+{
+    if (juce::Component::isMouseButtonDownAnywhere())
+    {
+        gtrRibDirty = true;   // retry next tick
+        return;
+    }
+    buildGuitarRibbon();      // clears gtrRibDirty
 }
 
 void DrumOverlay::setupGenerator()
@@ -3461,11 +3562,21 @@ void DrumOverlay::NoteInspector::mouseUp (const juce::MouseEvent& e)
 }
 
 //==============================================================================
-// ---- vNext D2: KIT MIXER (9 strips: trigger meter + LEVEL knob) -------------
+// ---- vNext D2 / B4-UI: KIT MIXER --------------------------------------------
+// 9 piece strips (meter + LEVEL knob) plus a MIX column.
+//   internal sampler -> the piece meters read engine.uiVoicePeak, the REAL
+//                       audio peak of each piece (dBFS, pre module LEVEL);
+//   hosted drum VST3 -> that instance is 0-in/2-out, so per-piece audio simply
+//                       does not exist; the meters fall back to the MIDI
+//                       trigger velocity and say so on screen.
+// The MIX meter reads engine.uiMixPeak (post module LEVEL) and works in both.
+// The engine publishes a raw max-held LINEAR peak and expects the UI to drain
+// it with exchange(0) and own every bit of the ballistics.
 DrumOverlay::KitMixerView::KitMixerView (DrumOverlay& o) : owner (o)
 {
     for (int v = 0; v < drum::numVoices; ++v)
     {
+        db[v] = holdDb[v] = floorDb;
         auto& k = knobs[v];
         k.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         k.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
@@ -3489,73 +3600,232 @@ void DrumOverlay::KitMixerView::syncKnobs()
                            juce::dontSendNotification);
 }
 
-void DrumOverlay::KitMixerView::resized()
+juce::Rectangle<int> DrumOverlay::KitMixerView::stripRect (int i) const
 {
-    const int sw = getWidth() / drum::numVoices;
-    for (int v = 0; v < drum::numVoices; ++v)
-        knobs[v].setBounds (v * sw + (sw - 34) / 2, getHeight() - 48, 34, 34);
+    constexpr int mixW = 96, mixGap = 10;
+    const int body = getHeight() - bannerH;
+    const int sw = juce::jmax (24, (getWidth() - mixW - mixGap) / drum::numVoices);
+    if (i >= drum::numVoices)
+        return { getWidth() - mixW, bannerH, mixW, body };
+    return { i * sw, bannerH, sw, body };
 }
 
-void DrumOverlay::KitMixerView::decayFlashes()
+void DrumOverlay::KitMixerView::resized()
 {
-    bool changed = false;
     for (int v = 0; v < drum::numVoices; ++v)
     {
-        const float hit = owner.engine.uiVoiceFlash[v].exchange (0.0f);
+        const auto s = stripRect (v);
+        knobs[v].setBounds (s.getCentreX() - 17, getHeight() - 48, 34, 34);
+    }
+}
+
+// Drops whatever the engine max-held while the tab was closed, so the first
+// frame after opening the KIT MIXER shows the music playing NOW, not a peak
+// from minutes ago.
+void DrumOverlay::KitMixerView::drainMeters()
+{
+    auto& eng = owner.engine;
+    for (int v = 0; v < drum::numVoices; ++v)
+    {
+        eng.uiVoiceFlash[v].exchange (0.0f);
+        eng.uiVoicePeak[v].exchange (0.0f);
+        flash[v] = 0.0f;
+        db[v] = holdDb[v] = floorDb;
+        holdCnt[v] = 0;
+    }
+    eng.uiMixPeak.exchange (0.0f);
+    mixDb = mixHoldDb = floorDb;
+    mixHoldCnt = 0;
+    fromVst = eng.uiMixFromVst.load();
+    repaint();
+}
+
+void DrumOverlay::KitMixerView::tickMeters()
+{
+    auto& eng = owner.engine;
+
+    // instant attack, ~2.2 dB per tick release at 30 Hz (same ballistics as the
+    // audio settings meters in AudioOverlay), then a short peak hold on top
+    auto toDb = [] (float lin)
+    {
+        return juce::Decibels::gainToDecibels (lin, floorDb);
+    };
+    auto ballistics = [&toDb] (float lin, float& cur, float& hold, int& cnt,
+                               bool& changed)
+    {
+        const float next = juce::jmax (floorDb, juce::jmax (toDb (lin), cur - 2.2f));
+        if (std::abs (next - cur) > 0.05f)
+            changed = true;
+        cur = next;
+
+        if (next >= hold)
+        {
+            hold = next;
+            cnt = 24;                       // ~0.8 s of peak hold
+        }
+        else if (--cnt <= 0)
+        {
+            const float h = juce::jmax (next, hold - 1.2f);
+            if (std::abs (h - hold) > 0.05f)
+                changed = true;
+            hold = h;
+            cnt = 0;
+        }
+    };
+
+    const bool vst = eng.uiMixFromVst.load();   // state flag: load, never drain
+    bool changed = vst != fromVst;
+    fromVst = vst;
+
+    for (int v = 0; v < drum::numVoices; ++v)
+    {
+        // drain BOTH sources every tick: the one the current mode does not use
+        // must not carry a stale max-hold into the moment the mode flips
+        const float hit = eng.uiVoiceFlash[v].exchange (0.0f);
+        const float peak = eng.uiVoicePeak[v].exchange (0.0f);
+
         float f = juce::jmax (flash[v] * 0.80f, hit);
         if (f < 0.01f)
             f = 0.0f;
         if (std::abs (f - flash[v]) > 0.002f)
             changed = true;
         flash[v] = f;
+
+        ballistics (peak, db[v], holdDb[v], holdCnt[v], changed);
     }
+
+    // the drum bus, POST module LEVEL - what the mix actually hears
+    ballistics (eng.uiMixPeak.exchange (0.0f) * eng.level.load(),
+                mixDb, mixHoldDb, mixHoldCnt, changed);
+
     if (changed)
         repaint();
 }
 
 void DrumOverlay::KitMixerView::paint (juce::Graphics& g)
 {
-    const int sw = getWidth() / drum::numVoices;
-    for (int v = 0; v < drum::numVoices; ++v)
+    const bool vst = fromVst;
+
+    // ---- honest banner: says exactly what the 9 piece meters mean right now
     {
-        const juce::Rectangle<float> strip ((float) (v * sw) + 3.0f, 0.0f,
-                                            (float) sw - 6.0f, (float) getHeight());
-        g.setColour (ui::cardBottom);
+        const auto msg = vst
+            ? juce::String (juce::CharPointer_UTF8 (
+                  "PIECE METERS = MIDI TRIGGER VELOCITY \xc2\xb7 a hosted drum "
+                  "VST3 has no per-piece audio \xc2\xb7 MIX = real audio"))
+            : juce::String (juce::CharPointer_UTF8 (
+                  "PIECE METERS = REAL AUDIO PEAK, dBFS (pre LEVEL) \xc2\xb7 "
+                  "MIX = drum bus, post LEVEL"));
+        g.setColour (vst ? ui::glowOrange : ui::textFaint);
+        g.setFont (ui::monoFont (6.8f, true));
+        g.drawText (msg, 4, 0, getWidth() - 8, bannerH - 1,
+                    juce::Justification::centredLeft);
+    }
+
+    const float trackTop = (float) (bannerH + 20);
+    const float trackBot = (float) getHeight() - 54.0f;
+
+    for (int i = 0; i <= drum::numVoices; ++i)      // last one = the MIX column
+    {
+        const bool isMix = i == drum::numVoices;
+        const auto si = stripRect (i);
+        const juce::Rectangle<float> strip ((float) si.getX() + 3.0f,
+                                            (float) si.getY(),
+                                            (float) si.getWidth() - 6.0f,
+                                            (float) si.getHeight());
+        g.setColour (isMix ? ui::cardTop : ui::cardBottom);
         g.fillRoundedRectangle (strip, 4.0f);
-        g.setColour (ui::border());
+        g.setColour (isMix ? ui::borderHover() : ui::border());
         g.drawRoundedRectangle (strip.reduced (0.5f), 4.0f, 1.0f);
 
-        g.setColour (ui::textDim);
+        // amber name in VST mode: the piece strips are triggers, not audio
+        g.setColour (isMix ? ui::accent : (vst ? ui::glowOrange : ui::textDim));
         g.setFont (ui::uiFont (8.5f, true));
-        g.drawText (juce::String (juce::CharPointer_UTF8 (drum::voiceNames[v]))
-                        .toUpperCase(),
+        g.drawText (isMix ? juce::String ("DRUM MIX")
+                          : juce::String (juce::CharPointer_UTF8 (drum::voiceNames[i]))
+                                .toUpperCase(),
                     strip.withHeight (16.0f).toNearestInt(),
                     juce::Justification::centred);
 
-        // vertical meter: flashes with the voice trigger; the thin marker
-        // shows the LEVEL knob position (0..1.5)
-        const juce::Rectangle<float> track (strip.getCentreX() - 3.5f, 20.0f,
-                                            7.0f, (float) getHeight() - 20.0f - 54.0f);
+        const float halfW = isMix ? 5.5f : 3.5f;
+        const juce::Rectangle<float> track (strip.getCentreX() - halfW, trackTop,
+                                            halfW * 2.0f, trackBot - trackTop);
         g.setColour (ui::meterBg);
         g.fillRoundedRectangle (track, 3.0f);
-        const float f = juce::jlimit (0.0f, 1.0f, flash[v]);
-        if (f > 0.01f)
-        {
-            auto fill = track.withTop (track.getBottom() - track.getHeight() * f);
-            g.setGradientFill ({ ui::glowOrange, 0.0f, fill.getY(),
-                                 ui::accent, 0.0f, fill.getBottom(), false });
-            g.fillRoundedRectangle (fill, 3.0f);
-        }
-        const float lvl = juce::jlimit (0.0f, 1.0f,
-                                        (float) knobs[v].getValue() / 1.5f);
-        const float my = track.getBottom() - track.getHeight() * lvl;
-        g.setColour (ui::textFaint);
-        g.fillRect (track.getX() - 2.0f, my - 0.7f, track.getWidth() + 4.0f, 1.4f);
 
-        g.setColour (ui::textFaint);
-        g.setFont (ui::monoFont (6.5f, true));
-        g.drawText ("LEVEL", (int) strip.getX(), getHeight() - 12,
-                    (int) strip.getWidth(), 10, juce::Justification::centred);
+        if (! isMix && vst)
+        {
+            // TRIGGER, not audio: segmented amber ladder inside an amber frame,
+            // deliberately unlike the solid audio meter next to it
+            const float f = juce::jlimit (0.0f, 1.0f, flash[i]);
+            constexpr int nSeg = 12;
+            const float segH = track.getHeight() / (float) nSeg;
+            g.setColour (ui::glowOrange.withAlpha (0.85f));
+            for (int s = 0; s < nSeg; ++s)
+            {
+                if ((float) (s + 1) / (float) nSeg > f)
+                    break;
+                g.fillRect (track.getX(),
+                            track.getBottom() - (float) (s + 1) * segH + 1.0f,
+                            track.getWidth(), juce::jmax (1.0f, segH - 2.0f));
+            }
+            g.setColour (ui::glowOrange.withAlpha (0.45f));
+            g.drawRoundedRectangle (track.reduced (0.5f), 3.0f, 1.0f);
+        }
+        else
+        {
+            // real audio: solid gradient fill + peak-hold tick, dBFS scale
+            const float dbNow = isMix ? mixDb : db[i];
+            const float held = isMix ? mixHoldDb : holdDb[i];
+            const float n = juce::jlimit (0.0f, 1.0f, (dbNow - floorDb) / -floorDb);
+            if (n > 0.002f)
+            {
+                const auto fill = track.withTop (track.getBottom()
+                                                 - track.getHeight() * n);
+                g.setGradientFill ({ ui::glowOrange, 0.0f, track.getY(),
+                                     ui::accent, 0.0f, track.getBottom(), false });
+                g.fillRoundedRectangle (fill, 3.0f);
+            }
+            const float hn = juce::jlimit (0.0f, 1.0f, (held - floorDb) / -floorDb);
+            if (hn > 0.002f)
+            {
+                g.setColour (held > -1.0f ? ui::red : ui::textBright);
+                g.fillRect (track.getX(),
+                            track.getBottom() - track.getHeight() * hn - 0.9f,
+                            track.getWidth(), 1.8f);
+            }
+        }
+
+        if (! isMix)
+        {
+            // thin marker: where the LEVEL knob sits (0..1.5)
+            const float lvl = juce::jlimit (0.0f, 1.0f,
+                                            (float) knobs[i].getValue() / 1.5f);
+            const float my = track.getBottom() - track.getHeight() * lvl;
+            g.setColour (ui::textFaint);
+            g.fillRect (track.getX() - 2.0f, my - 0.7f, track.getWidth() + 4.0f, 1.4f);
+
+            g.setColour (ui::textFaint);
+            g.setFont (ui::monoFont (6.5f, true));
+            g.drawText ("LEVEL", (int) strip.getX(), getHeight() - 12,
+                        (int) strip.getWidth(), 10, juce::Justification::centred);
+        }
+        else
+        {
+            // numeric readout where the piece strips keep their knob
+            g.setColour (ui::textDim);
+            g.setFont (ui::monoFont (9.5f, true));
+            g.drawText (mixDb <= floorDb + 0.1f
+                            ? juce::String ("-inf dB")
+                            : juce::String (mixDb, 1) + " dB",
+                        (int) strip.getX(), getHeight() - 46,
+                        (int) strip.getWidth(), 16, juce::Justification::centred);
+
+            g.setColour (ui::textFaint);
+            g.setFont (ui::monoFont (6.5f, true));
+            g.drawText (juce::String (juce::CharPointer_UTF8 ("PEAK \xc2\xb7 POST LEVEL")),
+                        (int) strip.getX(), getHeight() - 12,
+                        (int) strip.getWidth(), 10, juce::Justification::centred);
+        }
     }
 }
 

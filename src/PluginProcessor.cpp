@@ -988,6 +988,17 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
                 prepareLoadedModel (*p, sampleRate, samplesPerBlock);
     }
     setLatencySamples (maxLatency);
+
+    // A device change must never leave the guitar stuck inside a scene fade:
+    // still apply whatever was queued, then start again at unity gain.
+    if (sceneEnvState.load() != (int) SceneEnv::idle)
+    {
+        if (scenePendingSection.load() >= 0)
+            triggerAsyncUpdate();
+        sceneEnvState.store ((int) SceneEnv::idle);
+    }
+    sceneEnvGain = 1.0f;
+    sceneLastSection = -1;
 }
 
 void GuitarRigNAMProcessor::releaseResources()
@@ -1120,16 +1131,55 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             buffer.addFrom (1, 0, stereoExtra, 0, 0, n, outGain);
     }
 
-    // scenes (vNext F6): short fade-in after a scene lands, masking parameter
-    // and model jumps. Guitar only - the drums keep playing steadily.
-    if (int fadeLeft = sceneFadeLeft.load(); fadeLeft > 0)
+    // scenes (vNext F6): fadeOut -> hold -> fadeIn around a scene change, so
+    // the parameter jump AND the (much later) capture swap both land while the
+    // bus is silent. Guitar only - the drums keep playing steadily.
     {
-        const int total = juce::jmax (1, sceneFadeTotal.load());
-        const float g0 = (float) (total - fadeLeft) / (float) total;
-        const float g1 = (float) juce::jmin (total, total - fadeLeft + n) / (float) total;
-        for (int ch = 0; ch < juce::jmin (2, numOut); ++ch)
-            buffer.applyGainRamp (ch, 0, n, g0, g1);
-        sceneFadeLeft.store (juce::jmax (0, fadeLeft - n));
+        const auto st = (SceneEnv) sceneEnvState.load();
+        if (st != SceneEnv::idle || sceneEnvGain < 1.0f)
+        {
+            const double sr = juce::jmax (8000.0, hostSampleRate.load());
+            const float g0 = sceneEnvGain;
+            float g1 = g0;
+
+            switch (st)
+            {
+                case SceneEnv::fadeOut:
+                    g1 = juce::jmax (0.0f, g0 - (float) (n / (sr * sceneFadeOutSec)));
+                    if (g1 <= 0.0f)
+                    {
+                        sceneHoldLeft.store ((int) (sr * sceneHoldMaxSec));
+                        sceneEnvState.store ((int) SceneEnv::hold);
+                        // silent now: safe for the message thread to swap the rig
+                        triggerAsyncUpdate();
+                    }
+                    break;
+
+                case SceneEnv::hold:
+                {
+                    g1 = 0.0f;
+                    const int left = juce::jmax (0, sceneHoldLeft.load() - n);
+                    sceneHoldLeft.store (left);
+                    // the newest arm has been applied AND every load it fired has
+                    // published (and been swapped in above), or the net ran out
+                    if (left == 0 || (sceneAppliedGen.load() == sceneGen.load()
+                                      && sceneLoadsPending.load() <= 0))
+                        sceneEnvState.store ((int) SceneEnv::fadeIn);
+                    break;
+                }
+
+                case SceneEnv::fadeIn:
+                case SceneEnv::idle:   // aborted envelope: crawl back to unity
+                    g1 = juce::jmin (1.0f, g0 + (float) (n / (sr * sceneFadeInSec)));
+                    if (g1 >= 1.0f && st == SceneEnv::fadeIn)
+                        sceneEnvState.store ((int) SceneEnv::idle);
+                    break;
+            }
+
+            for (int ch = 0; ch < juce::jmin (2, numOut); ++ch)
+                buffer.applyGainRamp (ch, 0, n, g0, g1);
+            sceneEnvGain = g1;
+        }
     }
 
     // guitar stem: the finished guitar bus, BEFORE the drum sum
@@ -2292,23 +2342,75 @@ juce::ValueTree GuitarRigNAMProcessor::captureRigScene()
     return t;
 }
 
+void GuitarRigNAMProcessor::refreshSceneFlags()
+{
+    for (int i = 0; i < drum::maxSections; ++i)
+        sceneArmed[i].store (sceneXml[i].isNotEmpty());
+}
+
 void GuitarRigNAMProcessor::saveSceneForSection (int sec)
 {
     if (sec < 0 || sec >= drum::maxSections)
         return;
     sceneXml[sec] = captureRigScene().toXmlString (
         juce::XmlElement::TextFormat().singleLine());
+    refreshSceneFlags();
 }
 
 void GuitarRigNAMProcessor::clearSceneForSection (int sec)
 {
     if (sec >= 0 && sec < drum::maxSections)
         sceneXml[sec].clear();
+    refreshSceneFlags();
+}
+
+void GuitarRigNAMProcessor::armSceneEnvelope (int sec)
+{
+    // Any thread. Queues the section and starts the fade out; the audio thread
+    // calls back (triggerAsyncUpdate) once the bus is actually silent, and
+    // handleAsyncUpdate does the real work from there.
+    if (sec < 0 || sec >= drum::maxSections)
+        return;
+
+    sceneGen.fetch_add (1);          // invalidates any apply still in progress
+    scenePendingSection.store (sec);
+    sceneEnvState.store ((int) SceneEnv::fadeOut);
 }
 
 void GuitarRigNAMProcessor::applySceneForSection (int sec)
 {
-    // message thread
+    // message thread (UI: Song "APPLY", the RIG menu, NEXT SCENE...). The swap
+    // itself is deferred to applySceneNow, so a manual apply gets exactly the
+    // same anti-click envelope as the automatic one at the bar boundary.
+    if (! hasScene (sec))
+        return;
+
+    armSceneEnvelope (sec);
+
+    // Safety net: with no audio device open processBlock never runs, so the
+    // envelope would never reach silence and the scene would never land.
+    const auto delayMs = (int) (sceneFadeOutSec * 1000.0) + 250;
+    std::weak_ptr<int> alive = sceneLifetime;
+    auto* self = this;
+    juce::Timer::callAfterDelay (delayMs, [self, alive, sec]
+    {
+        if (alive.expired())
+            return;
+        // Still fading out this long after arming = processBlock is not running.
+        // (A running device reaches the hold in sceneFadeOutSec, and the hold
+        // must NOT be cut short - it is what waits for the capture to load.)
+        if (self->sceneEnvState.load() == (int) SceneEnv::fadeOut
+            && self->scenePendingSection.load() == sec)
+        {
+            self->handleAsyncUpdate();
+            self->sceneEnvState.store ((int) SceneEnv::fadeIn);
+        }
+    });
+}
+
+void GuitarRigNAMProcessor::applySceneNow (int sec)
+{
+    // message thread, guitar bus already silent
     if (! hasScene (sec))
         return;
     auto tree = juce::ValueTree::fromXml (sceneXml[sec]);
@@ -2321,13 +2423,8 @@ void GuitarRigNAMProcessor::applySceneForSection (int sec)
             tree.setProperty (key, apvts.state.getProperty (key), nullptr);
 
     applyingSceneNow = true;
-    applyState (tree);
+    applyState (tree);          // fires the async capture loads (sceneLoadsPending)
     applyingSceneNow = false;
-
-    // anti-click: ~30 ms fade-in on the guitar bus after the jump
-    const int fade = juce::jmax (64, (int) (hostSampleRate.load() * 0.03));
-    sceneFadeTotal.store (fade);
-    sceneFadeLeft.store (fade);
 }
 
 juce::String GuitarRigNAMProcessor::sceneSummary (int sec) const
@@ -2362,13 +2459,21 @@ void GuitarRigNAMProcessor::shiftScenesOnSectionRemove (int sec)
     }
     sceneXml[drum::maxSections - 1].clear();
     sceneNames[drum::maxSections - 1].clear();
+    refreshSceneFlags();
 }
 
 void GuitarRigNAMProcessor::handleAsyncUpdate()
 {
+    // Called by the audio thread the moment the guitar bus reaches silence.
+    // The generation is read FIRST: anything armed while applySceneNow runs
+    // bumps it again, so publishing this value cannot release that newer hold.
+    const int gen = sceneGen.load();
     const int sec = scenePendingSection.exchange (-1);
     if (sec >= 0)
-        applySceneForSection (sec);
+        applySceneNow (sec);
+
+    // Released LAST: applySceneNow is what increments sceneLoadsPending.
+    sceneAppliedGen.store (gen);
 }
 
 void GuitarRigNAMProcessor::toggleAB()
@@ -2464,11 +2569,10 @@ void GuitarRigNAMProcessor::processDrums (juce::AudioBuffer<float>& buffer, int 
         if (sec != sceneLastSection)
         {
             sceneLastSection = sec;
-            if (sec >= 0)
-            {
-                scenePendingSection.store (sec);
-                triggerAsyncUpdate();
-            }
+            // sceneArmed mirrors hasScene() (sceneXml is a String - not readable
+            // from here): sections without a scene must not duck the guitar.
+            if (sec >= 0 && sec < drum::maxSections && sceneArmed[sec].load())
+                armSceneEnvelope (sec);
         }
     }
 
@@ -2616,14 +2720,22 @@ void GuitarRigNAMProcessor::loadExternalPluginAsync (int slot, const juce::File&
     juce::MemoryBlock state = stateToRestore != nullptr ? *stateToRestore : juce::MemoryBlock();
     loading.store (true);
 
+    // A scene carries its ext slots too (captureRigScene keeps extPluginPath*),
+    // so this swap has to hold the fade exactly like a capture load does.
+    const bool forScene = applyingSceneNow;
+    if (forScene)
+        sceneLoadsPending.fetch_add (1);
+
     extFormatManager.createPluginInstanceAsync (
         *types[0], hostSampleRate.load(), preparedBlockSize.load(),
-        [this, slot, state, path = file.getFullPathName()]
+        [this, slot, state, forScene, path = file.getFullPathName()]
         (std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error)
         {
             loading.store (false);
             if (instance == nullptr)
             {
+                if (forScene)
+                    sceneLoadsPending.fetch_sub (1);
                 const juce::ScopedLock sl (modelInfoLock);
                 loadError = error.isNotEmpty() ? error : "Failed to instantiate the plugin";
                 return;
@@ -2648,6 +2760,8 @@ void GuitarRigNAMProcessor::loadExternalPluginAsync (int slot, const juce::File&
 
             collectExternalRetired();
             delete extPending[slot].exchange (instance.release());
+            if (forScene)
+                sceneLoadsPending.fetch_sub (1);
         });
 }
 
@@ -2994,8 +3108,14 @@ void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
     }
 
     loading.store (true);
+    // Scene envelope: the guitar stays held until this capture is published -
+    // but ONLY for loads this scene itself fired. An unrelated load (the user
+    // picking a capture from the Store) must not mute the rig.
+    const bool forScene = applyingSceneNow;
+    if (forScene)
+        sceneLoadsPending.fetch_add (1);
 
-    loaderPool.addJob ([this, lane, file]
+    loaderPool.addJob ([this, lane, file, forScene]
     {
         auto lm = std::make_unique<LoadedModel>();
         juce::String error;
@@ -3037,14 +3157,19 @@ void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
 
         if (lm->model == nullptr)
         {
-            const juce::ScopedLock sl (modelInfoLock);
-            loadError = error.isNotEmpty() ? error : "Invalid .nam file";
+            {
+                const juce::ScopedLock sl (modelInfoLock);
+                loadError = error.isNotEmpty() ? error : "Invalid .nam file";
+            }
             loading.store (false);
+            if (forScene)
+                sceneLoadsPending.fetch_sub (1);   // a failed load must release the hold
             return;
         }
 
-        // Architecture (A1/A2 badge): the TONE3000 .meta sidecar takes priority;
-        // without it, we read the "architecture" field from the .nam itself.
+        // Architecture badge, cheap half: the TONE3000 .meta sidecar is a tiny
+        // file, so it stays on the fast path and store captures never show a
+        // blank badge. The expensive fallback runs after the swap, below.
         juce::String archLabel;
         {
             const auto meta = juce::JSON::parse (
@@ -3054,14 +3179,6 @@ void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
                 archLabel = "A2";
             else if (metaArch == "1")
                 archLabel = "A1";
-            else
-            {
-                // A2 = SlimmableContainer format in the .nam file itself
-                const auto namJson = juce::JSON::parse (file.loadFileAsString());
-                const auto arch = namJson.getProperty ("architecture", "").toString();
-                if (arch.isNotEmpty())
-                    archLabel = arch.containsIgnoreCase ("slimmable") ? "A2" : "A1";
-            }
         }
 
         {
@@ -3069,7 +3186,7 @@ void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
             modelNames[lane] = file.getFileNameWithoutExtension();
             modelPaths[lane] = file.getFullPathName();
             modelExpectedSampleRates[lane] = lm->modelSampleRate;
-            modelArchLabels[lane] = archLabel;
+            modelArchLabels[lane] = archLabel;   // "" -> resolved after the swap
             loadError.clear();
         }
 
@@ -3080,10 +3197,31 @@ void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
         if (auto* q = pendingModels[lane].exchange (lm.release()); q != unloadSentinel())
             delete q;
 
+        // Released here on purpose: everything below is cosmetic, and during a
+        // scene change the guitar bus is muted until this counter reaches zero.
+        if (forScene)
+            sceneLoadsPending.fetch_sub (1);
+
         juce::MessageManager::callAsync ([this, latency]
         {
             setLatencySamples (juce::jmax (getLatencySamples(), latency));
         });
+
+        // Architecture badge, expensive half: with no sidecar we have to parse
+        // the whole multi-MB .nam a SECOND time (A2 = SlimmableContainer), so
+        // it deliberately runs after the swap - it is only a label.
+        if (archLabel.isEmpty())
+        {
+            const auto namJson = juce::JSON::parse (file.loadFileAsString());
+            const auto arch = namJson.getProperty ("architecture", "").toString();
+            if (arch.isNotEmpty())
+            {
+                const juce::ScopedLock sl (modelInfoLock);
+                // only if the lane still holds this capture (a newer load may have won)
+                if (modelPaths[lane] == file.getFullPathName())
+                    modelArchLabels[lane] = arch.containsIgnoreCase ("slimmable") ? "A2" : "A1";
+            }
+        }
 
         loading.store (false);
     });
@@ -3626,6 +3764,7 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
             sceneXml[i] = state.getProperty ("sceneRig" + juce::String (i + 1), "").toString();
             sceneNames[i] = state.getProperty ("sceneName" + juce::String (i + 1), "").toString();
         }
+        refreshSceneFlags();
         for (int v = 0; v < drum::numVoices; ++v)
             drumEngine.voiceGain[v].store ((float) (double) state.getProperty (
                 "drumVoiceGain" + juce::String (v + 1), 1.0));

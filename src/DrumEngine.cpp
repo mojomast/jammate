@@ -3,6 +3,8 @@
 #include <BinaryData.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 
+#include <cmath>
+
 namespace drum
 {
 
@@ -78,6 +80,20 @@ void parseSpec (const Groove& g, juce::uint8 out[numVoices][maxStepsPerBar])
 } // namespace drum
 
 //==============================================================================
+/// Lock-free "max-hold" publish for a meter: keeps the loudest value seen since
+/// the UI last drained it. std::atomic<float> has no fetch_max, so this is a
+/// relaxed CAS loop - it runs at most once per voice per BLOCK (never per
+/// sample) and the only other writer is the UI's exchange (0), so it settles
+/// after one iteration in practice.
+static inline void publishPeak (std::atomic<float>& dest, float v) noexcept
+{
+    float cur = dest.load (std::memory_order_relaxed);
+    while (v > cur && ! dest.compare_exchange_weak (cur, v, std::memory_order_relaxed))
+    {
+    }
+}
+
+//==============================================================================
 void DrumEngine::prepare (double sampleRate, int)
 {
     sr = juce::jmax (8000.0, sampleRate);
@@ -98,6 +114,10 @@ void DrumEngine::prepare (double sampleRate, int)
     anyVoiceActive.store (false);
     uiStep.store (-1);
     uiBar.store (-1);
+    for (auto& p : uiVoicePeak)
+        p.store (0.0f);
+    uiMixPeak.store (0.0f);
+    uiMixFromVst.store (false);
 }
 
 double DrumEngine::stepLenSamples (int stepIdx) const
@@ -372,6 +392,12 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
         vst->processBlock (out, midi);
 
     // sampler interno (samples reais/síntese + clique) soma por cima
+    //
+    // REAL per-piece metering: each voice accumulates its own peak in a STACK
+    // array while it is being summed, and the whole thing is published once at
+    // the end of the block (no atomic operation per sample).
+    float voicePk[drum::numVoices] = {};
+
     bool any = false;
     float* L = out.getWritePointer (0);
     float* R = out.getWritePointer (1);
@@ -386,6 +412,10 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
         const float pan = pans[juce::jlimit (0, 10, v.type)];
         const float gl = juce::jmin (1.0f, 1.0f - pan);
         const float gr = juce::jmin (1.0f, 1.0f + pan);
+
+        // peak of THIS voice over the block (types 9/10 are the click, which is
+        // not a kit piece and has no meter)
+        float pk = 0.0f;
 
         if (v.layer != nullptr)
         {
@@ -409,8 +439,11 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
                 const float a = sl[i0] + (sl[i0 + 1] - sl[i0]) * frac;
                 const float b = sr2[i0] + (sr2[i0 + 1] - sr2[i0]) * frac;
                 const float gain = v.vel * v.fadeGain;
-                L[i] += (stereo ? a : a * gl) * gain;
-                R[i] += (stereo ? b : b * gr) * gain;
+                const float ls = (stereo ? a : a * gl) * gain;
+                const float rs = (stereo ? b : b * gr) * gain;
+                L[i] += ls;
+                R[i] += rs;
+                pk = juce::jmax (pk, std::abs (ls), std::abs (rs));
                 v.pos += ratio;
                 if (v.fading)
                 {
@@ -422,16 +455,34 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
         }
         else
         {
+            const float gm = juce::jmax (gl, gr);
             for (int i = 0; i < n && v.active; ++i)
             {
                 if (v.delay > 0) { --v.delay; continue; }
                 const float s = synthSample (v);
                 L[i] += s * gl;
                 R[i] += s * gr;
+                pk = juce::jmax (pk, std::abs (s) * gm);
             }
         }
+
+        if (v.type >= 0 && v.type < drum::numVoices)
+            voicePk[v.type] = juce::jmax (voicePk[v.type], pk);
     }
     anyVoiceActive.store (any);
+
+    // ---- publish the REAL levels for the UI meters (max-hold, UI drains) ----
+    for (int v = 0; v < drum::numVoices; ++v)
+        if (voicePk[v] > 0.0f)
+            publishPeak (uiVoicePeak[v], voicePk[v]);
+
+    // whole drum bus, measured AFTER everything was summed - so it covers the
+    // hosted VST3 too, the only level that exists in that mode
+    const float mixPk = juce::jmax (out.getMagnitude (0, 0, n),
+                                    out.getMagnitude (1, 0, n));
+    if (mixPk > 0.0f)
+        publishPeak (uiMixPeak, mixPk);
+    uiMixFromVst.store (vst != nullptr);
 }
 
 //==============================================================================

@@ -168,3 +168,18 @@ target_link_libraries(GuitarRigNAM
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)
+
+# --- Unit tests (opt-in) ------------------------------------------------------
+# OFF by default: the normal build is untouched and the test target never even
+# exists (so it can never end up in ALL_BUILD). To run them, use a SEPARATE
+# build directory:
+#   cmake -B build-tests -DPEDALFORGE_BUILD_TESTS=ON
+#   cmake --build build-tests --config Release --target PedalForgeTests
+#   ctest --test-dir build-tests -C Release --output-on-failure
+# See tests/README.md.
+option(PEDALFORGE_BUILD_TESTS "Build the unit tests" OFF)
+
+if(PEDALFORGE_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

@@ -163,6 +163,23 @@ SongOverlay::SongOverlay (GuitarRigNAMProcessor& p) : processor (p)
         repaint();
     };
     addChildComponent (addSongBtn);   // shown only while onAddSong is wired
+
+    // scrolling columns (same pattern as the drum browser columns): the setlist
+    // scrolls vertically, the scene strip horizontally. Without keyboard-focus
+    // grabbing, so ESC keeps closing the screen after a click inside them.
+    setlistVp.setViewedComponent (&setlistContent, false);
+    setlistVp.setScrollBarsShown (true, false);
+    setlistVp.setScrollBarThickness (7);
+    setlistVp.setMouseClickGrabsKeyboardFocus (false);
+    setlistContent.setMouseClickGrabsKeyboardFocus (false);
+    addAndMakeVisible (setlistVp);
+
+    sceneVp.setViewedComponent (&sceneContent, false);
+    sceneVp.setScrollBarsShown (false, true);
+    sceneVp.setScrollBarThickness (7);
+    sceneVp.setMouseClickGrabsKeyboardFocus (false);
+    sceneContent.setMouseClickGrabsKeyboardFocus (false);
+    addAndMakeVisible (sceneVp);
 }
 
 SongOverlay::~SongOverlay() = default;
@@ -266,8 +283,25 @@ void SongOverlay::rebuildScenes()
     selSection = juce::jlimit (0, nSec - 1, selSection);
     for (int i = 0; i < nSec; ++i)
         sceneCards.push_back ({ {}, i });
-    resized();
+    resized();              // also sizes the strip content (scrollable extent)
+    ensureSceneVisible();
     refreshInspector();
+}
+
+// keeps the selected card inside the strip's visible window (a freshly added
+// scene lands past the right edge once the cards stop fitting)
+void SongOverlay::ensureSceneVisible()
+{
+    if (selSection < 0 || selSection >= (int) sceneCards.size())
+        return;
+    const auto b = sceneCards[(size_t) selSection].bounds;
+    const int vw = juce::jmax (1, sceneVp.getMaximumVisibleWidth());
+    int x = sceneVp.getViewPositionX();
+    if (b.getRight() > x + vw)
+        x = b.getRight() - vw;
+    if (b.getX() < x)
+        x = b.getX();
+    sceneVp.setViewPosition (juce::jmax (0, x), 0);
 }
 
 void SongOverlay::refreshInspector()
@@ -307,31 +341,48 @@ void SongOverlay::resized()
     closeBtn.setBounds (W - 46, 14, 32, 32);
     saveSongBtn.setBounds (W - 46 - 8 - 96, 16, 96, 28);
 
-    // setlist items + ADD SONG footer button
+    // setlist: scrolling item list + a fixed ADD SONG button under it. The
+    // viewport only grows until the button's slot, so ADD SONG never falls off
+    // (with a short list the viewport hugs the items and nothing moves).
     {
-        int y = kTopH + 40;
+        constexpr int itemH = 50, step = 56, addH = 30;
+        const int top = kTopH + 40;
+        const int bottom = H - kTransportH - 6;          // column's usable bottom
+        const int fullH = step * (int) setlist.size();   // items + trailing gap
+        const int maxH = juce::jmax (0, bottom - (addH + 2) - top);
+        const int vpH = juce::jmin (fullH, maxH);
+        const bool scrolls = fullH > vpH;
+        const int vpW = kSetlistW - 28;
+        const int cw = juce::jmax (1, vpW - (scrolls ? 10 : 0));   // room for the bar
+        setlistVp.setBounds (14, top, vpW, vpH);
+        setlistContent.setSize (cw, juce::jmax (1, fullH));
+        int y = 0;
         for (auto& it : setlist)
         {
-            it.bounds = { 14, y, kSetlistW - 28, 50 };
-            y += 56;
+            it.bounds = { 0, y, cw, itemH };   // relative to the content
+            y += step;
         }
-        const bool fits = y + 30 <= H - kTransportH - 6;
-        addSongBtn.setVisible (onAddSong != nullptr && fits);
-        addSongBtn.setBounds (14, y + 2, kSetlistW - 28, 30);
+        addSongBtn.setVisible (onAddSong != nullptr);
+        addSongBtn.setBounds (14, top + vpH + 2, vpW, addH);
     }
 
-    // scene cards (equal split with a sensible minimum, like the mockup)
+    // scene cards (equal split with a sensible minimum, like the mockup) inside
+    // a horizontally scrolling strip that stops short of the inspector column
     {
         const int x0 = kSetlistW + 17, x1 = W - kInspectorW - 17;
         const int n = juce::jmax (1, (int) sceneCards.size());
         const int gap = 8;
-        const int cw = juce::jmax (125, ((x1 - x0) - gap * (n - 1)) / n);
-        int x = x0;
+        const int avail = juce::jmax (10, x1 - x0);
+        const int cw = juce::jmax (125, (avail - gap * (n - 1)) / n);
+        sceneVp.setBounds (x0, kTopH + 46, avail, kCardH + 9);   // +9: scrollbar row
+        int x = 0;
         for (auto& c : sceneCards)
         {
-            c.bounds = { x, kTopH + 46, cw, kCardH };
+            c.bounds = { x, 0, cw, kCardH };   // relative to the content
             x += cw + gap;
         }
+        const int used = sceneCards.empty() ? 0 : x - gap;
+        sceneContent.setSize (juce::jmax (avail, used), kCardH);
     }
 
     // inspector
@@ -407,27 +458,7 @@ void SongOverlay::paint (juce::Graphics& g)
     g.drawText (juce::String (juce::CharPointer_UTF8 ("SETLIST \xc2\xb7 PRESETS")),
                 14, kTopH + 12, kSetlistW - 28, 14, juce::Justification::centredLeft);
 
-    for (const auto& it : setlist)
-    {
-        if (it.bounds.getBottom() > H - kTransportH - 6)
-            continue;   // simple clip; long lists scroll in a later pass
-        auto b = it.bounds.toFloat();
-        g.setColour (it.current ? ui::accent.withAlpha (0.10f) : ui::cardBottom);
-        g.fillRoundedRectangle (b, 6.0f);
-        g.setColour (it.current ? ui::accent : ui::border());
-        g.drawRoundedRectangle (b.reduced (0.5f), 6.0f, 1.0f);
-        g.setColour (ui::text);
-        g.setFont (ui::uiFont (12.0f, true));
-        g.drawText (it.name, it.bounds.getX() + 10, it.bounds.getY() + 8,
-                    it.bounds.getWidth() - 20, 15, juce::Justification::centredLeft);
-        g.setColour (ui::textDim);
-        g.setFont (ui::monoFont (9.0f));
-        auto meta = juce::String (it.scenes) + " scenes";
-        if (it.bpm > 0)
-            meta += juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 ")) + juce::String (it.bpm) + " BPM";
-        g.drawText (meta, it.bounds.getX() + 10, it.bounds.getY() + 27,
-                    it.bounds.getWidth() - 20, 12, juce::Justification::centredLeft);
-    }
+    // (the setlist items themselves are painted by setlistContent)
 
     // ---- inspector column
     const int ix = W - kInspectorW;
@@ -483,7 +514,8 @@ void SongOverlay::paint (juce::Graphics& g)
                + juce::String (selSection * 4 + 1) + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93"))
                + juce::String (selSection * 4 + 4));
         label ("ON SCENE ENTER");
-        value (juce::String (juce::CharPointer_UTF8 ("At bar start \xc2\xb7 30 ms fade")));
+        value (juce::String (juce::CharPointer_UTF8 (
+            "At bar start \xc2\xb7 muted until the capture loads")));
     }
 
     // ---- arrangement header
@@ -500,85 +532,7 @@ void SongOverlay::paint (juce::Graphics& g)
                     juce::Justification::centredRight);
     }
 
-    // ---- scene cards
-    const int playSec = processor.drumEngine.uiBar.load() >= 0
-                            ? processor.drumEngine.uiBar.load() / drum::barsPerSection : -1;
-    for (const auto& c : sceneCards)
-    {
-        auto b = c.bounds.toFloat();
-        const bool on = c.section == selSection;
-        g.setColour (ui::cardBottom);
-        g.fillRoundedRectangle (b, 8.0f);
-        g.setColour (on ? ui::accent : (c.section == playSec ? ui::glowOrange : ui::border()));
-        g.drawRoundedRectangle (b.reduced (0.5f), 8.0f, on ? 1.5f : 1.0f);
-        if (on)
-        {
-            g.setColour (ui::accent);
-            g.fillRoundedRectangle (b.getX() + 1, b.getY() + 1, b.getWidth() - 2, 3.0f, 1.5f);
-        }
-
-        const int x = c.bounds.getX() + 12;
-        g.setColour (ui::textDim);
-        g.setFont (ui::monoFont (8.0f, true));
-        g.drawText ("0" + juce::String (c.section + 1)
-                        + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 BARS "))
-                        + juce::String (c.section * 4 + 1)
-                        + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93"))
-                        + juce::String (c.section * 4 + 4),
-                    x, c.bounds.getY() + 12, c.bounds.getWidth() - 24, 11,
-                    juce::Justification::centredLeft);
-        // h4 = scene name when set (mockup "VERSE"/"WIDE RHYTHM"); the section's
-        // paper name (Verse/Chorus) then drops to a small subtitle underneath
-        const auto sceneNm = processor.getSceneName (c.section).trim();
-        const bool named = sceneNm.isNotEmpty();
-        g.setColour (ui::text);
-        g.setFont (ui::uiFont (14.0f, true));
-        g.drawText (named ? sceneNm.toUpperCase() : sectionName (c.section).toUpperCase(),
-                    x, c.bounds.getY() + 28,
-                    c.bounds.getWidth() - 24, 18, juce::Justification::centredLeft);
-        if (named)
-        {
-            g.setColour (ui::textDim);
-            g.setFont (ui::uiFont (9.5f));
-            g.drawText (sectionName (c.section), x, c.bounds.getY() + 47,
-                        c.bounds.getWidth() - 24, 12, juce::Justification::centredLeft);
-        }
-        const int meterY = c.bounds.getY() + (named ? 62 : 52);
-        g.setColour (ui::text);
-        g.setFont (ui::monoFont (24.0f, true));
-        g.drawText (sectionMeter (c.section), x, meterY,
-                    c.bounds.getWidth() - 24, 30, juce::Justification::centredLeft);
-        if (c.section == playSec)
-        {
-            g.setColour (ui::glowOrange);
-            g.setFont (ui::monoFont (8.0f, true));
-            g.drawText ("PLAYING", x, meterY + 36, c.bounds.getWidth() - 24, 11,
-                        juce::Justification::centredLeft);
-        }
-
-        // rig snapshot box at the bottom of the card
-        auto snap = juce::Rectangle<float> (b.getX() + 10, b.getBottom() - 62,
-                                            b.getWidth() - 20, 52.0f);
-        g.setColour (ui::chainBottom);
-        g.fillRoundedRectangle (snap, 5.0f);
-        g.setColour (ui::border());
-        g.drawRoundedRectangle (snap.reduced (0.5f), 5.0f, 1.0f);
-        const auto& sum = sceneSummaryCache[c.section];
-        g.setFont (ui::uiFont (10.0f, true));
-        g.setColour (sum.isNotEmpty() ? ui::text : ui::textFaint);
-        // mockup rigsnap: <b> is the scene name when it has one ("RHYTHM")
-        g.drawText (sum.isNotEmpty() ? (named ? sceneNm.toUpperCase()
-                                              : juce::String ("RIG SNAPSHOT"))
-                                     : juce::String ("NO SNAPSHOT"),
-                    (int) snap.getX() + 8, (int) snap.getY() + 8,
-                    (int) snap.getWidth() - 16, 12, juce::Justification::centredLeft);
-        g.setFont (ui::monoFont (8.0f));
-        g.setColour (sum.isNotEmpty() ? ui::accentBright : ui::textDim);
-        g.drawText (sum.isNotEmpty() ? sum
-                                     : juce::String ("select and CAPTURE CURRENT RIG"),
-                    (int) snap.getX() + 8, (int) snap.getY() + 26,
-                    (int) snap.getWidth() - 16, 12, juce::Justification::centredLeft);
-    }
+    // (the scene cards themselves are painted by sceneContent)
 
     // ---- transport
     g.setGradientFill ({ ui::barTop, 0.0f, (float) (H - kTransportH),
@@ -610,27 +564,140 @@ void SongOverlay::paint (juce::Graphics& g)
     }
 }
 
-void SongOverlay::mouseDown (const juce::MouseEvent& e)
+//==============================================================================
+// setlist content (inside the vertical viewport)
+void SongOverlay::SetlistContent::paint (juce::Graphics& g)
 {
-    for (const auto& c : sceneCards)
-        if (c.bounds.contains (e.getPosition()))
-        {
-            selSection = c.section;
-            refreshInspector();
-            repaint();
-            return;
-        }
+    for (const auto& it : owner.setlist)
+    {
+        auto b = it.bounds.toFloat();
+        g.setColour (it.current ? ui::accent.withAlpha (0.10f) : ui::cardBottom);
+        g.fillRoundedRectangle (b, 6.0f);
+        g.setColour (it.current ? ui::accent : ui::border());
+        g.drawRoundedRectangle (b.reduced (0.5f), 6.0f, 1.0f);
+        g.setColour (ui::text);
+        g.setFont (ui::uiFont (12.0f, true));
+        g.drawText (it.name, it.bounds.getX() + 10, it.bounds.getY() + 8,
+                    it.bounds.getWidth() - 20, 15, juce::Justification::centredLeft);
+        g.setColour (ui::textDim);
+        g.setFont (ui::monoFont (9.0f));
+        auto meta = juce::String (it.scenes) + " scenes";
+        if (it.bpm > 0)
+            meta += juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 ")) + juce::String (it.bpm) + " BPM";
+        g.drawText (meta, it.bounds.getX() + 10, it.bounds.getY() + 27,
+                    it.bounds.getWidth() - 20, 12, juce::Justification::centredLeft);
+    }
+}
 
-    for (const auto& it : setlist)
+void SongOverlay::SetlistContent::mouseDown (const juce::MouseEvent& e)
+{
+    for (const auto& it : owner.setlist)
         if (it.bounds.contains (e.getPosition()))
         {
-            processor.loadPreset (it.file);
-            selSection = 0;
-            refreshSummaries();
-            refreshDirtyFlag();
-            rebuildSetlist();
-            rebuildScenes();
-            repaint();
+            const auto file = it.file;   // rebuildSetlist() below clears the vector
+            owner.processor.loadPreset (file);
+            owner.selSection = 0;
+            owner.refreshSummaries();
+            owner.refreshDirtyFlag();
+            owner.rebuildSetlist();
+            owner.rebuildScenes();
+            owner.repaint();   // children (this one included) repaint with it
+            return;
+        }
+}
+
+//==============================================================================
+// scene strip content (inside the horizontal viewport)
+void SongOverlay::SceneStripContent::paint (juce::Graphics& g)
+{
+    const int playSec = owner.processor.drumEngine.uiBar.load() >= 0
+                            ? owner.processor.drumEngine.uiBar.load() / drum::barsPerSection : -1;
+    for (const auto& c : owner.sceneCards)
+    {
+        auto b = c.bounds.toFloat();
+        const bool on = c.section == owner.selSection;
+        g.setColour (ui::cardBottom);
+        g.fillRoundedRectangle (b, 8.0f);
+        g.setColour (on ? ui::accent : (c.section == playSec ? ui::glowOrange : ui::border()));
+        g.drawRoundedRectangle (b.reduced (0.5f), 8.0f, on ? 1.5f : 1.0f);
+        if (on)
+        {
+            g.setColour (ui::accent);
+            g.fillRoundedRectangle (b.getX() + 1, b.getY() + 1, b.getWidth() - 2, 3.0f, 1.5f);
+        }
+
+        const int x = c.bounds.getX() + 12;
+        g.setColour (ui::textDim);
+        g.setFont (ui::monoFont (8.0f, true));
+        g.drawText ("0" + juce::String (c.section + 1)
+                        + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 BARS "))
+                        + juce::String (c.section * 4 + 1)
+                        + juce::String (juce::CharPointer_UTF8 ("\xe2\x80\x93"))
+                        + juce::String (c.section * 4 + 4),
+                    x, c.bounds.getY() + 12, c.bounds.getWidth() - 24, 11,
+                    juce::Justification::centredLeft);
+        // h4 = scene name when set (mockup "VERSE"/"WIDE RHYTHM"); the section's
+        // paper name (Verse/Chorus) then drops to a small subtitle underneath
+        const auto sceneNm = owner.processor.getSceneName (c.section).trim();
+        const bool named = sceneNm.isNotEmpty();
+        g.setColour (ui::text);
+        g.setFont (ui::uiFont (14.0f, true));
+        g.drawText (named ? sceneNm.toUpperCase() : owner.sectionName (c.section).toUpperCase(),
+                    x, c.bounds.getY() + 28,
+                    c.bounds.getWidth() - 24, 18, juce::Justification::centredLeft);
+        if (named)
+        {
+            g.setColour (ui::textDim);
+            g.setFont (ui::uiFont (9.5f));
+            g.drawText (owner.sectionName (c.section), x, c.bounds.getY() + 47,
+                        c.bounds.getWidth() - 24, 12, juce::Justification::centredLeft);
+        }
+        const int meterY = c.bounds.getY() + (named ? 62 : 52);
+        g.setColour (ui::text);
+        g.setFont (ui::monoFont (24.0f, true));
+        g.drawText (owner.sectionMeter (c.section), x, meterY,
+                    c.bounds.getWidth() - 24, 30, juce::Justification::centredLeft);
+        if (c.section == playSec)
+        {
+            g.setColour (ui::glowOrange);
+            g.setFont (ui::monoFont (8.0f, true));
+            g.drawText ("PLAYING", x, meterY + 36, c.bounds.getWidth() - 24, 11,
+                        juce::Justification::centredLeft);
+        }
+
+        // rig snapshot box at the bottom of the card
+        auto snap = juce::Rectangle<float> (b.getX() + 10, b.getBottom() - 62,
+                                            b.getWidth() - 20, 52.0f);
+        g.setColour (ui::chainBottom);
+        g.fillRoundedRectangle (snap, 5.0f);
+        g.setColour (ui::border());
+        g.drawRoundedRectangle (snap.reduced (0.5f), 5.0f, 1.0f);
+        const auto& sum = owner.sceneSummaryCache[c.section];
+        g.setFont (ui::uiFont (10.0f, true));
+        g.setColour (sum.isNotEmpty() ? ui::text : ui::textFaint);
+        // mockup rigsnap: <b> is the scene name when it has one ("RHYTHM")
+        g.drawText (sum.isNotEmpty() ? (named ? sceneNm.toUpperCase()
+                                              : juce::String ("RIG SNAPSHOT"))
+                                     : juce::String ("NO SNAPSHOT"),
+                    (int) snap.getX() + 8, (int) snap.getY() + 8,
+                    (int) snap.getWidth() - 16, 12, juce::Justification::centredLeft);
+        g.setFont (ui::monoFont (8.0f));
+        g.setColour (sum.isNotEmpty() ? ui::accentBright : ui::textDim);
+        g.drawText (sum.isNotEmpty() ? sum
+                                     : juce::String ("select and CAPTURE CURRENT RIG"),
+                    (int) snap.getX() + 8, (int) snap.getY() + 26,
+                    (int) snap.getWidth() - 16, 12, juce::Justification::centredLeft);
+    }
+}
+
+void SongOverlay::SceneStripContent::mouseDown (const juce::MouseEvent& e)
+{
+    for (const auto& c : owner.sceneCards)
+        if (c.bounds.contains (e.getPosition()))
+        {
+            owner.selSection = c.section;
+            owner.refreshInspector();
+            owner.repaint();   // children (this one included) repaint with it
             return;
         }
 }
