@@ -1642,10 +1642,24 @@ void StoreOverlay::setSplashVisible (bool v)
     splashVisible = v;
     splashContinue.setVisible (v);
     splashCancel.setVisible (v);
+    // The notice is drawn in paint(), and JUCE draws children AFTER the parent -
+    // so the card grid sat on top of it. Hide the grid (and the header controls
+    // it dims) while the notice owns the screen; only its own buttons stay.
+    viewport.setVisible (! v);
     if (v)
     {
+        for (auto* c : std::initializer_list<juce::Component*> {
+                 &browseButton, &changeKeyButton, &filtersChip, &connectButton, &userChip })
+            c->setVisible (false);
+        for (auto* chip : gearChips)
+            chip->setVisible (false);
         splashContinue.toFront (false);
         splashCancel.toFront (false);
+    }
+    else
+    {
+        updateHeaderState();   // restores whatever should be showing
+        setTab (tab);
     }
     resized();
     repaint();
