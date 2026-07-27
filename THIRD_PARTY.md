@@ -74,11 +74,97 @@ The internal drum sampler uses the samples of **GMRockKit** (see also
   See `assets/fonts/Leland-OFL.txt` and
   <https://github.com/musescore/MuseScore/tree/main/fonts/leland>.
 
+## Adapted DSP code — Airwindows (MIT)
+
+Three effects are **ports of Airwindows code**, not merely inspired by it:
+**Tape** (from ToTape/IronOxide), **Console**, and the **Valve** variation of
+Drive (from Tube). Airwindows is by Chris Johnson and is released under MIT,
+which requires this notice to travel with the software.
+
+- **Source:** Airwindows — Chris Johnson <https://github.com/airwindows/airwindows>
+- **License:** MIT
+- **Notice:**
+
+  ```
+  MIT License
+
+  Copyright (c) Chris Johnson / Airwindows
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ```
+
+> The copyright line above names the author; when in doubt, the authoritative
+> text is the `LICENSE` file in the upstream repository at the pinned commit.
+
+## Study references — where the ideas came from
+
+`docs/EFEITOS.md` is the honest, per-effect map: for **every** effect it records
+the classic gear the variation chases, the open-source project read to study
+topology and parameter ranges, and what actually runs in the code. Anything that
+is a **port** of someone else's code is labelled as such there — everything else
+is DSP written for this project (`juce::dsp`, RBJ biquads) after reading the
+references.
+
+The projects studied are pinned as submodules under `references/` and are **not
+compiled into, linked against, or shipped with** this program:
+
+| Project | License | Read for |
+|---|---|---|
+| [Airwindows](https://github.com/airwindows/airwindows) | MIT | Ring Mod, Bitcrusher, Exciter, modulation — **and the three ports above** |
+| [BYOD](https://github.com/Chowdhury-DSP/BYOD) | GPLv3 | drive stages |
+| [Dragonfly Reverb](https://github.com/michaelwillis/dragonfly-reverb) | GPLv3 | reverb |
+| [Guitarix](https://github.com/brummer10/guitarix) | GPLv2-or-later | slow gear, wah, drive, modulation |
+| [GxPlugins.lv2](https://github.com/brummer10/GxPlugins.lv2) | GPL | drive, modulation |
+| [LSP Plugins](https://github.com/lsp-plugins/lsp-plugins) | GPLv3 | compressor, de-esser |
+| [rkrlv2](https://github.com/ssj71/rkrlv2) (Rakarrack port) | GPLv2 | pitch shifter, harmonizer |
+| [ToobAmp](https://github.com/rerdavies/ToobAmp) | GPLv3 | gate, pre-EQ, modulation |
+
+Reading source to learn a technique is not copying it: algorithms and topologies
+are not covered by copyright, only the concrete expression is. That distinction
+is the reason `docs/EFEITOS.md` separates "study" from "port" — so the line is
+auditable rather than a claim. If you believe something crossed that line, open
+an issue and it will be corrected or removed.
+
 ## Built-in VST3 plugin catalog
 
-The catalog (Tone Store → Plugins tab) only **downloads from the official
-releases** and extracts the `.vst3`; each plugin keeps its own license (GPLv3,
-MIT, GPLv2+). See `plugins/README.md` for the list, versions and official sources.
+The in-app installer (Tone Store → Plugins tab) **downloads from each project's
+official release** and extracts the `.vst3`; each plugin keeps its own license.
+See `plugins/README.md` for the list, versions and official sources.
+
+`plugins/offline/` additionally **ships three release zips inside this
+repository** as a fallback for machines without internet: Airwindows (MIT),
+Dragonfly Reverb (GPLv3) and Zam Plugins (GPLv2-or-later). Redistributing GPL
+**binaries** carries the obligation to make the corresponding source available
+to whoever receives them. The upstream sources for the exact pinned versions are
+linked in `plugins/README.md`, and no modification was made to any of them.
+
+## TONE3000
+
+The Tone Store talks to the public TONE3000 API under its **free,
+non-commercial tier**, using the OAuth prompt flows and bounded list endpoints
+that tier allows. Each user supplies their own publishable key — **no credential
+ships in this repository**.
+
+**PedalForge NAM is not affiliated with, sponsored by, or endorsed by
+TONE3000.** The TONE3000 name and logos belong to them and are used only to
+identify the service, following their published design guidance.
+See <https://www.tone3000.com/api>.
 
 ## Interface ideas
 

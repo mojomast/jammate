@@ -76,10 +76,13 @@ The API requires your own key (free):
 
 1. Create an account at [tone3000.com](https://www.tone3000.com) → Settings → API Keys
 2. Register the redirect `http://localhost:53682/callback`
-3. Paste the key (`t3k_pub_…`) into `Documents\PedalForge NAM\tone3000.json` (the app creates the template)
-4. In the app: Tone Store → **Connect TONE3000**
+3. In the app: **Tone Store → paste the key → Save key**, then **Connect TONE3000**
+
+Everyone uses their **own** key, so your downloads and your rate limit are yours and no credential ships in this repository.
 
 > ⚠️ **Security**: `tone3000.json` holds your key and your account's refresh token. It lives in `Documents\PedalForge NAM\` — **outside this repository** — and must never be committed anywhere.
+
+PedalForge uses the public TONE3000 API under its **free, non-commercial tier**: the OAuth prompt flows and the bounded list endpoints that tier allows. **This project is not affiliated with, sponsored by, or endorsed by TONE3000.**
 
 ## 📁 Structure
 
@@ -191,6 +194,16 @@ User data (outside the repo): `Documents\PedalForge NAM\` — `Captures/`, `IRs/
 ## 🤝 Contributing
 
 Contributions are welcome! Read **[CONTRIBUTING.md](CONTRIBUTING.md)** (build, code map, real-time safety rules and known MSVC/JUCE pitfalls) and use the issue/PR templates. Unchecked roadmap items are a great starting point.
+
+## 🔍 Where the ideas came from
+
+This project stands on open-source work and says so precisely, rather than in general terms.
+
+- **[`docs/EFEITOS.md`](docs/EFEITOS.md)** — the per-effect map. For **every** effect it records three layers: the classic gear the variation chases, the open-source project read to study topology and parameter ranges, and what actually runs in the code. Anything that is a **port** of someone else's code is labelled as a port; everything else is DSP written here after reading the references.
+- **[`THIRD_PARTY.md`](THIRD_PARTY.md)** — every third-party material with its license and required attribution: adapted Airwindows code (MIT), drum grooves (CC BY 4.0 / MIT), the GMRockKit samples (GPL), the fonts (OFL), and the projects studied.
+- **[`references/`](references/README.md)** — the eight studied projects, pinned as submodules. They are **not compiled into, linked against, or shipped with** the program; they are there so any claim above can be checked.
+
+Reading source to learn a technique is not copying it — algorithms are not covered by copyright, only their concrete expression. That is exactly why "study" and "port" are separated per effect instead of asserted in bulk: the line is auditable. **If you think something crossed it, open an issue** and it will be corrected or removed.
 
 ## 📜 Licenses
 
