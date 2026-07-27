@@ -325,16 +325,6 @@ juce::String SongOverlay::sectionName (int sec) const
     return "Section " + juce::String::charToString ((juce::juce_wchar) ('A' + sec));
 }
 
-juce::String SongOverlay::sectionMeter (int sec) const
-{
-    for (int b = sec * drum::barsPerSection;
-         b < (sec + 1) * drum::barsPerSection && b < drum::maxBars; ++b)
-        if (processor.drumEngine.barUsed[b].load())
-            return juce::String (processor.drumEngine.meterNum (b)) + "/"
-                   + juce::String (processor.drumEngine.meterDen (b));
-    return "4/4";
-}
-
 void SongOverlay::resized()
 {
     const int W = getWidth(), H = getHeight();
@@ -652,17 +642,54 @@ void SongOverlay::SceneStripContent::paint (juce::Graphics& g)
             g.drawText (owner.sectionName (c.section), x, c.bounds.getY() + 47,
                         c.bounds.getWidth() - 24, 12, juce::Justification::centredLeft);
         }
+        // One cell per bar of the section, each with ITS OWN time signature -
+        // a section can mix meters, and the single "first used bar" reading hid
+        // that. The bar being played lights up so the player can follow along.
         const int meterY = c.bounds.getY() + (named ? 62 : 52);
-        g.setColour (ui::text);
-        g.setFont (ui::monoFont (24.0f, true));
-        g.drawText (owner.sectionMeter (c.section), x, meterY,
-                    c.bounds.getWidth() - 24, 30, juce::Justification::centredLeft);
-        if (c.section == playSec)
         {
-            g.setColour (ui::glowOrange);
-            g.setFont (ui::monoFont (8.0f, true));
-            g.drawText ("PLAYING", x, meterY + 36, c.bounds.getWidth() - 24, 11,
-                        juce::Justification::centredLeft);
+            const int playBar = owner.processor.drumEngine.uiBar.load();
+            const int rowW = c.bounds.getWidth() - 24;
+            constexpr int gap = 4, cellH = 44;
+            const int cellW = (rowW - gap * (drum::barsPerSection - 1)) / drum::barsPerSection;
+
+            for (int i = 0; i < drum::barsPerSection; ++i)
+            {
+                const int bar = c.section * drum::barsPerSection + i;
+                if (bar >= drum::maxBars || cellW <= 0)
+                    break;
+                const bool used = owner.processor.drumEngine.barUsed[bar].load();
+                const bool live = bar == playBar;   // uiBar is -1 while stopped
+                const auto cell = juce::Rectangle<int> (x + i * (cellW + gap), meterY,
+                                                        cellW, cellH);
+                const auto cf = cell.toFloat();
+
+                g.setColour (live ? ui::glowOrange
+                                  : ui::chainBottom.withAlpha (used ? 1.0f : 0.4f));
+                g.fillRoundedRectangle (cf, 4.0f);
+                g.setColour (live ? ui::glowOrange : ui::border());
+                g.drawRoundedRectangle (cf.reduced (0.5f), 4.0f, live ? 1.6f : 1.0f);
+
+                // absolute bar number, matching the "BARS 1-4" header above
+                g.setFont (ui::monoFont (7.0f, true));
+                g.setColour (live ? ui::accentTextDark : ui::textFaint);
+                g.drawText (juce::String (bar + 1), cell.getX(), cell.getY() + 4,
+                            cell.getWidth(), 9, juce::Justification::centred);
+
+                g.setFont (ui::monoFont (13.0f, true));
+                g.setColour (live ? ui::accentTextDark : (used ? ui::text : ui::textFaint));
+                g.drawFittedText (juce::String (owner.processor.drumEngine.meterNum (bar)) + "/"
+                                      + juce::String (owner.processor.drumEngine.meterDen (bar)),
+                                  cell.withTrimmedTop (13).reduced (2, 0),
+                                  juce::Justification::centred, 1);
+            }
+
+            if (c.section == playSec)
+            {
+                g.setColour (ui::glowOrange);
+                g.setFont (ui::monoFont (8.0f, true));
+                g.drawText ("PLAYING", x, meterY + cellH + 6, rowW, 11,
+                            juce::Justification::centredLeft);
+            }
         }
 
         // rig snapshot box at the bottom of the card

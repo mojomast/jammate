@@ -999,26 +999,33 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
 // amp-focus / cab-focus metrics (mockup FINAL PASS)
 namespace
 {
-constexpr int kAmpFocusW = 310;
+// Chain zoom: tightened so more of the chain fits without scrolling. Only the
+// slack was taken - kCabFocusW (the CHANGE + VARS row needs 150) and kMiniW
+// (the 2-column knob grid needs 110) are at their minimum already.
+constexpr int kAmpFocusW = 290;
 constexpr int kCabFocusW = 150;
 constexpr int kMiniW = 110;      // fx-mini card width
 constexpr int kMiniH = 178;      // fx-mini card height
+constexpr int kCardGap = 26;     // connector length (the 22 px "+" ring sits in it)
+constexpr int kChainPad = 34;    // chain's left/right margin
+constexpr int kRigBusW = 14;     // split/sum bus around a rig block
+constexpr int kAmpCabGap = 18;   // amp -> cab inside one rig lane
 }
 
 // width of the rig block (stacked lanes, constant width):
-// split bus 18 + amp 310 + 24 + cab 150 + sum bus 18
+// split bus + amp + gap + cab + sum bus
 int ChainView::rigBlockWidth() const
 {
-    return 18 + kAmpFocusW + 24 + kCabFocusW + 18;
+    return kRigBusW + kAmpFocusW + kAmpCabGap + kCabFocusW + kRigBusW;
 }
 
 void ChainView::updateLayout()
 {
-    // fx-mini metrics + 30 px connectors; the rig block is dynamic
-    int x = 44; // left margin (room for the first connector "+")
+    // fx-mini metrics + connectors; the rig block is dynamic
+    int x = kChainPad; // left margin (room for the first connector "+")
     for (const auto& id : processor.getChainOrder())
-        x += (id == "amp" ? rigBlockWidth() : effectCardWidth (id)) + 30;
-    setSize (x + 44, chainHeight);
+        x += (id == "amp" ? rigBlockWidth() : effectCardWidth (id)) + kCardGap;
+    setSize (x + kChainPad, chainHeight);
 }
 
 void ChainView::setChainHeight (int newHeight)
@@ -1994,7 +2001,7 @@ void ChainView::resized()
     // position the cards following the chain's dynamic order
     const int bigH = juce::jmin (330, H - 16);   // expanded effect card height
     const int miniH = juce::jmin (kMiniH, H - 16);
-    int x = 44;
+    int x = kChainPad;
 
     for (const auto& id : processor.getChainOrder())
     {
@@ -2003,7 +2010,7 @@ void ChainView::resized()
             // STACKED AMP+CAB lanes (true parallel): one row per rig, split
             // bus on the left and sum bus on the right (mix in the OUTPUT card)
             const int count = processor.getRigCount();
-            const int rowGap = 12, busW = 18;
+            const int rowGap = 12, busW = kRigBusW;
             const int availH = H - 20;
             const int rowH = juce::jmin (390, (availH - (count - 1) * rowGap) / count);
             const int totalH = count * rowH + (count - 1) * rowGap;
@@ -2020,10 +2027,10 @@ void ChainView::resized()
                 const int ry = topY + r * (rowH + rowGap);
                 const int cabH = juce::jmin (rowH, 290);
                 ampLaneB[r] = { pairX, ry, kAmpFocusW, rowH };
-                cabLaneB[r] = { pairX + kAmpFocusW + 24, ry + (rowH - cabH) / 2,
+                cabLaneB[r] = { pairX + kAmpFocusW + kAmpCabGap, ry + (rowH - cabH) / 2,
                                 kCabFocusW, cabH };
             }
-            x = cabLaneB[0].getRight() + busW + 30;
+            x = cabLaneB[0].getRight() + busW + kCardGap;
         }
         else
         {
@@ -2053,7 +2060,7 @@ void ChainView::resized()
             else if (id == "tape") tapeB = box;
             else if (id == "console") cnsB = box;
             else if (id == "analyzer") anB = box;
-            x += w + 30;
+            x += w + kCardGap;
         }
     }
 
@@ -2364,7 +2371,9 @@ void ChainView::drawPedalFrame (juce::Graphics& g, juce::Rectangle<int> b,
     {
         g.setFont (ui::uiFont (11.0f, true));
         g.setColour (ui::text);
-        g.drawFittedText (title, b.getX() + 10, b.getY() + 9, b.getWidth() - 54, 14,
+        // width stops short of the remove "x" (right-50) so the title never
+        // runs underneath it - the "x" and the LED own the top-right corner
+        g.drawFittedText (title, b.getX() + 10, b.getY() + 9, b.getWidth() - 66, 14,
                           juce::Justification::centredLeft, 1);
 
         auto* onParam = processor.apvts.getRawParameterValue (onParamIdForFx (id));
@@ -2395,7 +2404,9 @@ void ChainView::drawPedalFrame (juce::Graphics& g, juce::Rectangle<int> b,
 
     g.setFont (ui::uiFont (12.0f, true));
     g.setColour (ui::text);
-    g.drawText (title, b.getX() + 12, b.getY() + 12, b.getWidth() - 46, 15,
+    // -70 = 12 left margin + the top-right corner (12 + LED 18 + 6 + "x" 14 + 8
+    // of breathing room); with -46 the title ran under the remove "x"
+    g.drawText (title, b.getX() + 12, b.getY() + 12, b.getWidth() - 70, 15,
                 juce::Justification::centredLeft);
 
     // clean UI: the footer note is no longer painted on the card - it becomes
@@ -2489,8 +2500,10 @@ void ChainView::paint (juce::Graphics& g)
                         g.fillRoundedRectangle (x - 1.5f, y1 - 1.5f, 3.0f, y2 - y1 + 3.0f, 1.5f);
                     };
 
-                    const float busInX = (float) ampLaneB[0].getX() - 9.0f;
-                    const float busOutX = (float) cabLaneB[0].getRight() + 9.0f;
+                    // centred in the split/sum bus reserved by the layout
+                    constexpr float busMid = (float) kRigBusW / 2.0f;
+                    const float busInX = (float) ampLaneB[0].getX() - busMid;
+                    const float busOutX = (float) cabLaneB[0].getRight() + busMid;
                     const float yPrev = (float) prev.getCentreY();
                     const float yOut = (float) chainHeight / 2.0f;
                     const float yTop = (float) ampLaneB[0].getCentreY();
@@ -2996,9 +3009,10 @@ void ChainView::paint (juce::Graphics& g)
         const bool hov = hi == hoverHotspot;
         const auto h = hi.toFloat();
         g.setColour (hov ? ui::red.withAlpha (0.95f) : ui::textFaint.withAlpha (0.55f));
-        g.drawLine (h.getX() + 4.0f, h.getY() + 4.0f, h.getRight() - 4.0f, h.getBottom() - 4.0f,
+        constexpr float in = 3.0f;   // 8 px cross - 6 px read as a stray speck
+        g.drawLine (h.getX() + in, h.getY() + in, h.getRight() - in, h.getBottom() - in,
                     hov ? 1.8f : 1.4f);
-        g.drawLine (h.getRight() - 4.0f, h.getY() + 4.0f, h.getX() + 4.0f, h.getBottom() - 4.0f,
+        g.drawLine (h.getRight() - in, h.getY() + in, h.getX() + in, h.getBottom() - in,
                     hov ? 1.8f : 1.4f);
     }
 
@@ -3011,9 +3025,13 @@ void ChainView::paint (juce::Graphics& g)
         g.fillEllipse (rf);
         g.setColour (ui::accent.withAlpha (hov ? 0.95f : 0.4f));
         g.drawEllipse (rf, hov ? 1.6f : 1.2f);
+        // drawn, not typed: drawText centres the text BOX, and the glyph's own
+        // bearings then left the "+" visibly off-centre inside the ring
+        const auto cc = rf.getCentre();
+        const float arm = hov ? 5.0f : 4.5f;
         g.setColour (ui::accent.withAlpha (hov ? 1.0f : 0.85f));
-        g.setFont (ui::uiFont (hov ? 16.0f : 14.0f, true));
-        g.drawText ("+", rect, juce::Justification::centred);
+        g.drawLine (cc.x - arm, cc.y, cc.x + arm, cc.y, hov ? 1.8f : 1.5f);
+        g.drawLine (cc.x, cc.y - arm, cc.x, cc.y + arm, hov ? 1.8f : 1.5f);
     }
 
     // file drop target (capture/IR/vst3 dragged from Explorer)
@@ -3378,9 +3396,11 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
         addAndMakeVisible (rigSegButtons[r]);
     }
 
-    addRigButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xef\xbc\x8b PARALLEL RIG")));
+    // "rig" was misleading: what this adds in parallel is an AMP+CAB pair, not
+    // a whole second chain
+    addRigButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("\xef\xbc\x8b ADD AMP+CAB")));
     addRigButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Add an AMP+CAB rig in parallel (up to 3)")));
+        "Add a parallel AMP+CAB pair (up to 3)")));
     addRigButton.setMouseClickGrabsKeyboardFocus (false);
     addRigButton.onClick = [this] { setRigCountParam (processor.getRigCount() + 1); };
     addAndMakeVisible (addRigButton);
@@ -3842,17 +3862,21 @@ void RigContent::paint (juce::Graphics& g)
             const bool overload = cpu >= 0.9f;
             g.setColour (overload ? ui::red : ui::textFaint);
             g.setFont (ui::monoFont (8.0f, overload));
+            // left edge flush with the bar it labels: the old -14 pushed the
+            // text onto the IN/OUT bars, which end exactly there
             g.drawText ((overload ? juce::String (juce::CharPointer_UTF8 ("\xe2\x9a\xa0 CPU "))
                                   : juce::String ("CPU "))
                             + juce::String ((int) (cpu * 100.0f)) + "%",
-                        cpuMeter.getX() - 14, cpuMeter.getY() - 14, 76, 12,
+                        cpuMeter.getX(), cpuMeter.getY() - 14,
+                        songButton.getX() - 12 - cpuMeter.getX(), 12,
                         juce::Justification::centredLeft);
         }
 
-        // divider between the meters/CPU group and the drums/audio/store buttons
-        // (was landing inside the Drums button's right edge)
+        // divider between the meters/CPU group and the screen buttons. It has to
+        // sit BEFORE the first of them (Song) - anchored to Drums it landed 4 px
+        // inside the Song button and read as a stray border on it.
         g.setColour (juce::Colours::white.withAlpha (0.08f));
-        g.fillRect (drumButton.getX() - 12, 16, 1, 28);
+        g.fillRect (songButton.getX() - 8, 16, 1, 28);
     }
 
     // ---- rig workspace: fixed side cards + chain container frame (vNext R1)
@@ -3932,7 +3956,8 @@ void RigContent::paint (juce::Graphics& g)
                         juce::Justification::centred);
             g.setFont (ui::monoFont (8.0f));
             g.setColour (ui::textFaint);
-            g.drawText (juce::String (count) + " parallel rig" + (count > 1 ? "s" : ""),
+            // same wording as the button below it: these are AMP+CAB pairs
+            g.drawText (juce::String (count) + " AMP+CAB" + (count > 1 ? " pairs" : ""),
                         b.getX(), b.getY() + 30, b.getWidth(), 12,
                         juce::Justification::centred);
 

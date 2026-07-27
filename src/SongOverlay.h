@@ -36,7 +36,6 @@ private:
     void refreshInspector();
     void ensureSceneVisible();   // scrolls the strip so the selected card shows
     juce::String sectionName (int sec) const;   // dominant role or "Section A"
-    juce::String sectionMeter (int sec) const;  // meter of the first used bar
 
     GuitarRigNAMProcessor& processor;
 
