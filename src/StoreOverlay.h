@@ -211,6 +211,22 @@ private:
     juce::TextButton connectButton { "Connect TONE3000" };
     juce::TextButton userChip;
 
+    // ---- TONE3000 access setup ------------------------------------------
+    // Each person uses their OWN publishable key, so no credential ships in the
+    // repository and the rate limit is theirs. Entered here instead of by
+    // hand-editing tone3000.json, which was the only way before.
+    juce::TextEditor keyEditor;
+    juce::TextButton getKeyButton { juce::String (juce::CharPointer_UTF8 (
+        "Open TONE3000 API keys \xe2\x86\x97")) };
+    juce::TextButton copyRedirectButton { "Copy redirect URI" };
+    juce::TextButton saveKeyButton { "Save key" };
+    juce::TextButton changeKeyButton { "Change key" };  // shown once a key exists
+    bool keySetupVisible = false;                       // forced open by "Change key"
+    /// True while the setup form should be on screen (no key yet, or reopened).
+    bool showKeySetup() const;
+    void updateKeySetupState();
+    juce::String keyNotice;   // inline feedback under the field ("" = none)
+
     // Partnership splash shown before the first TONE3000 sign-in (design req 2)
     juce::TextButton splashContinue { "Continue to TONE3000" }, splashCancel { "Not now" };
     bool splashVisible = false;

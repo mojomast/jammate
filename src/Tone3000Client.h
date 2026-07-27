@@ -8,14 +8,21 @@
 #include <functional>
 #include <vector>
 
-// Cliente da API do TONE3000 (https://www.tone3000.com — docs em /api).
+// TONE3000 API client (https://www.tone3000.com, docs at /api).
 //
-// - Toda a API exige Bearer token obtido via OAuth 2.0 + PKCE; o client_id é a
-//   chave publishable (t3k_pub_...) que o usuário cria em Settings -> API Keys
-//   e configura em Documentos/PedalForge NAM/tone3000.json, junto com o
-//   redirect http://localhost:53682/callback registrado na mesma tela.
-// - Rede roda num ThreadPool próprio; os callbacks são entregues na message
-//   thread via MessageManager::callAsync.
+// TIER: this app targets the FREE, NON-COMMERCIAL tier, which allows only the
+// OAuth prompt flows (select_tone / load_tone) plus the bounded list endpoints
+// (trending, latest). The paginated search and the user-collection endpoints
+// are FULL API ACCESS and need a signed commercial agreement, so they are not
+// used here - browsing happens in TONE3000's own picker via selectTone().
+//
+// - Every call needs a Bearer token obtained through OAuth 2.0 + PKCE. The
+//   client_id is the publishable key (t3k_pub_...) the user creates at
+//   tone3000.com -> Settings -> API Keys, registering the redirect
+//   http://localhost:53682/callback. It is entered in the app (Tone Store ->
+//   TONE3000 access) and persisted in Documents/PedalForge NAM/tone3000.json.
+// - Networking runs on its own ThreadPool; callbacks are delivered on the
+//   message thread via MessageManager::callAsync.
 class Tone3000Client
 {
 public:
@@ -56,9 +63,38 @@ public:
     void reloadConfig();
     void disconnect();
 
+    /// The user's own publishable key. Each person uses their own, so the rate
+    /// limit is theirs and no credential ships in the repository.
+    juce::String getPublishableKey() const { return publishableKey; }
+    /// Stores and persists the key; disconnects first if the key actually
+    /// changed, because the existing refresh token belongs to the old client.
+    void setPublishableKey (const juce::String& key);
+    /// Basic shape check for the UI ("t3k_pub_" prefix), not a validation.
+    static bool looksLikePublishableKey (const juce::String& key);
+    /// Page where the key and the redirect URI are registered.
+    static juce::String apiKeysUrl();
+
     /// Fluxo OAuth completo: abre o navegador, escuta o callback em
     /// localhost:53682, troca o code por tokens e busca o perfil.
     void connect (std::function<void (bool ok, juce::String error)> done);
+
+    // ---- prompt flows (the browse path allowed on the free tier) ----------
+    /// "select_tone": opens TONE3000's own picker in the browser; the user
+    /// chooses a tone there and it comes back here. gears/architecture scope
+    /// what the picker offers ("" / 0 = unscoped). Also authenticates, so it
+    /// doubles as the connect step for a user who is not signed in yet.
+    void selectTone (const juce::String& gears, int architecture,
+                     std::function<void (Tone, juce::String error)> done);
+
+    /// "load_tone": re-authorises a tone whose id we already stored (in a
+    /// preset) and confirms the user still has access to it.
+    void loadTone (int toneId, std::function<void (Tone, juce::String error)> done);
+
+    // ---- bounded list endpoints (allowed on the free tier) ---------------
+    /// Top 10 trending tones for a gear type ("amp", "amp-cab", "pedal"...).
+    void listTrending (const juce::String& gear, std::function<void (SearchResult)> done);
+    /// The 10 most recent tones (unpaginated).
+    void listLatest (std::function<void (SearchResult)> done);
 
     // ---- API (message thread -> callback na message thread) ----
     /// architecture: 0 = todas, 2 = só tones com modelos A2.
@@ -114,6 +150,25 @@ private:
     bool ensureAccessToken (juce::String& error);   // pool thread
     bool refreshAccessToken (juce::String& error);  // pool thread
     void saveConfig();
+
+    /// Result of one authorisation round trip. toneId is only set by the
+    /// prompt flows, which hand a tone back on the callback.
+    struct AuthOutcome
+    {
+        bool ok = false;
+        juce::String error;
+        int toneId = 0;
+    };
+    /// pool thread: the whole PKCE dance (listener, browser, callback, token
+    /// exchange, profile). promptParams is appended to the authorize URL -
+    /// empty for a plain connect, "&prompt=select_tone&..." for the flows.
+    AuthOutcome runAuthFlow (const juce::String& promptParams);
+    /// Shared body of select_tone/load_tone: authorise, then read the tone the
+    /// callback handed back (the continuation the API guide documents).
+    void runToneFlow (const juce::String& promptParams,
+                      std::function<void (Tone, juce::String error)> done);
+    /// pool thread: GET an unpaginated list endpoint into a SearchResult.
+    void fetchBoundedList (const juce::String& path, std::function<void (SearchResult)> done);
 
     juce::String publishableKey, refreshToken, username;
     juce::String accessToken;               // só pool thread

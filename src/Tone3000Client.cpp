@@ -122,24 +122,75 @@ void Tone3000Client::disconnect()
     saveConfig();
 }
 
+bool Tone3000Client::looksLikePublishableKey (const juce::String& key)
+{
+    return key.trim().startsWith ("t3k_pub_") && key.trim().length() > 12;
+}
+
+juce::String Tone3000Client::apiKeysUrl()
+{
+    return kApiBase + "/settings/api-keys";
+}
+
+void Tone3000Client::setPublishableKey (const juce::String& key)
+{
+    const auto trimmed = key.trim();
+    bool changed = false;
+    {
+        const juce::ScopedLock sl (configLock);
+        changed = trimmed != publishableKey;
+        publishableKey = trimmed;
+        if (changed)
+        {
+            // the refresh token was issued to the OLD client_id - keeping it
+            // would only produce confusing 401s on the next call
+            refreshToken.clear();
+            username.clear();
+            accessToken.clear();
+            accessTokenExpiry = 0;
+        }
+    }
+    saveConfig();
+}
+
 //==============================================================================
 // OAuth
 
 void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
 {
     if (connecting.exchange (true))
-        return;
-
-    const auto key = publishableKey;
-
-    pool.addJob ([this, key, done]
     {
-        auto finish = [this, done] (bool ok, juce::String error)
-        {
-            connecting.store (false);
-            juce::MessageManager::callAsync ([done, ok, error] { done (ok, error); });
-        };
+        done (false, "A TONE3000 authorisation is already in progress");
+        return;
+    }
 
+    pool.addJob ([this, done]
+    {
+        // "&format=nam" keeps the sign-in page scoped the way it always was
+        const auto r = runAuthFlow ("&format=nam");
+        connecting.store (false);
+        juce::MessageManager::callAsync ([done, r] { done (r.ok, r.error); });
+    });
+}
+
+// The whole PKCE round trip. Shared by the plain connect and by the prompt
+// flows (select_tone / load_tone), which differ only in the authorize params
+// and in the tone_id that comes back on the callback.
+Tone3000Client::AuthOutcome Tone3000Client::runAuthFlow (const juce::String& promptParams)
+{
+    AuthOutcome out;
+    juce::String key;
+    {
+        const juce::ScopedLock sl (configLock);
+        key = publishableKey;
+    }
+    if (key.isEmpty())
+    {
+        out.error = "No TONE3000 key set";
+        return out;
+    }
+
+    {
         // PKCE
         const auto codeVerifier = randomBase64url (32);
         const auto state = randomBase64url (16);
@@ -152,8 +203,8 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
         juce::StreamingSocket server;
         if (! server.createListener (kCallbackPort, "127.0.0.1"))
         {
-            finish (false, "Port " + juce::String (kCallbackPort) + " is busy");
-            return;
+            out.error = "Port " + juce::String (kCallbackPort) + " is busy";
+            return out;
         }
 
         const auto authorizeUrl =
@@ -164,7 +215,7 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
             + "&code_challenge=" + urlEncode (challenge)
             + "&code_challenge_method=S256"
             + "&state=" + urlEncode (state)
-            + "&format=nam";
+            + promptParams;
 
         juce::MessageManager::callAsync ([authorizeUrl]
         {
@@ -198,7 +249,7 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
             const auto line = thisRequest.upToFirstOccurrenceOf ("\r\n", false, false);
             const bool isCallback = line.startsWith ("GET ")
                                     && (line.contains ("code=") || line.contains ("error=")
-                                        || line.contains ("state="));
+                                        || line.contains ("state=") || line.contains ("tone_id="));
 
             if (! isCallback)
             {
@@ -224,8 +275,8 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
 
         if (request.isEmpty())
         {
-            finish (false, "Timed out waiting for login");
-            return;
+            out.error = "Timed out waiting for login";
+            return out;
         }
 
         // Extracts the query params from the first line: GET /callback?... HTTP/1.1
@@ -240,11 +291,12 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
             if (k == "code") code = v;
             else if (k == "state") returnedState = v;
             else if (k == "error") oauthError = v;
+            else if (k == "tone_id") out.toneId = v.getIntValue();   // prompt flows
         }
 
-        if (oauthError.isNotEmpty()) { finish (false, oauthError); return; }
-        if (returnedState != state) { finish (false, "state mismatch (CSRF?)"); return; }
-        if (code.isEmpty()) { finish (false, "callback without code"); return; }
+        if (oauthError.isNotEmpty()) { out.error = oauthError; return out; }
+        if (returnedState != state) { out.error = "state mismatch (CSRF?)"; return out; }
+        if (code.isEmpty()) { out.error = "callback without code"; return out; }
 
         // Exchanges the code for tokens.
         const juce::String form =
@@ -260,9 +312,9 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
 
         if (stream.getStatusCode() != 200)
         {
-            finish (false, "Token exchange failed (HTTP "
-                            + juce::String (stream.getStatusCode()) + ")");
-            return;
+            out.error = "Token exchange failed (HTTP "
+                        + juce::String (stream.getStatusCode()) + ")";
+            return out;
         }
 
         const auto json = juce::JSON::parse (stream.readEntireStreamAsString());
@@ -272,8 +324,8 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
 
         if (newAccess.isEmpty() || newRefresh.isEmpty())
         {
-            finish (false, "Invalid token response");
-            return;
+            out.error = "Invalid token response";
+            return out;
         }
 
         {
@@ -294,8 +346,9 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
         }
 
         saveConfig();
-        finish (true, {});
-    });
+        out.ok = true;
+        return out;
+    }
 }
 
 //==============================================================================
@@ -554,6 +607,144 @@ void Tone3000Client::getTone (int toneId, std::function<void (Tone, juce::String
     });
 }
 
+//==============================================================================
+// Prompt flows + bounded lists - the only browse paths the free tier allows.
+
+void Tone3000Client::runToneFlow (const juce::String& promptParams,
+                                  std::function<void (Tone, juce::String)> done)
+{
+    if (connecting.exchange (true))
+    {
+        done ({}, "A TONE3000 authorisation is already in progress");
+        return;
+    }
+
+    pool.addJob ([this, promptParams, done]
+    {
+        auto deliver = [done] (Tone t, juce::String e)
+        {
+            juce::MessageManager::callAsync ([done, t, e] { done (t, e); });
+        };
+
+        const auto auth = runAuthFlow (promptParams);
+        connecting.store (false);
+
+        if (! auth.ok)
+        {
+            deliver ({}, auth.error);
+            return;
+        }
+        if (auth.toneId <= 0)
+        {
+            // the user closed the picker without choosing - not an error worth
+            // shouting about, but the caller has to know nothing came back
+            deliver ({}, "No tone was chosen");
+            return;
+        }
+
+        // documented continuation: GET /api/v1/tones/{id}
+        int status = 0;
+        const auto body = apiGet ("/api/v1/tones/" + juce::String (auth.toneId), status);
+        if (status != 200)
+        {
+            deliver ({}, "Could not read the chosen tone (HTTP "
+                             + juce::String (status) + ")");
+            return;
+        }
+        deliver (parseToneJson (juce::JSON::parse (body)), {});
+    });
+}
+
+void Tone3000Client::selectTone (const juce::String& gears, int architecture,
+                                 std::function<void (Tone, juce::String)> done)
+{
+    juce::String params = "&prompt=select_tone";
+    if (gears.isNotEmpty())
+        params += "&gears=" + urlEncode (gears);
+    if (architecture > 0)
+        params += "&architecture=" + juce::String (architecture);
+    runToneFlow (params, std::move (done));
+}
+
+void Tone3000Client::loadTone (int toneId, std::function<void (Tone, juce::String)> done)
+{
+    runToneFlow ("&prompt=load_tone&tone_id=" + juce::String (toneId), std::move (done));
+}
+
+void Tone3000Client::fetchBoundedList (const juce::String& path,
+                                       std::function<void (SearchResult)> done)
+{
+    pool.addJob ([this, path, done]
+    {
+        SearchResult result;
+
+        auto deliver = [done] (SearchResult r)
+        {
+            juce::MessageManager::callAsync ([done, r = std::move (r)] { done (r); });
+        };
+
+        if (! ensureAccessToken (result.error))
+        {
+            deliver (std::move (result));
+            return;
+        }
+
+        int status = 0;
+        juce::String body;
+        for (int attempt = 0; attempt < 2; ++attempt)
+        {
+            body = apiGet (path, status);
+            if (status != 401)
+                break;
+            juce::String err;
+            if (! refreshAccessToken (err))
+            {
+                result.error = "Session expired - reconnect your account";
+                deliver (std::move (result));
+                return;
+            }
+        }
+
+        if (status != 200)
+        {
+            result.error = "No connection to TONE3000 (HTTP " + juce::String (status) + ")";
+            deliver (std::move (result));
+            return;
+        }
+
+        // unpaginated: either a bare array or the usual {data:[...]} envelope
+        const auto json = juce::JSON::parse (body);
+        const juce::Array<juce::var>* arr = json.getArray();
+        if (arr == nullptr)
+            arr = json.getProperty ("data", juce::var()).getArray();
+
+        if (arr != nullptr)
+            for (const auto& t : *arr)
+            {
+                const Tone tone = parseToneJson (t);
+                if (tone.format == "nam" || tone.format == "ir")   // what the rig can load
+                    result.tones.push_back (tone);
+            }
+
+        deliver (std::move (result));
+    });
+}
+
+void Tone3000Client::listTrending (const juce::String& gear,
+                                   std::function<void (SearchResult)> done)
+{
+    // the endpoint requires a gear type; "amp" is the sensible default here
+    fetchBoundedList ("/api/v1/tones/trending?gear="
+                          + urlEncode (gear.isNotEmpty() ? gear : juce::String ("amp")),
+                      std::move (done));
+}
+
+void Tone3000Client::listLatest (std::function<void (SearchResult)> done)
+{
+    fetchBoundedList ("/api/v1/tones/latest", std::move (done));
+}
+
+//==============================================================================
 void Tone3000Client::fetchImage (const juce::String& url, std::function<void (juce::Image)> done)
 {
     if (url.isEmpty())

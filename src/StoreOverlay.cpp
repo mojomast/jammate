@@ -616,6 +616,63 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     searchBox.onEscapeKey = [this] { setVisible (false); };
     addAndMakeVisible (searchBox);
 
+    // ---- TONE3000 access setup (own key per user) ------------------------
+    keyEditor.setTextToShowWhenEmpty ("t3k_pub_...", ui::textMuted);
+    keyEditor.setFont (ui::monoFont (12.0f));
+    keyEditor.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff17181a));
+    keyEditor.setColour (juce::TextEditor::outlineColourId, juce::Colour (0xff2f3237));
+    keyEditor.setColour (juce::TextEditor::focusedOutlineColourId, ui::accent.withAlpha (0.6f));
+    keyEditor.setColour (juce::TextEditor::textColourId, ui::text);
+    keyEditor.onReturnKey = [this] { saveKeyButton.triggerClick(); };
+    addChildComponent (keyEditor);
+
+    getKeyButton.getProperties().set ("chip", true);
+    getKeyButton.setTooltip ("Opens tone3000.com > Settings > API Keys in your browser");
+    getKeyButton.onClick = [] { juce::URL (Tone3000Client::apiKeysUrl()).launchInDefaultBrowser(); };
+    addChildComponent (getKeyButton);
+
+    copyRedirectButton.getProperties().set ("chip", true);
+    copyRedirectButton.setTooltip ("Register this exact URI alongside the key");
+    copyRedirectButton.onClick = [this]
+    {
+        juce::SystemClipboard::copyTextToClipboard (Tone3000Client::redirectUri());
+        keyNotice = "Redirect URI copied - paste it into the key's Redirect URIs field";
+        repaint();
+    };
+    addChildComponent (copyRedirectButton);
+
+    saveKeyButton.getProperties().set ("accent", true);
+    saveKeyButton.onClick = [this]
+    {
+        const auto key = keyEditor.getText().trim();
+        if (! Tone3000Client::looksLikePublishableKey (key))
+        {
+            keyNotice = "That does not look like a publishable key (it starts with t3k_pub_)";
+            repaint();
+            return;
+        }
+        client.setPublishableKey (key);
+        keySetupVisible = false;
+        keyNotice.clear();
+        keyEditor.setText ({}, false);
+        updateHeaderState();
+        updateKeySetupState();
+        repaint();
+    };
+    addChildComponent (saveKeyButton);
+
+    changeKeyButton.getProperties().set ("ghost", true);
+    changeKeyButton.setTooltip ("Use a different TONE3000 key on this machine");
+    changeKeyButton.onClick = [this]
+    {
+        keySetupVisible = true;
+        keyNotice.clear();
+        keyEditor.setText (client.getPublishableKey(), false);
+        updateKeySetupState();
+        repaint();
+    };
+    addChildComponent (changeKeyButton);
+
     connectButton.getProperties().set ("accent", true);
     // First a partnership splash (design requirement), then the OAuth flow.
     connectButton.onClick = [this] { setSplashVisible (true); };
@@ -884,11 +941,13 @@ void StoreOverlay::setTab (Tab newTab)
 
     // search/filters only make sense on the TONE3000 tabs; the extra filters
     // (tags/A2/favorites) stay collapsed behind "Filters" (clean UI)
-    const bool toneTabs = tab != Tab::plugins;
+    // the setup form owns the screen until there is a key to work with
+    const bool toneTabs = tab != Tab::plugins && ! showKeySetup();
     searchBox.setVisible (toneTabs);
     for (auto* chip : gearChips)
         chip->setVisible (toneTabs);
     filtersChip.setVisible (toneTabs);
+    updateKeySetupState();
     for (auto* chip : tagChips)
         chip->setVisible (toneTabs && filtersOpen);
     a2Chip.setVisible (toneTabs && filtersOpen);
@@ -938,10 +997,32 @@ void StoreOverlay::refreshPluginsTab()
     viewport.setViewPosition (0, 0);
 }
 
+bool StoreOverlay::showKeySetup() const
+{
+    // no key yet -> the setup form IS the explore tab; with a key it only
+    // appears when the user asks to change it
+    return tab == Tab::explore && (! client.hasPublishableKey() || keySetupVisible);
+}
+
+void StoreOverlay::updateKeySetupState()
+{
+    const bool setup = showKeySetup();
+    keyEditor.setVisible (setup);
+    getKeyButton.setVisible (setup);
+    copyRedirectButton.setVisible (setup);
+    saveKeyButton.setVisible (setup);
+    // the "change key" affordance lives next to the account chip
+    changeKeyButton.setVisible (tab == Tab::explore && client.hasPublishableKey() && ! setup);
+    resized();
+}
+
 void StoreOverlay::updateHeaderState()
 {
     const bool connected = client.isConnected();
-    connectButton.setVisible (! connected && client.hasPublishableKey());
+    // Reachable as soon as a key exists - it used to be the only path and was
+    // hidden behind a JSON file the user had to find and edit by hand.
+    connectButton.setVisible (! connected && client.hasPublishableKey() && ! showKeySetup());
+    updateKeySetupState();
     userChip.setVisible (connected);
     userChip.setButtonText (client.getUsername().isNotEmpty()
                                 ? "@" + client.getUsername()
@@ -1938,6 +2019,16 @@ void StoreOverlay::resized()
     connectButton.setBounds (chipRightEdge - 170, 15, 170, 34);
     searchBox.setBounds ((connectButton.isVisible() ? connectButton.getX()
                                                     : userChip.getX()) - 12 - 300, 15, 300, 34);
+    changeKeyButton.setBounds (searchBox.getX() - 8 - 104, 15, 104, 34);
+
+    // TONE3000 access setup form, centred in the explore empty-state area
+    {
+        const int fw = 470, fx = (W - fw) / 2;
+        getKeyButton.setBounds (fx, 302, 236, 30);
+        copyRedirectButton.setBounds (fx + 246, 302, 224, 30);
+        keyEditor.setBounds (fx, 350, fw - 128, 34);
+        saveKeyButton.setBounds (fx + fw - 118, 350, 118, 34);
+    }
 
     // ---- tools row 1 (mockup): TYPE pills always visible + MORE FILTERS +
     // tones count tag (painted, right-aligned)
@@ -2106,20 +2197,33 @@ void StoreOverlay::paint (juce::Graphics& g)
     // ---- empty states
     if (tab == Tab::explore)
     {
-        if (! client.hasPublishableKey())
+        if (showKeySetup())
         {
             g.setFont (ui::uiFont (16.0f, true));
             g.setColour (juce::Colour (0xffc8cace));
-            g.drawText ("Set up your TONE3000 API key", 0, 240, W, 24,
+            g.drawText ("Connect PedalForge to your own TONE3000 account", 0, 210, W, 24,
                         juce::Justification::centred);
             g.setFont (ui::uiFont (12.5f));
             g.setColour (juce::Colour (0xff84878d));
             const auto steps =
-                juce::String ("1. Create an account at tone3000.com and generate a key in Settings > API Keys\n")
-                + "2. Register the redirect: " + Tone3000Client::redirectUri() + "\n"
-                + "3. Paste the key (t3k_pub_...) in " + client.configFile().getFullPathName() + "\n"
-                + "4. Close and reopen the Tone Store";
-            g.drawFittedText (steps, 120, 276, W - 240, 90, juce::Justification::centredTop, 5);
+                juce::String ("Each person uses their own key, so your downloads and rate limit are yours.\n")
+                + "1. Open Settings > API Keys on tone3000.com and create a key\n"
+                + "2. Register this redirect URI on that same key: " + Tone3000Client::redirectUri() + "\n"
+                + "3. Paste the key below - it is stored only on this machine";
+            g.drawFittedText (steps, 100, 240, W - 200, 58, juce::Justification::centredTop, 4);
+
+            if (keyNotice.isNotEmpty())
+            {
+                g.setFont (ui::uiFont (11.5f));
+                g.setColour (Tone3000Client::looksLikePublishableKey (keyEditor.getText())
+                                 ? ui::accent : juce::Colour (0xffe8b4ac));
+                g.drawText (keyNotice, 0, 392, W, 18, juce::Justification::centred);
+            }
+
+            g.setFont (ui::monoFont (10.5f));
+            g.setColour (juce::Colour (0xff6c7076));
+            g.drawText ("stored in " + client.configFile().getFullPathName(),
+                        0, 418, W, 16, juce::Justification::centred);
         }
         else if (! client.isConnected())
         {
