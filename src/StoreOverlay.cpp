@@ -34,7 +34,6 @@ juce::String gearPillLabel (const juce::String& gear)
     if (gear == "amp") return "AMP";
     if (gear == "amp-cab") return "AMP + CAB";
     if (gear == "pedal") return "PEDAL";
-    if (gear == "full-rig") return "FULL RIG";
     if (gear == "ir") return "IR";
     return "ALL";
 }
@@ -735,8 +734,12 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     };
     addChildComponent (userChip);
 
-    // TYPE pills (mockup row 1): always visible, map straight to gearFilter
-    for (const auto* gear : { "", "amp", "amp-cab", "pedal", "full-rig", "ir" })
+    // TYPE pills (mockup row 1): always visible, map straight to gearFilter.
+    // No "full-rig": it is not one of TONE3000's gear types (amp, amp-cab,
+    // pedal, outboard, cab, space, experimental) and the API never returns it -
+    // a tone titled "... - Full Rig" is published as amp-cab. The pill always
+    // came back empty, so AMP+CAB covers that content instead.
+    for (const auto* gear : { "", "amp", "amp-cab", "pedal", "ir" })
     {
         auto* chip = gearChips.add (new juce::TextButton (gearPillLabel (gear)));
         chip->getProperties().set ("chip", true);
