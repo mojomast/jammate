@@ -1247,11 +1247,18 @@ void StoreOverlay::showCardMenu (ToneCardComponent& card)
     }
     else
     {
-        for (int l = 0; l < GuitarRigNAMProcessor::maxRigs; ++l)
-            if (processor.hasModelLoaded (l))
-                menu.addItem (1 + l, "Replace AMP " + juce::String (l + 1));
-        if (processor.firstFreeModelLane() >= 0)
-            menu.addItem (10, "Add as parallel rig");
+        // Every ACTIVE lane is listed, loaded or not - same rule the IR branch
+        // above already used. Listing only loaded lanes made a second AMP+CAB
+        // unreachable until something had been dropped into it by other means.
+        const int rigs = juce::jlimit (1, GuitarRigNAMProcessor::maxRigs,
+                                       processor.getRigCount());
+        for (int l = 0; l < rigs; ++l)
+            menu.addItem (1 + l,
+                          juce::String (processor.hasModelLoaded (l) ? "Replace AMP "
+                                                                     : "Load in AMP ")
+                              + juce::String (l + 1));
+        // firstFreeModelLane() only ever returns a lane inside getRigCount(),
+        // so it is already covered by the entries above - no extra item.
     }
 
     juce::Component::SafePointer<ToneCardComponent> safe (&card);
