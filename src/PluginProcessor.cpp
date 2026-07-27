@@ -3488,7 +3488,19 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
         for (int i = 0; i < drum::maxSections * 2; ++i)
             state.removeProperty ("drumSecPattern" + juce::String (i + 1), nullptr);
 
-        const int nSec = juce::jlimit (1, drum::maxSections, drumEngine.numSections.load());
+        // Symmetric with applyState: the arrangement can hold more bars than
+        // numSections claims (an older build could desync the two - a preset
+        // here still has drumNumSections=1 alongside drumBar1..8). applyState
+        // heals that on load; the save has to honour it too, because a save
+        // that truncates destroys bars the load-side guard can never get back.
+        // Removing a section clears its bars, so a real removal still shrinks.
+        int highestUsed = 0;
+        for (int b = 0; b < drum::maxBars; ++b)
+            if (drumEngine.barUsed[b].load())
+                highestUsed = b + 1;
+        const int fromBars = (highestUsed + drum::barsPerSection - 1) / drum::barsPerSection;
+        const int nSec = juce::jlimit (1, drum::maxSections,
+                                       juce::jmax (drumEngine.numSections.load(), fromBars));
         state.setProperty ("drumNumSections", nSec, nullptr);
         for (int b = 0; b < nSec * drum::barsPerSection; ++b)
         {
@@ -3642,6 +3654,11 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
         for (int b = 0; b < drum::maxBars; ++b)
         {
             drumEngine.clearBar (b);
+            // the metre is part of the bar and clearBar deliberately keeps it
+            // (barFromString("") relies on that, right after setMeter). Reset it
+            // HERE instead: without this, bars past the incoming arrangement kept
+            // the PREVIOUS song's metre, and adding a section later resurrected it.
+            drumEngine.setMeter (b, 4, 4);
             drumEngine.barNames[b].clear();
             drumEngine.barRole[b] = 0;
         }

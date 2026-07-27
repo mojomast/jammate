@@ -808,6 +808,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
         for (int g = (n - 1) * drum::barsPerSection; g < n * drum::barsPerSection; ++g)
         {
             engine.clearBar (g);
+            engine.setMeter (g, 4, 4);   // clearBar keeps the metre on purpose
             engine.barNames[g].clear();
             engine.barRole[g] = 0;
         }
