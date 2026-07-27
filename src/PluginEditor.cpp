@@ -1412,9 +1412,20 @@ juce::String ChainView::fxDisplayName (const juce::String& id)
 
 std::vector<std::pair<juce::Rectangle<int>, int>> ChainView::insertSpots() const
 {
-    // one "+" in the middle of each connector: insert BEFORE card i = index i;
-    // a trailing "+" after the last card appends at the end of the chain
+    // One "+" CENTRED in every gap: insert BEFORE card i = index i, and a
+    // trailing "+" that appends at the end. The gaps are measured against the
+    // same virtual input/output nodes paint() runs its connectors between, so
+    // the "+" is always half-way and never sits on a connector's endpoint dot
+    // (the trailing one used to be pinned 15 px off the last card, which left
+    // the 7 px start node poking out of the ring like a stray period).
     std::vector<std::pair<juce::Rectangle<int>, int>> spots;
+    auto centredIn = [this] (int gapLeft, int gapRight, int idx)
+    {
+        const int midX = (gapLeft + gapRight) / 2;
+        return std::make_pair (
+            juce::Rectangle<int> (midX - 11, chainHeight / 2 - 11, 22, 22), idx);
+    };
+
     juce::Rectangle<int> prev (0, chainHeight / 2, 8, 1);   // virtual input node
     const auto entries = orderedEntries();
     for (int i = 0; i < (int) entries.size(); ++i)
@@ -1422,14 +1433,12 @@ std::vector<std::pair<juce::Rectangle<int>, int>> ChainView::insertSpots() const
         const auto& box = entries[(size_t) i].box;
         if (box.isEmpty())
             continue;
-        const int midX = (prev.getRight() + box.getX()) / 2;
-        spots.push_back ({ juce::Rectangle<int> (midX - 11, chainHeight / 2 - 11, 22, 22), i });
+        spots.push_back (centredIn (prev.getRight(), box.getX(), i));
         prev = box;
     }
     if (! entries.empty() && ! prev.isEmpty() && prev.getRight() > 8)
-        spots.push_back ({ juce::Rectangle<int> (prev.getRight() + 15 - 11,
-                                                 chainHeight / 2 - 11, 22, 22),
-                           (int) entries.size() });
+        spots.push_back (centredIn (prev.getRight(), getWidth() - 10,   // virtual output node
+                                    (int) entries.size()));
     return spots;
 }
 
