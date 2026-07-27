@@ -207,7 +207,12 @@ private:
     juce::TextButton closeButton { "X" };
     juce::TextButton exploreTab { "Explore" }, libraryTab { "My library" },
         pluginsTab { "Plugins" };
-    juce::TextEditor searchBox;
+    juce::TextEditor searchBox;   // free tier: hidden - /tones/search is full API access
+    /// Opens TONE3000's own picker (prompt=select_tone). This replaces the
+    /// in-app search: browsing the whole catalogue happens on their site.
+    juce::TextButton browseButton { juce::String (juce::CharPointer_UTF8 (
+        "BROWSE ON TONE3000 \xe2\x86\x97")) };
+    int trendingCount = 0;        // index in `cards` where LATEST starts
     juce::TextButton connectButton { "Connect TONE3000" };
     juce::TextButton userChip;
 
@@ -293,6 +298,9 @@ private:
     ToneCardComponent::Info detailsInfo;   // tone shown in the details view
     int detailsTargetLane = -1;            // >=0 = swap into that amp lane
     void openDetails (ToneCardComponent&);
+    /// Same view, but for a tone that has no card - what the select_tone
+    /// picker hands back.
+    void openDetailsFor (const Tone3000Client::Tone&);
     void downloadFromDetails (const Tone3000Client::Model&, ModelRowComponent*);
     void ensureDetailsView();   // lazily builds detailsView + wires callbacks
 

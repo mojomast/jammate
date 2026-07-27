@@ -673,6 +673,45 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     };
     addChildComponent (changeKeyButton);
 
+    // Free tier's browse path: TONE3000's own picker, scoped by the gear pills.
+    browseButton.getProperties().set ("accent", true);
+    browseButton.setTooltip ("Pick a tone on tone3000.com and it comes back here");
+    browseButton.setMouseClickGrabsKeyboardFocus (false);
+    browseButton.onClick = [this]
+    {
+        if (! client.isConnected())
+        {
+            setSplashVisible (true);
+            return;
+        }
+        bannerError.clear();
+        browseButton.setButtonText ("WAITING FOR YOUR PICK...");
+        browseButton.setEnabled (false);
+        repaint();
+
+        juce::Component::SafePointer<StoreOverlay> safe (this);
+        client.selectTone (gearFilter, a2Only ? 2 : 0,
+                           [safe] (Tone3000Client::Tone tone, juce::String error)
+        {
+            if (safe == nullptr)
+                return;
+            auto* self = safe.getComponent();
+            self->browseButton.setButtonText (juce::String (juce::CharPointer_UTF8 (
+                "BROWSE ON TONE3000 \xe2\x86\x97")));
+            self->browseButton.setEnabled (true);
+            if (error.isNotEmpty())
+            {
+                // "No tone was chosen" just means the picker was closed
+                self->bannerError = error == "No tone was chosen" ? juce::String() : error;
+                self->resized();
+                self->repaint();
+                return;
+            }
+            self->openDetailsFor (tone);
+        });
+    };
+    addChildComponent (browseButton);
+
     connectButton.getProperties().set ("accent", true);
     // First the TONE3000 notice (their design guidance), then the OAuth flow.
     connectButton.onClick = [this] { setSplashVisible (true); };
@@ -943,7 +982,11 @@ void StoreOverlay::setTab (Tab newTab)
     // (tags/A2/favorites) stay collapsed behind "Filters" (clean UI)
     // the setup form owns the screen until there is a key to work with
     const bool toneTabs = tab != Tab::plugins && ! showKeySetup();
-    searchBox.setVisible (toneTabs);
+    // FREE TIER: no paginated search and no server-side collections/sort.
+    searchBox.setVisible (false);
+    sourceCombo.setVisible (false);
+    sortCombo.setVisible (false);
+    browseButton.setVisible (toneTabs && tab == Tab::explore);
     for (auto* chip : gearChips)
         chip->setVisible (toneTabs);
     filtersChip.setVisible (toneTabs);
@@ -952,9 +995,8 @@ void StoreOverlay::setTab (Tab newTab)
         chip->setVisible (toneTabs && filtersOpen);
     a2Chip.setVisible (toneTabs && filtersOpen);
     favChip.setVisible (toneTabs && filtersOpen);
-    sortCombo.setVisible (toneTabs);
-    // collections only on Explore (My library is local files)
-    sourceCombo.setVisible (tab == Tab::explore);
+    // sortCombo / sourceCombo stay hidden: both drive /tones/search and the
+    // server-side collections, which are full API access (see doSearch).
 
     if (tab == Tab::plugins)
     {
@@ -1125,6 +1167,28 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
                 if (safe != nullptr)
                     safe->setAvatar (std::move (img));
             });
+}
+
+void StoreOverlay::openDetailsFor (const Tone3000Client::Tone& tone)
+{
+    detailsTargetLane = -1;
+    ToneCardComponent::Info info;
+    info.toneId = tone.id;
+    info.title = tone.title;
+    info.creator = tone.creator;
+    info.creatorAvatar = tone.creatorAvatar;
+    info.gear = tone.gear;
+    info.formatBadge = tone.format == "ir" ? "IR" : "NAM";
+    info.imageUrl = tone.imageUrl;
+    info.toneUrl = tone.url;
+    info.a2 = tone.hasA2;
+    info.downloads = formatCount (tone.downloads);
+    info.favorites = formatCount (tone.favorites);
+
+    detailsInfo = info;
+    ensureDetailsView();
+    detailsView->setBounds (getLocalBounds());
+    detailsView->open (detailsInfo);
 }
 
 void StoreOverlay::openDetails (ToneCardComponent& card)
@@ -1856,63 +1920,74 @@ void StoreOverlay::startDownload (ToneCardComponent& card, const Tone3000Client:
         });
 }
 
-void StoreOverlay::doSearch (int page)
+void StoreOverlay::doSearch (int)
 {
+    // FREE TIER: there is no paginated search here. The grid is TRENDING for
+    // the selected gear followed by LATEST - the two bounded list endpoints
+    // that tier allows. Browsing the whole catalogue happens in TONE3000's own
+    // picker (BROWSE ON TONE3000 -> selectTone), not inside this window.
     if (! client.isConnected() || searching)
         return;
 
     searching = true;
-    currentPage = page;
+    currentPage = totalPages = 1;
+    cards.clear();
 
-    auto onResult =
-        [safe = juce::Component::SafePointer<StoreOverlay> (this), page] (Tone3000Client::SearchResult result)
+    auto finish = [] (StoreOverlay* self)
+    {
+        self->searching = false;
+        const int n = self->cards.size();
+        self->countText = juce::String (n) + (n == 1 ? " TONE" : " TONES");
+        self->layoutCards();
+        self->resized();
+        self->repaint();
+    };
+
+    juce::Component::SafePointer<StoreOverlay> safe (this);
+
+    client.listTrending (gearFilter, [safe, finish] (Tone3000Client::SearchResult trending)
+    {
+        if (safe == nullptr)
+            return;
+        auto* self = safe.getComponent();   // MSVC: never capture 'this' in the nested lambda
+        if (self->tab != Tab::explore)
+        {
+            self->searching = false;
+            return;
+        }
+        if (trending.error.isNotEmpty())
+        {
+            self->bannerError = trending.error;
+            self->searching = false;
+            self->resized();
+            self->repaint();
+            return;
+        }
+        self->bannerError.clear();
+        for (const auto& tone : trending.tones)
+            self->addCardFor (tone, true);
+        self->trendingCount = self->cards.size();
+
+        self->client.listLatest ([safe, finish] (Tone3000Client::SearchResult latest)
         {
             if (safe == nullptr)
                 return;
-            auto* self = safe.getComponent();
-            self->searching = false;
-            if (self->tab != Tab::explore)
-                return;
-            if (result.error.isNotEmpty())
-            {
-                self->bannerError = result.error;
-                self->resized();
-                self->repaint();
-                return;
-            }
-            self->bannerError.clear();
-            self->totalPages = result.totalPages;
-            if (page == 1)
-                self->cards.clear();
-            for (const auto& tone : result.tones)
-                self->addCardFor (tone, true);
-            // tones count tag (row 1, right). The client does not expose the
-            // API's grand total, so this counts the loaded cards; "+" marks
-            // that more pages exist.
-            {
-                const int n = self->cards.size();
-                self->countText = juce::String (n)
-                                  + (self->currentPage < self->totalPages ? "+" : "")
-                                  + (n == 1 ? " TONE" : " TONES");
-            }
-            self->layoutCards();
-            self->resized();
-            self->repaint();
-        };
-
-    // TONE3000 collection (Favorites/Created/Downloaded) instead of open search
-    if (sourceMode != "search")
-    {
-        client.listUserTones (sourceMode, page, onResult);
-        return;
-    }
-
-    // active tags enter as extra search terms (TONE3000 indexes tags)
-    juce::String query = searchBox.getText().trim();
-    for (const auto& tag : activeTags)
-        query += " " + tag;
-
-    client.searchTones (query.trim(), gearFilter, sortValue, page, a2Only ? 2 : 0, onResult);
+            auto* s = safe.getComponent();
+            if (latest.error.isNotEmpty() && s->cards.isEmpty())
+                s->bannerError = latest.error;
+            else
+                for (const auto& tone : latest.tones)
+                {
+                    bool already = false;   // the two lists overlap
+                    for (auto* c : s->cards)
+                        if (c->getInfo().toneId == tone.id)
+                            already = true;
+                    if (! already)
+                        s->addCardFor (tone, true);
+                }
+            finish (s);
+        });
+    });
 }
 
 void StoreOverlay::refreshLibrary()
@@ -2017,9 +2092,13 @@ void StoreOverlay::resized()
     const int chipRightEdge = W - 22 - 34 - 14;
     userChip.setBounds (chipRightEdge - 130, 15, 130, 34);
     connectButton.setBounds (chipRightEdge - 170, 15, 170, 34);
-    searchBox.setBounds ((connectButton.isVisible() ? connectButton.getX()
-                                                    : userChip.getX()) - 12 - 300, 15, 300, 34);
-    changeKeyButton.setBounds (searchBox.getX() - 8 - 104, 15, 104, 34);
+    // the browse button takes the slot the search box used to own
+    const int anchorX = connectButton.isVisible() ? connectButton.getX() : userChip.getX();
+    browseButton.setBounds (anchorX - 12 - 230, 15, 230, 34);
+    searchBox.setBounds (anchorX - 12 - 300, 15, 300, 34);   // hidden on the free tier
+    // "Change key" goes on the row the VIEW/SORT selects used to occupy - in
+    // the header it collided with the Plugins tab.
+    changeKeyButton.setBounds (22, 108, 118, 30);
 
     // TONE3000 access setup form, centred in the explore empty-state area
     {
