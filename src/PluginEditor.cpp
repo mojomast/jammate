@@ -3577,18 +3577,49 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 });
     }
 
-    // Dev flag: GUITARRIG_OPEN_STORE=explore|library opens the store at startup.
+    // Dev flag: GUITARRIG_OPEN_STORE=explore|library|plugins opens the store.
     {
         const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_STORE", "");
-        if (flag == "library" || flag == "explore")
+        if (flag == "library" || flag == "explore" || flag == "plugins")
             juce::MessageManager::callAsync (
                 [safe = juce::Component::SafePointer<RigContent> (this), flag]
                 {
-                    if (safe != nullptr)
-                        flag == "library" ? safe->storeOverlay->openOnLibrary()
-                                          : safe->storeOverlay->open();
+                    if (safe == nullptr)
+                        return;
+                    if (flag == "library")      safe->storeOverlay->openOnLibrary();
+                    else if (flag == "plugins") safe->storeOverlay->openOnPlugins();
+                    else                        safe->storeOverlay->open();
                 });
     }
+
+    // Dev flags for the remaining screens, so a UI sweep can open each one
+    // deterministically instead of hunting for buttons by coordinate.
+    // GUITARRIG_OPEN_SONG=1   -> Song / Scenes
+    // GUITARRIG_OPEN_AUDIO=1  -> Audio & MIDI
+    // GUITARRIG_STAGE=1       -> Stage (performance) mode
+    if (juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_SONG", "") == "1")
+        juce::MessageManager::callAsync (
+            [safe = juce::Component::SafePointer<RigContent> (this)]
+            {
+                if (safe != nullptr && safe->songOverlay != nullptr)
+                    safe->songOverlay->open();
+            });
+
+    if (juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_AUDIO", "") == "1")
+        juce::MessageManager::callAsync (
+            [safe = juce::Component::SafePointer<RigContent> (this)]
+            {
+                if (safe != nullptr)
+                    safe->audioButton.triggerClick();   // builds the overlay lazily
+            });
+
+    if (juce::SystemStats::getEnvironmentVariable ("GUITARRIG_STAGE", "") == "1")
+        juce::MessageManager::callAsync (
+            [safe = juce::Component::SafePointer<RigContent> (this)]
+            {
+                if (safe != nullptr)
+                    safe->setPerfMode (true);
+            });
 
     setSize (designWidth, designHeight);
     startTimerHz (30);
@@ -4338,7 +4369,14 @@ void RigContent::paintPerformanceView (juce::Graphics& g)
                                (juce::juce_wchar) ('A' + next));
                 big = name.toUpperCase();
                 active = processor.hasScene (next);
-                if (playing && uiBar >= 0)
+                // On stage this tile must never promise something it cannot do:
+                // it used to read "tap to apply" for a section with NO snapshot,
+                // while the footswitch row below correctly showed nothing.
+                if (! active)
+                {
+                    sub = "no rig saved here";
+                }
+                else if (playing && uiBar >= 0)
                 {
                     const int barsLeft = drum::barsPerSection
                                          - (uiBar % drum::barsPerSection);
