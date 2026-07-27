@@ -1127,6 +1127,13 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
     if (a2Only && ! tone.hasA2)
         return;
 
+    // TYPE pill. The bounded lists (trending/latest) do not filter by format,
+    // and latest is not scoped by gear at all, so the pill is enforced here.
+    if (gearFilter == "ir" && tone.format != "ir")
+        return;
+    if (gearFilter.isNotEmpty() && gearFilter != "ir" && tone.gear != gearFilter)
+        return;
+
     ToneCardComponent::Info info;
     info.toneId = tone.id;
     info.title = tone.title;
@@ -1966,7 +1973,16 @@ void StoreOverlay::doSearch (int)
 
     juce::Component::SafePointer<StoreOverlay> safe (this);
 
-    client.listTrending (gearFilter, [safe, finish] (Tone3000Client::SearchResult trending)
+    // The TYPE pills are not the trending endpoint's vocabulary. It takes a
+    // GEAR (amp, amp-cab, cab, pedal...), while "IR" is a FORMAT - impulse
+    // responses are published under gear=cab. Without this mapping the IR pill
+    // asked for a gear that does not exist and the cabinet slots had nothing
+    // to load.
+    const juce::String trendGear = gearFilter == "ir"        ? juce::String ("cab")
+                                 : gearFilter.isNotEmpty()   ? gearFilter
+                                                             : juce::String ("amp-cab");
+
+    client.listTrending (trendGear, [safe, finish] (Tone3000Client::SearchResult trending)
     {
         if (safe == nullptr)
             return;
