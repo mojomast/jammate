@@ -25,13 +25,15 @@ botão que alterna **INSTALAR ⇄ DESINSTALAR**:
   descarregar e apaga exatamente os bundles registrados no manifesto
   (`Documentos\PedalForge NAM\plugins.json`)
 
-## Instalar — pelo script (alternativa offline)
+## Instalar — pelo script
 
 Clique-direito em **`instalar-plugins.ps1`** → *Executar com o PowerShell*.
-Copia os bundles para a **mesma pasta VST3 de usuário** (sem admin), usando
-a **cópia offline** de [`offline/`](offline/) quando ela existe (vem junto
-no repositório — instala sem internet) e caindo para o **release oficial no
-GitHub** quando não.
+Copia os bundles para a **mesma pasta VST3 de usuário** (sem admin), baixando
+do **release oficial no GitHub** de cada projeto.
+
+Se você quiser instalar sem internet, crie uma pasta `offline/` ao lado do
+script e ponha nela os zips dos releases oficiais — o script os usa quando
+existem. Essa pasta **não faz parte do repositório** (está no `.gitignore`).
 
 ## O catálogo (8 plugins, todos download direto)
 
@@ -61,10 +63,14 @@ GitHub** quando não.
 Se algum deles um dia publicar zip portátil com `.vst3`, é só adicionar a
 entrada em `src/PluginCatalog.cpp`.
 
-## Nota de licenças (cópia offline)
+## Nota de licenças
 
-Os zips em `offline/` contêm **apenas os bundles VST3 extraídos dos pacotes
-oficiais, sem modificações**, com as licenças e um `ORIGEM.txt` apontando o
-release de origem. Redistribuição permitida pelas licenças (GPLv3, MIT,
-GPLv2+); o código-fonte de cada um está nos repositórios oficiais linkados
-acima.
+Este repositório **não redistribui binário de plugin nenhum**. Cada plugin é
+baixado do release oficial do próprio projeto, no momento da instalação, e
+mantém a licença dele (GPLv3, MIT, GPLv2+) — as fontes estão nos repositórios
+linkados na tabela acima.
+
+A pasta `offline/` foi removida do repositório justamente por isso: distribuir
+binário GPL cria a obrigação de fornecer a fonte correspondente a quem recebe,
+e não faz sentido assumir essa obrigação quando o instalador já busca direto na
+origem.

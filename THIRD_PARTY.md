@@ -147,12 +147,12 @@ The in-app installer (Tone Store → Plugins tab) **downloads from each project'
 official release** and extracts the `.vst3`; each plugin keeps its own license.
 See `plugins/README.md` for the list, versions and official sources.
 
-`plugins/offline/` additionally **ships three release zips inside this
-repository** as a fallback for machines without internet: Airwindows (MIT),
-Dragonfly Reverb (GPLv3) and Zam Plugins (GPLv2-or-later). Redistributing GPL
-**binaries** carries the obligation to make the corresponding source available
-to whoever receives them. The upstream sources for the exact pinned versions are
-linked in `plugins/README.md`, and no modification was made to any of them.
+**This repository redistributes no plugin binary at all.** It used to ship three
+release zips under `plugins/offline/` as an offline fallback; two of them were
+GPL (Dragonfly Reverb, Zam Plugins), and shipping GPL **binaries** carries the
+obligation to provide the corresponding source to whoever receives them. Since
+the installer already fetches from each project's own release, that fallback was
+removed rather than carrying an obligation for no real benefit.
 
 ## TONE3000
 
