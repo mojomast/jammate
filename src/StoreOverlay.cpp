@@ -674,7 +674,7 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     addChildComponent (changeKeyButton);
 
     connectButton.getProperties().set ("accent", true);
-    // First a partnership splash (design requirement), then the OAuth flow.
+    // First the TONE3000 notice (their design guidance), then the OAuth flow.
     connectButton.onClick = [this] { setSplashVisible (true); };
     addChildComponent (connectButton);
 
@@ -2285,7 +2285,7 @@ void StoreOverlay::paint (juce::Graphics& g)
                     22, barY + 30, W - 44 - 300, 14, juce::Justification::centredLeft);
     }
 
-    // ---- partnership splash (before the first TONE3000 sign-in)
+    // ---- API notice shown before the first TONE3000 sign-in
     if (splashVisible)
     {
         g.fillAll (juce::Colour (0xff0b0c0e).withAlpha (0.92f));
@@ -2307,21 +2307,31 @@ void StoreOverlay::paint (juce::Graphics& g)
                          juce::RectanglePlacement::centred);
         }
 
+        // NO partnership is claimed: there is no agreement with TONE3000 and
+        // saying otherwise would be false. This states what is actually true -
+        // the public API used under its free, non-commercial tier.
         g.setColour (ui::textBright);
         g.setFont (ui::uiFont (17.0f, true));
-        g.drawText ("Powered by the TONE3000 partnership",
+        g.drawText ("Built on the TONE3000 API",
                     card.getX(), card.getY() + 92, card.getWidth(), 24,
                     juce::Justification::centred);
 
         g.setColour (ui::textDim);
         g.setFont (ui::uiFont (12.5f));
         g.drawFittedText (
-            "Sign in with your TONE3000 account to browse and load community amp "
-            "captures and IRs directly inside PedalForge NAM. A browser window "
-            "opens for a one-time secure login - your credentials never touch "
-            "this app.",
-            card.getX() + 40, card.getY() + 124, card.getWidth() - 80, 80,
-            juce::Justification::topLeft, 4);
+            "Sign in with your own TONE3000 account to browse and load community "
+            "amp captures and IRs inside PedalForge NAM. A browser window opens "
+            "for a one-time secure login - your credentials never touch this app.",
+            card.getX() + 40, card.getY() + 124, card.getWidth() - 80, 64,
+            juce::Justification::topLeft, 3);
+
+        g.setColour (ui::textFaint);
+        g.setFont (ui::monoFont (9.5f));
+        g.drawFittedText (
+            "Uses the public TONE3000 API under its free, non-commercial tier. "
+            "PedalForge NAM is not affiliated with or endorsed by TONE3000.",
+            card.getX() + 40, card.getY() + 192, card.getWidth() - 80, 28,
+            juce::Justification::topLeft, 2);
     }
 }
 

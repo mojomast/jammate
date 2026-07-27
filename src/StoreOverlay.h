@@ -227,7 +227,8 @@ private:
     void updateKeySetupState();
     juce::String keyNotice;   // inline feedback under the field ("" = none)
 
-    // Partnership splash shown before the first TONE3000 sign-in (design req 2)
+    // TONE3000 notice shown before the first sign-in. NOT a partnership claim -
+    // there is no agreement with them; it states the free-tier API use instead.
     juce::TextButton splashContinue { "Continue to TONE3000" }, splashCancel { "Not now" };
     bool splashVisible = false;
     void setSplashVisible (bool);
