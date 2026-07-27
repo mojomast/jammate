@@ -2143,10 +2143,10 @@ void StoreOverlay::resized()
     // TONE3000 access setup form, centred in the explore empty-state area
     {
         const int fw = 470, fx = (W - fw) / 2;
-        getKeyButton.setBounds (fx, 302, 236, 30);
-        copyRedirectButton.setBounds (fx + 246, 302, 224, 30);
-        keyEditor.setBounds (fx, 350, fw - 128, 34);
-        saveKeyButton.setBounds (fx + fw - 118, 350, 118, 34);
+        getKeyButton.setBounds (fx, 318, 236, 30);
+        copyRedirectButton.setBounds (fx + 246, 318, 224, 30);
+        keyEditor.setBounds (fx, 366, fw - 128, 34);
+        saveKeyButton.setBounds (fx + fw - 118, 366, 118, 34);
     }
 
     // ---- tools row 1 (mockup): TYPE pills always visible + MORE FILTERS +
@@ -2253,9 +2253,13 @@ void StoreOverlay::paint (juce::Graphics& g)
 
     // ---- tools rows (only on the TONE3000 tabs): row 1 = TYPE pills + count
     // tag; row 2 = VIEW/SORT selects; optional third row = extra filters
-    const bool extraRow = tab != Tab::plugins && filtersOpen;
-    const int toolsBottom = extraRow ? 186 : 146;   // keep in sync with resized()
-    if (tab != Tab::plugins)
+    // The key-setup screen hides every tool, so the rows must go too - they were
+    // leaving an empty band with an orphan "TYPE" label on the very first screen
+    // a new user sees.
+    const bool showTools = tab != Tab::plugins && ! showKeySetup();
+    const bool extraRow = showTools && filtersOpen;
+    const int toolsBottom = showKeySetup() ? 64 : (extraRow ? 186 : 146);   // sync with resized()
+    if (showTools)
     {
         g.setFont (ui::monoFont (9.0f));
         g.setColour (ui::textMuted);
@@ -2300,8 +2304,8 @@ void StoreOverlay::paint (juce::Graphics& g)
             g.drawText (countText, tag, juce::Justification::centred);
         }
     }
-    else
-    {
+    else if (tab == Tab::plugins)   // NOT just "!showTools": the key-setup screen
+    {                               // also turns tools off and must stay blank
         g.setFont (ui::monoFont (9.5f));
         g.setColour (ui::textFaint);
         g.drawText (juce::CharPointer_UTF8 (
@@ -2343,25 +2347,29 @@ void StoreOverlay::paint (juce::Graphics& g)
                         juce::Justification::centred);
             g.setFont (ui::uiFont (12.5f));
             g.setColour (juce::Colour (0xff84878d));
+            g.drawText ("Each person uses their own key, so your downloads and rate limit are yours.",
+                        0, 240, W, 18, juce::Justification::centred);
+            // the numbered steps are a LIST: centring each line made it read as
+            // loose prose. Left-aligned under a shared left edge.
             const auto steps =
-                juce::String ("Each person uses their own key, so your downloads and rate limit are yours.\n")
-                + "1. Open Settings > API Keys on tone3000.com and create a key\n"
-                + "2. Register this redirect URI on that same key: " + Tone3000Client::redirectUri() + "\n"
-                + "3. Paste the key below - it is stored only on this machine";
-            g.drawFittedText (steps, 100, 240, W - 200, 58, juce::Justification::centredTop, 4);
+                juce::String ("1.  Open Settings > API Keys on tone3000.com and create a key\n")
+                + "2.  Register this redirect URI on that same key:  " + Tone3000Client::redirectUri() + "\n"
+                + "3.  Paste the key below - it is stored only on this machine";
+            g.drawFittedText (steps, (W - 470) / 2, 264, 470, 46,
+                              juce::Justification::topLeft, 3);
 
             if (keyNotice.isNotEmpty())
             {
                 g.setFont (ui::uiFont (11.5f));
                 g.setColour (Tone3000Client::looksLikePublishableKey (keyEditor.getText())
                                  ? ui::accent : juce::Colour (0xffe8b4ac));
-                g.drawText (keyNotice, 0, 392, W, 18, juce::Justification::centred);
+                g.drawText (keyNotice, 0, 408, W, 18, juce::Justification::centred);
             }
 
             g.setFont (ui::monoFont (10.5f));
             g.setColour (juce::Colour (0xff6c7076));
             g.drawText ("stored in " + client.configFile().getFullPathName(),
-                        0, 418, W, 16, juce::Justification::centred);
+                        0, 434, W, 16, juce::Justification::centred);
         }
         else if (! client.isConnected())
         {
