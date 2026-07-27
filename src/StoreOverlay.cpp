@@ -2221,7 +2221,9 @@ void StoreOverlay::paint (juce::Graphics& g)
 {
     const int W = getWidth();
 
-    g.fillAll (juce::Colour (0xff0b0c0e).withAlpha (0.985f));
+    // Fully opaque: at 0.985 the rig behind stayed faintly visible, which read
+    // as a rendering fault whenever the grid was empty (disconnected state).
+    g.fillAll (juce::Colour (0xff0b0c0e));
 
     // ---- header
     g.setFont (ui::uiFont (19.0f, true));
@@ -2263,6 +2265,23 @@ void StoreOverlay::paint (juce::Graphics& g)
         if (sortCombo.isVisible())
             g.drawText ("SORT", sortCombo.getX() - 42, 108, 40, 32,
                         juce::Justification::centredLeft);
+
+        // Row 2 lost the VIEW/SORT selects on the free tier. Rather than leave a
+        // blank strip, it now says what the grid actually is - the two bounded
+        // lists - so nobody hunts for a search box that is not coming back.
+        if (tab == Tab::explore && ! showKeySetup() && client.isConnected())
+        {
+            const auto scope = gearFilter == "ir"      ? juce::String ("CABS / IR")
+                             : gearFilter.isEmpty()    ? juce::String ("AMP+CAB")
+                                                       : gearFilter.toUpperCase();
+            g.setColour (ui::textFaint);
+            g.drawText ("TRENDING " + scope
+                            + juce::String (juce::CharPointer_UTF8 ("  \xc2\xb7  "))
+                            + "LATEST" + juce::String (juce::CharPointer_UTF8 ("  \xc2\xb7  "))
+                            + "use BROWSE ON TONE3000 to search the full catalogue",
+                        changeKeyButton.getRight() + 16, 108, W - changeKeyButton.getRight() - 200, 30,
+                        juce::Justification::centredLeft);
+        }
         if (filtersOpen)
             g.drawText ("TAGS", 22, 150, 40, 28, juce::Justification::centredLeft);
 

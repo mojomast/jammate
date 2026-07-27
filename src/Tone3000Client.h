@@ -97,15 +97,9 @@ public:
     void listLatest (std::function<void (SearchResult)> done);
 
     // ---- API (message thread -> callback na message thread) ----
-    /// architecture: 0 = todas, 2 = só tones com modelos A2.
-    void searchTones (const juce::String& query, const juce::String& gear,
-                      const juce::String& sort, int page, int architecture,
-                      std::function<void (SearchResult)> done);
-
-    /// Lista os tones do usuário logado numa das coleções do TONE3000:
-    /// kind = "favorited" | "created" | "downloaded" (GET /tones/{kind}).
-    void listUserTones (const juce::String& kind, int page,
-                        std::function<void (SearchResult)> done);
+    // searchTones() and listUserTones() were REMOVED: /tones/search and
+    // /tones/{favorited|created|downloaded} are full API access, which needs a
+    // signed commercial agreement. Nothing in this build can reach them.
 
     struct Model
     {
