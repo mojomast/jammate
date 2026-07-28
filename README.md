@@ -1,10 +1,40 @@
 # 🎸 Guitar Companion
 
-**Personal guitar amp sim** — Standalone + VST3, built on [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) (neural captures of real amps) and JUCE 8, with a store integrated with [TONE3000](https://www.tone3000.com).
+**A companion for the guitarist** — Standalone + VST3, built on [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) (neural captures of real amps) and JUCE 8, with a store integrated with [TONE3000](https://www.tone3000.com).
 
-![Windows](https://img.shields.io/badge/Windows-10%2F11%20x64-0078d4) ![JUCE](https://img.shields.io/badge/JUCE-8.0.15-8bc34a) ![NAM](https://img.shields.io/badge/NAM%20Core-v0.5.4%20(A2)-33c9d6) ![Status](https://img.shields.io/badge/status-functional%20%C2%B7%20evolving-33c9d6)
+![Windows](https://img.shields.io/badge/Windows-10%2F11%20x64-0078d4) ![JUCE](https://img.shields.io/badge/JUCE-8.0.15-8bc34a) ![NAM](https://img.shields.io/badge/NAM%20Core-v0.5.4%20(A2)-33c9d6) ![Version](https://img.shields.io/badge/version-v0.1-33c9d6) ![Status](https://img.shields.io/badge/status-beta-e0a35c)
 
 ![The Rig screen](docs/screenshots/01-rig.jpg)
+
+## 🎯 The idea
+
+This started from a simple wish: **something that keeps the guitarist company**.
+
+Not just another amp sim. Picking up the guitar alone tends to end the same way
+— the same riff, the same key, the same four bars, and then you put it down.
+What was missing was on the other side of the sound: something to play *against*,
+something that answers back, something that makes the next idea show up.
+
+So it grew in that direction. The amp is the foundation, but around it there is a
+drummer you can write a groove for and play with, an arrangement that follows you
+through the sections of a song, a rig that changes on its own when the chorus
+arrives, and a recorder that keeps what you played before you forget it. **The aim
+is to help on the creative side** — to shorten the distance between an idea and
+hearing it out loud.
+
+Whether it manages that is for you to judge. It is what everything here was built
+towards.
+
+> ### ⚠️ This is a beta
+>
+> Version **v0.1**. It works, it is used daily on a real rig, and it can still
+> have bugs — screens with rough edges, corner cases nobody has hit yet, things
+> that break in a setup different from the one it was developed on.
+>
+> **Keep backups of anything that matters** (your presets live in
+> `Documents\Guitar Companion\Presets`) and please **[open an issue](../../issues)**
+> when something goes wrong: what you did, what you expected, what happened. A
+> report with those three lines is worth more here than any feature request.
 
 > **New here? Read [How it works](#-how-it-works) first.** The window looks busy on purpose — it is a pedalboard, and everything on it is reachable in one click. That section walks through it in the order you would actually use it.
 
@@ -62,16 +92,21 @@ Thank you to all of them. If you maintain one of these projects and something he
 
 ## 📊 Project status
 
-| Phase | Deliverable | Status |
-|-------|-------------|--------|
-| 0 | JUCE shell (Standalone + VST3), passthrough, ASIO | ✅ |
-| 1 | NAM Core integrated into the build (WHOLE_ARCHIVE, C++20) | ✅ |
-| 2 | Loading `.nam` captures + real DSP, RT-safe swap | ✅ |
-| 3 | Automatic resampler (Lanczos), Noise Gate, Cab IR, presets | ✅ |
-| 4 | Tone Store: OAuth PKCE + search + downloads from TONE3000 | ✅ |
-| 5 | Design v2, full pedalboard chain, tuner, photos, UX | ✅ |
+| Area | What is there | Status |
+|---|---|---|
+| Amp + cabinet | NAM captures (A1/A2), up to 3 parallel AMP+CAB rigs, IR convolution, automatic resampler | ✅ |
+| Effects | 23 effects, reorderable, with variations — plus a slot for any third-party VST3 | ✅ |
+| Tone Store | TONE3000 sign-in and browsing inside the app, downloads, offline library, VST3 catalogue | ✅ |
+| Drums | Sequencer with real samples or a hosted drum VST3, editable notation, ~157 grooves | ✅ |
+| Song / Scenes | Up to 8 sections, one rig snapshot per section, applied on the bar line | ✅ |
+| Stage | Big-target live screen, next-scene tile | ✅ |
+| Recording | Take as a mix plus separate guitar and drum stems | ✅ |
+| Rough edges | Beta: see the warning above, and the [issues](../../issues) | ⚠️ |
 
-**Validation**: each phase was tested with a real guitar (Focusrite ASIO, 48 kHz, 128 samples) and headless DSP tests (loading the A2/WaveNet/LSTM architectures, resampling 48→44.1 kHz).
+**Validation**: everything is tested with a real guitar (Focusrite ASIO, 48 kHz,
+128 samples) and headless DSP tests (A2/WaveNet/LSTM architectures, resampling
+48→44.1 kHz). There are unit tests for the drums module — see
+[`tests/README.md`](tests/README.md).
 
 ## ⚡ Features
 
@@ -80,7 +115,9 @@ Thank you to all of them. If you maintain one of these projects and something he
 - **Automatic resampler**: captures run at the sample rate they expect, at any interface sample rate (~0.6 ms latency, reported to the host)
 - **Parallel rigs**: up to 3 complete **AMP+CAB** pairs (capture + own knobs + per-lane IR), always in pairs, summed in the **Mixer** card (per-rig blend + global AIR)
 - **Cab IR** by convolution (wav/aiff/flac, glitch-free swap), low/high cut and phase per lane
-- **Tone Store (TONE3000)**: OAuth login, search with photos, filters by type/tags/A2 architecture, variation picker (mics/channels), downloads with progress, offline library, no re-downloads
+- **Tone Store (TONE3000)**: sign-in and the whole catalogue **inside the app** (their own picker runs in an embedded browser), variation picker (mics/channels), downloads with progress, offline library, no re-downloads
+- **Drums to play against**: sequencer with real samples or a hosted drum VST3, editable notation, ~157 grooves and ~53 fills across 14 genres, groove generator
+- **Song mode**: up to 8 sections, each with its own bars and its own **rig snapshot**, switched on the bar line while you play
 - **Real tuner** (NSDF pitch detection) with on/off
 - **Presets**: 1-click save, "Save as", modified indicator (•), factory presets, ◂ ▸ navigation
 - **Photos** of the loaded amp/cabinet on the rig cards
@@ -160,6 +197,29 @@ Driver, device, sample rate and buffer. Changes are **staged**: nothing happens 
 3. Back on **Rig** → set GAIN and MASTER on the amp card. That is already a full sound.
 4. Add effects with **`+ EFFECT`** only once you want them.
 
+## 📥 Install (Windows)
+
+Grab **`Guitar-Companion-0.1-win64-setup.exe`** from the
+[latest release](../../releases/latest) and run it. It installs the standalone
+application and, if you keep the box ticked, the **VST3** into
+`C:\Program Files\Common Files\VST3` so your DAW finds it. There is a proper
+uninstaller in Add/Remove Programs.
+
+Requirements: **Windows 10 or 11, 64-bit**.
+
+> **The embedded browser needs Windows 11 — or the WebView2 Runtime.**
+> The Tone Store opens TONE3000's own pages *inside* the app, and that uses
+> Microsoft's WebView2. **Windows 11 has it out of the box.** On Windows 10 it
+> often arrives with Edge, but not always: if it is missing, the installer says
+> so, and the store falls back to opening TONE3000 in your normal browser —
+> everything still works, it just leaves the app to do it. To get the embedded
+> version on Windows 10, install the
+> [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
+> (free, from Microsoft).
+
+Prefer not to install? The release also has the plain build if you would rather
+copy the files yourself.
+
 ## 🔧 Build (Windows)
 
 Requirements: VS 2022 (Build Tools or Community) with C++, CMake ≥ 3.22, Git.
@@ -203,6 +263,17 @@ cmake -B build -G "Visual Studio 17 2022" -A x64 -DGUITAR_COMPANION_EMBEDDED_BRO
 The store then falls back to the system browser plus the `localhost:53682`
 listener — the path that always existed. The same happens at runtime on a
 machine with no WebView2 Runtime.
+
+### Packaging the installer
+
+The Windows installer is an [Inno Setup](https://jrsoftware.org/isinfo.php)
+script. Build the app in Release first, then:
+
+```powershell
+iscc packaging\guitar-companion.iss
+```
+
+The `.exe` lands in `packaging\output\` (gitignored).
 
 ## 🔑 TONE3000 setup
 
