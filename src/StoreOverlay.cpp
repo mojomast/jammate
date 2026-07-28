@@ -770,7 +770,14 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
                 gearChips[i]->getProperties().set ("chipActive",
                     gearChips[i]->getProperties() ["gearValue"].toString() == value);
             repaint();
-            doSearch (1);
+            // The pills filter whichever source the tab is showing. Calling
+            // doSearch() unconditionally emptied "My library": it clears the
+            // grid and then refills it from the TONE3000 lists, so picking IR
+            // over 88 local tones left the "your library is empty" screen.
+            if (tab == Tab::library)
+                refreshLibrary();
+            else
+                doSearch (1);
         };
         addAndMakeVisible (chip);
     }
@@ -2168,13 +2175,23 @@ void StoreOverlay::refreshLibrary()
         gridContent.addAndMakeVisible (card);
     };
 
-    for (const auto& f : Tone3000Client::capturesDir().findChildFiles (juce::File::findFiles, false, "*.nam"))
-        addLocal (f, "amp", "NAM",
-                  processor.isModelFileLoaded (f.getFullPathName()) ? f.getFullPathName()
-                                                                    : juce::String());
-    for (const auto& f : Tone3000Client::irsDir().findChildFiles (juce::File::findFiles, false,
-                                                                  "*.wav;*.aif;*.aiff;*.flac"))
-        addLocal (f, "ir", "IR", processor.isIrFileLoaded (f.getFullPathName()) ? f.getFullPathName() : juce::String());
+    // The TYPE pills apply here too, but a local file only tells us NAM or IR -
+    // nothing says whether a capture is an amp, an amp+cab or a pedal. So the
+    // only honest split is captures vs IRs: "IR" shows the IRs, any other pill
+    // shows the captures. Pretending we can tell AMP+CAB from PEDAL would just
+    // show an empty grid.
+    const bool onlyIrs = gearFilter == "ir";
+    const bool onlyCaptures = gearFilter.isNotEmpty() && ! onlyIrs;
+
+    if (! onlyIrs)
+        for (const auto& f : Tone3000Client::capturesDir().findChildFiles (juce::File::findFiles, false, "*.nam"))
+            addLocal (f, "amp", "NAM",
+                      processor.isModelFileLoaded (f.getFullPathName()) ? f.getFullPathName()
+                                                                        : juce::String());
+    if (! onlyCaptures)
+        for (const auto& f : Tone3000Client::irsDir().findChildFiles (juce::File::findFiles, false,
+                                                                      "*.wav;*.aif;*.aiff;*.flac"))
+            addLocal (f, "ir", "IR", processor.isIrFileLoaded (f.getFullPathName()) ? f.getFullPathName() : juce::String());
 
     countText = juce::String (cards.size())
                 + (cards.size() == 1 ? " LOCAL TONE" : " LOCAL TONES");
