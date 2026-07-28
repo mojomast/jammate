@@ -27,6 +27,9 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
+; Generated from the SVGs by make-icon.ps1; carries 7 sizes, with a simplified
+; drawing at 16 and 24 px.
+SetupIconFile=..\assets\brand\guitar-companion.ico
 OutputDir=output
 OutputBaseFilename=Guitar-Companion-{#AppVersion}-win64-setup
 Compression=lzma2/max
@@ -57,6 +60,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#ArtefactsDir}\Standalone\{#ExeName}"; DestDir: "{app}"; Components: app; Flags: ignoreversion
+; Shipped so the Start menu entry for the licence has the app's icon rather
+; than Notepad's, and so Add/Remove Programs has something to show.
+Source: "..\assets\brand\guitar-companion.ico";  DestDir: "{app}"; Components: app; Flags: ignoreversion
 Source: "..\LICENSE";                           DestDir: "{app}"; Components: app; Flags: ignoreversion
 Source: "..\THIRD_PARTY.md";                    DestDir: "{app}"; Components: app; Flags: ignoreversion
 Source: "..\README.md";                         DestDir: "{app}"; Components: app; Flags: ignoreversion
@@ -65,9 +71,10 @@ Source: "{#ArtefactsDir}\VST3\{#Vst3Name}\*"; DestDir: "{commoncf64}\VST3\{#Vst3
     Components: vst3; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#AppName}";                Filename: "{app}\{#ExeName}"; Components: app
-Name: "{group}\Licence (AGPLv3)";          Filename: "{app}\LICENSE";    Components: app
-Name: "{autodesktop}\{#AppName}";          Filename: "{app}\{#ExeName}"; Components: app; Tasks: desktopicon
+Name: "{group}\{#AppName}";       Filename: "{app}\{#ExeName}"; Components: app
+Name: "{group}\Licence (AGPLv3)"; Filename: "{app}\LICENSE";    Components: app; \
+    IconFilename: "{app}\guitar-companion.ico"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#ExeName}"; Components: app; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#ExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent

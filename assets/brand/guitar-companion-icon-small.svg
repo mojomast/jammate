@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Guitar Companion">
+  <!--
+    The 16 and 24 px entries of the .ico.
+
+    A .ico carries a different drawing per size, and this is what that is for:
+    at those sizes the three bars of the full icon collapse into one grey
+    smear, so they are replaced by a single amber stroke. What survives is the
+    pick silhouette plus one accent - which is all the information that fits.
+  -->
+  <defs>
+    <linearGradient id="gcPickSmall" x1="120" y1="70" x2="400" y2="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#57becb"/>
+      <stop offset="1" stop-color="#46a9b5"/>
+    </linearGradient>
+  </defs>
+  <path d="M56 176C56 100 140 52 256 52C372 52 456 100 456 176C456 286 352 412 286 458C268 470 244 470 226 458C160 412 56 286 56 176Z" fill="url(#gcPickSmall)"/>
+  <rect x="214" y="150" width="84" height="208" rx="42" fill="#e0a35c"/>
+</svg>

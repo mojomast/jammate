@@ -121,6 +121,15 @@ juce_add_plugin(GuitarCompanion
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
     NEEDS_WEBVIEW2 ${GUITAR_COMPANION_HAS_EMBEDDED_BROWSER}
+    # Two drawings on purpose. JUCE builds the executable's .ico from these and
+    # picks between them BY WIDTH (juce_Icons.cpp, getBestIconForSize), which is
+    # why ICON_SMALL is a real 16 px raster: only 16 then gets the simplified
+    # drawing - the full icon's bars are under two pixels wide there - and 32,
+    # 48 and 256 get the whole thing, matching the .ico the installer uses.
+    # Both come from the SVGs in assets/brand/; regenerate the derived files
+    # with packaging\make-icon.ps1.
+    ICON_BIG   "${CMAKE_CURRENT_SOURCE_DIR}/assets/brand/icon-256.png"
+    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/assets/brand/icon-small-16.png"
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
 # Fontes do design (OFL) + samples de bateria GMRockKit (GPL, ver

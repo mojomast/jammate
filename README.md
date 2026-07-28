@@ -320,6 +320,8 @@ Guitar Companion uses the public TONE3000 API under its **free, non-commercial t
 src/                  plugin code (processor, editor, store, TONE3000 client)
 docs/EFEITOS.md       sources/references for each effect and variation
 assets/fonts/         Space Grotesk + JetBrains Mono (OFL, embedded in the binary)
+assets/brand/         the app icon: two source SVGs + the files derived from them
+packaging/            Inno Setup script + make-icon.ps1 (regenerates the icon)
 docs/screenshots/     project screenshots
 references/           OPTIONAL submodules: reference projects for effects (see references/README.md)
 third_party/JUCE            submodule pinned at 8.0.15 (required to build)
