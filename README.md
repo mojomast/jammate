@@ -44,7 +44,13 @@ The projects this was built on top of, or learned from:
 | [DrumGroovePro](https://github.com/InToEtherion/DrumGroovePro) | InToEtherion | Interface ideas for the drum browser and humanisation |
 | [TONE3000](https://www.tone3000.com) | TONE3000 | The capture library the Tone Store reads (public API, free tier — not affiliated) |
 
-**About that middle column.** Every name in it was taken from the project's own licence or notice file, not from memory. Where a project **declares a named copyright holder**, that name is used — Airwindows (`Copyright (c) 2018 Chris Johnson`) and Neural Amp Modeler (`Copyright (c) 2023 Steven Atkinson`) both do, and those two are also the ones whose licences legally require the name to travel with the code.
+**About that middle column.** Every name in it was taken from the project's own licence or notice file, not from memory. Where a project **declares a named copyright holder**, that name is used verbatim:
+
+- Airwindows — `Copyright (c) 2018 Chris Johnson`
+- Neural Amp Modeler — `Copyright (c) 2023 Steven Atkinson`
+- JUCE — `Copyright (c) Raw Material Software Limited`, read from the source headers of the exact commit this repository pins
+
+The first two are also the ones whose licences (MIT) legally require the name to travel with the code.
 
 Most of the GPL projects here declare **no single holder** — their `LICENSE` is the plain GPL text and their README carries no copyright statement. For those, "the *X* contributors" is not a hedge, it is the accurate answer: they are years of work by more than one person, and inventing a single author for them would misrepresent that. If you maintain one of these and would rather be credited by name, open an issue and it will be changed.
 
