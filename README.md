@@ -24,29 +24,31 @@ Three rules follow from that, and they are enforced in the repository rather tha
 
 ### Where the inspirations came from
 
-The people and projects this was built on top of, or learned from:
+The projects this was built on top of, or learned from:
 
-| Project | By | What it gave this program |
-|---|---|---|
-| [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) | Steven Atkinson | The neural amp engine itself — the core of the whole program |
-| [JUCE](https://juce.com) | Raw Material Software | Audio framework, plugin format, UI toolkit |
-| [Airwindows](https://github.com/airwindows/airwindows) | Chris Johnson | **Ported** (MIT): Tape, Console, and the Valve drive. Also studied for Ring Mod, Bitcrusher, Exciter and modulation |
-| [Guitarix](https://github.com/brummer10/guitarix) · [GxPlugins.lv2](https://github.com/brummer10/GxPlugins.lv2) | brummer10 and the Guitarix project | Studied: slow gear, wah, drive voicing, modulation |
-| [LSP Plugins](https://github.com/lsp-plugins/lsp-plugins) | Vladimir Sadovnikov | Studied: compressor and de-esser behaviour |
-| [ToobAmp](https://github.com/rerdavies/ToobAmp) | rerdavies | Studied: noise gate, pre-EQ, modulation |
-| [BYOD](https://github.com/Chowdhury-DSP/BYOD) | Chowdhury DSP | Studied: drive stages |
-| [Dragonfly Reverb](https://github.com/michaelwillis/dragonfly-reverb) | Michael Willis | Studied: reverb |
-| [rkrlv2](https://github.com/ssj71/rkrlv2) | ssj71, porting Rakarrack | Studied: pitch shifter and harmonizer |
-| [GMRockKit](https://github.com/hydrogen-music/hydrogen) | Glen MacArthur · Sebastian Moors | The internal drum kit's actual samples |
-| [Leland](https://github.com/musescore/MuseScore) | MuseScore | The SMuFL music font the drum notation is engraved with |
-| [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove) | Google Magenta | Part of the groove and fill library |
-| [midi-drums](https://github.com/fsecada01/midi-drums) | fsecada01 | Part of the metal grooves and fills |
-| [DrumGroovePro](https://github.com/InToEtherion/DrumGroovePro) | InToEtherion | Interface ideas for the drum browser and humanisation |
-| [TONE3000](https://www.tone3000.com) | TONE3000 | The capture library the Tone Store reads (public API, free tier — not affiliated) |
+| Project | What it gave this program |
+|---|---|
+| [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) | The neural amp engine itself — the core of the whole program |
+| [JUCE](https://juce.com) | Audio framework, plugin format, UI toolkit |
+| [Airwindows](https://github.com/airwindows/airwindows) | **Ported** (MIT): Tape, Console and the Valve drive. Also studied for Ring Mod, Bitcrusher, Exciter and modulation |
+| [Guitarix](https://github.com/brummer10/guitarix) · [GxPlugins.lv2](https://github.com/brummer10/GxPlugins.lv2) | Studied: slow gear, wah, drive voicing, modulation |
+| [LSP Plugins](https://github.com/lsp-plugins/lsp-plugins) | Studied: compressor and de-esser behaviour |
+| [ToobAmp](https://github.com/rerdavies/ToobAmp) | Studied: noise gate, pre-EQ, modulation |
+| [BYOD](https://github.com/Chowdhury-DSP/BYOD) | Studied: drive stages |
+| [Dragonfly Reverb](https://github.com/michaelwillis/dragonfly-reverb) | Studied: reverb |
+| [rkrlv2](https://github.com/ssj71/rkrlv2) (a port of Rakarrack) | Studied: pitch shifter and harmonizer |
+| [GMRockKit](https://github.com/hydrogen-music/hydrogen), from the Hydrogen project | The internal drum kit's actual samples |
+| [Leland](https://github.com/musescore/MuseScore), from MuseScore | The SMuFL music font the drum notation is engraved with |
+| [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove), from Google Magenta | Part of the groove and fill library |
+| [midi-drums](https://github.com/fsecada01/midi-drums) | Part of the metal grooves and fills |
+| [DrumGroovePro](https://github.com/InToEtherion/DrumGroovePro) | Interface ideas for the drum browser and humanisation |
+| [TONE3000](https://www.tone3000.com) | The capture library the Tone Store reads (public API, free tier — not affiliated) |
+
+Credited by project rather than by person on purpose: these are projects I read and learned from, not people I know, and putting names to work I only met through a repository would be presumptuous — and easy to get wrong. The individual authors are named where their licenses require it, in [`THIRD_PARTY.md`](THIRD_PARTY.md), taken from each project's own notice.
 
 The projects marked *studied* are pinned as submodules under [`references/`](references/README.md) so any claim above can be checked against the real source. They are **not** compiled into, linked against, or shipped with this program.
 
-Thank you to all of them. If you are one of these authors and something here is wrong or uncomfortable, please open an issue — it will be treated as a priority.
+Thank you to all of them. If you maintain one of these projects and something here is wrong or uncomfortable, please open an issue — it will be treated as a priority.
 
 ---
 
