@@ -710,12 +710,16 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
 
         // Their picker, inside our window. Without WebView2 it still works, in
         // the system browser, exactly as it did before.
+        // The architecture filter is handed over to the panel, which lets the
+        // user flip it there: TONE3000 only ever shows one architecture, and
+        // the tones outside it read as "Not supported" rather than "filtered".
+        const auto arch = a2Only ? Tone3000Client::Architecture::a2
+                                 : Tone3000Client::Architecture::a1AndCustom;
         if (ToneWebView::isSupported())
         {
             ensureWebView();
-            webView->openToneFlow (
-                Tone3000Client::selectToneParams (gearFilter, a2Only ? 2 : 0),
-                "Browse TONE3000", std::move (onPicked));
+            webView->openToneFlow (Tone3000Client::selectToneParams (gearFilter, 0),
+                                   "Browse TONE3000", arch, std::move (onPicked));
         }
         else
         {

@@ -129,10 +129,25 @@ public:
     /// Query string of a callback URL (no "?", no fragment).
     static juce::String queryFromCallbackUrl (const juce::String& url);
 
+    /// Re-mints the PKCE challenge of an authorisation ALREADY reserved by
+    /// beginEmbeddedAuth(), so the panel can reload the picker with different
+    /// parameters without releasing (and re-taking) the reservation.
+    bool renewEmbeddedAuth (const juce::String& promptParams,
+                            AuthSession& session, juce::String& error) const;
+
     /// Authorize parameters for each prompt flow (also used to sign in: the
     /// picker authenticates on the way).
     static juce::String selectToneParams (const juce::String& gears, int architecture);
     static juce::String loadToneParams (int toneId);
+
+    /// Architecture filter of the picker. THEIR API takes ONE value - 1 (A1),
+    /// 2 (A2) or "custom" - and there is no way to ask for all of them. Worse,
+    /// OMITTING it is not neutral: their documented legacy default is
+    /// "A1 + Custom", which EXCLUDES A2, so every A2-only tone shows up as
+    /// "Not supported" even though this app plays A2 fine. That is why the
+    /// choice is surfaced in the browser panel instead of being hard-coded.
+    enum class Architecture { a1AndCustom = 0, a2 = 2 };
+    static juce::String architectureParam (Architecture);
     /// Parameters of a plain sign-in (no picker). "&format=nam" keeps the
     /// sign-in page scoped the way it always was.
     static juce::String connectParams() { return "&format=nam"; }

@@ -617,6 +617,19 @@ void Tone3000Client::cancelEmbeddedAuth()
     connecting.store (false);
 }
 
+bool Tone3000Client::renewEmbeddedAuth (const juce::String& promptParams,
+                                        AuthSession& session, juce::String& error) const
+{
+    return prepareAuth (promptParams, session, error);
+}
+
+juce::String Tone3000Client::architectureParam (Architecture arch)
+{
+    // Omitted on purpose for a1AndCustom: that IS their legacy default, and
+    // "&architecture=1" would additionally drop the custom-architecture tones.
+    return arch == Architecture::a2 ? "&architecture=2" : juce::String();
+}
+
 bool Tone3000Client::isRedirectUrl (const juce::String& url)
 {
     // Compare host+path only: the query is exactly what we are after, and the

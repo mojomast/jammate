@@ -143,6 +143,22 @@ ToneWebView::ToneWebView (Tone3000Client& c) : client (c)
     reloadButton.onClick = [this] { if (browser != nullptr) browser->refresh(); };
 
     externalButton.onClick = [this] { handOverToSystemBrowser(); };
+
+    // TONE3000 filters by ONE architecture at a time, and omitting the filter
+    // is not neutral - it means "A1 + Custom", hiding every A2-only tone behind
+    // a "Not supported" notice. PedalForge plays both, so the choice is the
+    // user's and it lives right here.
+    for (auto* b : { &archA1, &archA2 })
+    {
+        b->getProperties().set ("chip", true);
+        b->setMouseClickGrabsKeyboardFocus (false);
+        b->setTooltip ("TONE3000 shows one model architecture at a time. "
+                       "PedalForge loads both - switch here if a tone says "
+                       "\"Not supported\".");
+        addChildComponent (*b);
+    }
+    archA1.onClick = [this] { setArchitecture (Tone3000Client::Architecture::a1AndCustom); };
+    archA2.onClick = [this] { setArchitecture (Tone3000Client::Architecture::a2); };
 #else
     backButton.setEnabled (false);
     reloadButton.setEnabled (false);
@@ -157,11 +173,19 @@ ToneWebView::~ToneWebView()
 }
 
 //==============================================================================
-bool ToneWebView::begin (const juce::String& promptParams_, const juce::String& newTitle)
+juce::String ToneWebView::currentParams() const
+{
+    return baseParams + (archPickerVisible ? Tone3000Client::architectureParam (architecture)
+                                           : juce::String());
+}
+
+bool ToneWebView::begin (const juce::String& newBaseParams, const juce::String& newTitle)
 {
 #if JUCE_WEB_BROWSER
+    baseParams = newBaseParams;
+
     juce::String error;
-    if (! client.beginEmbeddedAuth (promptParams_, session, error))
+    if (! client.beginEmbeddedAuth (currentParams(), session, error))
     {
         finishWithError (error);
         return false;
@@ -169,9 +193,13 @@ bool ToneWebView::begin (const juce::String& promptParams_, const juce::String& 
 
     running = true;
     title = newTitle;
-    promptParams = promptParams_;
     currentHost = "tone3000.com";
     status = "Loading TONE3000...";
+
+    archA1.setVisible (archPickerVisible);
+    archA2.setVisible (archPickerVisible);
+    archA1.getProperties().set ("chipActive", architecture == Tone3000Client::Architecture::a1AndCustom);
+    archA2.getProperties().set ("chipActive", architecture == Tone3000Client::Architecture::a2);
 
     if (browser == nullptr)
     {
@@ -187,18 +215,49 @@ bool ToneWebView::begin (const juce::String& promptParams_, const juce::String& 
     repaint();
     return true;
 #else
-    juce::ignoreUnused (promptParams_, newTitle);
+    juce::ignoreUnused (newBaseParams, newTitle);
     finishWithError ("This build has no embedded browser");
     return false;
 #endif
 }
 
-void ToneWebView::openToneFlow (const juce::String& promptParams_, const juce::String& newTitle,
+void ToneWebView::openToneFlow (const juce::String& newBaseParams, const juce::String& newTitle,
+                                Tone3000Client::Architecture arch,
                                 std::function<void (Tone3000Client::Tone, juce::String)> done)
 {
     toneCallback = std::move (done);
     connectCallback = nullptr;
-    begin (promptParams_, newTitle);
+    architecture = arch;
+    archPickerVisible = true;
+    begin (newBaseParams, newTitle);
+}
+
+// Switching the filter means a different authorize URL, so a fresh PKCE
+// challenge - but the SAME reservation: the flow the caller is waiting on has
+// not ended, we are only showing it a different slice of the catalogue.
+void ToneWebView::setArchitecture (Tone3000Client::Architecture arch)
+{
+    if (! running || arch == architecture)
+        return;
+
+    architecture = arch;
+    archA1.getProperties().set ("chipActive", arch == Tone3000Client::Architecture::a1AndCustom);
+    archA2.getProperties().set ("chipActive", arch == Tone3000Client::Architecture::a2);
+    archA1.repaint();
+    archA2.repaint();
+
+    juce::String error;
+    if (! client.renewEmbeddedAuth (currentParams(), session, error))
+    {
+        finishWithError (error);
+        return;
+    }
+
+    updateStatus ("Loading TONE3000...");
+#if JUCE_WEB_BROWSER
+    if (browser != nullptr)
+        browser->goToURL (session.authorizeUrl);
+#endif
 }
 
 // The escape hatch: if a page refuses to behave in an embedded view (some
@@ -211,7 +270,7 @@ void ToneWebView::handOverToSystemBrowser()
     if (! running)
         return;
 
-    const auto params = promptParams;
+    const auto params = currentParams();
     running = false;
     client.cancelEmbeddedAuth();
     setVisible (false);
@@ -231,6 +290,7 @@ void ToneWebView::openConnect (std::function<void (bool, juce::String)> done)
 {
     connectCallback = std::move (done);
     toneCallback = nullptr;
+    archPickerVisible = false;   // a plain sign-in browses nothing
     begin (Tone3000Client::connectParams(), "Sign in to TONE3000");
 }
 
@@ -341,7 +401,18 @@ void ToneWebView::paint (juce::Graphics& g)
     auto line = currentHost;
     if (status.isNotEmpty())
         line += juce::String (juce::CharPointer_UTF8 ("  \xc2\xb7  ")) + status;
-    g.drawText (line, 22, 32, getWidth() - 44, 14, juce::Justification::centredLeft);
+    g.drawText (line, 22, 32, 260, 14, juce::Justification::centredLeft);
+
+    // Says out loud why the chips exist - TONE3000 marks tones outside the
+    // selected architecture as "Not supported", which reads like the tone is
+    // broken rather than filtered out.
+    if (archPickerVisible)
+    {
+        g.setFont (ui::monoFont (9.5f));
+        g.setColour (ui::textFaint);
+        g.drawText ("ARCHITECTURE", archA1.getX(), 2, 200, 12,
+                    juce::Justification::centredLeft);
+    }
 
     // TONE3000 wordmark (attribution): the content below is theirs.
     if (brandLogo.isValid())
@@ -371,9 +442,13 @@ void ToneWebView::resized()
     closeButton.setBounds (right - 30, 13, 30, 30);
     externalButton.setBounds (closeButton.getX() - 8 - 150, 13, 150, 30);
 
-    // Navigation sits after the title, out of the way of the wordmark.
-    backButton.setBounds (getWidth() / 2 - 34, 13, 30, 30);
-    reloadButton.setBounds (getWidth() / 2, 13, 30, 30);
+    // Navigation right after the title; the architecture chips sit in the
+    // middle, between it and the wordmark.
+    backButton.setBounds (300, 13, 30, 30);
+    reloadButton.setBounds (334, 13, 30, 30);
+
+    archA1.setBounds (getWidth() / 2 - 60, 14, 118, 28);
+    archA2.setBounds (archA1.getRight() + 6, 14, 52, 28);
 
 #if JUCE_WEB_BROWSER
     if (browser != nullptr)
