@@ -1973,49 +1973,76 @@ void StoreOverlay::doSearch (int)
                                  : gearFilter.isNotEmpty()   ? gearFilter
                                                              : juce::String ("amp-cab");
 
-    client.listTrending (trendGear, [safe, finish] (Tone3000Client::SearchResult trending)
+    // /tones/trending is scoped to ONE gear and returns 10, so asking for a
+    // single gear made "ALL" show ~19 tones - which reads as "the store is
+    // nearly empty". The endpoint is bounded PER GEAR, so ALL now fans out over
+    // every gear type TONE3000 publishes: still only bounded list endpoints,
+    // ~8 requests against a 100/min limit.
+    auto gears = std::make_shared<juce::StringArray>();
+    if (gearFilter == "ir")           gears->add ("cab");
+    else if (gearFilter.isNotEmpty()) gears->add (trendGear);
+    else                              *gears = { "amp-cab", "amp", "pedal", "cab",
+                                                 "outboard", "space", "experimental" };
+
+    auto next = std::make_shared<int> (0);
+    auto step = std::make_shared<std::function<void()>>();
+
+    *step = [safe, gears, next, step, finish]
     {
         if (safe == nullptr)
             return;
-        auto* self = safe.getComponent();   // MSVC: never capture 'this' in the nested lambda
+        auto* self = safe.getComponent();   // MSVC: never capture 'this' in a nested lambda
         if (self->tab != Tab::explore)
         {
             self->searching = false;
             return;
         }
-        if (trending.error.isNotEmpty())
+
+        if (*next >= gears->size())   // trending done; latest closes the grid
         {
-            self->bannerError = trending.error;
-            self->searching = false;
-            self->resized();
-            self->repaint();
+            self->client.listLatest ([safe, finish] (Tone3000Client::SearchResult latest)
+            {
+                if (safe == nullptr)
+                    return;
+                auto* s = safe.getComponent();
+                if (latest.error.isNotEmpty() && s->cards.isEmpty())
+                    s->bannerError = latest.error;
+                else if (latest.error.isEmpty())
+                    s->appendUnique (latest.tones);
+                finish (s);
+            });
             return;
         }
-        self->bannerError.clear();
-        for (const auto& tone : trending.tones)
-            self->addCardFor (tone, true);
-        self->trendingCount = self->cards.size();
 
-        self->client.listLatest ([safe, finish] (Tone3000Client::SearchResult latest)
+        const auto gear = (*gears)[(*next)++];
+        self->client.listTrending (gear, [safe, step] (Tone3000Client::SearchResult r)
         {
             if (safe == nullptr)
                 return;
             auto* s = safe.getComponent();
-            if (latest.error.isNotEmpty() && s->cards.isEmpty())
-                s->bannerError = latest.error;
-            else
-                for (const auto& tone : latest.tones)
-                {
-                    bool already = false;   // the two lists overlap
-                    for (auto* c : s->cards)
-                        if (c->getInfo().toneId == tone.id)
-                            already = true;
-                    if (! already)
-                        s->addCardFor (tone, true);
-                }
-            finish (s);
+            if (r.error.isNotEmpty() && s->cards.isEmpty())
+                s->bannerError = r.error;      // one gear failing must not empty the grid
+            else if (r.error.isEmpty())
+                s->appendUnique (r.tones);
+            (*step)();
         });
-    });
+    };
+
+    (*step)();
+}
+
+void StoreOverlay::appendUnique (const std::vector<Tone3000Client::Tone>& tones)
+{
+    // trending (per gear) and latest overlap, and so do gears on multi-format tones
+    for (const auto& tone : tones)
+    {
+        bool already = false;
+        for (auto* c : cards)
+            if (c->getInfo().toneId == tone.id)
+                already = true;
+        if (! already)
+            addCardFor (tone, true);
+    }
 }
 
 void StoreOverlay::refreshLibrary()

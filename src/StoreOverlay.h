@@ -191,6 +191,8 @@ private:
     void layoutCards();
     void updateHeaderState();
     void addCardFor (const Tone3000Client::Tone&, bool appendToGrid);
+    /// Adds every tone not already on the grid (the bounded lists overlap).
+    void appendUnique (const std::vector<Tone3000Client::Tone>&);
     juce::String formatCount (juce::int64) const;
 
     GuitarRigNAMProcessor& processor;
