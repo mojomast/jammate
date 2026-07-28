@@ -12,6 +12,7 @@
 #define AppName        "Guitar Companion"
 #define AppVersion     "0.1"
 #define AppPublisher   "Rapha"
+#define AppUrl         "https://github.com/raphaelfukuda/Guitar-Companion"
 #define ExeName        "Guitar Companion.exe"
 #define Vst3Name       "Guitar Companion.vst3"
 #define ArtefactsDir   "..\build\GuitarCompanion_artefacts\Release"
@@ -22,6 +23,11 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
+AppPublisherURL={#AppUrl}
+; Where "Support" and "Update" in Add/Remove Programs point. Issues, not the
+; repo root: someone opening those has a problem, not curiosity.
+AppSupportURL={#AppUrl}/issues
+AppUpdatesURL={#AppUrl}/releases/latest
 VersionInfoVersion=0.1.0.0
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
