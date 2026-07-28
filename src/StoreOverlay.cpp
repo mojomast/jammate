@@ -1190,10 +1190,13 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
     info.downloads = formatCount (tone.downloads);
     info.favorites = formatCount (tone.favorites);
 
-    // ST1: the primary button loads straight into AMP 1 / IR 1; the details
-    // view now opens from a click on the card body.
+    // ST1: the primary button loads straight into the rig the store is aimed
+    // at (AMP 1 / IR 1 when it is aimed at nothing); the details view opens
+    // from a click on the card body.
+    // targetLane(), NOT a literal 0: with a hard-coded 0 the button said
+    // "REPLACE IR 2" and then replaced cab 1.
     auto* card = cards.add (new ToneCardComponent (info,
-        [this] (ToneCardComponent& c) { loadCardIntoLane (c, 0); }));
+        [this] (ToneCardComponent& c) { loadCardIntoLane (c, targetLane()); }));
     card->setPrimaryLabel (primaryLabelFor (info));
     card->setFavorite (favIds.contains (juce::String (tone.id)));
     card->onToggleFavorite = [this] (ToneCardComponent& c) { toggleFavorite (c); };
@@ -2145,11 +2148,11 @@ void StoreOverlay::refreshLibrary()
         info.formatBadge = badge;
         info.offline = true;
 
-        // ST1: local cards get the same contextual primary (AMP 1 / IR 1) and
-        // the lane menu; statuses refresh via the rig-status timer, so the
-        // card is no longer destroyed inside its own onClick.
+        // ST1: local cards get the same contextual primary (the aimed rig, or
+        // AMP 1 / IR 1) and the lane menu; statuses refresh via the rig-status
+        // timer, so the card is no longer destroyed inside its own onClick.
         auto* card = cards.add (new ToneCardComponent (info,
-            [this] (ToneCardComponent& c) { loadCardIntoLane (c, 0); }));
+            [this] (ToneCardComponent& c) { loadCardIntoLane (c, targetLane()); }));
         card->setPrimaryLabel (primaryLabelFor (info));
         card->onShowMenu = [this] (ToneCardComponent& c) { showCardMenu (c); };
 
