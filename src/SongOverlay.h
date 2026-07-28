@@ -4,7 +4,7 @@
 
 #include "LookAndFeel.h"
 
-class GuitarRigNAMProcessor;
+class GuitarCompanionProcessor;
 
 //==============================================================================
 // SONG / SCENES screen (vNext, per docs/design/pedalforge-vnext-complete.html):
@@ -17,7 +17,7 @@ class SongOverlay : public juce::Component,
                     private juce::Timer
 {
 public:
-    explicit SongOverlay (GuitarRigNAMProcessor&);
+    explicit SongOverlay (GuitarCompanionProcessor&);
     ~SongOverlay() override;
 
     void open();
@@ -37,7 +37,7 @@ private:
     void ensureSceneVisible();   // scrolls the strip so the selected card shows
     juce::String sectionName (int sec) const;   // dominant role or "Section A"
 
-    GuitarRigNAMProcessor& processor;
+    GuitarCompanionProcessor& processor;
 
     // one card per drum section (custom-drawn; the strip content handles the
     // click - bounds are relative to that content, not to the overlay)

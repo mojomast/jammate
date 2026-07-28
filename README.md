@@ -1,4 +1,4 @@
-# 🎸 PedalForge NAM
+# 🎸 Guitar Companion
 
 **Personal guitar amp sim** — Standalone + VST3, built on [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) (neural captures of real amps) and JUCE 8, with a store integrated with [TONE3000](https://www.tone3000.com).
 
@@ -174,7 +174,7 @@ cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
 
-Artifacts in `build\GuitarRigNAM_artefacts\Release\` (`Standalone\PedalForge NAM.exe` and `VST3\PedalForge NAM.vst3`).
+Artifacts in `build\GuitarCompanion_artefacts\Release\` (`Standalone\Guitar Companion.exe` and `VST3\Guitar Companion.vst3`).
 
 ### ASIO (recommended)
 
@@ -197,7 +197,7 @@ the machine. Nothing to install by hand.
 Building offline, or without it, is fine:
 
 ```powershell
-cmake -B build -G "Visual Studio 17 2022" -A x64 -DPEDALFORGE_EMBEDDED_BROWSER=OFF
+cmake -B build -G "Visual Studio 17 2022" -A x64 -DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF
 ```
 
 The store then falls back to the system browser plus the `localhost:53682`
@@ -214,13 +214,13 @@ The API requires your own key (free):
 
 Sign-in and browsing happen **inside the app**: TONE3000's own pages open in an
 embedded browser panel, and the tone you pick comes straight back into the rig.
-The sign-in is remembered (its profile lives in `Documents\PedalForge NAM\webview\`),
+The sign-in is remembered (its profile lives in `Documents\Guitar Companion\webview\`),
 so you only do it once. The redirect above is still what your key registers —
 the panel simply catches it instead of a local web server. To sign in as a
 different account, use TONE3000's own account menu on the page inside the panel.
 
 The panel header has two switches, because TONE3000 filters by **one value at a
-time** on each and PedalForge reads more than one:
+time** on each and Guitar Companion reads more than one:
 
 - **FORMAT — NAM / IR.** They also publish in AIDA-X, Proteus and Amped Roots,
   which belong to other ecosystems; scoping to one of ours keeps those out.
@@ -228,7 +228,7 @@ time** on each and PedalForge reads more than one:
   **LOAD/CHANGE CAPTURE** on NAM.
 - **ARCHITECTURE — A1 + CUSTOM / A2** (captures only; an IR has none). Asking
   for no architecture is not neutral: it means "A1 + Custom", which hides every
-  A2-only tone behind a "Not supported" notice. PedalForge loads both, so flip
+  A2-only tone behind a "Not supported" notice. Guitar Companion loads both, so flip
   the switch when a tone you want says that.
 
 The store's own grid is a curated list from TONE3000 and is not format-scoped,
@@ -238,9 +238,9 @@ load. (AIDA-X itself is in the Plugins tab, if you want it.)
 
 Everyone uses their **own** key, so your downloads and your rate limit are yours and no credential ships in this repository.
 
-> ⚠️ **Security**: `tone3000.json` holds your key and your account's refresh token. It lives in `Documents\PedalForge NAM\` — **outside this repository** — and must never be committed anywhere.
+> ⚠️ **Security**: `tone3000.json` holds your key and your account's refresh token. It lives in `Documents\Guitar Companion\` — **outside this repository** — and must never be committed anywhere.
 
-PedalForge uses the public TONE3000 API under its **free, non-commercial tier**: the OAuth prompt flows and the bounded list endpoints that tier allows. **This project is not affiliated with, sponsored by, or endorsed by TONE3000.**
+Guitar Companion uses the public TONE3000 API under its **free, non-commercial tier**: the OAuth prompt flows and the bounded list endpoints that tier allows. **This project is not affiliated with, sponsored by, or endorsed by TONE3000.**
 
 ## 📁 Structure
 
@@ -255,7 +255,7 @@ third_party/NeuralAmpModelerCore  submodule pinned at v0.5.4, A2 support (requir
 third_party/webview2/       WebView2 SDK fetched by CMake (gitignored, not committed)
 ```
 
-User data (outside the repo): `Documents\PedalForge NAM\` — `Captures/`, `IRs/`, `Presets/`, `tone3000.json`, `webview/` (the embedded browser's profile: cookies of your TONE3000 sign-in).
+User data (outside the repo): `Documents\Guitar Companion\` — `Captures/`, `IRs/`, `Presets/`, `tone3000.json`, `webview/` (the embedded browser's profile: cookies of your TONE3000 sign-in).
 
 ## 🗺️ Roadmap
 
@@ -281,7 +281,7 @@ User data (outside the repo): `Documents\PedalForge NAM\` — `Captures/`, `IRs/
 
 **Phase 9 — P3 effects (done):**
 - [x] **Pitch** card: 2-head granular octaver (Octave ↓/↑, Fifth, Detune) with MIX/LEVEL — validated headless (440 Hz → 220/660/880 Hz)
-- [x] **Looper** card: up to 60 s, REC → closes and plays → overdub, PLAY/STOP, CLEAR and **WAV export** (`Documents\PedalForge NAM\Loops`)
+- [x] **Looper** card: up to 60 s, REC → closes and plays → overdub, PLAY/STOP, CLEAR and **WAV export** (`Documents\Guitar Companion\Loops`)
 - [x] **Limiter** card: brickwall at the end of the chain with a gain-reduction bar + **CLIP** warning on the OUT meter
 
 ![P3 effects](docs/screenshots/efeitos-p3.png)
@@ -324,27 +324,27 @@ User data (outside the repo): `Documents\PedalForge NAM\` — `Captures/`, `IRs/
 - [x] **Meters with peak-hold** + micro-interactions (hover on `+`/`✕`, hand cursor)
 - [x] **File drag-and-drop**: drop `.nam` on the amp, an IR on the cab and a `.vst3` on the external slot (with target highlight)
 - [x] **Tuner with MUTE** (silences the output while tuning) · stereo delay/reverb (since phase 7)
-- [x] **★ favorites on TONE3000** (persisted + "★ only" filter) · **rig A/B** (compares two complete setups) · **quick recorder** (24-bit WAV of the output in `Documents\PedalForge NAM\Recordings`)
+- [x] **★ favorites on TONE3000** (persisted + "★ only" filter) · **rig A/B** (compares two complete setups) · **quick recorder** (24-bit WAV of the output in `Documents\Guitar Companion\Recordings`)
 - [x] UX fixes: immediate relayout when removing/adding cards (no stale targets under the mouse), deferred relayout while dragging a knob
 
 **Phases 16–17 — external VST3 plugins (done):**
 - [x] **Up to 8 slots** of VST3 plugins in the chain (in practice the limit is CPU); LOAD menu by category
 - [x] **Built-in catalog** of 8 open-source plugins (Dragonfly, Airwindows, Zam, AIDA-X, Fire, Wolf Shaper, PeakEater, Surge XT Effects): a **Plugins** tab in the Tone Store with an INSTALL ⇄ UNINSTALL toggle, progress and pinned versions — **direct download only**: installs by extracting the .vst3 into the user folder (no admin) and uninstalls by deleting the file, no installer
 - [x] `plugins/` in the repo: an alternative script + offline copy (32 MB) with licenses
-- [x] **Renamed to PedalForge NAM** (avoids confusion with NI's Guitar Rig); old data migrates automatically
+- [x] **Renamed to Guitar Companion** (avoids confusion with NI's Guitar Rig); old data migrates automatically
 
 **Phase 18 — Drums module (in progress):**
 - [x] Engine: sample-accurate sequencer in processBlock (2 bars × 16 steps, 9 voices, accent/ghost), swing, click, count-in; its own bus summed into the master (does not go through the guitar chain)
 - [x] Sound sources: **internal synthesized sampler** (works out of the box) and a **hosted drum VST3** (GM MIDI channel 10, pending/retired protocol, panel in its own window)
 - [x] UI v4 "the staff is the track" (**Drums** button in the top bar): the central area shows the **whole section (4 bars) on a continuous staff**; **1-bar** grooves are **dragged from the library straight onto the bar on the staff**; clicking the staff edits (empty→hit→accent→ghost); sections as tabs (**+ SECTION** = +4 bars); **FOLLOW** turns the page on play; the **GRID** chip opens the 16-step grid of the selected bar
-- [x] **Massive reorganized library**: ~460 factory grooves+fills; **each genre gathers its grooves AND its fills** (ALL/GROOVES/FILLS sub-filter; fills with an orange border); 16 genres incl. **SOUL/GOSPEL** and **GENERAL** (generic fills). Part comes from the **Groove MIDI Dataset** (Google Magenta, CC BY 4.0 — see `THIRD_PARTY.md`), quantized; the dataset's jazz/blues are left out (swing doesn't fit the straight grid). Each card shows a **notation thumbnail**; + **My bars** (`Documents\PedalForge NAM\compassos`)
+- [x] **Massive reorganized library**: ~460 factory grooves+fills; **each genre gathers its grooves AND its fills** (ALL/GROOVES/FILLS sub-filter; fills with an orange border); 16 genres incl. **SOUL/GOSPEL** and **GENERAL** (generic fills). Part comes from the **Groove MIDI Dataset** (Google Magenta, CC BY 4.0 — see `THIRD_PARTY.md`), quantized; the dataset's jazz/blues are left out (swing doesn't fit the straight grid). Each card shows a **notation thumbnail**; + **My bars** (`Documents\Guitar Companion\compassos`)
 - [x] Timeline/BPM/swing/source saved in the preset (A/B included; old formats migrate)
 - [x] **Column browser** (DrumGroovePro style, GPLv3): Genre (with counts) | Grooves/Fills | **Preview** with the big notation + "apply to bar" + drag; **humanize** (velocity/micro-timing/round-robin) of the internal kit; **EDIT button** (edit notes ⇄ assemble: drag the whole bar to reposition/copy)
 - [x] **Per-bar time signature**: each bar can have its own meter (4/4, 3/4, 2/4, 6/8, 12/8 + Custom); the signature is written only when it changes (notation convention), the width adjusts to the number of steps (engine with variable steps per bar, cap 32) and the beams group by meter (compound in threes). Clicking the signature on the bar header opens the menu; the grid and playhead follow. Saved in the preset.
 - [x] **Groove generator** (ported from midi-drums, MIT): genre/style/drummer + parameters generate a bar honoring its time signature; per-bar role (Verse/Chorus/Bridge/Fill) drives the generation
 - [x] **Ribbons + morph**: each screen carries a live ribbon of the other at the top (drums ribbon on guitar with playhead; guitar ribbon on drums with amp + active pedals), and clicking morphs into the full screen
 - [ ] Pending: external MIDI output, per-piece mini-mixer, copy bar→bar by dragging
-- Approved design: `docs/design/`; dev flags `GUITARRIG_OPEN_DRUMS=1|play|meter|gen|genfill`
+- Approved design: `docs/design/`; dev flags `GUITAR_COMPANION_OPEN_DRUMS=1|play|meter|gen|genfill`
 
 **Next:**
 - [ ] Future ideas: chain minimap, MIDI learn, per-song scene snapshot

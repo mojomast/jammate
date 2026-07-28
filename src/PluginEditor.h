@@ -97,7 +97,7 @@ public:
 class FxDrawer : public juce::Component
 {
 public:
-    explicit FxDrawer (GuitarRigNAMProcessor&);
+    explicit FxDrawer (GuitarCompanionProcessor&);
     /// Opens listing everything not yet in the chain; insertIndex -1 = canonical.
     void open (int insertIndex);
     void close() { setVisible (false); }
@@ -108,7 +108,7 @@ public:
 
 private:
     void rebuild();
-    GuitarRigNAMProcessor& processor;
+    GuitarCompanionProcessor& processor;
     juce::TextEditor search;
     juce::TextButton closeBtn { juce::CharPointer_UTF8 ("\xe2\x9c\x95") };
     juce::Viewport vp;
@@ -128,7 +128,7 @@ class ChainView : public juce::Component,
                   public juce::TooltipClient
 {
 public:
-    ChainView (GuitarRigNAMProcessor&, std::function<void (int)> onLoadModel,
+    ChainView (GuitarCompanionProcessor&, std::function<void (int)> onLoadModel,
                std::function<void (int)> onLoadIr,
                std::function<void (int)> onLoadExtPlugin,
                std::function<void (int)> onOpenExtPluginUi);
@@ -183,7 +183,7 @@ public:
     std::vector<std::pair<juce::Rectangle<int>, bool>> minimapBlocks() const;
 
 private:
-    static constexpr int maxRigs = GuitarRigNAMProcessor::maxRigs;
+    static constexpr int maxRigs = GuitarCompanionProcessor::maxRigs;
 
     int rigBlockWidth() const;
     void updateLayout();
@@ -265,11 +265,11 @@ private:
                          const juce::String& footer, const juce::String& id = {});
     void drawPhoto (juce::Graphics&, const juce::Image&, juce::Rectangle<int>);
 
-    GuitarRigNAMProcessor& processor;
+    GuitarCompanionProcessor& processor;
 
     juce::Rectangle<int> gateB, odB, eqB, delayB, revB;
     juce::Rectangle<int> compB, preEqB, pitchB, looperB, limB;
-    juce::Rectangle<int> extB[GuitarRigNAMProcessor::maxExtSlots];
+    juce::Rectangle<int> extB[GuitarCompanionProcessor::maxExtSlots];
     juce::Rectangle<int> wahB, harmB, octB, rmB, bcB, sgB, excB, dsB, tapeB, cnsB, anB;
     // parallel rigs: one amp+cab pair per lane (mix/level moved to RigContent)
     juce::Rectangle<int> ampLaneB[maxRigs], cabLaneB[maxRigs];
@@ -279,7 +279,7 @@ private:
     // knobs / LEDs / buttons
     LedButton gateLed, odLed, ampLed, cabLed, eqLed, delayLed, revLed, compLed, preEqLed,
         pitchLed, looperLed, limLed;
-    LedButton extLed[GuitarRigNAMProcessor::maxExtSlots];
+    LedButton extLed[GuitarCompanionProcessor::maxExtSlots];
     LedButton wahLed, harmLed, octLed, rmLed, bcLed, sgLed, excLed, dsLed, tapeLed, cnsLed,
         anLed;
     std::unique_ptr<KnobComponent> gateThreshKnob, gateReleaseKnob, gateHoldKnob;
@@ -338,10 +338,10 @@ private:
     std::unique_ptr<KnobComponent> limCeilKnob, limRelKnob;
     juce::TextButton looperRecButton, looperPlayButton, looperClearButton, looperExportButton;
     // external VST3 plugin slots (up to 3 in the chain)
-    std::unique_ptr<KnobComponent> extMixKnob[GuitarRigNAMProcessor::maxExtSlots];
-    juce::TextButton extLoadButton[GuitarRigNAMProcessor::maxExtSlots],
-        extUiButton[GuitarRigNAMProcessor::maxExtSlots],
-        extRemoveButton[GuitarRigNAMProcessor::maxExtSlots];
+    std::unique_ptr<KnobComponent> extMixKnob[GuitarCompanionProcessor::maxExtSlots];
+    juce::TextButton extLoadButton[GuitarCompanionProcessor::maxExtSlots],
+        extUiButton[GuitarCompanionProcessor::maxExtSlots],
+        extRemoveButton[GuitarCompanionProcessor::maxExtSlots];
     // P4 cards (one effect per card)
     std::unique_ptr<KnobComponent> wahFreqKnob, wahRangeKnob, wahResKnob;
     std::unique_ptr<KnobComponent> sgSensKnob, sgRiseKnob;
@@ -357,17 +357,17 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> ecoAtt;
 
     // cache of the IRs' V1/V2 badge (read from the .meta sidecar)
-    juce::String cabArchCache[GuitarRigNAMProcessor::maxCabSlots];
-    juce::String cabArchPathSeen[GuitarRigNAMProcessor::maxCabSlots];
+    juce::String cabArchCache[GuitarCompanionProcessor::maxCabSlots];
+    juce::String cabArchPathSeen[GuitarCompanionProcessor::maxCabSlots];
     juce::String archBadgeForIr (int slot);
 
     using Attachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     std::unique_ptr<Attachment> gateAtt, odAtt, ampAtt, cabAtt, eqAtt, delayAtt, revAtt,
         compAtt, preEqAtt, pitchAtt, looperAtt, limAtt;
-    std::unique_ptr<Attachment> extAtt[GuitarRigNAMProcessor::maxExtSlots];
+    std::unique_ptr<Attachment> extAtt[GuitarCompanionProcessor::maxExtSlots];
     std::unique_ptr<Attachment> wahAtt, harmAtt, octAtt, rmAtt, bcAtt, sgAtt, excAtt,
         dsAtt, tapeAtt, cnsAtt, anAtt;
-    std::unique_ptr<Attachment> cabPhaseAtt[GuitarRigNAMProcessor::maxCabSlots];
+    std::unique_ptr<Attachment> cabPhaseAtt[GuitarCompanionProcessor::maxCabSlots];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChainView)
 };
@@ -387,7 +387,7 @@ public:
     static constexpr int designWidth = 1100;
     static constexpr int designHeight = 700;
 
-    explicit RigContent (GuitarRigNAMProcessor&);
+    explicit RigContent (GuitarCompanionProcessor&);
     ~RigContent() override;
 
     void paint (juce::Graphics&) override;
@@ -415,7 +415,7 @@ private:
     void showPresetMenu();
     void toggleTuner();
 
-    GuitarRigNAMProcessor& processor;
+    GuitarCompanionProcessor& processor;
     RigLookAndFeel lookAndFeel;
 
     // top bar
@@ -447,9 +447,9 @@ private:
     // right OUTPUT/MIXER card: 1/2/3 rig segment, per-rig levels, AIR, LEVEL,
     // vertical meter + PEAK tag + "+ PARALLEL RIG"
     juce::Rectangle<int> outputCardB, outputMeterB;
-    std::unique_ptr<KnobComponent> rigLevelKnob[GuitarRigNAMProcessor::maxRigs];
+    std::unique_ptr<KnobComponent> rigLevelKnob[GuitarCompanionProcessor::maxRigs];
     std::unique_ptr<KnobComponent> airKnob, outLevelKnob;
-    juce::TextButton rigSegButtons[GuitarRigNAMProcessor::maxRigs];
+    juce::TextButton rigSegButtons[GuitarCompanionProcessor::maxRigs];
     juce::TextButton addRigButton;
     int rigCountSeen = 0;                 // relayout the OUTPUT card on change
     void setRigCountParam (int count);
@@ -479,7 +479,7 @@ private:
     std::unique_ptr<juce::DocumentWindow> drumVstWindow;
 
     // floating windows with the hosted VST3 plugins' panels
-    std::unique_ptr<juce::DocumentWindow> extWindow[GuitarRigNAMProcessor::maxExtSlots];
+    std::unique_ptr<juce::DocumentWindow> extWindow[GuitarCompanionProcessor::maxExtSlots];
 
     // tuner
     juce::TextButton tunerToggle { "TUNER" };
@@ -522,10 +522,10 @@ private:
     int tunerTick = 0;
 
     // image sidecars (per rig lane)
-    juce::String loadedModelPaths[GuitarRigNAMProcessor::maxRigs];
-    juce::String loadedIrPaths[GuitarRigNAMProcessor::maxRigs];
-    bool ampImagesLoaded[GuitarRigNAMProcessor::maxRigs] = {};
-    bool cabImagesLoaded[GuitarRigNAMProcessor::maxRigs] = {};
+    juce::String loadedModelPaths[GuitarCompanionProcessor::maxRigs];
+    juce::String loadedIrPaths[GuitarCompanionProcessor::maxRigs];
+    bool ampImagesLoaded[GuitarCompanionProcessor::maxRigs] = {};
+    bool cabImagesLoaded[GuitarCompanionProcessor::maxRigs] = {};
 
     float inMeterDb = -80.0f, outMeterDb = -80.0f;
     int clipTicks = 0; // "CLIP" lit on the OUT meter after a peak >= 0 dBFS
@@ -534,15 +534,15 @@ private:
 };
 
 //==============================================================================
-class GuitarRigNAMEditor : public juce::AudioProcessorEditor
+class GuitarCompanionEditor : public juce::AudioProcessorEditor
 {
 public:
-    explicit GuitarRigNAMEditor (GuitarRigNAMProcessor&);
+    explicit GuitarCompanionEditor (GuitarCompanionProcessor&);
 
     void resized() override;
 
 private:
     RigContent content;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarRigNAMEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarCompanionEditor)
 };

@@ -2,7 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-// Palette from the "modernist" PedalForge NAM redesign (claude.ai/design,
+// Palette from the "modernist" Guitar Companion redesign (claude.ai/design,
 // tokens.json). Runtime-switchable dark/light theme: teal accent, amber warn,
 // square panels/slots, LED-ring knobs, JetBrains Mono telemetry.
 namespace ui

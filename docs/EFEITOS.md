@@ -1,6 +1,6 @@
 # 🎛️ Efeitos — fontes e referências
 
-Cada efeito do PedalForge NAM tem três "camadas" de origem, documentadas aqui para
+Cada efeito do Guitar Companion tem três "camadas" de origem, documentadas aqui para
 nunca perder a rastreabilidade:
 
 1. **Inspiração clássica** — o pedal/equipamento cujo caráter a variação persegue;
@@ -194,7 +194,7 @@ Hosting nativo do JUCE (`AudioPluginFormatManager` + `VST3PluginFormat`,
 `JUCE_PLUGINHOST_VST3`). Qualquer efeito VST3 de terceiros entra na cadeia sem
 portar código; o botão CARREGAR abre um menu com os plugins instalados em
 `C:\Program Files\Common Files\VST3` + "Procurar arquivo…".
-Dev: `GUITARRIG_EXT_PLUGIN=<caminho>` carrega no slot ao iniciar.
+Dev: `GUITAR_COMPANION_EXT_PLUGIN=<caminho>` carrega no slot ao iniciar.
 
 Plugins **grátis** recomendados para o slot — o catálogo embutido (Tone
 Store → aba Plugins) instala todos por **download direto** (extrai o .vst3,

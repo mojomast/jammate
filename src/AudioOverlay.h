@@ -5,7 +5,7 @@
 
 #include <array>
 
-class GuitarRigNAMProcessor;
+class GuitarCompanionProcessor;
 
 //==============================================================================
 // Audio & MIDI settings overlay (mockup: docs/design/pedalforge-vnext-complete
@@ -21,7 +21,7 @@ class AudioOverlay : public juce::Component,
                      private juce::Timer
 {
 public:
-    AudioOverlay (GuitarRigNAMProcessor&, juce::AudioDeviceManager* adm);
+    AudioOverlay (GuitarCompanionProcessor&, juce::AudioDeviceManager* adm);
     ~AudioOverlay() override;
 
     /// Shows the overlay (setVisible + toFront). Closes with the X or ESC.
@@ -79,7 +79,7 @@ private:
     juce::String formatBuffer (int numSamples) const;
     juce::String formatDb (float db) const;
 
-    GuitarRigNAMProcessor& processor;
+    GuitarCompanionProcessor& processor;
     juce::AudioDeviceManager* deviceManager;   // nullptr = host-managed (VST3)
     const bool hostMode;
 

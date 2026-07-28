@@ -1,11 +1,11 @@
-# PedalForge NAM - unit tests
+# Guitar Companion - unit tests
 
 Small, dependency-free test suite for the **Drums** module: the compact groove
 spec parser (`drum::parseSpec`), the factory library data (~570 grooves in
 `src/DrumLibrary.cpp`), the procedural generator (`drum::generateBar`) and the
 bar codec used for persistence (`DrumEngine::barToString` / `barFromString`).
 
-The tests are **OFF by default** (`PEDALFORGE_BUILD_TESTS=OFF`): a normal build
+The tests are **OFF by default** (`GUITAR_COMPANION_BUILD_TESTS=OFF`): a normal build
 of the plugin is not affected in any way and the test target does not even
 exist unless you ask for it.
 
@@ -15,8 +15,8 @@ Always use a **separate build directory** - `build/` is the plugin's and is
 usually busy:
 
 ```sh
-cmake -B build-tests -DPEDALFORGE_BUILD_TESTS=ON
-cmake --build build-tests --config Release --target PedalForgeTests
+cmake -B build-tests -DGUITAR_COMPANION_BUILD_TESTS=ON
+cmake --build build-tests --config Release --target GuitarCompanionTests
 ctest --test-dir build-tests -C Release --output-on-failure
 ```
 
@@ -28,15 +28,15 @@ You can also run the executable directly - it prints every case and every
 `info:` line:
 
 ```sh
-build-tests/tests/PedalForgeTests_artefacts/Release/PedalForgeTests.exe
+build-tests/tests/GuitarCompanionTests_artefacts/Release/GuitarCompanionTests.exe
 ```
 
 An optional argument filters the test cases by substring, which is what the
 four `ctest` entries do (`spec_`, `library_`, `generator_`, `codec_`):
 
 ```sh
-PedalForgeTests.exe codec_          # only the bar codec cases
-PedalForgeTests.exe weckl           # only the "linear drummer" case
+GuitarCompanionTests.exe codec_          # only the bar codec cases
+GuitarCompanionTests.exe weckl           # only the "linear drummer" case
 ```
 
 Exit code 0 means everything passed. A filter that matches nothing is an

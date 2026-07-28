@@ -27,27 +27,83 @@ inline constexpr double PI = 3.14159265358979323846;
 
 namespace
 {
-// Migration for the "GuitarRig NAM" -> "PedalForge NAM" rename: runs at module
-// load (before the standalone reads settings) and moves the old user data
-// folder and settings file, if the new ones don't exist yet.
+// Carries user data across the renames this project went through:
+// "GuitarRig NAM" -> "Guitar Companion" -> "Guitar Companion". Runs at module
+// load (before the standalone reads its settings) and moves the newest old
+// folder / settings file it finds, if the current ones don't exist yet.
+// The names are listed newest-first and MUST stay: dropping one would orphan
+// the captures, IRs and presets of anyone who skipped a version.
 bool migrateOldAppData()
 {
+    // NOT to be touched by a bulk rename: these are the OLD names, and a global
+    // search-and-replace already turned the first one into the current name
+    // once, which would have made the migration a no-op and orphaned the data.
+    static const char* const legacyNames[] = { "PedalForge NAM", "GuitarRig NAM" };
+    const juce::String currentName ("Guitar Companion");
+
+    // Renaming the whole folder is instant on the same volume, but it FAILS AS
+    // A WHOLE if anything holds a single file inside - one stale WebView2 child
+    // process keeping the browser profile open is enough, and that is not rare
+    // after a crash. The first time it happened the app came up with no
+    // captures and an empty tone3000.json, silently. So: try the rename, and
+    // fall back to moving item by item, copying whatever is locked and leaving
+    // the original where it is. Nothing is ever deleted.
+    auto mergeInto = [] (const juce::File& from, const juce::File& to)
+    {
+        if (! to.exists() && from.moveFileTo (to))
+            return;
+
+        to.createDirectory();
+        for (const auto& child : from.findChildFiles (juce::File::findFilesAndDirectories, false))
+        {
+            auto dest = to.getChildFile (child.getFileName());
+
+            // On a clash the LEGACY file wins, because at migration time it is
+            // the user's real data: anything already sitting in the new folder
+            // can only have been written by a run that had not migrated yet, so
+            // it is a default or a stub. That is not theory - the first attempt
+            // here left a blank tone3000.json behind and the app came up
+            // signed out, next to a folder holding the real key. The displaced
+            // file is kept as *.pre-migration rather than deleted.
+            if (dest.exists())
+            {
+                if (dest.isDirectory())
+                    continue;   // folders merge on the next pass; never clobbered
+                dest.moveFileTo (dest.getSiblingFile (dest.getFileName() + ".pre-migration"));
+            }
+
+            if (! child.moveFileTo (dest))
+            {
+                if (child.isDirectory()) child.copyDirectoryTo (dest);
+                else                     child.copyFileTo (dest);
+            }
+        }
+    };
+
     const auto docs = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
-    const auto oldDocs = docs.getChildFile ("GuitarRig NAM");
-    const auto newDocs = docs.getChildFile ("PedalForge NAM");
-    if (oldDocs.isDirectory() && ! newDocs.exists())
-        oldDocs.moveFileTo (newDocs);
+    const auto newDocs = docs.getChildFile (currentName);
+    for (auto* old : legacyNames)
+        if (const auto oldDocs = docs.getChildFile (old); oldDocs.isDirectory())
+        {
+            mergeInto (oldDocs, newDocs);
+            break;
+        }
 
     const auto appData = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory);
-    const auto oldSettings = appData.getChildFile ("GuitarRig NAM")
-                                 .getChildFile ("GuitarRig NAM.settings");
-    const auto newSettingsDir = appData.getChildFile ("PedalForge NAM");
-    const auto newSettings = newSettingsDir.getChildFile ("PedalForge NAM.settings");
-    if (oldSettings.existsAsFile() && ! newSettings.existsAsFile())
-    {
-        newSettingsDir.createDirectory();
-        oldSettings.copyFileTo (newSettings);
-    }
+    const auto newSettingsDir = appData.getChildFile (currentName);
+    const auto newSettings = newSettingsDir.getChildFile (currentName + ".settings");
+    if (! newSettings.existsAsFile())
+        for (auto* old : legacyNames)
+        {
+            const auto oldSettings = appData.getChildFile (old)
+                                         .getChildFile (juce::String (old) + ".settings");
+            if (oldSettings.existsAsFile())
+            {
+                newSettingsDir.createDirectory();
+                oldSettings.copyFileTo (newSettings);
+                break;
+            }
+        }
     return true;
 }
 const bool dataMigrated = migrateOldAppData();
@@ -88,9 +144,9 @@ constexpr auto* kStateIrPath = "irPath";
 constexpr auto* kStatePresetName = "presetName";
 } // namespace
 
-GuitarRigNAMProcessor::LoadedModel::~LoadedModel() = default;
+GuitarCompanionProcessor::LoadedModel::~LoadedModel() = default;
 
-GuitarRigNAMProcessor::LoadedModel* GuitarRigNAMProcessor::unloadSentinel()
+GuitarCompanionProcessor::LoadedModel* GuitarCompanionProcessor::unloadSentinel()
 {
     static LoadedModel s;   // model == nullptr; never owned, never deleted
     return &s;
@@ -99,7 +155,7 @@ GuitarRigNAMProcessor::LoadedModel* GuitarRigNAMProcessor::unloadSentinel()
 //==============================================================================
 // Biquads RBJ (Audio EQ Cookbook), S=1 nos shelves.
 
-void GuitarRigNAMProcessor::Biquad::setLowShelf (double sr, double freq, double dbGain)
+void GuitarCompanionProcessor::Biquad::setLowShelf (double sr, double freq, double dbGain)
 {
     const double A = std::pow (10.0, dbGain / 40.0);
     const double w = juce::MathConstants<double>::twoPi * freq / sr;
@@ -115,7 +171,7 @@ void GuitarRigNAMProcessor::Biquad::setLowShelf (double sr, double freq, double 
     a2 = (float) (((A + 1) + (A - 1) * c - s2a) / a0);
 }
 
-void GuitarRigNAMProcessor::Biquad::setHighShelf (double sr, double freq, double dbGain)
+void GuitarCompanionProcessor::Biquad::setHighShelf (double sr, double freq, double dbGain)
 {
     const double A = std::pow (10.0, dbGain / 40.0);
     const double w = juce::MathConstants<double>::twoPi * freq / sr;
@@ -131,7 +187,7 @@ void GuitarRigNAMProcessor::Biquad::setHighShelf (double sr, double freq, double
     a2 = (float) (((A + 1) - (A - 1) * c - s2a) / a0);
 }
 
-void GuitarRigNAMProcessor::Biquad::setLowPass (double sr, double freq, double q)
+void GuitarCompanionProcessor::Biquad::setLowPass (double sr, double freq, double q)
 {
     const double w = juce::MathConstants<double>::twoPi * freq / sr;
     const double c = std::cos (w), s = std::sin (w);
@@ -145,7 +201,7 @@ void GuitarRigNAMProcessor::Biquad::setLowPass (double sr, double freq, double q
     a2 = (float) ((1 - alpha) / a0);
 }
 
-void GuitarRigNAMProcessor::Biquad::setHighPass (double sr, double freq, double q)
+void GuitarCompanionProcessor::Biquad::setHighPass (double sr, double freq, double q)
 {
     const double w = juce::MathConstants<double>::twoPi * freq / sr;
     const double c = std::cos (w), s = std::sin (w);
@@ -159,7 +215,7 @@ void GuitarRigNAMProcessor::Biquad::setHighPass (double sr, double freq, double 
     a2 = (float) ((1 - alpha) / a0);
 }
 
-void GuitarRigNAMProcessor::Biquad::setBandPass (double sr, double freq, double q)
+void GuitarCompanionProcessor::Biquad::setBandPass (double sr, double freq, double q)
 {
     // RBJ bandpass (ganho de pico constante = Q)
     const double w = juce::MathConstants<double>::twoPi * freq / sr;
@@ -174,7 +230,7 @@ void GuitarRigNAMProcessor::Biquad::setBandPass (double sr, double freq, double 
     a2 = (float) ((1 - alpha) / a0);
 }
 
-void GuitarRigNAMProcessor::Biquad::setPeak (double sr, double freq, double dbGain, double q)
+void GuitarCompanionProcessor::Biquad::setPeak (double sr, double freq, double dbGain, double q)
 {
     const double A = std::pow (10.0, dbGain / 40.0);
     const double w = juce::MathConstants<double>::twoPi * freq / sr;
@@ -189,7 +245,7 @@ void GuitarRigNAMProcessor::Biquad::setPeak (double sr, double freq, double dbGa
     a2 = (float) ((1 - alpha / A) / a0);
 }
 
-void GuitarRigNAMProcessor::updateOdIfNeeded()
+void GuitarCompanionProcessor::updateOdIfNeeded()
 {
     const float tone = pOdTone->load();
     if (tone == odCachedTone)
@@ -199,7 +255,7 @@ void GuitarRigNAMProcessor::updateOdIfNeeded()
     odToneLp.setLowPass (hostSampleRate.load(), 1000.0 * std::pow (8.0, tone / 10.0), 0.707);
 }
 
-void GuitarRigNAMProcessor::updateEqIfNeeded()
+void GuitarCompanionProcessor::updateEqIfNeeded()
 {
     const float lo = pEqLow->load(), mi = pEqMid->load(), hi = pEqHigh->load();
     if (lo == eqCachedLow && mi == eqCachedMid && hi == eqCachedHigh)
@@ -213,7 +269,7 @@ void GuitarRigNAMProcessor::updateEqIfNeeded()
     eqHighF.setHighShelf (sr, 4000.0, hi);
 }
 
-void GuitarRigNAMProcessor::updateAirIfNeeded()
+void GuitarCompanionProcessor::updateAirIfNeeded()
 {
     const float air = pCabAir->load();
     if (air == airCached)
@@ -223,7 +279,7 @@ void GuitarRigNAMProcessor::updateAirIfNeeded()
     airF.setHighShelf (hostSampleRate.load(), 8000.0, air * 0.9);
 }
 
-void GuitarRigNAMProcessor::readTunerBlock (float* dest, int numSamples) const
+void GuitarCompanionProcessor::readTunerBlock (float* dest, int numSamples) const
 {
     const int writePos = tunerWritePos.load();
     int start = (writePos - numSamples) & (tunerRingSize - 1);
@@ -234,7 +290,7 @@ void GuitarRigNAMProcessor::readTunerBlock (float* dest, int numSamples) const
     }
 }
 
-void GuitarRigNAMProcessor::updateToneStackIfNeeded (int lane)
+void GuitarCompanionProcessor::updateToneStackIfNeeded (int lane)
 {
     const float bass = pAmpBass[lane]->load();
     const float mid = pAmpMid[lane]->load();
@@ -258,7 +314,7 @@ void GuitarRigNAMProcessor::updateToneStackIfNeeded (int lane)
     tsPresence[lane].setHighShelf (sr, 4500.0, (pres - 5.0) * 1.8);
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::createParameterLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout GuitarCompanionProcessor::createParameterLayout()
 {
     using FloatParam = juce::AudioParameterFloat;
     using BoolParam = juce::AudioParameterBool;
@@ -624,11 +680,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarRigNAMProcessor::creat
     return layout;
 }
 
-GuitarRigNAMProcessor::GuitarRigNAMProcessor()
+GuitarCompanionProcessor::GuitarCompanionProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "GuitarRigNAM", createParameterLayout())
+      apvts (*this, nullptr, "GuitarCompanion", createParameterLayout())
 {
     // internal drum kit samples (before audio starts)
     drumEngine.loadEmbeddedSamples();
@@ -763,7 +819,7 @@ GuitarRigNAMProcessor::GuitarRigNAMProcessor()
     writeDefaultChain();
 }
 
-GuitarRigNAMProcessor::~GuitarRigNAMProcessor()
+GuitarCompanionProcessor::~GuitarCompanionProcessor()
 {
     loaderPool.removeAllJobs (true, 5000);
     for (int r = 0; r < maxRigs; ++r)
@@ -792,7 +848,7 @@ GuitarRigNAMProcessor::~GuitarRigNAMProcessor()
     recThread.stopThread (2000);
 }
 
-void GuitarRigNAMProcessor::prepareLoadedModel (LoadedModel& lm, double hostRate, int blockSize) const
+void GuitarCompanionProcessor::prepareLoadedModel (LoadedModel& lm, double hostRate, int blockSize) const
 {
     const bool needsResample = lm.modelSampleRate > 0.0
                                && std::abs (lm.modelSampleRate - hostRate) > 1.0;
@@ -820,7 +876,7 @@ void GuitarRigNAMProcessor::prepareLoadedModel (LoadedModel& lm, double hostRate
     lm.func = [rawModel] (float** in, float** out, int n) { rawModel->process (in, out, n); };
 }
 
-void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void GuitarCompanionProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     hostSampleRate.store (sampleRate);
     preparedBlockSize.store (samplesPerBlock);
@@ -1001,14 +1057,14 @@ void GuitarRigNAMProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     sceneLastSection = -1;
 }
 
-void GuitarRigNAMProcessor::releaseResources()
+void GuitarCompanionProcessor::releaseResources()
 {
     for (int r = 0; r < maxRigs; ++r)
         if (auto* q = retiredModels[r].exchange (nullptr); q != unloadSentinel())
             delete q;
 }
 
-bool GuitarRigNAMProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool GuitarCompanionProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     const auto& in = layouts.getMainInputChannelSet();
     const auto& out = layouts.getMainOutputChannelSet();
@@ -1023,7 +1079,7 @@ bool GuitarRigNAMProcessor::isBusesLayoutSupported (const BusesLayout& layouts) 
 // NON-NEGOTIABLE RULE: inside processBlock it is FORBIDDEN to allocate memory,
 // use locks, do I/O, log or call the network. Model/IR swaps use atomics or
 // JUCE's internal RT-safe mechanisms (Convolution).
-void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void GuitarCompanionProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
 
@@ -1238,7 +1294,7 @@ void GuitarRigNAMProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 // Chain modules (called in dynamic order; same RT rules as processBlock -
 // no allocation/locks/IO here)
 
-void GuitarRigNAMProcessor::SmartGate::prepare (double sampleRate)
+void GuitarCompanionProcessor::SmartGate::prepare (double sampleRate)
 {
     sr = sampleRate;
     envAttackCoef = 1.0f - std::exp (-1.0f / (float) (0.0005 * sr));  // 0.5 ms
@@ -1247,7 +1303,7 @@ void GuitarRigNAMProcessor::SmartGate::prepare (double sampleRate)
     reset();
 }
 
-void GuitarRigNAMProcessor::SmartGate::process (float* io, int n, float threshDb,
+void GuitarCompanionProcessor::SmartGate::process (float* io, int n, float threshDb,
                                                 float holdMs, float releaseMs)
 {
     const float openLin = juce::Decibels::decibelsToGain (threshDb);
@@ -1280,7 +1336,7 @@ void GuitarRigNAMProcessor::SmartGate::process (float* io, int n, float threshDb
     }
 }
 
-void GuitarRigNAMProcessor::processGateFx (float* io, int n)
+void GuitarCompanionProcessor::processGateFx (float* io, int n)
 {
     // Own gate (follower + 6 dB hysteresis + hold); behavior
     // studied from the references/ToobAmp gate - see docs/EFEITOS.md.
@@ -1290,7 +1346,7 @@ void GuitarRigNAMProcessor::processGateFx (float* io, int n)
     smartGate.process (io, n, pGateThresh->load(), pGateHold->load(), pGateRelease->load());
 }
 
-void GuitarRigNAMProcessor::processCompFx (float* io, int n)
+void GuitarCompanionProcessor::processCompFx (float* io, int n)
 {
     // Pedal compressor: Sustain controls threshold+ratio+makeup together;
     // Blend does parallel compression (mixes with the dry signal).
@@ -1353,7 +1409,7 @@ void GuitarRigNAMProcessor::processCompFx (float* io, int n)
         io[i] = (dry[i] * (1.0f - blend) + io[i] * makeup * blend) * level;
 }
 
-void GuitarRigNAMProcessor::updatePreEqIfNeeded()
+void GuitarCompanionProcessor::updatePreEqIfNeeded()
 {
     const float lo = pPreEqLow->load(), mi = pPreEqMid->load(), hi = pPreEqHigh->load();
     if (lo == preEqCachedLow && mi == preEqCachedMid && hi == preEqCachedHigh)
@@ -1368,7 +1424,7 @@ void GuitarRigNAMProcessor::updatePreEqIfNeeded()
     preEqHighF.setHighShelf (sr, 2200.0, hi);
 }
 
-void GuitarRigNAMProcessor::processPreEqFx (float* io, int n)
+void GuitarCompanionProcessor::processPreEqFx (float* io, int n)
 {
     if (pPreEqOn->load() <= 0.5f)
         return;
@@ -1379,7 +1435,7 @@ void GuitarRigNAMProcessor::processPreEqFx (float* io, int n)
             io[i] = preEqHighF.process (preEqMidF.process (preEqLowF.process (io[i])));
 }
 
-void GuitarRigNAMProcessor::processOdFx (float* io, int n)
+void GuitarCompanionProcessor::processOdFx (float* io, int n)
 {
     // HP -> clip (per variation) -> tone LP -> post-filter -> level
     // Topology and voicings studied from references/BYOD, references/guitarix
@@ -1468,7 +1524,7 @@ void GuitarRigNAMProcessor::processOdFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processEqFx (float* io, int n)
+void GuitarCompanionProcessor::processEqFx (float* io, int n)
 {
     if (pEqOn->load() <= 0.5f)
         return;
@@ -1479,7 +1535,7 @@ void GuitarRigNAMProcessor::processEqFx (float* io, int n)
             io[i] = eqHighF.process (eqMidF.process (eqLowF.process (io[i])));
 }
 
-void GuitarRigNAMProcessor::processDelayFx (float* io, int n)
+void GuitarCompanionProcessor::processDelayFx (float* io, int n)
 {
     // Trails: even when off, the pending repeats keep sounding -
     // only the INPUT is cut. Minimal cost, modern pedal behavior.
@@ -1560,7 +1616,7 @@ void GuitarRigNAMProcessor::processDelayFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processReverbFx (float* io, int n)
+void GuitarCompanionProcessor::processReverbFx (float* io, int n)
 {
     // manual mix, with predelay on the wet path; trails when off; real
     // stereo via stereoExtra (R-L difference)
@@ -1643,7 +1699,7 @@ void GuitarRigNAMProcessor::processReverbFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processModFx (float* io, int n)
+void GuitarCompanionProcessor::processModFx (float* io, int n)
 {
     // Chorus/Flanger: juce::dsp::Chorus (flanger = short delay + feedback);
     // Phaser: juce::dsp::Phaser; own harmonic tremolo (anti-phase
@@ -1757,7 +1813,7 @@ void GuitarRigNAMProcessor::processModFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::PitchShifter::process (float* io, int n, double ratio,
+void GuitarCompanionProcessor::PitchShifter::process (float* io, int n, double ratio,
                                                    float mix, float outGain) noexcept
 {
     const double inc = 1.0 - ratio;
@@ -1785,7 +1841,7 @@ void GuitarRigNAMProcessor::PitchShifter::process (float* io, int n, double rati
     }
 }
 
-void GuitarRigNAMProcessor::processPitchFx (float* io, int n)
+void GuitarCompanionProcessor::processPitchFx (float* io, int n)
 {
     // 2-head granular shifter (classic delay-line pitch shifting technique,
     // DAFX/Zolzer); musical-use reference in references/rkrlv2
@@ -1805,7 +1861,7 @@ void GuitarRigNAMProcessor::processPitchFx (float* io, int n)
     pitchShift.process (io, n, ratio, mix, level);
 }
 
-void GuitarRigNAMProcessor::processLooperFx (float* io, int n)
+void GuitarCompanionProcessor::processLooperFx (float* io, int n)
 {
     const int maxLen = loopBuf.getNumSamples();
     if (maxLen <= 0)
@@ -1873,7 +1929,7 @@ void GuitarRigNAMProcessor::processLooperFx (float* io, int n)
     looperPos.store (pos);
 }
 
-void GuitarRigNAMProcessor::processLimiterFx (float* io, int n)
+void GuitarCompanionProcessor::processLimiterFx (float* io, int n)
 {
     // Engine: juce::dsp::Limiter (brickwall); output limiter role
     // studied from references/lsp-plugins - see docs/EFEITOS.md.
@@ -1910,7 +1966,7 @@ void GuitarRigNAMProcessor::processLimiterFx (float* io, int n)
 //==============================================================================
 // P4 cards - one effect per card, own controls (refs in docs/EFEITOS.md)
 
-void GuitarRigNAMProcessor::processWahFx (float* io, int n)
+void GuitarCompanionProcessor::processWahFx (float* io, int n)
 {
     // Wah (study: Guitarix GxWahwah): resonant bandpass swept by
     // envelope (Auto), knob (Manual) or LFO
@@ -1946,7 +2002,7 @@ void GuitarRigNAMProcessor::processWahFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processSlowGearFx (float* io, int n)
+void GuitarCompanionProcessor::processSlowGearFx (float* io, int n)
 {
     // Slow Gear (BOSS SG-1 style; study: Guitarix GxSlowGear): detects the
     // pick attack and raises the volume slowly - "violin" swell
@@ -1974,7 +2030,7 @@ void GuitarRigNAMProcessor::processSlowGearFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processOctaverFx (float* io, int n)
+void GuitarCompanionProcessor::processOctaverFx (float* io, int n)
 {
     // Analog octaver (BOSS OC-2 style; study: GxPlugins GxOctaver):
     // flip-flop at zero crossings generates the sub-octave, modulated by the
@@ -2007,7 +2063,7 @@ void GuitarRigNAMProcessor::processOctaverFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processRingModFx (float* io, int n)
+void GuitarCompanionProcessor::processRingModFx (float* io, int n)
 {
     // Ring modulator (study: airwindows) - sine carrier
     if (pRmOn->load() <= 0.5f)
@@ -2025,7 +2081,7 @@ void GuitarRigNAMProcessor::processRingModFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processBitcrushFx (float* io, int n)
+void GuitarCompanionProcessor::processBitcrushFx (float* io, int n)
 {
     // Bitcrusher (study: airwindows): sample&hold + bit quantization
     if (pBcOn->load() <= 0.5f)
@@ -2047,7 +2103,7 @@ void GuitarRigNAMProcessor::processBitcrushFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processHarmFx (float* io, int n)
+void GuitarCompanionProcessor::processHarmFx (float* io, int n)
 {
     // Diatonic harmonizer (study: rkrlv2/rakarrack): autocorrelation over
     // decimated signal detects the note; the chosen interval is applied INSIDE
@@ -2130,7 +2186,7 @@ void GuitarRigNAMProcessor::processHarmFx (float* io, int n)
     harmShift.process (io, n, harmRatioCur, mix, level);
 }
 
-void GuitarRigNAMProcessor::processExciterFx (float* io, int n)
+void GuitarCompanionProcessor::processExciterFx (float* io, int n)
 {
     // Exciter (study: airwindows Energy): harmonics of the saturated treble
     // summed back into the signal
@@ -2152,7 +2208,7 @@ void GuitarRigNAMProcessor::processExciterFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processDeesserFx (float* io, int n)
+void GuitarCompanionProcessor::processDeesserFx (float* io, int n)
 {
     // De-esser/resonance tamer (study: lsp-plugins): the harsh band is
     // subtracted dynamically when it exceeds the threshold
@@ -2178,7 +2234,7 @@ void GuitarRigNAMProcessor::processDeesserFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processTapeFx (float* io, int n)
+void GuitarCompanionProcessor::processTapeFx (float* io, int n)
 {
     // Tape (adapted from the airwindows ToTape/IronOxide idea, MIT):
     // HP sub -> light asymmetric saturation -> head bump -> treble rolloff
@@ -2209,7 +2265,7 @@ void GuitarRigNAMProcessor::processTapeFx (float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processConsoleFx (float* io, int n)
+void GuitarCompanionProcessor::processConsoleFx (float* io, int n)
 {
     // Console glue (adapted from the airwindows Console idea, MIT): subtle
     // sine waveshape - "glues" the signal like an analog buss
@@ -2222,7 +2278,7 @@ void GuitarRigNAMProcessor::processConsoleFx (float* io, int n)
         io[i] = std::sin (juce::jlimit (-1.5f, 1.5f, io[i] * a)) * inv;
 }
 
-void GuitarRigNAMProcessor::processAnalyzerFx (float* io, int n)
+void GuitarCompanionProcessor::processAnalyzerFx (float* io, int n)
 {
     // passthrough + tap for the spectrum (the editor reads and draws)
     if (pAnOn->load() <= 0.5f)
@@ -2237,7 +2293,7 @@ void GuitarRigNAMProcessor::processAnalyzerFx (float* io, int n)
     anWritePos.store (w);
 }
 
-void GuitarRigNAMProcessor::readAnalyzerBlock (float* dest, int numSamples) const
+void GuitarCompanionProcessor::readAnalyzerBlock (float* dest, int numSamples) const
 {
     const int writePos = anWritePos.load();
     int start = (writePos - numSamples) & (analyzerRingSize - 1);
@@ -2248,14 +2304,14 @@ void GuitarRigNAMProcessor::readAnalyzerBlock (float* dest, int numSamples) cons
     }
 }
 
-juce::File GuitarRigNAMProcessor::startRecording()
+juce::File GuitarCompanionProcessor::startRecording()
 {
     // message thread
     if (isRecording())
         return {};
 
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("PedalForge NAM")
+                   .getChildFile ("Guitar Companion")
                    .getChildFile ("Recordings");
     dir.createDirectory();
     const auto stamp = juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H.%M.%S");
@@ -2290,7 +2346,7 @@ juce::File GuitarRigNAMProcessor::startRecording()
     return file;
 }
 
-void GuitarRigNAMProcessor::stopRecording()
+void GuitarCompanionProcessor::stopRecording()
 {
     // message thread: removes from audio first; deletes with slack (the audio
     // may be mid-write with the old pointer)
@@ -2308,7 +2364,7 @@ void GuitarRigNAMProcessor::stopRecording()
 //==============================================================================
 // vNext F6 - Song/Scenes: full guitar-rig snapshot per drum section
 
-juce::ValueTree GuitarRigNAMProcessor::captureRigScene()
+juce::ValueTree GuitarCompanionProcessor::captureRigScene()
 {
     auto t = captureState (true);
 
@@ -2342,13 +2398,13 @@ juce::ValueTree GuitarRigNAMProcessor::captureRigScene()
     return t;
 }
 
-void GuitarRigNAMProcessor::refreshSceneFlags()
+void GuitarCompanionProcessor::refreshSceneFlags()
 {
     for (int i = 0; i < drum::maxSections; ++i)
         sceneArmed[i].store (sceneXml[i].isNotEmpty());
 }
 
-void GuitarRigNAMProcessor::saveSceneForSection (int sec)
+void GuitarCompanionProcessor::saveSceneForSection (int sec)
 {
     if (sec < 0 || sec >= drum::maxSections)
         return;
@@ -2357,14 +2413,14 @@ void GuitarRigNAMProcessor::saveSceneForSection (int sec)
     refreshSceneFlags();
 }
 
-void GuitarRigNAMProcessor::clearSceneForSection (int sec)
+void GuitarCompanionProcessor::clearSceneForSection (int sec)
 {
     if (sec >= 0 && sec < drum::maxSections)
         sceneXml[sec].clear();
     refreshSceneFlags();
 }
 
-void GuitarRigNAMProcessor::armSceneEnvelope (int sec)
+void GuitarCompanionProcessor::armSceneEnvelope (int sec)
 {
     // Any thread. Queues the section and starts the fade out; the audio thread
     // calls back (triggerAsyncUpdate) once the bus is actually silent, and
@@ -2377,7 +2433,7 @@ void GuitarRigNAMProcessor::armSceneEnvelope (int sec)
     sceneEnvState.store ((int) SceneEnv::fadeOut);
 }
 
-void GuitarRigNAMProcessor::applySceneForSection (int sec)
+void GuitarCompanionProcessor::applySceneForSection (int sec)
 {
     // message thread (UI: Song "APPLY", the RIG menu, NEXT SCENE...). The swap
     // itself is deferred to applySceneNow, so a manual apply gets exactly the
@@ -2408,7 +2464,7 @@ void GuitarRigNAMProcessor::applySceneForSection (int sec)
     });
 }
 
-void GuitarRigNAMProcessor::applySceneNow (int sec)
+void GuitarCompanionProcessor::applySceneNow (int sec)
 {
     // message thread, guitar bus already silent
     if (! hasScene (sec))
@@ -2427,7 +2483,7 @@ void GuitarRigNAMProcessor::applySceneNow (int sec)
     applyingSceneNow = false;
 }
 
-juce::String GuitarRigNAMProcessor::sceneSummary (int sec) const
+juce::String GuitarCompanionProcessor::sceneSummary (int sec) const
 {
     if (! hasScene (sec))
         return {};
@@ -2448,7 +2504,7 @@ juce::String GuitarRigNAMProcessor::sceneSummary (int sec) const
     return amp + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 ")) + juce::String (fx) + " fx";
 }
 
-void GuitarRigNAMProcessor::shiftScenesOnSectionRemove (int sec)
+void GuitarCompanionProcessor::shiftScenesOnSectionRemove (int sec)
 {
     if (sec < 0 || sec >= drum::maxSections)
         return;
@@ -2462,7 +2518,7 @@ void GuitarRigNAMProcessor::shiftScenesOnSectionRemove (int sec)
     refreshSceneFlags();
 }
 
-void GuitarRigNAMProcessor::handleAsyncUpdate()
+void GuitarCompanionProcessor::handleAsyncUpdate()
 {
     // Called by the audio thread the moment the guitar bus reaches silence.
     // The generation is read FIRST: anything armed while applySceneNow runs
@@ -2476,7 +2532,7 @@ void GuitarRigNAMProcessor::handleAsyncUpdate()
     sceneAppliedGen.store (gen);
 }
 
-void GuitarRigNAMProcessor::toggleAB()
+void GuitarCompanionProcessor::toggleAB()
 {
     // message thread: saves the current state in the active slot and toggles
     abSlots[abCurrent] = captureState();
@@ -2487,7 +2543,7 @@ void GuitarRigNAMProcessor::toggleAB()
         abSlots[abCurrent] = abSlots[1 - abCurrent].createCopy(); // first time: B starts from A
 }
 
-void GuitarRigNAMProcessor::processExtFx (int slot, float* io, int n)
+void GuitarCompanionProcessor::processExtFx (int slot, float* io, int n)
 {
     // RT-safe swap of the hosted instance (same protocol as the NAM models)
     if (auto* p = extPending[slot].exchange (nullptr))
@@ -2528,7 +2584,7 @@ void GuitarRigNAMProcessor::processExtFx (int slot, float* io, int n)
     }
 }
 
-void GuitarRigNAMProcessor::processDrums (juce::AudioBuffer<float>& buffer, int numOut, int n)
+void GuitarCompanionProcessor::processDrums (juce::AudioBuffer<float>& buffer, int numOut, int n)
 {
     // vNext: DAW sync - follow the host BPM when available and enabled.
     // getPosition() returns a value struct; no allocation on the RT path.
@@ -2597,7 +2653,7 @@ void GuitarRigNAMProcessor::processDrums (juce::AudioBuffer<float>& buffer, int 
         }
 }
 
-void GuitarRigNAMProcessor::loadDrumPluginAsync (const juce::File& file,
+void GuitarCompanionProcessor::loadDrumPluginAsync (const juce::File& file,
                                                  const juce::MemoryBlock* stateToRestore)
 {
     // message thread (same recipe as loadExternalPluginAsync)
@@ -2664,7 +2720,7 @@ void GuitarRigNAMProcessor::loadDrumPluginAsync (const juce::File& file,
         });
 }
 
-void GuitarRigNAMProcessor::clearDrumPlugin()
+void GuitarCompanionProcessor::clearDrumPlugin()
 {
     // message thread
     if (onDrumPluginWillChange)
@@ -2683,19 +2739,19 @@ void GuitarRigNAMProcessor::clearDrumPlugin()
     drumEngine.useVst.store (false);
 }
 
-juce::String GuitarRigNAMProcessor::getDrumPluginName() const
+juce::String GuitarCompanionProcessor::getDrumPluginName() const
 {
     const juce::ScopedLock sl (modelInfoLock);
     return drumVstName;
 }
 
-juce::String GuitarRigNAMProcessor::getDrumPluginPath() const
+juce::String GuitarCompanionProcessor::getDrumPluginPath() const
 {
     const juce::ScopedLock sl (modelInfoLock);
     return drumVstPath;
 }
 
-void GuitarRigNAMProcessor::loadExternalPluginAsync (int slot, const juce::File& file,
+void GuitarCompanionProcessor::loadExternalPluginAsync (int slot, const juce::File& file,
                                                      const juce::MemoryBlock* stateToRestore)
 {
     // message thread. Discovering the types inside the .vst3 loads the module -
@@ -2765,7 +2821,7 @@ void GuitarRigNAMProcessor::loadExternalPluginAsync (int slot, const juce::File&
         });
 }
 
-void GuitarRigNAMProcessor::clearExternalPlugin (int slot)
+void GuitarCompanionProcessor::clearExternalPlugin (int slot)
 {
     // message thread
     if (slot < 0 || slot >= maxExtSlots)
@@ -2786,7 +2842,7 @@ void GuitarRigNAMProcessor::clearExternalPlugin (int slot)
     extLoaded[slot].store (false); // UI doesn't wait for the next audio block
 }
 
-juce::String GuitarRigNAMProcessor::getExternalPluginName (int slot) const
+juce::String GuitarCompanionProcessor::getExternalPluginName (int slot) const
 {
     if (slot < 0 || slot >= maxExtSlots)
         return {};
@@ -2794,7 +2850,7 @@ juce::String GuitarRigNAMProcessor::getExternalPluginName (int slot) const
     return extName[slot];
 }
 
-juce::String GuitarRigNAMProcessor::getExternalPluginPath (int slot) const
+juce::String GuitarCompanionProcessor::getExternalPluginPath (int slot) const
 {
     if (slot < 0 || slot >= maxExtSlots)
         return {};
@@ -2802,17 +2858,17 @@ juce::String GuitarRigNAMProcessor::getExternalPluginPath (int slot) const
     return extPath[slot];
 }
 
-double GuitarRigNAMProcessor::getLooperSeconds() const noexcept
+double GuitarCompanionProcessor::getLooperSeconds() const noexcept
 {
     return looperLen.load() / juce::jmax (1.0, hostSampleRate.load());
 }
 
-double GuitarRigNAMProcessor::getLooperPosSeconds() const noexcept
+double GuitarCompanionProcessor::getLooperPosSeconds() const noexcept
 {
     return looperPos.load() / juce::jmax (1.0, hostSampleRate.load());
 }
 
-juce::File GuitarRigNAMProcessor::exportLoopToWav() const
+juce::File GuitarCompanionProcessor::exportLoopToWav() const
 {
     const int len = looperLen.load();
     if (len <= 0 || loopBuf.getNumSamples() < len)
@@ -2823,7 +2879,7 @@ juce::File GuitarRigNAMProcessor::exportLoopToWav() const
     copy.copyFrom (0, 0, loopBuf, 0, 0, len);
 
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("PedalForge NAM")
+                   .getChildFile ("Guitar Companion")
                    .getChildFile ("Loops");
     dir.createDirectory();
     const auto stamp = juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H.%M.%S");
@@ -2843,7 +2899,7 @@ juce::File GuitarRigNAMProcessor::exportLoopToWav() const
     return {};
 }
 
-void GuitarRigNAMProcessor::processAmpAndCabs (juce::AudioBuffer<float>& buffer, float* io, int n)
+void GuitarCompanionProcessor::processAmpAndCabs (juce::AudioBuffer<float>& buffer, float* io, int n)
 {
     // ---- up to 3 AMP+CAB lanes in parallel, always as a pair (capture + IR),
     //      summed in the Mixer: per lane, GAIN -> NAM model (resampler if
@@ -2950,7 +3006,7 @@ void GuitarRigNAMProcessor::processAmpAndCabs (juce::AudioBuffer<float>& buffer,
 //==============================================================================
 // Ordem da cadeia
 
-juce::String GuitarRigNAMProcessor::fxToString (ChainFx fx)
+juce::String GuitarCompanionProcessor::fxToString (ChainFx fx)
 {
     switch (fx)
     {
@@ -2989,7 +3045,7 @@ juce::String GuitarRigNAMProcessor::fxToString (ChainFx fx)
     return "amp";
 }
 
-int GuitarRigNAMProcessor::fxFromString (const juce::String& id)
+int GuitarCompanionProcessor::fxFromString (const juce::String& id)
 {
     for (int f = 0; f < numChainFx; ++f)
         if (fxToString ((ChainFx) f) == id)
@@ -2997,7 +3053,7 @@ int GuitarRigNAMProcessor::fxFromString (const juce::String& id)
     return -1;
 }
 
-void GuitarRigNAMProcessor::writeDefaultChain()
+void GuitarCompanionProcessor::writeDefaultChain()
 {
     // lean initial pedalboard - the rest stays in the "+ effect" drawer
     const ChainFx def[] = { ChainFx::gate, ChainFx::comp, ChainFx::od, ChainFx::preEq,
@@ -3008,7 +3064,7 @@ void GuitarRigNAMProcessor::writeDefaultChain()
     chainLen.store ((int) std::size (def));
 }
 
-int GuitarRigNAMProcessor::canonicalRank (int fx)
+int GuitarCompanionProcessor::canonicalRank (int fx)
 {
     // full "musically obvious" order - used to insert effects from the
     // drawer in the right position and to ensure the amp anchor
@@ -3030,12 +3086,12 @@ int GuitarRigNAMProcessor::canonicalRank (int fx)
     return (int) std::size (canon);
 }
 
-int GuitarRigNAMProcessor::canonicalRank (const juce::String& id)
+int GuitarCompanionProcessor::canonicalRank (const juce::String& id)
 {
     return canonicalRank (fxFromString (id));
 }
 
-juce::StringArray GuitarRigNAMProcessor::getChainOrder() const
+juce::StringArray GuitarCompanionProcessor::getChainOrder() const
 {
     juce::StringArray out;
     const int len = juce::jlimit (0, (int) chainMaxSlots, chainLen.load());
@@ -3044,12 +3100,12 @@ juce::StringArray GuitarRigNAMProcessor::getChainOrder() const
     return out;
 }
 
-void GuitarRigNAMProcessor::setChainOrder (const juce::StringArray& ids)
+void GuitarCompanionProcessor::setChainOrder (const juce::StringArray& ids)
 {
-    // dev: GUITARRIG_DEBUGLOG=<file> logs every chain change
+    // dev: GUITAR_COMPANION_DEBUGLOG=<file> logs every chain change
     {
         static const auto logPath =
-            juce::SystemStats::getEnvironmentVariable ("GUITARRIG_DEBUGLOG", "");
+            juce::SystemStats::getEnvironmentVariable ("GUITAR_COMPANION_DEBUGLOG", "");
         if (logPath.isNotEmpty())
             juce::File (logPath).appendText (
                 juce::Time::getCurrentTime().formatted ("%H:%M:%S")
@@ -3092,7 +3148,7 @@ void GuitarRigNAMProcessor::setChainOrder (const juce::StringArray& ids)
 }
 
 //==============================================================================
-void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
+void GuitarCompanionProcessor::loadModelAsync (int lane, const juce::File& file)
 {
     if (lane < 0 || lane >= maxRigs)
         return;
@@ -3227,7 +3283,7 @@ void GuitarRigNAMProcessor::loadModelAsync (int lane, const juce::File& file)
     });
 }
 
-void GuitarRigNAMProcessor::setModelPair (int lane, const juce::File& normal, const juce::File& eco)
+void GuitarCompanionProcessor::setModelPair (int lane, const juce::File& normal, const juce::File& eco)
 {
     if (lane < 0 || lane >= maxRigs)
         return;
@@ -3242,7 +3298,7 @@ void GuitarRigNAMProcessor::setModelPair (int lane, const juce::File& normal, co
     loadModelAsync (lane, wantEco ? eco : normal);
 }
 
-void GuitarRigNAMProcessor::unloadModelLane (int lane)
+void GuitarCompanionProcessor::unloadModelLane (int lane)
 {
     if (lane < 0 || lane >= maxRigs)
         return;
@@ -3262,7 +3318,7 @@ void GuitarRigNAMProcessor::unloadModelLane (int lane)
         delete q;
 }
 
-int GuitarRigNAMProcessor::firstFreeModelLane() const
+int GuitarCompanionProcessor::firstFreeModelLane() const
 {
     const int count = getRigCount();
     const juce::ScopedLock sl (modelInfoLock);
@@ -3272,12 +3328,12 @@ int GuitarRigNAMProcessor::firstFreeModelLane() const
     return -1;
 }
 
-int GuitarRigNAMProcessor::getRigCount() const
+int GuitarCompanionProcessor::getRigCount() const
 {
     return juce::jlimit (1, (int) maxRigs, (int) pCabCount->load());
 }
 
-bool GuitarRigNAMProcessor::isModelFileLoaded (const juce::String& fullPath) const
+bool GuitarCompanionProcessor::isModelFileLoaded (const juce::String& fullPath) const
 {
     const int count = getRigCount();
     const juce::ScopedLock sl (modelInfoLock);
@@ -3287,7 +3343,7 @@ bool GuitarRigNAMProcessor::isModelFileLoaded (const juce::String& fullPath) con
     return false;
 }
 
-juce::String GuitarRigNAMProcessor::getModelPathNormal (int lane) const
+juce::String GuitarCompanionProcessor::getModelPathNormal (int lane) const
 {
     if (lane < 0 || lane >= maxRigs)
         return {};
@@ -3295,7 +3351,7 @@ juce::String GuitarRigNAMProcessor::getModelPathNormal (int lane) const
     return modelPathsStd[lane];
 }
 
-juce::String GuitarRigNAMProcessor::getModelPathEco (int lane) const
+juce::String GuitarCompanionProcessor::getModelPathEco (int lane) const
 {
     if (lane < 0 || lane >= maxRigs)
         return {};
@@ -3303,7 +3359,7 @@ juce::String GuitarRigNAMProcessor::getModelPathEco (int lane) const
     return modelPathsEco[lane];
 }
 
-juce::String GuitarRigNAMProcessor::getModelArchLabel (int lane) const
+juce::String GuitarCompanionProcessor::getModelArchLabel (int lane) const
 {
     if (lane < 0 || lane >= maxRigs)
         return {};
@@ -3311,7 +3367,7 @@ juce::String GuitarRigNAMProcessor::getModelArchLabel (int lane) const
     return modelArchLabels[lane];
 }
 
-juce::String GuitarRigNAMProcessor::getModelName (int lane) const
+juce::String GuitarCompanionProcessor::getModelName (int lane) const
 {
     if (lane < 0 || lane >= maxRigs)
         return {};
@@ -3319,7 +3375,7 @@ juce::String GuitarRigNAMProcessor::getModelName (int lane) const
     return modelNames[lane];
 }
 
-juce::String GuitarRigNAMProcessor::getModelPath (int lane) const
+juce::String GuitarCompanionProcessor::getModelPath (int lane) const
 {
     if (lane < 0 || lane >= maxRigs)
         return {};
@@ -3327,13 +3383,13 @@ juce::String GuitarRigNAMProcessor::getModelPath (int lane) const
     return modelPaths[lane];
 }
 
-juce::String GuitarRigNAMProcessor::getLoadError() const
+juce::String GuitarCompanionProcessor::getLoadError() const
 {
     const juce::ScopedLock sl (modelInfoLock);
     return loadError;
 }
 
-double GuitarRigNAMProcessor::getModelExpectedSampleRate (int lane) const
+double GuitarCompanionProcessor::getModelExpectedSampleRate (int lane) const
 {
     if (lane < 0 || lane >= maxRigs)
         return -1.0;
@@ -3342,7 +3398,7 @@ double GuitarRigNAMProcessor::getModelExpectedSampleRate (int lane) const
 }
 
 //==============================================================================
-void GuitarRigNAMProcessor::loadIrAsync (int slot, const juce::File& file)
+void GuitarCompanionProcessor::loadIrAsync (int slot, const juce::File& file)
 {
     if (slot < 0 || slot >= maxCabSlots || ! file.existsAsFile())
         return;
@@ -3382,7 +3438,7 @@ void GuitarRigNAMProcessor::loadIrAsync (int slot, const juce::File& file)
     irLoadedFlags[slot].store (true);
 }
 
-juce::String GuitarRigNAMProcessor::getIrName (int slot) const
+juce::String GuitarCompanionProcessor::getIrName (int slot) const
 {
     if (slot < 0 || slot >= maxCabSlots)
         return {};
@@ -3390,7 +3446,7 @@ juce::String GuitarRigNAMProcessor::getIrName (int slot) const
     return irNames[slot];
 }
 
-juce::String GuitarRigNAMProcessor::getIrPath (int slot) const
+juce::String GuitarCompanionProcessor::getIrPath (int slot) const
 {
     if (slot < 0 || slot >= maxCabSlots)
         return {};
@@ -3398,12 +3454,12 @@ juce::String GuitarRigNAMProcessor::getIrPath (int slot) const
     return irPaths[slot];
 }
 
-int GuitarRigNAMProcessor::getCabCount() const
+int GuitarCompanionProcessor::getCabCount() const
 {
     return juce::jlimit (1, (int) maxCabSlots, (int) pCabCount->load());
 }
 
-int GuitarRigNAMProcessor::firstFreeIrSlot() const
+int GuitarCompanionProcessor::firstFreeIrSlot() const
 {
     const int count = getCabCount();
     for (int s = 0; s < count; ++s)
@@ -3412,7 +3468,7 @@ int GuitarRigNAMProcessor::firstFreeIrSlot() const
     return -1;
 }
 
-bool GuitarRigNAMProcessor::isIrFileLoaded (const juce::String& fullPath) const
+bool GuitarCompanionProcessor::isIrFileLoaded (const juce::String& fullPath) const
 {
     const int count = getCabCount();
     const juce::ScopedLock sl (modelInfoLock);
@@ -3422,7 +3478,7 @@ bool GuitarRigNAMProcessor::isIrFileLoaded (const juce::String& fullPath) const
     return false;
 }
 
-void GuitarRigNAMProcessor::updateCabSlotFilters (int slot)
+void GuitarCompanionProcessor::updateCabSlotFilters (int slot)
 {
     const float lc = pCabLowCut[slot]->load();
     const float hc = pCabHighCut[slot]->load();
@@ -3436,7 +3492,7 @@ void GuitarRigNAMProcessor::updateCabSlotFilters (int slot)
 }
 
 //==============================================================================
-juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
+juce::ValueTree GuitarCompanionProcessor::captureState (bool includeExtPluginState)
 {
     auto state = apvts.copyState();
     for (int r = 0; r < maxRigs; ++r)
@@ -3569,7 +3625,7 @@ juce::ValueTree GuitarRigNAMProcessor::captureState (bool includeExtPluginState)
     return state;
 }
 
-void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
+void GuitarCompanionProcessor::applyState (juce::ValueTree state)
 {
     if (! state.isValid())
         return;
@@ -3791,23 +3847,23 @@ void GuitarRigNAMProcessor::applyState (juce::ValueTree state)
         setCurrentPresetName (state.getProperty (kStatePresetName, "").toString());
 }
 
-void GuitarRigNAMProcessor::getStateInformation (juce::MemoryBlock& destData)
+void GuitarCompanionProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     if (auto xml = captureState().createXml())
         copyXmlToBinary (*xml, destData);
 }
 
-void GuitarRigNAMProcessor::setStateInformation (const void* data, int sizeInBytes)
+void GuitarCompanionProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         applyState (juce::ValueTree::fromXml (*xml));
 }
 
 //==============================================================================
-juce::File GuitarRigNAMProcessor::getPresetsDirectory() const
+juce::File GuitarCompanionProcessor::getPresetsDirectory() const
 {
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("PedalForge NAM")
+                   .getChildFile ("Guitar Companion")
                    .getChildFile ("Presets");
     dir.createDirectory();
     return dir;
@@ -3815,7 +3871,7 @@ juce::File GuitarRigNAMProcessor::getPresetsDirectory() const
 
 // Factory presets: parameters only (no capture/IR - they keep whatever is
 // loaded). Created once, when the folder is empty.
-void GuitarRigNAMProcessor::createFactoryPresetsIfNeeded() const
+void GuitarCompanionProcessor::createFactoryPresetsIfNeeded() const
 {
     auto dir = getPresetsDirectory();
     if (! dir.findChildFiles (juce::File::findFiles, false, "*.xml").isEmpty())
@@ -3824,7 +3880,7 @@ void GuitarRigNAMProcessor::createFactoryPresetsIfNeeded() const
     auto make = [&] (const juce::String& name,
                      std::initializer_list<std::pair<const char*, float>> tweaks)
     {
-        juce::ValueTree tree ("GuitarRigNAM");
+        juce::ValueTree tree ("GuitarCompanion");
         for (auto* p : getParameters())
         {
             if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p))
@@ -3857,7 +3913,7 @@ void GuitarRigNAMProcessor::createFactoryPresetsIfNeeded() const
                      { "ampPresence", 6.0f } });
 }
 
-juce::Array<juce::File> GuitarRigNAMProcessor::getPresetFiles() const
+juce::Array<juce::File> GuitarCompanionProcessor::getPresetFiles() const
 {
     createFactoryPresetsIfNeeded();
     auto files = getPresetsDirectory().findChildFiles (juce::File::findFiles, false, "*.xml");
@@ -3865,7 +3921,7 @@ juce::Array<juce::File> GuitarRigNAMProcessor::getPresetFiles() const
     return files;
 }
 
-juce::int64 GuitarRigNAMProcessor::stateFingerprint()
+juce::int64 GuitarCompanionProcessor::stateFingerprint()
 {
     // without the external plugin blob: runs at 2 Hz and getStateInformation of
     // a guest can be costly (its internal changes don't dirty the preset)
@@ -3874,14 +3930,14 @@ juce::int64 GuitarRigNAMProcessor::stateFingerprint()
     return state.toXmlString().hashCode64();
 }
 
-bool GuitarRigNAMProcessor::isPresetDirty()
+bool GuitarCompanionProcessor::isPresetDirty()
 {
     if (getCurrentPresetName().isEmpty() || baselinePending.load())
         return false;
     return stateFingerprint() != savedFingerprint;
 }
 
-void GuitarRigNAMProcessor::settlePresetBaseline()
+void GuitarCompanionProcessor::settlePresetBaseline()
 {
     if (baselinePending.load() && ! isLoadingModel())
     {
@@ -3890,7 +3946,7 @@ void GuitarRigNAMProcessor::settlePresetBaseline()
     }
 }
 
-void GuitarRigNAMProcessor::savePreset (const juce::File& file)
+void GuitarCompanionProcessor::savePreset (const juce::File& file)
 {
     setCurrentPresetName (file.getFileNameWithoutExtension());
 
@@ -3901,7 +3957,7 @@ void GuitarRigNAMProcessor::savePreset (const juce::File& file)
     baselinePending.store (false);
 }
 
-void GuitarRigNAMProcessor::loadPreset (const juce::File& file)
+void GuitarCompanionProcessor::loadPreset (const juce::File& file)
 {
     if (auto xml = juce::XmlDocument::parse (file))
     {
@@ -3912,7 +3968,7 @@ void GuitarRigNAMProcessor::loadPreset (const juce::File& file)
     }
 }
 
-void GuitarRigNAMProcessor::loadAdjacentPreset (int delta)
+void GuitarCompanionProcessor::loadAdjacentPreset (int delta)
 {
     const auto files = getPresetFiles();
     if (files.isEmpty())
@@ -3931,25 +3987,25 @@ void GuitarRigNAMProcessor::loadAdjacentPreset (int delta)
     loadPreset (files.getReference (next));
 }
 
-juce::String GuitarRigNAMProcessor::getCurrentPresetName() const
+juce::String GuitarCompanionProcessor::getCurrentPresetName() const
 {
     const juce::ScopedLock sl (modelInfoLock);
     return currentPresetName;
 }
 
-void GuitarRigNAMProcessor::setCurrentPresetName (const juce::String& name)
+void GuitarCompanionProcessor::setCurrentPresetName (const juce::String& name)
 {
     const juce::ScopedLock sl (modelInfoLock);
     currentPresetName = name;
 }
 
 //==============================================================================
-juce::AudioProcessorEditor* GuitarRigNAMProcessor::createEditor()
+juce::AudioProcessorEditor* GuitarCompanionProcessor::createEditor()
 {
-    return new GuitarRigNAMEditor (*this);
+    return new GuitarCompanionEditor (*this);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new GuitarRigNAMProcessor();
+    return new GuitarCompanionProcessor();
 }

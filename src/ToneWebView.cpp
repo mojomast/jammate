@@ -146,14 +146,14 @@ ToneWebView::ToneWebView (Tone3000Client& c) : client (c)
 
     // TONE3000 filters by ONE architecture at a time, and omitting the filter
     // is not neutral - it means "A1 + Custom", hiding every A2-only tone behind
-    // a "Not supported" notice. PedalForge plays both, so the choice is the
+    // a "Not supported" notice. Guitar Companion plays both, so the choice is the
     // user's and it lives right here.
     for (auto* b : { &archA1, &archA2 })
     {
         b->getProperties().set ("chip", true);
         b->setMouseClickGrabsKeyboardFocus (false);
         b->setTooltip ("TONE3000 shows one model architecture at a time. "
-                       "PedalForge loads both - switch here if a tone says "
+                       "Guitar Companion loads both - switch here if a tone says "
                        "\"Not supported\".");
         addChildComponent (*b);
     }
@@ -168,7 +168,7 @@ ToneWebView::ToneWebView (Tone3000Client& c) : client (c)
         b->getProperties().set ("chip", true);
         b->setMouseClickGrabsKeyboardFocus (false);
         b->setTooltip ("NAM captures or impulse responses. TONE3000 filters one "
-                       "format at a time; the formats PedalForge cannot open "
+                       "format at a time; the formats Guitar Companion cannot open "
                        "(AIDA-X, Proteus, Amped Roots) stay out either way.");
         addChildComponent (*b);
     }

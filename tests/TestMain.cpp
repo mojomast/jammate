@@ -32,7 +32,7 @@ void info (const std::string& msg)
 } // namespace th
 
 //==============================================================================
-// Usage: PedalForgeTests [name-filter]
+// Usage: GuitarCompanionTests [name-filter]
 // The filter is a plain substring of the test case name ("spec_", "library_").
 // Exit code: 0 = everything passed, 1 = at least one CHECK failed or the
 // filter matched no test at all (a renamed case must not silently pass).

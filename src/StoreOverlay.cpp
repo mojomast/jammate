@@ -415,7 +415,7 @@ void ToneCardComponent::paint (juce::Graphics& g)
 class PluginCatalogRow : public juce::Component
 {
 public:
-    PluginCatalogRow (const plugcat::Entry& e, GuitarRigNAMProcessor& proc)
+    PluginCatalogRow (const plugcat::Entry& e, GuitarCompanionProcessor& proc)
         : entry (e), processor (proc)
     {
         actionButton.getProperties().set ("outlineAccent", true);
@@ -545,7 +545,7 @@ private:
         auto bundles = plugcat::installedBundles (entry);
         if (bundles.isEmpty())
             bundles.add (entry.checkBundle);
-        for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+        for (int s = 0; s < GuitarCompanionProcessor::maxExtSlots; ++s)
         {
             const auto path = processor.getExternalPluginPath (s);
             for (const auto& bn : bundles)
@@ -572,7 +572,7 @@ private:
     }
 
     plugcat::Entry entry;
-    GuitarRigNAMProcessor& processor;
+    GuitarCompanionProcessor& processor;
     juce::TextButton actionButton;
     bool installed = false, busy = false, uninstalling = false;
     int pct = 0;
@@ -582,7 +582,7 @@ private:
 };
 
 //==============================================================================
-StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
+StoreOverlay::StoreOverlay (GuitarCompanionProcessor& p)
     : processor (p)
 {
     // Official TONE3000 branding (design requirement): full wordmark for the
@@ -1160,7 +1160,7 @@ juce::String StoreOverlay::formatCount (juce::int64 n) const
 void StoreOverlay::loadFavorites()
 {
     const auto file = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                          .getChildFile ("PedalForge NAM")
+                          .getChildFile ("Guitar Companion")
                           .getChildFile ("favoritos.json");
     favIds.clear();
     const auto parsed = juce::JSON::parse (file.loadFileAsString());
@@ -1178,7 +1178,7 @@ void StoreOverlay::saveFavorites() const
     obj->setProperty ("ids", arr);
 
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("PedalForge NAM");
+                   .getChildFile ("Guitar Companion");
     dir.createDirectory();
     dir.getChildFile ("favoritos.json")
         .replaceWithText (juce::JSON::toString (juce::var (obj), true));
@@ -1336,7 +1336,7 @@ bool StoreOverlay::checkFormatSupported (const ToneCardComponent::Info& info)
     // than wrapping. Lead with the format name - that is the part that explains
     // the refusal, and it must survive if a long title ever gets appended here.
     bannerError = formatDisplayName (info.format)
-                  + " tones are not supported - PedalForge opens NAM captures and IRs.";
+                  + " tones are not supported - Guitar Companion opens NAM captures and IRs.";
     bannerRetryable = false;   // reloading the grid changes nothing here
     resized();
     repaint();
@@ -1387,7 +1387,7 @@ void StoreOverlay::showCardMenu (ToneCardComponent& card)
     // item ids: 1..3 = amp lane, 10 = parallel rig, 101..103 = IR slot
     if (info.formatBadge == "IR")
     {
-        const int cabs = juce::jlimit (1, GuitarRigNAMProcessor::maxCabSlots,
+        const int cabs = juce::jlimit (1, GuitarCompanionProcessor::maxCabSlots,
                                        processor.getCabCount());
         for (int s = 0; s < cabs; ++s)
             menu.addItem (101 + s,
@@ -1400,7 +1400,7 @@ void StoreOverlay::showCardMenu (ToneCardComponent& card)
         // Every ACTIVE lane is listed, loaded or not - same rule the IR branch
         // above already used. Listing only loaded lanes made a second AMP+CAB
         // unreachable until something had been dropped into it by other means.
-        const int rigs = juce::jlimit (1, GuitarRigNAMProcessor::maxRigs,
+        const int rigs = juce::jlimit (1, GuitarCompanionProcessor::maxRigs,
                                        processor.getRigCount());
         for (int l = 0; l < rigs; ++l)
             menu.addItem (1 + l,
@@ -2547,7 +2547,7 @@ void StoreOverlay::paint (juce::Graphics& g)
         g.drawText (juce::CharPointer_UTF8 (
                         "Embedded catalog \xc2\xb7 installs without admin in "
                         "%LOCALAPPDATA%\\Programs\\Common\\VST3 \xc2\xb7 "
-                        "registry in Documents\\PedalForge NAM\\plugins.json"),
+                        "registry in Documents\\Guitar Companion\\plugins.json"),
                     22, 74, W - 44, 28, juce::Justification::centredLeft);
     }
 
@@ -2579,7 +2579,7 @@ void StoreOverlay::paint (juce::Graphics& g)
         {
             g.setFont (ui::uiFont (16.0f, true));
             g.setColour (juce::Colour (0xffc8cace));
-            g.drawText ("Connect PedalForge to your own TONE3000 account", 0, 210, W, 24,
+            g.drawText ("Connect Guitar Companion to your own TONE3000 account", 0, 210, W, 24,
                         juce::Justification::centred);
             g.setFont (ui::uiFont (12.5f));
             g.setColour (juce::Colour (0xff84878d));
@@ -2702,7 +2702,7 @@ void StoreOverlay::paint (juce::Graphics& g)
         g.setFont (ui::uiFont (12.5f));
         g.drawFittedText (
             "Sign in with your own TONE3000 account to browse and load community "
-            "amp captures and IRs inside PedalForge NAM. A browser window opens "
+            "amp captures and IRs inside Guitar Companion. A browser window opens "
             "for a one-time secure login - your credentials never touch this app.",
             card.getX() + 40, card.getY() + 124, card.getWidth() - 80, 64,
             juce::Justification::topLeft, 3);
@@ -2711,7 +2711,7 @@ void StoreOverlay::paint (juce::Graphics& g)
         g.setFont (ui::monoFont (9.5f));
         g.drawFittedText (
             "Uses the public TONE3000 API under its free, non-commercial tier. "
-            "PedalForge NAM is not affiliated with or endorsed by TONE3000.",
+            "Guitar Companion is not affiliated with or endorsed by TONE3000.",
             card.getX() + 40, card.getY() + 192, card.getWidth() - 80, 28,
             juce::Justification::topLeft, 2);
     }

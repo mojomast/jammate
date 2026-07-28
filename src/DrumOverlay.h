@@ -46,7 +46,7 @@ class DrumOverlay : public juce::Component,
                     private juce::Timer
 {
 public:
-    explicit DrumOverlay (GuitarRigNAMProcessor&);
+    explicit DrumOverlay (GuitarCompanionProcessor&);
     ~DrumOverlay() override;
 
     void open();
@@ -277,7 +277,7 @@ public:
     int ribbonSourceH = 54; // current DrumRibbon height (26 when collapsed)
 private:
 
-    GuitarRigNAMProcessor& processor;
+    GuitarCompanionProcessor& processor;
     DrumEngine& engine;
 
     // ---- guitar ribbon at the TOP of the drums: a miniature of the real chain

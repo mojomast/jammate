@@ -291,7 +291,7 @@ private:
 };
 } // namespace
 
-FxDrawer::FxDrawer (GuitarRigNAMProcessor& p) : processor (p)
+FxDrawer::FxDrawer (GuitarCompanionProcessor& p) : processor (p)
 {
     search.setFont (ui::uiFont (12.5f));
     search.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff10161a));
@@ -578,7 +578,7 @@ void PillButton::paintButton (juce::Graphics& g, bool isHighlighted, bool)
 }
 
 //==============================================================================
-ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoadModel,
+ChainView::ChainView (GuitarCompanionProcessor& p, std::function<void (int)> onLoadModel,
                       std::function<void (int)> onLoadIr,
                       std::function<void (int)> onLoadExtPlugin,
                       std::function<void (int)> onOpenExtPluginUi)
@@ -739,7 +739,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     makeKnob (limCeilKnob, "limCeiling", "CEIL", formatDb);
     makeKnob (limRelKnob, "limRelease", "REL", formatMs);
     // external VST3 plugin slots
-    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+    for (int s = 0; s < GuitarCompanionProcessor::maxExtSlots; ++s)
     {
         const auto prefix = s == 0 ? juce::String ("ext") : "ext" + juce::String (s + 1);
         makeKnob (extMixKnob[s], (prefix + "Mix").toRawUTF8(), "MIX", formatPct);
@@ -804,7 +804,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
         setupLooperButton (looperClearButton, 3, "Erases the loop");
         looperClearButton.setButtonText ("CLEAR");
         setupLooperButton (looperExportButton, 0,
-                           "Saves the loop as WAV (Documents\\PedalForge NAM\\Loops)");
+                           "Saves the loop as WAV (Documents\\Guitar Companion\\Loops)");
         looperExportButton.setButtonText ("WAV");
         looperExportButton.onClick = [this]
         {
@@ -843,7 +843,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     looperLed.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Enable/disable loop monitoring (recording continues)")));
     makeLed (limLed, "limOn", limAtt);
-    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+    for (int s = 0; s < GuitarCompanionProcessor::maxExtSlots; ++s)
     {
         const auto prefix = s == 0 ? juce::String ("ext") : "ext" + juce::String (s + 1);
         extAtt[s] = std::make_unique<Attachment> (apvts, prefix + "On", extLed[s]);
@@ -966,7 +966,7 @@ ChainView::ChainView (GuitarRigNAMProcessor& p, std::function<void (int)> onLoad
     tip (looperLevelKnob, "Loop volume in the mix");
     tip (limCeilKnob, "Limiter ceiling - nothing passes this level");
     tip (limRelKnob, "Recovery time after limiting");
-    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+    for (int s = 0; s < GuitarCompanionProcessor::maxExtSlots; ++s)
         tip (extMixKnob[s], "Blend of the hosted plugin with the dry signal");
     tip (wahFreqKnob, "Wah base frequency (pedal position in Manual mode)");
     tip (wahRangeKnob, "How far the envelope/LFO sweeps from FREQ");
@@ -1231,7 +1231,7 @@ void ChainView::refreshDynamicText()
 
     // looper buttons track the state
     {
-        using LS = GuitarRigNAMProcessor::LooperState;
+        using LS = GuitarCompanionProcessor::LooperState;
         const auto st = processor.getLooperState();
         const auto rec = st == LS::empty ? juce::String (juce::CharPointer_UTF8 ("\xe2\x97\x8f REC"))
                          : st == LS::recording ? juce::String ("CLOSE")
@@ -1251,7 +1251,7 @@ void ChainView::refreshDynamicText()
     }
 
     // slots VST3
-    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+    for (int s = 0; s < GuitarCompanionProcessor::maxExtSlots; ++s)
     {
         const bool hasExt = processor.hasExternalPlugin (s);
         const auto loadText = hasExt ? juce::String ("CHANGE VST3")
@@ -1309,7 +1309,7 @@ int ChainView::extSlotForId (const juce::String& id)
         if (rest.isNotEmpty() && rest.containsOnly ("0123456789")) // excludes "exciter"
         {
             const int n = rest.getIntValue();
-            if (n >= 2 && n <= GuitarRigNAMProcessor::maxExtSlots)
+            if (n >= 2 && n <= GuitarCompanionProcessor::maxExtSlots)
                 return n - 1;
         }
     }
@@ -1459,10 +1459,10 @@ void ChainView::insertFxAt (const juce::String& id, int insertIndex)
     }
     else
     {
-        const int rank = GuitarRigNAMProcessor::canonicalRank (id);
+        const int rank = GuitarCompanionProcessor::canonicalRank (id);
         pos = order.size();
         for (int i = 0; i < order.size(); ++i)
-            if (GuitarRigNAMProcessor::canonicalRank (order[i]) > rank)
+            if (GuitarCompanionProcessor::canonicalRank (order[i]) > rank)
             {
                 pos = i;
                 break;
@@ -1509,7 +1509,7 @@ void ChainView::showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea)
         menu.addSectionHeader (juce::String (juce::CharPointer_UTF8 (cat.title)));
         for (auto* id : cat.ids)
             if (! order.contains (id))
-                menu.addItem (GuitarRigNAMProcessor::fxFromString (id) + 1,
+                menu.addItem (GuitarCompanionProcessor::fxFromString (id) + 1,
                               fxDisplayName (id));
         any = true;
     }
@@ -1526,8 +1526,8 @@ void ChainView::showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea)
         {
             if (safe == nullptr || result <= 0 || result >= 99999)
                 return;
-            const auto id = GuitarRigNAMProcessor::fxToString (
-                (GuitarRigNAMProcessor::ChainFx) (result - 1));
+            const auto id = GuitarCompanionProcessor::fxToString (
+                (GuitarCompanionProcessor::ChainFx) (result - 1));
 
             auto order = safe->processor.getChainOrder();
             int pos;
@@ -1539,10 +1539,10 @@ void ChainView::showAddFxMenu (int insertIndex, juce::Rectangle<int> targetArea)
             else
             {
                 // end button: canonical position (can be dragged afterward)
-                const int rank = GuitarRigNAMProcessor::canonicalRank (id);
+                const int rank = GuitarCompanionProcessor::canonicalRank (id);
                 pos = order.size();
                 for (int i = 0; i < order.size(); ++i)
-                    if (GuitarRigNAMProcessor::canonicalRank (order[i]) > rank)
+                    if (GuitarCompanionProcessor::canonicalRank (order[i]) > rank)
                     {
                         pos = i;
                         break;
@@ -1735,10 +1735,10 @@ std::pair<juce::Rectangle<int>, juce::String> ChainView::dropTargetAt (const juc
     if (isVst3File (file))
     {
         // slot under the cursor; else the first visible empty slot; else the 1st
-        for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+        for (int s = 0; s < GuitarCompanionProcessor::maxExtSlots; ++s)
             if (! extB[s].isEmpty() && extB[s].contains (pos))
                 return { extB[s], "vst3:" + juce::String (s) };
-        for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+        for (int s = 0; s < GuitarCompanionProcessor::maxExtSlots; ++s)
             if (! extB[s].isEmpty() && ! processor.hasExternalPlugin (s))
                 return { extB[s], "vst3:" + juce::String (s) };
         return { extB[0], "vst3:0" };
@@ -2026,7 +2026,7 @@ void ChainView::resized()
             const int topY = (H - totalH) / 2;
             const int pairX = x + busW;
 
-            for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+            for (int r = 0; r < GuitarCompanionProcessor::maxRigs; ++r)
             {
                 if (r >= count)
                 {
@@ -2128,7 +2128,7 @@ void ChainView::resized()
     }
 
     // VST3 slots: MIX + stacked LOAD/PANEL/REMOVE buttons
-    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+    for (int s = 0; s < GuitarCompanionProcessor::maxExtSlots; ++s)
     {
         const auto& b = extB[s];
         extLed[s].setBounds (b.getRight() - 12 - 18, b.getY() + 10, 18, 18);
@@ -2196,7 +2196,7 @@ void ChainView::resized()
     {
         const int count = processor.getRigCount();
 
-        for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+        for (int r = 0; r < GuitarCompanionProcessor::maxRigs; ++r)
         {
             const bool active = r < count;
             const auto ampB = ampLaneB[r];
@@ -2592,24 +2592,24 @@ void ChainView::paint (juce::Graphics& g)
         juce::Colour c = ui::textFaint;
         switch (st)
         {
-            case GuitarRigNAMProcessor::LooperState::empty:
+            case GuitarCompanionProcessor::LooperState::empty:
                 status = juce::String (juce::CharPointer_UTF8 ("empty \xc2\xb7 REC to record"));
                 break;
-            case GuitarRigNAMProcessor::LooperState::recording:
+            case GuitarCompanionProcessor::LooperState::recording:
                 status = "recording " + juce::String (processor.getLooperPosSeconds(), 1) + " s";
                 c = ui::red;
                 break;
-            case GuitarRigNAMProcessor::LooperState::playing:
+            case GuitarCompanionProcessor::LooperState::playing:
                 status = "playing " + juce::String (processor.getLooperPosSeconds(), 1) + " / "
                          + juce::String (processor.getLooperSeconds(), 1) + " s";
                 c = ui::accent;
                 break;
-            case GuitarRigNAMProcessor::LooperState::overdub:
+            case GuitarCompanionProcessor::LooperState::overdub:
                 status = "overdub " + juce::String (processor.getLooperPosSeconds(), 1) + " / "
                          + juce::String (processor.getLooperSeconds(), 1) + " s";
                 c = ui::glowOrange;
                 break;
-            case GuitarRigNAMProcessor::LooperState::stopped:
+            case GuitarCompanionProcessor::LooperState::stopped:
                 status = juce::String (juce::CharPointer_UTF8 ("stopped \xc2\xb7 "))
                          + juce::String (processor.getLooperSeconds(), 1) + " s";
                 break;
@@ -2620,15 +2620,15 @@ void ChainView::paint (juce::Graphics& g)
                     juce::Justification::centredLeft);
 
         // loop progress bar
-        if (st != GuitarRigNAMProcessor::LooperState::empty)
+        if (st != GuitarCompanionProcessor::LooperState::empty)
         {
             auto bar = juce::Rectangle<float> ((float) looperB.getX() + 12.0f,
                                                (float) looperB.getY() + 52.0f,
                                                (float) looperB.getWidth() - 24.0f, 4.0f);
             g.setColour (ui::meterBg);
             g.fillRoundedRectangle (bar, 2.0f);
-            const double total = st == GuitarRigNAMProcessor::LooperState::recording
-                                     ? (double) GuitarRigNAMProcessor::looperMaxSeconds
+            const double total = st == GuitarCompanionProcessor::LooperState::recording
+                                     ? (double) GuitarCompanionProcessor::looperMaxSeconds
                                      : processor.getLooperSeconds();
             const double frac = total > 0 ? processor.getLooperPosSeconds() / total : 0.0;
             g.setColour (c);
@@ -2637,7 +2637,7 @@ void ChainView::paint (juce::Graphics& g)
     }
 
     // ---- external VST3 plugin slots (mini keeps the name in the footer box)
-    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+    for (int s = 0; s < GuitarCompanionProcessor::maxExtSlots; ++s)
     {
         const auto& b = extB[s];
         if (b.isEmpty())
@@ -3154,7 +3154,7 @@ private:
 };
 
 //==============================================================================
-RigContent::RigContent (GuitarRigNAMProcessor& p)
+RigContent::RigContent (GuitarCompanionProcessor& p)
     : processor (p)
 {
     // restore the persisted theme (dark default) — press 'L' to toggle
@@ -3244,8 +3244,8 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     audioButton.setTooltip ("Driver, device, sample rate and buffer (ASIO/WASAPI)");
     tunerToggle.setTooltip ("Enable/disable the tuner (T)");
 
-    // dev: GUITARRIG_TUNER=off starts with the tuner disabled (UI test)
-    if (juce::SystemStats::getEnvironmentVariable ("GUITARRIG_TUNER", "") == "off")
+    // dev: GUITAR_COMPANION_TUNER=off starts with the tuner disabled (UI test)
+    if (juce::SystemStats::getEnvironmentVariable ("GUITAR_COMPANION_TUNER", "") == "off")
         processor.apvts.state.setProperty ("tunerOn", false, nullptr);
 
     tunerToggle.getProperties().set ("chip", true);
@@ -3279,11 +3279,11 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     };
     addAndMakeVisible (muteChip);
 
-    // quick RECORDER: output WAV in Documents\PedalForge NAM\Recordings
+    // quick RECORDER: output WAV in Documents\Guitar Companion\Recordings
     recChip.getProperties().set ("ghost", true);
     recChip.getProperties().set ("ghostHot", true);   // active = red (recording)
     recChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Records WAVs in Documents\\PedalForge NAM\\Recordings: the mix plus "
+        "Records WAVs in Documents\\Guitar Companion\\Recordings: the mix plus "
         "separate guitar and drum stems")));
     recChip.setMouseClickGrabsKeyboardFocus (false);
     recChip.onClick = [this]
@@ -3388,7 +3388,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
     airKnob->setKnobTooltip ("Air/brightness after the rig mix (8 kHz shelf)");
     addAndMakeVisible (*airKnob);
 
-    for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+    for (int r = 0; r < GuitarCompanionProcessor::maxRigs; ++r)
     {
         const auto n = juce::String (r + 1);
         rigLevelKnob[r] = std::make_unique<KnobComponent> (
@@ -3527,9 +3527,9 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
             }
         };
 
-    // Dev: GUITARRIG_EXT_PLUGIN=<.vst3 path> loads into the slot at startup.
+    // Dev: GUITAR_COMPANION_EXT_PLUGIN=<.vst3 path> loads into the slot at startup.
     {
-        const auto extFlag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_EXT_PLUGIN", "");
+        const auto extFlag = juce::SystemStats::getEnvironmentVariable ("GUITAR_COMPANION_EXT_PLUGIN", "");
         if (extFlag.isNotEmpty())
             juce::MessageManager::callAsync (
                 [safe = juce::Component::SafePointer<RigContent> (this), extFlag]
@@ -3539,10 +3539,10 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 });
     }
 
-    // Dev flags: GUITARRIG_OPEN_DRUMS=1 opens the Drums module at startup;
+    // Dev flags: GUITAR_COMPANION_OPEN_DRUMS=1 opens the Drums module at startup;
     // =play also starts playback (transport test without synthetic clicks).
     {
-        const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_DRUMS", "");
+        const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITAR_COMPANION_OPEN_DRUMS", "");
         if (flag.isNotEmpty())
             juce::MessageManager::callAsync (
                 [safe = juce::Component::SafePointer<RigContent> (this), flag]
@@ -3577,17 +3577,17 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 });
     }
 
-    // Dev flag: GUITARRIG_OPEN_STORE=explore|library|plugins|browse|rigN|cabN
+    // Dev flag: GUITAR_COMPANION_OPEN_STORE=explore|library|plugins|browse|rigN|cabN
     // opens the store. "browse" goes straight into the embedded TONE3000
     // picker; "rigN"/"cabN" open it AIMED at that rig, which is what the amp's
     // and the cab's LOAD/CHANGE do (the card labels then name that lane, and
     // "cabN" also starts the picker on IRs).
     {
-        const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_STORE", "");
+        const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITAR_COMPANION_OPEN_STORE", "");
         const bool isCab = flag.startsWith ("cab");
         const int rig = (flag.startsWith ("rig") || isCab) ? flag.substring (3).getIntValue() : 0;
         if (flag == "library" || flag == "explore" || flag == "plugins" || flag == "browse"
-            || (rig >= 1 && rig <= GuitarRigNAMProcessor::maxRigs))
+            || (rig >= 1 && rig <= GuitarCompanionProcessor::maxRigs))
             juce::MessageManager::callAsync (
                 [safe = juce::Component::SafePointer<RigContent> (this), flag, rig, isCab]
                 {
@@ -3601,13 +3601,13 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 });
     }
 
-    // Dev flag: GUITARRIG_LOAD_MENU=1..3 pops the amp card's LOAD/CHANGE
+    // Dev flag: GUITAR_COMPANION_LOAD_MENU=1..3 pops the amp card's LOAD/CHANGE
     // CAPTURE menu for that lane, so its wording and its routing can be checked
     // without clicking by coordinate (popup menus are their own window).
     {
-        const int lane = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_LOAD_MENU", "")
+        const int lane = juce::SystemStats::getEnvironmentVariable ("GUITAR_COMPANION_LOAD_MENU", "")
                              .getIntValue();
-        if (lane >= 1 && lane <= GuitarRigNAMProcessor::maxRigs)
+        if (lane >= 1 && lane <= GuitarCompanionProcessor::maxRigs)
             juce::Timer::callAfterDelay (600,
                 [safe = juce::Component::SafePointer<RigContent> (this), lane]
                 {
@@ -3618,10 +3618,10 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
 
     // Dev flags for the remaining screens, so a UI sweep can open each one
     // deterministically instead of hunting for buttons by coordinate.
-    // GUITARRIG_OPEN_SONG=1   -> Song / Scenes
-    // GUITARRIG_OPEN_AUDIO=1  -> Audio & MIDI
-    // GUITARRIG_STAGE=1       -> Stage (performance) mode
-    if (juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_SONG", "") == "1")
+    // GUITAR_COMPANION_OPEN_SONG=1   -> Song / Scenes
+    // GUITAR_COMPANION_OPEN_AUDIO=1  -> Audio & MIDI
+    // GUITAR_COMPANION_STAGE=1       -> Stage (performance) mode
+    if (juce::SystemStats::getEnvironmentVariable ("GUITAR_COMPANION_OPEN_SONG", "") == "1")
         juce::MessageManager::callAsync (
             [safe = juce::Component::SafePointer<RigContent> (this)]
             {
@@ -3629,7 +3629,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                     safe->songOverlay->open();
             });
 
-    if (juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_AUDIO", "") == "1")
+    if (juce::SystemStats::getEnvironmentVariable ("GUITAR_COMPANION_OPEN_AUDIO", "") == "1")
         juce::MessageManager::callAsync (
             [safe = juce::Component::SafePointer<RigContent> (this)]
             {
@@ -3637,7 +3637,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                     safe->audioButton.triggerClick();   // builds the overlay lazily
             });
 
-    if (juce::SystemStats::getEnvironmentVariable ("GUITARRIG_STAGE", "") == "1")
+    if (juce::SystemStats::getEnvironmentVariable ("GUITAR_COMPANION_STAGE", "") == "1")
         juce::MessageManager::callAsync (
             [safe = juce::Component::SafePointer<RigContent> (this)]
             {
@@ -3662,7 +3662,7 @@ void RigContent::setRigCountParam (int count)
 {
     if (auto* param = processor.apvts.getParameter ("cabCount"))
     {
-        const int c = juce::jlimit (1, (int) GuitarRigNAMProcessor::maxRigs, count);
+        const int c = juce::jlimit (1, (int) GuitarCompanionProcessor::maxRigs, count);
         param->setValueNotifyingHost (param->getNormalisableRange().convertTo0to1 ((float) c));
     }
 }
@@ -3777,13 +3777,13 @@ void RigContent::resized()
     {
         const int cx = outputCardB.getCentreX();
         const int segW = 3 * 28 + 2 * 4;
-        for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+        for (int r = 0; r < GuitarCompanionProcessor::maxRigs; ++r)
             rigSegButtons[r].setBounds (cx - segW / 2 + r * 32, outputCardB.getY() + 48, 28, 22);
 
         const int count = processor.getRigCount();
         const int kw = 40, kh = kw + 26;
         const int rowW = count * kw + (count - 1) * 8;
-        for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+        for (int r = 0; r < GuitarCompanionProcessor::maxRigs; ++r)
         {
             if (rigLevelKnob[r] == nullptr)
                 continue;
@@ -3838,7 +3838,7 @@ void RigContent::setPerfMode (bool shouldBeOn)
     if (inGainKnob != nullptr)  inGainKnob->setVisible (ws);
     if (outLevelKnob != nullptr) outLevelKnob->setVisible (ws);
     if (airKnob != nullptr)      airKnob->setVisible (ws);
-    for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+    for (int r = 0; r < GuitarCompanionProcessor::maxRigs; ++r)
     {
         if (rigLevelKnob[r] != nullptr)
             rigLevelKnob[r]->setVisible (ws && r < processor.getRigCount());
@@ -3892,16 +3892,17 @@ void RigContent::paint (juce::Graphics& g)
             g.fillPath (diamond);
         }
 
-        g.setFont (ui::uiFont (16.0f, true));
+        // The wordmark owns everything up to the preset cluster (which starts at
+        // 186, see resized()). drawFittedText, not drawText: "Guitar Companion"
+        // is half again as long as the old name and a fixed size would clip it
+        // on the first font that measures slightly wider.
+        // The "NAM" chip that used to sit here is gone with the rename - it
+        // completed the old product name; next to this one it read as a loose
+        // format tag, and the format is already on every card in the store.
+        g.setFont (ui::uiFont (15.0f, true));
         g.setColour (ui::textBright);
-        g.drawText ("PedalForge", 56, 17, 110, 26, juce::Justification::centredLeft);
-
-        auto badge = juce::Rectangle<float> (146.0f, 22.0f, 40.0f, 17.0f);
-        g.setColour (ui::accent.withAlpha (0.35f));
-        g.drawRoundedRectangle (badge, 5.0f, 1.0f);
-        g.setFont (ui::monoFont (9.0f, true));
-        g.setColour (ui::accent);
-        g.drawText ("NAM", badge, juce::Justification::centred);
+        g.drawFittedText ("Guitar Companion", 56, 17, 124, 26,
+                          juce::Justification::centredLeft, 1, 0.9f);
 
         // meter labels
         g.setFont (ui::monoFont (8.0f));
@@ -4552,7 +4553,7 @@ void RigContent::timerCallback()
             resized();
             repaint();
         }
-        for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+        for (int r = 0; r < GuitarCompanionProcessor::maxRigs; ++r)
         {
             const bool on = count == r + 1;
             if ((bool) rigSegButtons[r].getProperties()["chipActive"] != on)
@@ -4561,7 +4562,7 @@ void RigContent::timerCallback()
                 rigSegButtons[r].repaint();
             }
         }
-        addRigButton.setEnabled (count < GuitarRigNAMProcessor::maxRigs);
+        addRigButton.setEnabled (count < GuitarCompanionProcessor::maxRigs);
     }
 
     // INPUT card subtitle: audio device name, polled at 2 Hz (standalone)
@@ -4669,7 +4670,7 @@ void RigContent::applyEcoSwitchIfNeeded()
     // keeps the loaded file consistent with the mode (chip, preset or auto),
     // lane by lane
     const bool ecoNow = apvts.getRawParameterValue ("ampEco")->load() > 0.5f;
-    for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+    for (int r = 0; r < GuitarCompanionProcessor::maxRigs; ++r)
     {
         const auto ecoPath = processor.getModelPathEco (r);
         const auto target = ecoNow && ecoPath.isNotEmpty()
@@ -4744,7 +4745,7 @@ void RigContent::refreshSidecarImages()
         apply (std::move (img));
     };
 
-    for (int r = 0; r < GuitarRigNAMProcessor::maxRigs; ++r)
+    for (int r = 0; r < GuitarCompanionProcessor::maxRigs; ++r)
     {
         refresh (processor.getModelPath (r), loadedModelPaths[r], ampImagesLoaded[r],
                  [this, r] (juce::Image img) { chainView->setAmpImage (r, std::move (img)); });
@@ -4969,13 +4970,13 @@ void RigContent::openExtPluginWindow (int slot)
 
 void RigContent::closeExtPluginWindow (int slot)
 {
-    if (slot >= 0 && slot < GuitarRigNAMProcessor::maxExtSlots)
+    if (slot >= 0 && slot < GuitarCompanionProcessor::maxExtSlots)
         extWindow[slot].reset();
 }
 
 void RigContent::closeAllExtPluginWindows()
 {
-    for (int s = 0; s < GuitarRigNAMProcessor::maxExtSlots; ++s)
+    for (int s = 0; s < GuitarCompanionProcessor::maxExtSlots; ++s)
         extWindow[s].reset();
 }
 
@@ -5248,7 +5249,7 @@ void RigContent::mouseDown (const juce::MouseEvent& e)
 }
 
 //==============================================================================
-GuitarRigNAMEditor::GuitarRigNAMEditor (GuitarRigNAMProcessor& p)
+GuitarCompanionEditor::GuitarCompanionEditor (GuitarCompanionProcessor& p)
     : AudioProcessorEditor (p), content (p)
 {
     addAndMakeVisible (content);
@@ -5272,7 +5273,7 @@ GuitarRigNAMEditor::GuitarRigNAMEditor (GuitarRigNAMProcessor& p)
              juce::roundToInt (RigContent::designHeight * scale));
 }
 
-void GuitarRigNAMEditor::resized()
+void GuitarCompanionEditor::resized()
 {
     const float scale = (float) getWidth() / (float) RigContent::designWidth;
     content.setTransform (juce::AffineTransform::scale (scale));

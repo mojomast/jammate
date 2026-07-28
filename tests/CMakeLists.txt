@@ -1,11 +1,11 @@
-# Unit tests (opt-in, see PEDALFORGE_BUILD_TESTS in the top-level CMakeLists).
+# Unit tests (opt-in, see GUITAR_COMPANION_BUILD_TESTS in the top-level CMakeLists).
 #
 # Console target linking ONLY the drum sources: PluginProcessor.cpp includes
 # PluginEditor.h and would drag the whole UI (and the NAM core) in with it.
-juce_add_console_app(PedalForgeTests
-    PRODUCT_NAME "PedalForgeTests")
+juce_add_console_app(GuitarCompanionTests
+    PRODUCT_NAME "GuitarCompanionTests")
 
-target_sources(PedalForgeTests
+target_sources(GuitarCompanionTests
     PRIVATE
         TestMain.cpp
         DrumSpecTests.cpp
@@ -17,24 +17,24 @@ target_sources(PedalForgeTests
         ${PROJECT_SOURCE_DIR}/src/DrumLibrary.cpp
         ${PROJECT_SOURCE_DIR}/src/DrumGenerator.cpp)
 
-target_include_directories(PedalForgeTests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(GuitarCompanionTests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 # Same as the plugin: without /utf-8 MSVC reads the UTF-8 literals as codepage
 # 1252 and the UTF-8 validity checks in the tests would be meaningless.
-target_compile_options(PedalForgeTests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
+target_compile_options(GuitarCompanionTests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
 
-target_compile_definitions(PedalForgeTests
+target_compile_definitions(GuitarCompanionTests
     PRIVATE
         NOMINMAX
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_STANDALONE_APPLICATION=1)
 
-target_link_libraries(PedalForgeTests
+target_link_libraries(GuitarCompanionTests
     PRIVATE
         # BinaryData.h: DrumEngine.cpp decodes the embedded GMRockKit samples,
         # so the symbols have to be there even though the tests never play audio.
-        GuitarRigAssets
+        GuitarCompanionAssets
         juce::juce_audio_formats
         juce::juce_audio_processors
     PUBLIC
@@ -43,7 +43,7 @@ target_link_libraries(PedalForgeTests
 # One ctest entry per suite (the argument is a substring filter on the case
 # names; the runner fails if a filter matches nothing, so a renamed case can
 # never pass silently).
-add_test(NAME drums.parseSpec  COMMAND PedalForgeTests spec_)
-add_test(NAME drums.library    COMMAND PedalForgeTests library_)
-add_test(NAME drums.generator  COMMAND PedalForgeTests generator_)
-add_test(NAME drums.barCodec   COMMAND PedalForgeTests codec_)
+add_test(NAME drums.parseSpec  COMMAND GuitarCompanionTests spec_)
+add_test(NAME drums.library    COMMAND GuitarCompanionTests library_)
+add_test(NAME drums.generator  COMMAND GuitarCompanionTests generator_)
+add_test(NAME drums.barCodec   COMMAND GuitarCompanionTests codec_)

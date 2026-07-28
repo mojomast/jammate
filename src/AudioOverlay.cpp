@@ -25,7 +25,7 @@ juce::String dot() { return utf8 (" \xc2\xb7 "); }
 } // namespace
 
 //==============================================================================
-AudioOverlay::AudioOverlay (GuitarRigNAMProcessor& p, juce::AudioDeviceManager* adm)
+AudioOverlay::AudioOverlay (GuitarCompanionProcessor& p, juce::AudioDeviceManager* adm)
     : processor (p), deviceManager (adm), hostMode (adm == nullptr)
 {
     setOpaque (false);

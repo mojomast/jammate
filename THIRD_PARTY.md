@@ -1,7 +1,7 @@
-# Third-party credits — PedalForge NAM
+# Third-party credits — Guitar Companion
 
 This program includes third-party material. Each item is listed below with its
-license and the required attribution. (PedalForge NAM's own code is AGPLv3;
+license and the required attribution. (Guitar Companion's own code is AGPLv3;
 these materials keep their own licenses.)
 
 ## Drum grooves and fills — Groove MIDI Dataset
@@ -161,14 +161,14 @@ non-commercial tier**, using the OAuth prompt flows and bounded list endpoints
 that tier allows. Each user supplies their own publishable key — **no credential
 ships in this repository**.
 
-**PedalForge NAM is not affiliated with, sponsored by, or endorsed by
+**Guitar Companion is not affiliated with, sponsored by, or endorsed by
 TONE3000.** The TONE3000 name and logos belong to them and are used only to
 identify the service, following their published design guidance.
 See <https://www.tone3000.com/api>.
 
 Because that tier browses through TONE3000's own web pages, the Tone Store
 hosts those pages in an embedded browser (see below). The pages shown in it are
-served by tone3000.com and are theirs; PedalForge only opens the authorisation
+served by tone3000.com and are theirs; Guitar Companion only opens the authorisation
 URL and reads the redirect that comes back.
 
 ## Microsoft Edge WebView2 SDK

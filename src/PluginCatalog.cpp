@@ -78,7 +78,7 @@ bool isInstalled (const Entry& e)
 static juce::File manifestFile()
 {
     return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-        .getChildFile ("PedalForge NAM").getChildFile ("plugins.json");
+        .getChildFile ("Guitar Companion").getChildFile ("plugins.json");
 }
 
 juce::String installedVersion (const Entry& e)

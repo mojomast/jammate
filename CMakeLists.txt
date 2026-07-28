@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(GuitarRigNAM VERSION 0.1.0 LANGUAGES C CXX)
+project(GuitarCompanion VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -59,23 +59,23 @@ target_compile_definitions(nam_core
 # pinned .nupkg (a plain zip) into third_party/webview2/ once. It is gitignored:
 # nothing from Microsoft ends up in the repository.
 #
-# Turn it off with -DPEDALFORGE_EMBEDDED_BROWSER=OFF (or if the download fails):
+# Turn it off with -DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF (or if the download fails):
 # the store then falls back to the system browser + the localhost:53682 listener,
 # which is the path that always existed.
-option(PEDALFORGE_EMBEDDED_BROWSER "Embed TONE3000's picker via WebView2 (Windows)" ON)
+option(GUITAR_COMPANION_EMBEDDED_BROWSER "Embed TONE3000's picker via WebView2 (Windows)" ON)
 
 # Version JUCE's own FindWebView2.cmake recommends.
-set(PEDALFORGE_WEBVIEW2_VERSION "1.0.3485.44")
-set(PEDALFORGE_HAS_EMBEDDED_BROWSER OFF)
+set(GUITAR_COMPANION_WEBVIEW2_VERSION "1.0.3485.44")
+set(GUITAR_COMPANION_HAS_EMBEDDED_BROWSER OFF)
 
-if(PEDALFORGE_EMBEDDED_BROWSER AND WIN32)
+if(GUITAR_COMPANION_EMBEDDED_BROWSER AND WIN32)
     set(_wv2_root "${CMAKE_CURRENT_SOURCE_DIR}/third_party/webview2")
-    set(_wv2_pkg "${_wv2_root}/Microsoft.Web.WebView2.${PEDALFORGE_WEBVIEW2_VERSION}")
+    set(_wv2_pkg "${_wv2_root}/Microsoft.Web.WebView2.${GUITAR_COMPANION_WEBVIEW2_VERSION}")
 
     if(NOT EXISTS "${_wv2_pkg}/build/native/include/WebView2.h")
         set(_wv2_zip "${CMAKE_CURRENT_BINARY_DIR}/webview2.nupkg")
-        string(TOLOWER "microsoft.web.webview2.${PEDALFORGE_WEBVIEW2_VERSION}" _wv2_file)
-        message(STATUS "Downloading the WebView2 SDK (${PEDALFORGE_WEBVIEW2_VERSION})...")
+        string(TOLOWER "microsoft.web.webview2.${GUITAR_COMPANION_WEBVIEW2_VERSION}" _wv2_file)
+        message(STATUS "Downloading the WebView2 SDK (${GUITAR_COMPANION_WEBVIEW2_VERSION})...")
         file(DOWNLOAD
             "https://globalcdn.nuget.org/packages/${_wv2_file}.nupkg"
             "${_wv2_zip}"
@@ -97,7 +97,7 @@ if(PEDALFORGE_EMBEDDED_BROWSER AND WIN32)
     if(EXISTS "${_wv2_pkg}/build/native/include/WebView2.h")
         # Where JUCE's FindWebView2 globs for *Microsoft.Web.WebView2*.
         set(JUCE_WEBVIEW2_PACKAGE_LOCATION "${_wv2_root}" CACHE PATH "" FORCE)
-        set(PEDALFORGE_HAS_EMBEDDED_BROWSER ON)
+        set(GUITAR_COMPANION_HAS_EMBEDDED_BROWSER ON)
     else()
         message(WARNING
             "WebView2 SDK not available — building WITHOUT the embedded TONE3000 browser. "
@@ -107,21 +107,25 @@ if(PEDALFORGE_EMBEDDED_BROWSER AND WIN32)
     endif()
 endif()
 
-juce_add_plugin(GuitarRigNAM
+juce_add_plugin(GuitarCompanion
     COMPANY_NAME "Rapha"
-    PRODUCT_NAME "PedalForge NAM"
+    PRODUCT_NAME "Guitar Companion"
     PLUGIN_MANUFACTURER_CODE Raph
-    PLUGIN_CODE Grnm
+    # Changed with the rename, while the plugin is still pre-release: this is
+    # the 4-char id a DAW stores in its projects, so anyone who already had a
+    # session with the old "Grnm" build has to re-add the plugin. Doing it now
+    # costs one person; doing it after v0.1 is public would cost everyone.
+    PLUGIN_CODE Gtco
     FORMATS Standalone VST3
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
-    NEEDS_WEBVIEW2 ${PEDALFORGE_HAS_EMBEDDED_BROWSER}
+    NEEDS_WEBVIEW2 ${GUITAR_COMPANION_HAS_EMBEDDED_BROWSER}
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
 # Fontes do design (OFL) + samples de bateria GMRockKit (GPL, ver
 # assets/drums/ORIGEM.txt) embutidos no binário.
-juce_add_binary_data(GuitarRigAssets
+juce_add_binary_data(GuitarCompanionAssets
     SOURCES
         assets/fonts/Archivo-Regular.ttf
         assets/fonts/Archivo-ExtraBold.ttf
@@ -160,7 +164,7 @@ juce_add_binary_data(GuitarRigAssets
         assets/drums/drum_floor_2.wav
         assets/drums/drum_floor_3.wav)
 
-target_sources(GuitarRigNAM
+target_sources(GuitarCompanion
     PRIVATE
         src/PluginProcessor.cpp
         src/PluginEditor.cpp
@@ -177,9 +181,9 @@ target_sources(GuitarRigNAM
 
 # Fontes usam literais UTF-8; sem /utf-8 o MSVC assume codepage 1252 e
 # corrompe os acentos na UI.
-target_compile_options(GuitarRigNAM PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
+target_compile_options(GuitarCompanion PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
 
-target_compile_definitions(GuitarRigNAM
+target_compile_definitions(GuitarCompanion
     PRIVATE
         # Sem isso, as macros min/max do windows.h quebram os headers do
         # AudioDSPTools (ex.: std::max no LanczosResampler.h).
@@ -193,8 +197,8 @@ target_compile_definitions(GuitarRigNAM
         # NOTE: JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING must be left UNDEFINED
         # when off - juce_gui_extra.h turns WebView2 on for any *defined* value,
         # including 0, and would then look for WebView2Loader.dll at runtime.
-        JUCE_WEB_BROWSER=$<BOOL:${PEDALFORGE_HAS_EMBEDDED_BROWSER}>
-        $<$<BOOL:${PEDALFORGE_HAS_EMBEDDED_BROWSER}>:JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1>
+        JUCE_WEB_BROWSER=$<BOOL:${GUITAR_COMPANION_HAS_EMBEDDED_BROWSER}>
+        $<$<BOOL:${GUITAR_COMPANION_HAS_EMBEDDED_BROWSER}>:JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1>
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
         # Slot de plugin externo: hosting de VST3 de terceiros na cadeia.
@@ -206,8 +210,8 @@ set(ASIOSDK_DIR "" CACHE PATH "Path to the Steinberg ASIO SDK (folder containing
 
 if(ASIOSDK_DIR AND EXISTS "${ASIOSDK_DIR}/common/iasiodrv.h")
     message(STATUS "ASIO SDK found at ${ASIOSDK_DIR} — building with JUCE_ASIO=1")
-    target_include_directories(GuitarRigNAM PRIVATE "${ASIOSDK_DIR}/common")
-    target_compile_definitions(GuitarRigNAM PUBLIC JUCE_ASIO=1)
+    target_include_directories(GuitarCompanion PRIVATE "${ASIOSDK_DIR}/common")
+    target_compile_definitions(GuitarCompanion PUBLIC JUCE_ASIO=1)
 else()
     message(WARNING
         "ASIO SDK not found (ASIOSDK_DIR not set or ${ASIOSDK_DIR}/common/iasiodrv.h missing). "
@@ -217,14 +221,14 @@ else()
         "with -DASIOSDK_DIR=\"<absolute-path>/third_party/asiosdk\".")
 endif()
 
-target_link_libraries(GuitarRigNAM
+target_link_libraries(GuitarCompanion
     PRIVATE
         # WHOLE_ARCHIVE é obrigatório: as arquiteturas do NAM se registram via
         # inicializadores estáticos (ConfigParserHelper) em objetos que nada
         # referencia — sem isso o linker os descarta e get_dsp() falha com
         # "No config parser registered for architecture".
         "$<LINK_LIBRARY:WHOLE_ARCHIVE,nam_core>"
-        GuitarRigAssets
+        GuitarCompanionAssets
         juce::juce_audio_utils
         juce::juce_cryptography
         juce::juce_audio_devices
@@ -241,13 +245,13 @@ target_link_libraries(GuitarRigNAM
 # OFF by default: the normal build is untouched and the test target never even
 # exists (so it can never end up in ALL_BUILD). To run them, use a SEPARATE
 # build directory:
-#   cmake -B build-tests -DPEDALFORGE_BUILD_TESTS=ON
-#   cmake --build build-tests --config Release --target PedalForgeTests
+#   cmake -B build-tests -DGUITAR_COMPANION_BUILD_TESTS=ON
+#   cmake --build build-tests --config Release --target GuitarCompanionTests
 #   ctest --test-dir build-tests -C Release --output-on-failure
 # See tests/README.md.
-option(PEDALFORGE_BUILD_TESTS "Build the unit tests" OFF)
+option(GUITAR_COMPANION_BUILD_TESTS "Build the unit tests" OFF)
 
-if(PEDALFORGE_BUILD_TESTS)
+if(GUITAR_COMPANION_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()

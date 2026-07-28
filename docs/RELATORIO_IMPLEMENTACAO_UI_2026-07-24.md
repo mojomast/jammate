@@ -1,8 +1,8 @@
 # Relatório de implementação e validação de UI
 
 Data: 24/07/2026  
-Projeto: PedalForge NAM / GuitarRigNAM  
-Executável validado: `build/GuitarRigNAM_artefacts/Release/Standalone/PedalForge NAM.exe`
+Projeto: Guitar Companion / GuitarRigNAM  
+Executável validado: `build/GuitarCompanion_artefacts/Release/Standalone/Guitar Companion.exe`
 
 ## 1. Resultado
 
@@ -189,7 +189,7 @@ cmake --build build --config Release --target GuitarRigNAM_Standalone -- /m:1
 O build foi concluído e gerou:
 
 ```text
-build/GuitarRigNAM_artefacts/Release/Standalone/PedalForge NAM.exe
+build/GuitarCompanion_artefacts/Release/Standalone/Guitar Companion.exe
 ```
 
 O compilador ainda informa avisos já existentes de sombreamento de variáveis, conversões numéricas e APIs JUCE marcadas como legadas. Não houve erro de compilação ou link.
@@ -215,7 +215,7 @@ Também foram mantidas capturas de referência anteriores às últimas correçõ
 
 ## 7. Observação arquitetural sobre MuseScore
 
-Foi incorporada a camada de apresentação musical do ecossistema MuseScore — a fonte Leland e os símbolos SMuFL — adaptada ao design e ao renderer JUCE do projeto. O aplicativo **não incorpora o motor completo do MuseScore/libMuseScore**. O motor rítmico e de reprodução continua sendo o `DrumEngine` do PedalForge.
+Foi incorporada a camada de apresentação musical do ecossistema MuseScore — a fonte Leland e os símbolos SMuFL — adaptada ao design e ao renderer JUCE do projeto. O aplicativo **não incorpora o motor completo do MuseScore/libMuseScore**. O motor rítmico e de reprodução continua sendo o `DrumEngine` do Guitar Companion.
 
 Essa separação evita acoplar a aplicação inteira ao código e ao modelo de licenciamento/arquitetura do MuseScore, ao mesmo tempo em que entrega a aparência profissional e consistente solicitada. Uma integração futura com importação/exportação MusicXML ou com um processo externo do MuseScore deve ser tratada como um projeto técnico separado.
 

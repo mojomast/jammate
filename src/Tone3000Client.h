@@ -20,7 +20,7 @@
 //   client_id is the publishable key (t3k_pub_...) the user creates at
 //   tone3000.com -> Settings -> API Keys, registering the redirect
 //   http://localhost:53682/callback. It is entered in the app (Tone Store ->
-//   TONE3000 access) and persisted in Documents/PedalForge NAM/tone3000.json.
+//   TONE3000 access) and persisted in Documents/Guitar Companion/tone3000.json.
 // - Networking runs on its own ThreadPool; callbacks are delivered on the
 //   message thread via MessageManager::callAsync.
 class Tone3000Client

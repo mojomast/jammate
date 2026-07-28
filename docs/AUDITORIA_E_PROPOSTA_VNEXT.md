@@ -1,4 +1,4 @@
-# Auditoria geral e proposta de melhorias — PedalForge NAM
+# Auditoria geral e proposta de melhorias — Guitar Companion
 
 **Data:** 24 de julho de 2026  
 **Escopo:** programa completo, interface, experiência de uso, arquitetura e riscos técnicos.

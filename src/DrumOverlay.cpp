@@ -624,7 +624,7 @@ void DrumRibbon::mouseUp (const juce::MouseEvent&)
 }
 
 //==============================================================================
-DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
+DrumOverlay::DrumOverlay (GuitarCompanionProcessor& p)
     : processor (p), engine (p.drumEngine)
 {
     setWantsKeyboardFocus (true);
@@ -773,7 +773,7 @@ DrumOverlay::DrumOverlay (GuitarRigNAMProcessor& p)
     tabViradas.onClick = [this] { currentKind = 2; rebuildList(); };
     saveChip.setTooltip (juce::String (juce::CharPointer_UTF8 (
         "Save the selected bar as a reusable groove in \"My bars\" - then drag "
-        "it onto any bar (Documents\\PedalForge NAM\\compassos)")));
+        "it onto any bar (Documents\\Guitar Companion\\compassos)")));
     saveChip.onClick = [this] { promptSaveBar(); };
 
     addSectionBtn.onClick = [this]
@@ -3022,7 +3022,7 @@ void DrumOverlay::generateAll()
 juce::File DrumOverlay::userGroovesDir()
 {
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("PedalForge NAM").getChildFile ("compassos");
+                   .getChildFile ("Guitar Companion").getChildFile ("compassos");
     dir.createDirectory();
     return dir;
 }
@@ -3916,7 +3916,7 @@ void DrumOverlay::stopAudition()
 juce::File DrumOverlay::favsFile()
 {
     return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-        .getChildFile ("PedalForge NAM").getChildFile ("groove-favs.json");
+        .getChildFile ("Guitar Companion").getChildFile ("groove-favs.json");
 }
 
 void DrumOverlay::loadFavs()

@@ -1,4 +1,4 @@
-# Contributing to PedalForge NAM
+# Contributing to Guitar Companion
 
 Thanks for your interest! This guide covers the essentials to build, change and submit improvements.
 
@@ -17,9 +17,9 @@ cmake --build build --config Release
 
 - ASIO is optional (see README). The Standalone runs on WASAPI with nothing extra.
 - The embedded TONE3000 browser needs the WebView2 SDK, which CMake downloads on
-  the first configure. Build offline with `-DPEDALFORGE_EMBEDDED_BROWSER=OFF`
+  the first configure. Build offline with `-DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF`
   (the store then uses the system browser, as it always did).
-- Run the Standalone: `build\GuitarRigNAM_artefacts\Release\Standalone\PedalForge NAM.exe`
+- Run the Standalone: `build\GuitarCompanion_artefacts\Release\Standalone\Guitar Companion.exe`
 
 ### 🧪 Dev flags
 
@@ -30,15 +30,15 @@ landed on a knob mid-reflow). Prefer adding a flag over scripting clicks.
 
 | Variable | Values | Opens |
 |---|---|---|
-| `GUITARRIG_OPEN_STORE` | `explore` · `library` · `plugins` · `browse` · `rig1..rig3` · `cab1..cab3` | Tone Store. `browse` goes into the embedded TONE3000 picker; `rigN`/`cabN` aim the store at that rig (loads land in that amp/cab, and the card labels say so), and `cabN` also starts the picker on IRs |
-| `GUITARRIG_LOAD_MENU` | `1..3` | The amp card's LOAD/CHANGE CAPTURE menu for that lane (popup menus are their own window, so they cannot be captured any other way) |
-| `GUITARRIG_OPEN_DRUMS` | `1` · `play` · `grid` · `gen` · `genfill` · `meter` · `rig1..3` | Drums module |
-| `GUITARRIG_OPEN_SONG` | `1` | Song / Scenes |
-| `GUITARRIG_OPEN_AUDIO` | `1` | Audio & MIDI |
-| `GUITARRIG_STAGE` | `1` | Stage mode |
-| `GUITARRIG_TUNER` | `1` | Tuner on at start |
-| `GUITARRIG_EXT_PLUGIN` | `<path>` | Loads that VST3 into the external slot at start |
-| `GUITARRIG_DEBUGLOG` | `<file>` | Logs chain reordering (`setChainOrder`) |
+| `GUITAR_COMPANION_OPEN_STORE` | `explore` · `library` · `plugins` · `browse` · `rig1..rig3` · `cab1..cab3` | Tone Store. `browse` goes into the embedded TONE3000 picker; `rigN`/`cabN` aim the store at that rig (loads land in that amp/cab, and the card labels say so), and `cabN` also starts the picker on IRs |
+| `GUITAR_COMPANION_LOAD_MENU` | `1..3` | The amp card's LOAD/CHANGE CAPTURE menu for that lane (popup menus are their own window, so they cannot be captured any other way) |
+| `GUITAR_COMPANION_OPEN_DRUMS` | `1` · `play` · `grid` · `gen` · `genfill` · `meter` · `rig1..3` | Drums module |
+| `GUITAR_COMPANION_OPEN_SONG` | `1` | Song / Scenes |
+| `GUITAR_COMPANION_OPEN_AUDIO` | `1` | Audio & MIDI |
+| `GUITAR_COMPANION_STAGE` | `1` | Stage mode |
+| `GUITAR_COMPANION_TUNER` | `1` | Tuner on at start |
+| `GUITAR_COMPANION_EXT_PLUGIN` | `<path>` | Loads that VST3 into the external slot at start |
+| `GUITAR_COMPANION_DEBUGLOG` | `<file>` | Logs chain reordering (`setChainOrder`) |
 
 When a screenshot must include a popup menu, capture the **whole screen** and
 crop: do not call `SetForegroundWindow` after the menu is up, because JUCE
@@ -61,7 +61,7 @@ closes it on focus loss.
 1. **Real-time safety is non-negotiable**: inside `processBlock` (and any function it calls) it is **forbidden** to allocate memory, use locks, do I/O, log or use the network. Exchanging data with other threads = atomics or RT-safe mechanisms (see the pending/retired model-swap protocol).
 2. **Accented strings**: `juce::String("text")` interprets `char*` as **Latin-1**. Any literal with an accent/symbol must use `juce::String (juce::CharPointer_UTF8 ("..."))` or `juce::String::fromUTF8`. The target compiles with `/utf-8`. (Watch the `\x` hex-escape trap: `\x` consumes *all* following hex digits, so split literals like `"...\xc3\xba" "dio"` when the next char is a hex letter.)
 3. **MSVC + lambdas**: `this` in the init-capture of a nested lambda resolves wrong on MSVC — use `auto* self = this;` first. `Component::SafePointer` needs the explicit template argument.
-4. **Secrets**: `tone3000.json` (the user's key/token) lives in `Documents\PedalForge NAM\` and **never** enters the repository. Never commit keys, tokens or passwords.
+4. **Secrets**: `tone3000.json` (the user's key/token) lives in `Documents\Guitar Companion\` and **never** enters the repository. Never commit keys, tokens or passwords.
 5. **Style**: follow the surrounding code (JUCE style: 4 spaces, Allman braces, `camelCase`). Comments in English explaining the *why*, not the *what*.
 
 ## ✅ Before opening a Pull Request

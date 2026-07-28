@@ -8,7 +8,7 @@
 #include "Tone3000Client.h"
 #include "ToneWebView.h"
 
-class GuitarRigNAMProcessor;
+class GuitarCompanionProcessor;
 
 //==============================================================================
 // Tone card per ToneCard.dc.html.
@@ -147,17 +147,17 @@ class StoreOverlay : public juce::Component,
                      private juce::Timer
 {
 public:
-    explicit StoreOverlay (GuitarRigNAMProcessor&);
+    explicit StoreOverlay (GuitarCompanionProcessor&);
     ~StoreOverlay() override;
 
     void visibilityChanged() override;
 
     void open();
-    void openOnLibrary();   // used by the GUITARRIG_OPEN_STORE dev flag
+    void openOnLibrary();   // used by the GUITAR_COMPANION_OPEN_STORE dev flag
     // ---- formats this app can actually open --------------------------------
     // TONE3000 also publishes aida-x, aa-snapshot and proteus, which belong to
     // other ecosystems. Their authorize endpoint takes ONE `format` value and
-    // PedalForge uses two (nam + ir), so the picker cannot be scoped to just
+    // Guitar Companion uses two (nam + ir), so the picker cannot be scoped to just
     // ours - it would have to hide either the captures or the IRs. So instead
     // of filtering we say so: without this the file downloaded, was treated as
     // a NAM capture, and the amp went quiet with no explanation.
@@ -175,7 +175,7 @@ public:
     /// IRs instead of captures.
     void openForRig (int lane, bool forIr = false);
     /// Opens the store and goes straight into the TONE3000 picker - the
-    /// GUITARRIG_OPEN_STORE=browse dev flag, for testing the embedded browser
+    /// GUITAR_COMPANION_OPEN_STORE=browse dev flag, for testing the embedded browser
     /// without clicking by coordinate.
     void openOnBrowser();
 
@@ -227,7 +227,7 @@ private:
     void appendUnique (const std::vector<Tone3000Client::Tone>&);
     juce::String formatCount (juce::int64) const;
 
-    GuitarRigNAMProcessor& processor;
+    GuitarCompanionProcessor& processor;
     Tone3000Client client;
 
     Tab tab = Tab::explore;
@@ -315,7 +315,7 @@ private:
     juce::OwnedArray<juce::TextButton> tagChips;   // multi-toggle; enter the query
     juce::TextButton a2Chip { "A2 only" };
     bool a2Only = false;
-    // favorites (star): ids persisted in Documents\PedalForge NAM\favoritos.json
+    // favorites (star): ids persisted in Documents\Guitar Companion\favoritos.json
     juce::TextButton favChip { juce::String (juce::CharPointer_UTF8 ("Only \xe2\x98\x85")) };
     bool favOnly = false;
     juce::StringArray favIds;

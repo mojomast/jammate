@@ -53,7 +53,7 @@ juce::String Tone3000Client::redirectUri()
 juce::File Tone3000Client::dataDir()
 {
     auto dir = juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                   .getChildFile ("PedalForge NAM");
+                   .getChildFile ("Guitar Companion");
     dir.createDirectory();
     return dir;
 }
@@ -357,7 +357,7 @@ Tone3000Client::AuthOutcome Tone3000Client::runAuthFlow (const juce::String& pro
             "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
             "<html><body style=\"background:#141517;color:#e5e6e8;font-family:sans-serif;"
             "display:flex;align-items:center;justify-content:center;height:100vh\">"
-            "<h2>Authorized &mdash; go back to PedalForge NAM.</h2></body></html>";
+            "<h2>Authorized &mdash; go back to Guitar Companion.</h2></body></html>";
         conn->write (reply.toRawUTF8(), (int) reply.getNumBytesAsUTF8());
         conn->close();
         request = thisRequest;

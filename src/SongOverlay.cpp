@@ -21,7 +21,7 @@ constexpr int kCardH = 250;
 } // namespace
 
 //==============================================================================
-SongOverlay::SongOverlay (GuitarRigNAMProcessor& p) : processor (p)
+SongOverlay::SongOverlay (GuitarCompanionProcessor& p) : processor (p)
 {
     setWantsKeyboardFocus (true);
 

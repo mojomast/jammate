@@ -21,12 +21,12 @@ template <typename T, int NCHANS, size_t A>
 class ResamplingContainer;
 }
 
-class GuitarRigNAMProcessor : public juce::AudioProcessor,
+class GuitarCompanionProcessor : public juce::AudioProcessor,
                               private juce::AsyncUpdater
 {
 public:
-    GuitarRigNAMProcessor();
-    ~GuitarRigNAMProcessor() override;
+    GuitarCompanionProcessor();
+    ~GuitarCompanionProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -172,7 +172,7 @@ public:
     void requestLooperCommand (int cmd) noexcept { looperCmd.store (cmd); }
     double getLooperSeconds() const noexcept;
     double getLooperPosSeconds() const noexcept;
-    /// Saves the current loop to WAV (Documents\PedalForge NAM\Loops). Message
+    /// Saves the current loop to WAV (Documents\Guitar Companion\Loops). Message
     /// thread; returns the created file or {} if there is no loop.
     juce::File exportLoopToWav() const;
 
@@ -822,5 +822,5 @@ private:
     std::atomic<float>* pLimCeiling = nullptr;
     std::atomic<float>* pLimRelease = nullptr;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarRigNAMProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GuitarCompanionProcessor)
 };
