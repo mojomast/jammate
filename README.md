@@ -8,7 +8,8 @@
 
 ## 🎯 The idea
 
-This started from a simple wish: **something that keeps the guitarist company**.
+This started from a simple wish: **a tool that helps guitarists keep practising,
+at home or on the road, and catch an idea on the fly**.
 
 Not just another amp sim. Picking up the guitar alone tends to end the same way
 — the same riff, the same key, the same four bars, and then you put it down.
