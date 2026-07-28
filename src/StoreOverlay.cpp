@@ -291,6 +291,8 @@ void ToneCardComponent::paint (juce::Graphics& g)
             };
             if (info.formatBadge == "IR")
                 drawBadge ("IR", true);
+            else if (! StoreOverlay::canLoadFormat (info.format))
+                drawBadge (info.formatBadge, false);   // AIDA-X / PROTEUS / ...
             else if (info.formatBadge.isNotEmpty())   // NAM: show A1 or A2
                 drawBadge (info.a2 ? "A2" : "A1", info.a2);
         }
@@ -1190,7 +1192,12 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
     info.creator = tone.creator;
     info.creatorAvatar = tone.creatorAvatar;
     info.gear = tone.gear;
-    info.formatBadge = tone.format == "ir" ? "IR" : "NAM";
+    info.format = tone.format;
+    // Foreign formats show their own name on the badge, so the card says what
+    // it is before anyone clicks it.
+    info.formatBadge = canLoadFormat (tone.format)
+                           ? (tone.format == "ir" ? juce::String ("IR") : juce::String ("NAM"))
+                           : tone.format.toUpperCase();
     info.imageUrl = tone.imageUrl;
     info.toneUrl = tone.url;
     info.a2 = tone.hasA2;
@@ -1238,7 +1245,12 @@ void StoreOverlay::openDetailsFor (const Tone3000Client::Tone& tone)
     info.creator = tone.creator;
     info.creatorAvatar = tone.creatorAvatar;
     info.gear = tone.gear;
-    info.formatBadge = tone.format == "ir" ? "IR" : "NAM";
+    info.format = tone.format;
+    // Foreign formats show their own name on the badge, so the card says what
+    // it is before anyone clicks it.
+    info.formatBadge = canLoadFormat (tone.format)
+                           ? (tone.format == "ir" ? juce::String ("IR") : juce::String ("NAM"))
+                           : tone.format.toUpperCase();
     info.imageUrl = tone.imageUrl;
     info.toneUrl = tone.url;
     info.a2 = tone.hasA2;
@@ -1246,6 +1258,13 @@ void StoreOverlay::openDetailsFor (const Tone3000Client::Tone& tone)
     info.favorites = formatCount (tone.favorites);
 
     detailsInfo = info;
+
+    // Straight from the picker: the user already made their choice, so say now
+    // that we cannot open it instead of showing a details view whose only
+    // button would fail.
+    if (! checkFormatSupported (info))
+        return;
+
     ensureDetailsView();
     detailsView->setBounds (getLocalBounds());
     detailsView->open (detailsInfo);
@@ -1264,8 +1283,43 @@ void StoreOverlay::openDetails (ToneCardComponent& card)
 
 //==============================================================================
 // ST1: contextual card actions (mockup .tone-actions).
+bool StoreOverlay::canLoadFormat (const juce::String& format)
+{
+    // Empty = a local file or a tone whose format the API did not report; those
+    // came from somewhere that already knows what they are, so let them pass.
+    return format.isEmpty() || format == "nam" || format == "ir";
+}
+
+juce::String StoreOverlay::formatDisplayName (const juce::String& format)
+{
+    if (format == "aida-x")      return "AIDA-X";
+    if (format == "proteus")     return "Proteus";
+    if (format == "aa-snapshot") return "Amped Roots snapshot";
+    if (format == "nam")         return "NAM";
+    if (format == "ir")          return "IR";
+    return format.toUpperCase();
+}
+
+bool StoreOverlay::checkFormatSupported (const ToneCardComponent::Info& info)
+{
+    if (canLoadFormat (info.format))
+        return true;
+
+    // ONE LINE: the banner draws with drawText, which squeezes and clips rather
+    // than wrapping. Lead with the format name - that is the part that explains
+    // the refusal, and it must survive if a long title ever gets appended here.
+    bannerError = formatDisplayName (info.format)
+                  + " tones are not supported - PedalForge opens NAM captures and IRs.";
+    resized();
+    repaint();
+    return false;
+}
+
 juce::String StoreOverlay::primaryLabelFor (const ToneCardComponent::Info& info) const
 {
+    if (! canLoadFormat (info.format))
+        return "NOT SUPPORTED";
+
     const int lane = targetLane();
     const juce::String n (lane + 1);
 
@@ -1277,6 +1331,9 @@ juce::String StoreOverlay::primaryLabelFor (const ToneCardComponent::Info& info)
 void StoreOverlay::loadCardIntoLane (ToneCardComponent& card, int lane)
 {
     const auto& info = card.getInfo();
+
+    if (! checkFormatSupported (info))
+        return;
 
     if (info.toneId == 0)
     {
@@ -1572,6 +1629,9 @@ void StoreOverlay::showVariationPicker (int lane, int toneId, juce::Component* a
 // while remembering the current pair; KEEP CURRENT restores it, APPLY commits.
 void StoreOverlay::startPreview (ToneCardComponent& card)
 {
+    if (! checkFormatSupported (card.getInfo()))
+        return;
+
     if (card.getInfo().formatBadge == "IR")
     {
         bannerError = "A/B preview works with amp captures (IRs load instantly anyway)";
@@ -1782,6 +1842,15 @@ void StoreOverlay::ensureDetailsView()
 
 void StoreOverlay::downloadFromDetails (const Tone3000Client::Model& model, ModelRowComponent* row)
 {
+    // getTone may have resolved a format the card did not know about, so this
+    // is checked here too and not only where the details view was opened.
+    if (! checkFormatSupported (detailsInfo))
+    {
+        if (detailsView != nullptr)
+            detailsView->setVisible (false);   // put the notice in view
+        return;
+    }
+
     // The details view sets detailsInfo (from getTone) and detailsTargetLane
     // (-1 = add to a free lane; >=0 = swap that lane). Same core as the picker.
     loadVariationIntoLane (model, detailsTargetLane, detailsInfo, row);
@@ -2152,6 +2221,9 @@ void StoreOverlay::refreshLibrary()
         info.localFile = file;
         info.title = file.getFileNameWithoutExtension();
         info.gear = gear;
+        // A local file is only ever something we downloaded or the user put
+        // there, so it is one of ours by construction.
+        info.format = badge == "IR" ? "ir" : "nam";
         info.formatBadge = badge;
         info.offline = true;
 

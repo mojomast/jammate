@@ -23,7 +23,11 @@ public:
         juce::File localFile;        // filled for local/downloaded items
         juce::String title, creator, gear;   // gear: amp/pedal/full-rig/ir/...
         juce::String creatorAvatar;  // creator avatar url ("" = initial dot)
-        juce::String formatBadge;    // "NAM" / "IR"
+        /// Raw TONE3000 format: nam / ir / aida-x / aa-snapshot / proteus.
+        /// Kept apart from formatBadge because only this one says whether the
+        /// file is something this app can open at all.
+        juce::String format;
+        juce::String formatBadge;    // "NAM" / "IR" / the format, when foreign
         juce::String imageUrl;       // tone image ("" = placeholder)
         juce::String toneUrl;        // tone page on tone3000.com ("" = none)
         bool a2 = false;             // has A2 models available
@@ -150,6 +154,17 @@ public:
 
     void open();
     void openOnLibrary();   // used by the GUITARRIG_OPEN_STORE dev flag
+    // ---- formats this app can actually open --------------------------------
+    // TONE3000 also publishes aida-x, aa-snapshot and proteus, which belong to
+    // other ecosystems. Their authorize endpoint takes ONE `format` value and
+    // PedalForge uses two (nam + ir), so the picker cannot be scoped to just
+    // ours - it would have to hide either the captures or the IRs. So instead
+    // of filtering we say so: without this the file downloaded, was treated as
+    // a NAM capture, and the amp went quiet with no explanation.
+    static bool canLoadFormat (const juce::String& format);
+    /// "AIDA-X", "Proteus"... for the message.
+    static juce::String formatDisplayName (const juce::String& format);
+
     void openOnPlugins();   // VST3 plugin manager (embedded catalog)
     /// Opens the store aimed at ONE rig: whatever is loaded from it lands in
     /// that amp lane (or, for an IR tone, that rig's cab slot) instead of the
@@ -187,6 +202,10 @@ private:
     /// "Replace IR 1/2/3" - shown by the card's "\xe2\x96\xbe" button or right-click.
     void showCardMenu (ToneCardComponent&);
     juce::String primaryLabelFor (const ToneCardComponent::Info&) const;
+
+    /// Shows the "we can't open this one" notice. Returns true when the format
+    /// is fine and the caller should carry on.
+    bool checkFormatSupported (const ToneCardComponent::Info&);
     /// After downloading a capture: writes .meta, resolves the ECO pair
     /// (lighter variation with the same name) and hands the pair to the processor.
     /// forceLane >= 0 loads into that exact lane (variation swap); -1 = first free.
