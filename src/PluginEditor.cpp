@@ -3577,20 +3577,40 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 });
     }
 
-    // Dev flag: GUITARRIG_OPEN_STORE=explore|library|plugins|browse opens the
-    // store ("browse" goes straight into the embedded TONE3000 picker).
+    // Dev flag: GUITARRIG_OPEN_STORE=explore|library|plugins|browse|rig1..rig3
+    // opens the store. "browse" goes straight into the embedded TONE3000
+    // picker; "rigN" opens it AIMED at that rig, which is what the amp/cab
+    // card's LOAD/CHANGE does (the card labels then name that lane).
     {
         const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_STORE", "");
-        if (flag == "library" || flag == "explore" || flag == "plugins" || flag == "browse")
+        const int rig = flag.startsWith ("rig") ? flag.substring (3).getIntValue() : 0;
+        if (flag == "library" || flag == "explore" || flag == "plugins" || flag == "browse"
+            || (rig >= 1 && rig <= GuitarRigNAMProcessor::maxRigs))
             juce::MessageManager::callAsync (
-                [safe = juce::Component::SafePointer<RigContent> (this), flag]
+                [safe = juce::Component::SafePointer<RigContent> (this), flag, rig]
                 {
                     if (safe == nullptr)
                         return;
-                    if (flag == "library")      safe->storeOverlay->openOnLibrary();
+                    if (rig >= 1)               safe->storeOverlay->openForRig (rig - 1);
+                    else if (flag == "library") safe->storeOverlay->openOnLibrary();
                     else if (flag == "plugins") safe->storeOverlay->openOnPlugins();
                     else if (flag == "browse")  safe->storeOverlay->openOnBrowser();
                     else                        safe->storeOverlay->open();
+                });
+    }
+
+    // Dev flag: GUITARRIG_LOAD_MENU=1..3 pops the amp card's LOAD/CHANGE
+    // CAPTURE menu for that lane, so its wording and its routing can be checked
+    // without clicking by coordinate (popup menus are their own window).
+    {
+        const int lane = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_LOAD_MENU", "")
+                             .getIntValue();
+        if (lane >= 1 && lane <= GuitarRigNAMProcessor::maxRigs)
+            juce::Timer::callAfterDelay (600,
+                [safe = juce::Component::SafePointer<RigContent> (this), lane]
+                {
+                    if (safe != nullptr)
+                        safe->chooseModelSource (lane - 1);
                 });
     }
 
