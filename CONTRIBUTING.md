@@ -30,7 +30,7 @@ landed on a knob mid-reflow). Prefer adding a flag over scripting clicks.
 
 | Variable | Values | Opens |
 |---|---|---|
-| `GUITARRIG_OPEN_STORE` | `explore` · `library` · `plugins` · `browse` · `rig1..rig3` | Tone Store. `browse` goes into the embedded TONE3000 picker; `rigN` aims the store at that rig (loads land in that amp/cab, and the card labels say so) |
+| `GUITARRIG_OPEN_STORE` | `explore` · `library` · `plugins` · `browse` · `rig1..rig3` · `cab1..cab3` | Tone Store. `browse` goes into the embedded TONE3000 picker; `rigN`/`cabN` aim the store at that rig (loads land in that amp/cab, and the card labels say so), and `cabN` also starts the picker on IRs |
 | `GUITARRIG_LOAD_MENU` | `1..3` | The amp card's LOAD/CHANGE CAPTURE menu for that lane (popup menus are their own window, so they cannot be captured any other way) |
 | `GUITARRIG_OPEN_DRUMS` | `1` · `play` · `grid` · `gen` · `genfill` · `meter` · `rig1..3` | Drums module |
 | `GUITARRIG_OPEN_SONG` | `1` | Song / Scenes |

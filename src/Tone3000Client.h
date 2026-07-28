@@ -148,6 +148,17 @@ public:
     /// choice is surfaced in the browser panel instead of being hard-coded.
     enum class Architecture { a1AndCustom = 0, a2 = 2 };
     static juce::String architectureParam (Architecture);
+
+    /// Format filter of the picker. Same one-value-only limitation as the
+    /// architecture, and this app reads TWO of their five formats, so the
+    /// picker cannot be scoped to "ours" - it is scoped to one at a time and
+    /// the panel lets the user switch. Leaving it out is what showed AIDA-X /
+    /// Proteus / Amped Roots tones that nothing here can open.
+    enum class Format { nam, ir };
+    static juce::String formatParam (Format);
+    /// TONE3000 gear for a format: IRs are published under gear "cab" - "ir"
+    /// is a FORMAT and is not a valid gear value.
+    static juce::String gearsForPicker (const juce::String& gearFilter);
     /// Parameters of a plain sign-in (no picker). "&format=nam" keeps the
     /// sign-in page scoped the way it always was.
     static juce::String connectParams() { return "&format=nam"; }

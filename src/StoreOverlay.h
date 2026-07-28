@@ -171,7 +171,9 @@ public:
     /// first free one. This is what the amp card's "LOAD/CHANGE CAPTURE" and
     /// the cab's "CHANGE" use - without it, clicking CHANGE on AMP 2 loaded the
     /// capture into whichever lane happened to be empty. Cleared on close.
-    void openForRig (int lane);
+    /// `forIr` says the user came from a cab, so the TONE3000 picker starts on
+    /// IRs instead of captures.
+    void openForRig (int lane, bool forIr = false);
     /// Opens the store and goes straight into the TONE3000 picker - the
     /// GUITARRIG_OPEN_STORE=browse dev flag, for testing the embedded browser
     /// without clicking by coordinate.
@@ -232,6 +234,8 @@ private:
     /// Rig the store is aiming at (-1 = none: load into the first free lane).
     /// Set by openForRig(), cleared by open() and when the store hides.
     int pendingLane = -1;
+    /// The store was opened from a cab, so the picker should start on IRs.
+    bool pendingIsIr = false;
     /// Lane a download should land in: the pending rig, or lane 0 by default
     /// (which is what the card actions always assumed).
     int targetLane() const { return pendingLane >= 0 ? pendingLane : 0; }

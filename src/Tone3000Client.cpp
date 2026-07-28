@@ -630,6 +630,23 @@ juce::String Tone3000Client::architectureParam (Architecture arch)
     return arch == Architecture::a2 ? "&architecture=2" : juce::String();
 }
 
+juce::String Tone3000Client::formatParam (Format f)
+{
+    // Always sent: unlike architecture there is no useful default here, and
+    // omitting it lets in the formats this app cannot open.
+    return f == Format::ir ? "&format=ir" : "&format=nam";
+}
+
+juce::String Tone3000Client::gearsForPicker (const juce::String& gearFilter)
+{
+    // The store's TYPE pills include an "IR" entry, but "ir" is a FORMAT. Their
+    // IR tones are published under the "cab" gear, so sending gears=ir asked
+    // for a gear that does not exist.
+    if (gearFilter == "ir")
+        return "cab";
+    return gearFilter;
+}
+
 bool Tone3000Client::isRedirectUrl (const juce::String& url)
 {
     // Compare host+path only: the query is exactly what we are after, and the

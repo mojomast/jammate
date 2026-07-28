@@ -40,13 +40,15 @@ public:
     /// all). The caller must then use the system-browser flow.
     static bool isSupported();
 
-    /// Opens a prompt flow. `baseParams` must NOT carry an architecture filter:
-    /// the panel owns that choice (see the segmented control in its header) and
-    /// appends it, because TONE3000 only filters one architecture at a time.
-    /// `title` is the panel heading. done() is called with the chosen tone, or
-    /// with an error - "No tone was chosen" when the user just closed the panel.
+    /// Opens a prompt flow. `baseParams` must NOT carry a format or an
+    /// architecture filter: the panel owns both (see the segmented controls in
+    /// its header) and appends them, because TONE3000 filters by one value of
+    /// each at a time. The two arguments are only the STARTING position - the
+    /// user switches from the header. `title` is the panel heading. done() is
+    /// called with the chosen tone, or with an error - "No tone was chosen"
+    /// when the user just closed the panel.
     void openToneFlow (const juce::String& baseParams, const juce::String& title,
-                       Tone3000Client::Architecture,
+                       Tone3000Client::Format, Tone3000Client::Architecture,
                        std::function<void (Tone3000Client::Tone, juce::String error)> done);
 
     /// Opens a plain sign-in (no picker).
@@ -78,18 +80,25 @@ private:
     /// Hands the running flow over to the system browser (which needs its own
     /// authorisation, because that one is caught by the localhost listener).
     void handOverToSystemBrowser();
-    /// Reloads the picker under another architecture filter. Mints a fresh PKCE
-    /// challenge (the authorize URL changes) without dropping the reservation.
+    /// Reload the picker under another filter. Both mint a fresh PKCE challenge
+    /// (the authorize URL changes) without dropping the reservation.
     void setArchitecture (Tone3000Client::Architecture);
-    /// baseParams + the architecture currently selected.
+    void setFormat (Tone3000Client::Format);
+    /// Re-mints the authorisation for the current scope and reloads the page.
+    void reloadScope();
+    /// Repaints the chips to match the scope (and hides the architecture pair
+    /// for IRs, which have no model architecture).
+    void refreshScope();
+    /// baseParams + the filters currently selected.
     juce::String currentParams() const;
 
     Tone3000Client& client;
     std::unique_ptr<Browser> browser;
     Tone3000Client::AuthSession session;
-    juce::String baseParams;     // flow params WITHOUT the architecture filter
+    juce::String baseParams;     // flow params WITHOUT format/architecture
+    Tone3000Client::Format format = Tone3000Client::Format::nam;
     Tone3000Client::Architecture architecture = Tone3000Client::Architecture::a1AndCustom;
-    bool archPickerVisible = false;   // only the tone flows filter by architecture
+    bool archPickerVisible = false;   // only the tone flows filter by format/arch
     bool running = false;
 
     juce::String title, status, currentHost;
@@ -105,8 +114,10 @@ private:
     juce::TextButton externalButton { juce::String (juce::CharPointer_UTF8 (
         "Open in browser \xe2\x86\x97")) };
 
-    // Architecture picker. It has to be here, next to the catalogue, because
-    // that is where the user hits TONE3000's "Not supported" notice.
+    // Scope pickers. They have to be here, next to the catalogue, because this
+    // is where the consequences show up - TONE3000's "Not supported" notice for
+    // the architecture, and tones in formats we cannot open for the format.
+    juce::TextButton fmtNam { "NAM" }, fmtIr { "IR" };
     juce::TextButton archA1 { "A1 + CUSTOM" }, archA2 { "A2" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ToneWebView)

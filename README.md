@@ -219,16 +219,22 @@ so you only do it once. The redirect above is still what your key registers —
 the panel simply catches it instead of a local web server. To sign in as a
 different account, use TONE3000's own account menu on the page inside the panel.
 
-The panel has an **A1 + CUSTOM / A2** switch. TONE3000 shows one model
-architecture at a time — and asking for none is not neutral, it means
-"A1 + Custom", which hides every A2-only tone behind a "Not supported" notice.
-PedalForge loads both, so flip the switch when a tone you want says that.
+The panel header has two switches, because TONE3000 filters by **one value at a
+time** on each and PedalForge reads more than one:
 
-TONE3000 also publishes in **AIDA-X**, **Proteus** and **Amped Roots** formats,
-which belong to other ecosystems. PedalForge reads NAM captures and IRs; those
-tones are shown with their format on the badge and say so if you pick one,
-rather than downloading a file that would never load. (AIDA-X itself is in the
-Plugins tab, if you want it.)
+- **FORMAT — NAM / IR.** They also publish in AIDA-X, Proteus and Amped Roots,
+  which belong to other ecosystems; scoping to one of ours keeps those out.
+  Opening the picker from a cab's **CHANGE** starts on IRs, from an amp's
+  **LOAD/CHANGE CAPTURE** on NAM.
+- **ARCHITECTURE — A1 + CUSTOM / A2** (captures only; an IR has none). Asking
+  for no architecture is not neutral: it means "A1 + Custom", which hides every
+  A2-only tone behind a "Not supported" notice. PedalForge loads both, so flip
+  the switch when a tone you want says that.
+
+The store's own grid is a curated list from TONE3000 and is not format-scoped,
+so a foreign-format tone can still appear there. Those show their format on the
+badge and say so if you pick one, instead of downloading a file that would never
+load. (AIDA-X itself is in the Plugins tab, if you want it.)
 
 Everyone uses their **own** key, so your downloads and your rate limit are yours and no credential ships in this repository.
 

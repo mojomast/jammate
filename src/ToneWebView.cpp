@@ -159,6 +159,21 @@ ToneWebView::ToneWebView (Tone3000Client& c) : client (c)
     }
     archA1.onClick = [this] { setArchitecture (Tone3000Client::Architecture::a1AndCustom); };
     archA2.onClick = [this] { setArchitecture (Tone3000Client::Architecture::a2); };
+
+    // TONE3000 publishes in five formats and this app reads two, but their
+    // filter takes one value - so the picker shows captures or IRs, never both,
+    // and never the three we cannot open.
+    for (auto* b : { &fmtNam, &fmtIr })
+    {
+        b->getProperties().set ("chip", true);
+        b->setMouseClickGrabsKeyboardFocus (false);
+        b->setTooltip ("NAM captures or impulse responses. TONE3000 filters one "
+                       "format at a time; the formats PedalForge cannot open "
+                       "(AIDA-X, Proteus, Amped Roots) stay out either way.");
+        addChildComponent (*b);
+    }
+    fmtNam.onClick = [this] { setFormat (Tone3000Client::Format::nam); };
+    fmtIr.onClick  = [this] { setFormat (Tone3000Client::Format::ir); };
 #else
     backButton.setEnabled (false);
     reloadButton.setEnabled (false);
@@ -175,8 +190,39 @@ ToneWebView::~ToneWebView()
 //==============================================================================
 juce::String ToneWebView::currentParams() const
 {
-    return baseParams + (archPickerVisible ? Tone3000Client::architectureParam (architecture)
-                                           : juce::String());
+    if (! archPickerVisible)
+        return baseParams;   // a plain sign-in browses nothing
+
+    // Architecture only means something for NAM captures: an IR has no model
+    // architecture, and sending both would filter the IR list down to nothing.
+    return baseParams
+           + Tone3000Client::formatParam (format)
+           + (format == Tone3000Client::Format::nam
+                  ? Tone3000Client::architectureParam (architecture)
+                  : juce::String());
+}
+
+// Repaints the chips to match the current scope and hides the architecture pair
+// when it does not apply.
+void ToneWebView::refreshScope()
+{
+    const bool nam = format == Tone3000Client::Format::nam;
+
+    fmtNam.setVisible (archPickerVisible);
+    fmtIr.setVisible (archPickerVisible);
+    archA1.setVisible (archPickerVisible && nam);
+    archA2.setVisible (archPickerVisible && nam);
+
+    fmtNam.getProperties().set ("chipActive", nam);
+    fmtIr.getProperties().set ("chipActive", ! nam);
+    archA1.getProperties().set ("chipActive", architecture == Tone3000Client::Architecture::a1AndCustom);
+    archA2.getProperties().set ("chipActive", architecture == Tone3000Client::Architecture::a2);
+
+    for (auto* b : { &fmtNam, &fmtIr, &archA1, &archA2 })
+        b->repaint();
+
+    resized();
+    repaint();
 }
 
 bool ToneWebView::begin (const juce::String& newBaseParams, const juce::String& newTitle)
@@ -196,10 +242,7 @@ bool ToneWebView::begin (const juce::String& newBaseParams, const juce::String& 
     currentHost = "tone3000.com";
     status = "Loading TONE3000...";
 
-    archA1.setVisible (archPickerVisible);
-    archA2.setVisible (archPickerVisible);
-    archA1.getProperties().set ("chipActive", architecture == Tone3000Client::Architecture::a1AndCustom);
-    archA2.getProperties().set ("chipActive", architecture == Tone3000Client::Architecture::a2);
+    refreshScope();
 
     if (browser == nullptr)
     {
@@ -222,29 +265,23 @@ bool ToneWebView::begin (const juce::String& newBaseParams, const juce::String& 
 }
 
 void ToneWebView::openToneFlow (const juce::String& newBaseParams, const juce::String& newTitle,
-                                Tone3000Client::Architecture arch,
+                                Tone3000Client::Format fmt, Tone3000Client::Architecture arch,
                                 std::function<void (Tone3000Client::Tone, juce::String)> done)
 {
     toneCallback = std::move (done);
     connectCallback = nullptr;
+    format = fmt;
     architecture = arch;
     archPickerVisible = true;
     begin (newBaseParams, newTitle);
 }
 
-// Switching the filter means a different authorize URL, so a fresh PKCE
-// challenge - but the SAME reservation: the flow the caller is waiting on has
-// not ended, we are only showing it a different slice of the catalogue.
-void ToneWebView::setArchitecture (Tone3000Client::Architecture arch)
+// Switching a filter means a different authorize URL, so a fresh PKCE challenge
+// - but the SAME reservation: the flow the caller is waiting on has not ended,
+// we are only showing it a different slice of the catalogue.
+void ToneWebView::reloadScope()
 {
-    if (! running || arch == architecture)
-        return;
-
-    architecture = arch;
-    archA1.getProperties().set ("chipActive", arch == Tone3000Client::Architecture::a1AndCustom);
-    archA2.getProperties().set ("chipActive", arch == Tone3000Client::Architecture::a2);
-    archA1.repaint();
-    archA2.repaint();
+    refreshScope();
 
     juce::String error;
     if (! client.renewEmbeddedAuth (currentParams(), session, error))
@@ -258,6 +295,24 @@ void ToneWebView::setArchitecture (Tone3000Client::Architecture arch)
     if (browser != nullptr)
         browser->goToURL (session.authorizeUrl);
 #endif
+}
+
+void ToneWebView::setArchitecture (Tone3000Client::Architecture arch)
+{
+    if (! running || arch == architecture)
+        return;
+
+    architecture = arch;
+    reloadScope();
+}
+
+void ToneWebView::setFormat (Tone3000Client::Format fmt)
+{
+    if (! running || fmt == format)
+        return;
+
+    format = fmt;
+    reloadScope();
 }
 
 // The escape hatch: if a page refuses to behave in an embedded view (some
@@ -401,17 +456,21 @@ void ToneWebView::paint (juce::Graphics& g)
     auto line = currentHost;
     if (status.isNotEmpty())
         line += juce::String (juce::CharPointer_UTF8 ("  \xc2\xb7  ")) + status;
-    g.drawText (line, 22, 32, 260, 14, juce::Justification::centredLeft);
+    g.drawText (line, 22, 32, 250, 14, juce::Justification::centredLeft);
 
-    // Says out loud why the chips exist - TONE3000 marks tones outside the
-    // selected architecture as "Not supported", which reads like the tone is
-    // broken rather than filtered out.
+    // Naming the clusters out loud: TONE3000 marks anything outside the chosen
+    // scope as "Not supported", which reads like the tone is broken rather than
+    // filtered out. The widths stop at the next cluster so the labels never
+    // run into each other.
     if (archPickerVisible)
     {
         g.setFont (ui::monoFont (9.5f));
         g.setColour (ui::textFaint);
-        g.drawText ("ARCHITECTURE", archA1.getX(), 2, 200, 12,
+        g.drawText ("FORMAT", fmtNam.getX(), 2, archA1.getX() - fmtNam.getX() - 10, 12,
                     juce::Justification::centredLeft);
+        if (archA1.isVisible())
+            g.drawText ("ARCHITECTURE", archA1.getX(), 2, 180, 12,
+                        juce::Justification::centredLeft);
     }
 
     // TONE3000 wordmark (attribution): the content below is theirs.
@@ -442,13 +501,17 @@ void ToneWebView::resized()
     closeButton.setBounds (right - 30, 13, 30, 30);
     externalButton.setBounds (closeButton.getX() - 8 - 150, 13, 150, 30);
 
-    // Navigation right after the title; the architecture chips sit in the
-    // middle, between it and the wordmark.
-    backButton.setBounds (300, 13, 30, 30);
-    reloadButton.setBounds (334, 13, 30, 30);
+    // Navigation right after the title, then the two scope clusters between it
+    // and the wordmark: FORMAT first (it decides whether ARCHITECTURE applies
+    // at all), ARCHITECTURE after it.
+    backButton.setBounds (286, 13, 30, 30);
+    reloadButton.setBounds (320, 13, 30, 30);
 
-    archA1.setBounds (getWidth() / 2 - 60, 14, 118, 28);
-    archA2.setBounds (archA1.getRight() + 6, 14, 52, 28);
+    fmtNam.setBounds (370, 14, 54, 28);
+    fmtIr.setBounds (fmtNam.getRight() + 6, 14, 44, 28);
+
+    archA1.setBounds (500, 14, 108, 28);
+    archA2.setBounds (archA1.getRight() + 6, 14, 46, 28);
 
 #if JUCE_WEB_BROWSER
     if (browser != nullptr)

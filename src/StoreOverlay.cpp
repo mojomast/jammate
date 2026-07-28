@@ -712,20 +712,30 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
 
         // Their picker, inside our window. Without WebView2 it still works, in
         // the system browser, exactly as it did before.
-        // The architecture filter is handed over to the panel, which lets the
-        // user flip it there: TONE3000 only ever shows one architecture, and
-        // the tones outside it read as "Not supported" rather than "filtered".
+        // The format and architecture filters are handed to the panel, which
+        // lets the user flip them there: TONE3000 shows one value of each at a
+        // time, and whatever falls outside reads as "Not supported" rather than
+        // "filtered out". These are only the STARTING position - the cab's
+        // CHANGE starts on IRs, the IR pill likewise, everything else on NAM.
         const auto arch = a2Only ? Tone3000Client::Architecture::a2
                                  : Tone3000Client::Architecture::a1AndCustom;
+        const bool wantIr = pendingIsIr || gearFilter == "ir";
+        const auto fmt = wantIr ? Tone3000Client::Format::ir
+                                : Tone3000Client::Format::nam;
+        // gearsForPicker: the "IR" pill is a FORMAT, and their IR tones live
+        // under the "cab" gear - sending gears=ir asked for a gear that does
+        // not exist.
+        const auto gears = Tone3000Client::gearsForPicker (gearFilter);
+
         if (ToneWebView::isSupported())
         {
             ensureWebView();
-            webView->openToneFlow (Tone3000Client::selectToneParams (gearFilter, 0),
-                                   "Browse TONE3000", arch, std::move (onPicked));
+            webView->openToneFlow (Tone3000Client::selectToneParams (gears, 0),
+                                   "Browse TONE3000", fmt, arch, std::move (onPicked));
         }
         else
         {
-            client.selectTone (gearFilter, a2Only ? 2 : 0, std::move (onPicked));
+            client.selectTone (gears, a2Only ? 2 : 0, std::move (onPicked));
         }
     };
     addChildComponent (browseButton);
@@ -990,6 +1000,7 @@ void StoreOverlay::open()
     // Opening the store on its own aims at nothing in particular; openForRig()
     // sets the target after this returns.
     pendingLane = -1;
+    pendingIsIr = false;
     client.reloadConfig();
     updateHeaderState();
     setVisible (true);
@@ -1017,11 +1028,12 @@ void StoreOverlay::openOnPlugins()
     setTab (Tab::plugins);
 }
 
-void StoreOverlay::openForRig (int lane)
+void StoreOverlay::openForRig (int lane, bool forIr)
 {
     open();
     setTab (Tab::explore);
     pendingLane = lane;
+    pendingIsIr = forIr;
     updateRigStatuses();   // card labels now say the rig they will land in
     repaint();
 }

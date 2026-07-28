@@ -3577,21 +3577,23 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 });
     }
 
-    // Dev flag: GUITARRIG_OPEN_STORE=explore|library|plugins|browse|rig1..rig3
+    // Dev flag: GUITARRIG_OPEN_STORE=explore|library|plugins|browse|rigN|cabN
     // opens the store. "browse" goes straight into the embedded TONE3000
-    // picker; "rigN" opens it AIMED at that rig, which is what the amp/cab
-    // card's LOAD/CHANGE does (the card labels then name that lane).
+    // picker; "rigN"/"cabN" open it AIMED at that rig, which is what the amp's
+    // and the cab's LOAD/CHANGE do (the card labels then name that lane, and
+    // "cabN" also starts the picker on IRs).
     {
         const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_STORE", "");
-        const int rig = flag.startsWith ("rig") ? flag.substring (3).getIntValue() : 0;
+        const bool isCab = flag.startsWith ("cab");
+        const int rig = (flag.startsWith ("rig") || isCab) ? flag.substring (3).getIntValue() : 0;
         if (flag == "library" || flag == "explore" || flag == "plugins" || flag == "browse"
             || (rig >= 1 && rig <= GuitarRigNAMProcessor::maxRigs))
             juce::MessageManager::callAsync (
-                [safe = juce::Component::SafePointer<RigContent> (this), flag, rig]
+                [safe = juce::Component::SafePointer<RigContent> (this), flag, rig, isCab]
                 {
                     if (safe == nullptr)
                         return;
-                    if (rig >= 1)               safe->storeOverlay->openForRig (rig - 1);
+                    if (rig >= 1)               safe->storeOverlay->openForRig (rig - 1, isCab);
                     else if (flag == "library") safe->storeOverlay->openOnLibrary();
                     else if (flag == "plugins") safe->storeOverlay->openOnPlugins();
                     else if (flag == "browse")  safe->storeOverlay->openOnBrowser();
@@ -5037,8 +5039,10 @@ void RigContent::chooseIrSource (int slot)
         {
             if (safe == nullptr) return;
             // Same rig index for both: loadVariationIntoLane routes an IR tone
-            // to that cab slot and a NAM tone to that amp lane.
-            if (r == 1)      safe->storeOverlay->openForRig (slot);
+            // to that cab slot and a NAM tone to that amp lane. The `true` puts
+            // the TONE3000 picker on IRs from the start - the user came here
+            // looking for a cabinet.
+            if (r == 1)      safe->storeOverlay->openForRig (slot, true);
             else if (r == 2) safe->chooseIrFile (slot);
         });
 }
