@@ -4,6 +4,93 @@ This program includes third-party material. Each item is listed below with its
 license and the required attribution. (Guitar Companion's own code is AGPLv3;
 these materials keep their own licenses.)
 
+## Libraries compiled into the program
+
+Everything below is **inside the binary you run**, not a tool used to build it.
+This section was missing entirely until an audit went looking for it: the file
+credited samples, fonts and adapted DSP, but not the libraries the amp engine
+is actually made of. Two of them are MIT, whose notice is required to travel
+with binary distributions — so this was an unmet obligation, not just a
+courtesy overlooked.
+
+### Neural Amp Modeler Core — MIT
+
+The neural amp engine: it loads `.nam` captures and runs them. Pinned at v0.5.4
+(submodule `third_party/NeuralAmpModelerCore`).
+
+- **Source:** <https://github.com/sdatkinson/NeuralAmpModelerCore>
+- **License:** MIT · `Copyright (c) 2023 Steven Atkinson`
+
+### AudioDSPTools — MIT
+
+The **Lanczos resampler**, which is what lets a capture recorded at one sample
+rate run at your interface's. The README lists that as a feature of this
+program; the code is Steven Atkinson's, included directly by
+`src/PluginProcessor.cpp` from NAM Core's `Dependencies/`.
+
+- **Source:** <https://github.com/sdatkinson/AudioDSPTools>
+- **License:** MIT · `Copyright (c) 2023 Steven Atkinson`
+
+### Eigen — MPL2
+
+The linear algebra behind every layer of the neural network — the matrix maths
+in the hottest loop of the whole program. Header-only, compiled in through NAM
+Core's `Dependencies/eigen`.
+
+- **Source:** <https://eigen.tuxfamily.org>
+- **License:** primarily **MPL2**; some files carry BSD, Apache or Minpack
+  terms, all MPL2-compatible. See `COPYING.MPL2`, `COPYING.BSD`,
+  `COPYING.APACHE` and `COPYING.MINPACK` in that directory.
+
+### nlohmann/json — MIT
+
+Reads the `.nam` files themselves: architecture, weights, metadata. Version
+3.12.0, header-only, compiled in through NAM Core's `Dependencies/nlohmann`.
+
+- **Source:** <https://github.com/nlohmann/json>
+- **License:** MIT · `SPDX-FileCopyrightText: 2013 - 2025 Niels Lohmann`
+
+### JUCE — dual licence
+
+The audio framework, the plugin formats and the UI toolkit. Pinned at 8.0.15
+(submodule `third_party/JUCE`). Used here under the **AGPLv3** option, which is
+why this project is AGPLv3 too.
+
+- **Source:** <https://juce.com> · `Copyright (c) Raw Material Software Limited`
+- JUCE bundles Steinberg's **VST3 SDK** to build the VST3 target
+  (`modules/juce_audio_processors*/format_types/VST3_SDK`). It is Steinberg's,
+  dual-licensed GPLv3 / proprietary; this project uses the GPLv3 option.
+
+### The MIT notices, in full
+
+MIT requires this text to accompany the software. It covers NAM Core and
+AudioDSPTools (same holder) and, separately, nlohmann/json.
+
+```
+MIT License
+
+Copyright (c) 2023 Steven Atkinson              [NAM Core, AudioDSPTools]
+Copyright (c) 2013 - 2025 Niels Lohmann         [nlohmann/json]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Drum grooves and fills — Groove MIDI Dataset
 
 Part of the grooves-and-fills library of the **Drums module** was derived from
@@ -65,8 +152,13 @@ The internal drum sampler uses the samples of **GMRockKit** (see also
 
 ## Typography
 
-- **Space Grotesk** and **JetBrains Mono** — SIL Open Font License 1.1 (OFL).
-  See `assets/fonts/*-OFL.txt`.
+All four faces below are embedded in the binary and all four are OFL 1.1; the
+licence text for each is in `assets/fonts/*-OFL.txt`.
+
+- **Archivo** — the interface font, the one most of the UI is set in.
+  `Copyright 2020 The Archivo Project Authors`
+  <https://github.com/Omnibus-Type/Archivo>
+- **Space Grotesk** and **JetBrains Mono** — display and monospace.
 - **Leland** — MuseScore's SMuFL-compliant music font, used by the Drums
   notation renderer. Copyright (c) 2025 MuseScore Limited; distributed under
   the SIL Open Font License 1.1 with Reserved Font Name "Leland". The copy is

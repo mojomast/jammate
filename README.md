@@ -60,6 +60,9 @@ The projects this was built on top of, or learned from:
 | Project | Credited as | What it gave this program |
 |---|---|---|
 | [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) | Steven Atkinson | The neural amp engine itself — the core of the whole program |
+| [AudioDSPTools](https://github.com/sdatkinson/AudioDSPTools) | Steven Atkinson | The Lanczos resampler — how a capture recorded at one sample rate runs at yours |
+| [Eigen](https://eigen.tuxfamily.org) | the Eigen contributors | The linear algebra under every layer of the network, in the hottest loop there is |
+| [nlohmann/json](https://github.com/nlohmann/json) | Niels Lohmann | Reads the `.nam` files: architecture, weights, metadata |
 | [JUCE](https://juce.com) | Raw Material Software Limited | Audio framework, plugin format, UI toolkit |
 | [Airwindows](https://github.com/airwindows/airwindows) | Chris Johnson | **Ported** (MIT): Tape, Console and the Valve drive. Also studied for Ring Mod, Bitcrusher, Exciter and modulation |
 | [Guitarix](https://github.com/brummer10/guitarix) · [GxPlugins.lv2](https://github.com/brummer10/GxPlugins.lv2) | the Guitarix contributors | Studied: slow gear, wah, drive voicing, modulation |
@@ -319,7 +322,7 @@ Guitar Companion uses the public TONE3000 API under its **free, non-commercial t
 ```
 src/                  plugin code (processor, editor, store, TONE3000 client)
 docs/EFEITOS.md       sources/references for each effect and variation
-assets/fonts/         Space Grotesk + JetBrains Mono (OFL, embedded in the binary)
+assets/fonts/         Archivo, Space Grotesk, JetBrains Mono, Leland (OFL, embedded)
 assets/brand/         the app icon: two source SVGs + the files derived from them
 packaging/            Inno Setup script + make-icon.ps1 (regenerates the icon)
 docs/screenshots/     project screenshots
