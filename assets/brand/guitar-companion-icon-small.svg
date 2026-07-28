@@ -3,16 +3,19 @@
     The 16 and 24 px entries of the .ico.
 
     A .ico carries a different drawing per size, and this is what that is for:
-    at those sizes the three bars of the full icon collapse into one grey
-    smear, so they are replaced by a single amber stroke. What survives is the
-    pick silhouette plus one accent - which is all the information that fits.
+    the full icon's four bars are 88/512 units wide, which is under three
+    pixels at 16 px, and the gaps between them close up. Three fatter pills
+    keep the same gesture and stay separated.
   -->
   <defs>
-    <linearGradient id="gcPickSmall" x1="120" y1="70" x2="400" y2="440" gradientUnits="userSpaceOnUse">
+    <linearGradient id="gcPulseSmall" x1="52" y1="36" x2="460" y2="476" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#57becb"/>
       <stop offset="1" stop-color="#46a9b5"/>
     </linearGradient>
   </defs>
-  <path d="M56 176C56 100 140 52 256 52C372 52 456 100 456 176C456 286 352 412 286 458C268 470 244 470 226 458C160 412 56 286 56 176Z" fill="url(#gcPickSmall)"/>
-  <rect x="214" y="150" width="84" height="208" rx="42" fill="#e0a35c"/>
+  <g fill="url(#gcPulseSmall)">
+    <rect x="52"  y="156" width="112" height="200" rx="56"/>
+    <rect x="200" y="36"  width="112" height="440" rx="56"/>
+    <rect x="348" y="106" width="112" height="300" rx="56"/>
+  </g>
 </svg>

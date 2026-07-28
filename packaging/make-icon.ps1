@@ -21,6 +21,16 @@
 #
 # These derived files are committed so a normal build needs nothing but CMake;
 # only regenerating them needs Chrome.
+#
+# AFTER RUNNING THIS, RE-RUN CMAKE CONFIGURE:
+#
+#   cmake -B build ...
+#
+# juceaide turns ICON_BIG/ICON_SMALL into the executable's icon at CONFIGURE
+# time, not build time, and nothing declares the PNGs as a dependency - so a
+# plain rebuild happily links yesterday's icon and says nothing. (Deleting
+# build/.../JuceLibraryCode/icon.ico by hand does not help either: the VST3
+# target copies that file, so the build then fails on the missing copy.)
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing

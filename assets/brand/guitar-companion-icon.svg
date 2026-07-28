@@ -1,23 +1,33 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Guitar Companion">
   <!--
-    Guitar Companion app icon.
+    Guitar Companion app icon - "Pulse".
 
-    A guitar pick with a level meter inside: the instrument and the answer
-    coming back from it. Palette is the app's own (src/LookAndFeel.h):
-    accent #57becb -> accentDark #46a9b5, bg #0f1315, warn/amber #e0a35c.
+    Sound on its own: four pill beats, no instrument depicted. The mark spans
+    x 32..480 and y 26..486, so it fills ~88% of the frame in both directions -
+    an app icon that floats in the middle of its square throws away legibility
+    at every size.
 
-    Sized so the shape fills ~85% of the frame and drawn with THREE bars, not
-    four: at 16 px a 512-unit bar of width 26 is 0.8 px and disappears. See
-    guitar-companion-icon-small.svg for the drawing used at 16 and 24 px.
+    Palette is the app's own (src/LookAndFeel.h): accent #57becb ->
+    accentDark #46a9b5. No amber here on purpose; the accent stays reserved.
+
+    See guitar-companion-icon-small.svg for the drawing used at 16 and 24 px,
+    where four bars of 88/512 units collapse into each other.
   -->
   <defs>
-    <linearGradient id="gcPick" x1="120" y1="70" x2="400" y2="440" gradientUnits="userSpaceOnUse">
+    <!-- One ramp across the whole mark, in user space. The source design let
+         each bar resolve the gradient against its own bounding box, which
+         gives every bar the full ramp; at this colour range the two are
+         indistinguishable, and a single ramp stays coherent if the bars
+         ever change. -->
+    <linearGradient id="gcPulse" x1="32" y1="26" x2="480" y2="486" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#57becb"/>
       <stop offset="1" stop-color="#46a9b5"/>
     </linearGradient>
   </defs>
-  <path d="M56 176C56 100 140 52 256 52C372 52 456 100 456 176C456 286 352 412 286 458C268 470 244 470 226 458C160 412 56 286 56 176Z" fill="url(#gcPick)"/>
-  <rect x="146" y="234" width="56" height="96"  rx="28" fill="#0f1315"/>
-  <rect x="228" y="154" width="56" height="176" rx="28" fill="#e0a35c"/>
-  <rect x="310" y="202" width="56" height="128" rx="28" fill="#0f1315"/>
+  <g fill="url(#gcPulse)">
+    <rect x="32"  y="166" width="88" height="180" rx="44"/>
+    <rect x="152" y="91"  width="88" height="330" rx="44"/>
+    <rect x="272" y="26"  width="88" height="460" rx="44"/>
+    <rect x="392" y="126" width="88" height="260" rx="44"/>
+  </g>
 </svg>
