@@ -903,6 +903,7 @@ void StoreOverlay::visibilityChanged()
     else
     {
         stopTimer();
+        pendingLane = -1;   // the next open() aims at nothing until told to
         // Closing the store abandons any sign-in/picker running inside it -
         // otherwise the client stays reserved and the next attempt is refused
         // with "already in progress".
@@ -962,6 +963,9 @@ bool StoreOverlay::keyPressed (const juce::KeyPress& key)
 
 void StoreOverlay::open()
 {
+    // Opening the store on its own aims at nothing in particular; openForRig()
+    // sets the target after this returns.
+    pendingLane = -1;
     client.reloadConfig();
     updateHeaderState();
     setVisible (true);
@@ -987,6 +991,15 @@ void StoreOverlay::openOnPlugins()
 {
     open();
     setTab (Tab::plugins);
+}
+
+void StoreOverlay::openForRig (int lane)
+{
+    open();
+    setTab (Tab::explore);
+    pendingLane = lane;
+    updateRigStatuses();   // card labels now say the rig they will land in
+    repaint();
 }
 
 void StoreOverlay::openOnBrowser()
@@ -1208,7 +1221,7 @@ void StoreOverlay::addCardFor (const Tone3000Client::Tone& tone, bool)
 
 void StoreOverlay::openDetailsFor (const Tone3000Client::Tone& tone)
 {
-    detailsTargetLane = -1;
+    detailsTargetLane = pendingLane;
     ToneCardComponent::Info info;
     info.toneId = tone.id;
     info.title = tone.title;
@@ -1230,7 +1243,9 @@ void StoreOverlay::openDetailsFor (const Tone3000Client::Tone& tone)
 
 void StoreOverlay::openDetails (ToneCardComponent& card)
 {
-    detailsTargetLane = -1;   // card click: variation adds to a free lane
+    // Card click: the variation lands in the rig the store was opened for, or
+    // in a free lane when it was opened on its own.
+    detailsTargetLane = pendingLane;
     detailsInfo = card.getInfo();
     ensureDetailsView();
     detailsView->setBounds (getLocalBounds());
@@ -1241,9 +1256,12 @@ void StoreOverlay::openDetails (ToneCardComponent& card)
 // ST1: contextual card actions (mockup .tone-actions).
 juce::String StoreOverlay::primaryLabelFor (const ToneCardComponent::Info& info) const
 {
+    const int lane = targetLane();
+    const juce::String n (lane + 1);
+
     if (info.formatBadge == "IR")
-        return "REPLACE IR";
-    return processor.hasModelLoaded (0) ? "REPLACE AMP 1" : "LOAD IN AMP 1";
+        return "REPLACE IR " + n;
+    return processor.hasModelLoaded (lane) ? "REPLACE AMP " + n : "LOAD IN AMP " + n;
 }
 
 void StoreOverlay::loadCardIntoLane (ToneCardComponent& card, int lane)
@@ -1761,6 +1779,11 @@ void StoreOverlay::downloadFromDetails (const Tone3000Client::Model& model, Mode
 
 void StoreOverlay::startAddFlow (ToneCardComponent& card, int forceLane)
 {
+    // No explicit lane from a card menu? Then honour the rig the store was
+    // opened for (the amp/cab card's LOAD/CHANGE).
+    if (forceLane < 0)
+        forceLane = pendingLane;
+
     const int toneId = card.getInfo().toneId;
 
     // Variations already cached: no API call.

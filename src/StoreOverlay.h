@@ -151,6 +151,12 @@ public:
     void open();
     void openOnLibrary();   // used by the GUITARRIG_OPEN_STORE dev flag
     void openOnPlugins();   // VST3 plugin manager (embedded catalog)
+    /// Opens the store aimed at ONE rig: whatever is loaded from it lands in
+    /// that amp lane (or, for an IR tone, that rig's cab slot) instead of the
+    /// first free one. This is what the amp card's "LOAD/CHANGE CAPTURE" and
+    /// the cab's "CHANGE" use - without it, clicking CHANGE on AMP 2 loaded the
+    /// capture into whichever lane happened to be empty. Cleared on close.
+    void openForRig (int lane);
     /// Opens the store and goes straight into the TONE3000 picker - the
     /// GUITARRIG_OPEN_STORE=browse dev flag, for testing the embedded browser
     /// without clicking by coordinate.
@@ -204,6 +210,12 @@ private:
     Tone3000Client client;
 
     Tab tab = Tab::explore;
+    /// Rig the store is aiming at (-1 = none: load into the first free lane).
+    /// Set by openForRig(), cleared by open() and when the store hides.
+    int pendingLane = -1;
+    /// Lane a download should land in: the pending rig, or lane 0 by default
+    /// (which is what the card actions always assumed).
+    int targetLane() const { return pendingLane >= 0 ? pendingLane : 0; }
     juce::String gearFilter;          // "" = all
     juce::String sortValue = "trending";
     int currentPage = 1, totalPages = 1;

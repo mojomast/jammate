@@ -3173,14 +3173,17 @@ void DrumOverlay::PreviewPane::paint (juce::Graphics& g)
     g.drawText (owner.selName, 14, 8, getWidth() - 150, 20, juce::Justification::centredLeft);
     g.setFont (ui::monoFont (9.0f));
     g.setColour (owner.selFill ? ui::glowOrange : ui::accent);
+    // The separator MUST be built through CharPointer_UTF8: juce::String(char*)
+    // is CharPointer_ASCII, so " \xc2\xb7 " became two characters ("Â·"). The
+    // CharPointer_UTF8(tag.toRawUTF8()) round-trip that used to wrap the result
+    // could not undo it - it re-encoded the already-wrong characters.
+    const juce::String sep (juce::CharPointer_UTF8 (" \xc2\xb7 "));
     auto tag = owner.selFill ? juce::String ("FILL")
-                             : "GROOVE" + (owner.selBpm > 0 ? juce::String (" \xc2\xb7 ")
-                                                                  + juce::String (owner.selBpm) + " bpm"
+                             : "GROOVE" + (owner.selBpm > 0 ? sep + juce::String (owner.selBpm) + " bpm"
                                                             : juce::String());
     if (owner.selNum != 4 || owner.selDen != 4)
-        tag += juce::String (" \xc2\xb7 ") + juce::String (owner.selNum) + "/" + juce::String (owner.selDen);
-    g.drawText (juce::String (juce::CharPointer_UTF8 (tag.toRawUTF8())), getWidth() - 150, 9, 140, 16,
-                juce::Justification::centredRight);
+        tag += sep + juce::String (owner.selNum) + "/" + juce::String (owner.selDen);
+    g.drawText (tag, getWidth() - 150, 9, 140, 16, juce::Justification::centredRight);
 
     drawMiniBar (g, { 10.0f, 34.0f, (float) getWidth() - 20.0f,
                       (float) getHeight() - 66.0f },

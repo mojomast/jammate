@@ -4738,14 +4738,17 @@ void RigContent::chooseModelSource (int lane)
     juce::PopupMenu menu;
     menu.setLookAndFeel (&getLookAndFeel());
     menu.addSectionHeader (processor.hasModelLoaded (lane) ? "Change capture" : "Load capture");
-    menu.addItem (1, "Browse TONE3000 Tone Store\xe2\x80\xa6");
-    menu.addItem (2, "Load .nam file from disk\xe2\x80\xa6");
+    // CharPointer_UTF8: MSVC reads a plain char* as Latin-1, so the raw bytes
+    // of the ellipsis came out as three garbage characters.
+    menu.addItem (1, juce::String (juce::CharPointer_UTF8 ("Browse TONE3000 Tone Store\xe2\x80\xa6")));
+    menu.addItem (2, juce::String (juce::CharPointer_UTF8 ("Load .nam file from disk\xe2\x80\xa6")));
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&chainView->getLoadButton (lane)),
         [safe = juce::Component::SafePointer<RigContent> (this), lane] (int r)
         {
             if (safe == nullptr) return;
-            if (r == 1)      safe->storeOverlay->open();
+            // openForRig, not open(): the capture has to land in THIS amp.
+            if (r == 1)      safe->storeOverlay->openForRig (lane);
             else if (r == 2) safe->chooseModelFile (lane);
         });
 }
@@ -5006,14 +5009,16 @@ void RigContent::chooseIrSource (int slot)
     juce::PopupMenu menu;
     menu.setLookAndFeel (&getLookAndFeel());
     menu.addSectionHeader (processor.getIrPath (slot).isNotEmpty() ? "Change IR" : "Load IR");
-    menu.addItem (1, "Browse TONE3000 Tone Store\xe2\x80\xa6");
-    menu.addItem (2, "Load IR file from disk\xe2\x80\xa6");
+    menu.addItem (1, juce::String (juce::CharPointer_UTF8 ("Browse TONE3000 Tone Store\xe2\x80\xa6")));
+    menu.addItem (2, juce::String (juce::CharPointer_UTF8 ("Load IR file from disk\xe2\x80\xa6")));
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&chainView->getIrButton (slot)),
         [safe = juce::Component::SafePointer<RigContent> (this), slot] (int r)
         {
             if (safe == nullptr) return;
-            if (r == 1)      safe->storeOverlay->open();
+            // Same rig index for both: loadVariationIntoLane routes an IR tone
+            // to that cab slot and a NAM tone to that amp lane.
+            if (r == 1)      safe->storeOverlay->openForRig (slot);
             else if (r == 2) safe->chooseIrFile (slot);
         });
 }
