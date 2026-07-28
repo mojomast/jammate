@@ -5,4 +5,5 @@ out/
 *.user
 CMakeUserPresets.json
 third_party/asiosdk/
+third_party/webview2/
 plugins/offline/

@@ -689,8 +689,7 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
         repaint();
 
         juce::Component::SafePointer<StoreOverlay> safe (this);
-        client.selectTone (gearFilter, a2Only ? 2 : 0,
-                           [safe] (Tone3000Client::Tone tone, juce::String error)
+        auto onPicked = [safe] (Tone3000Client::Tone tone, juce::String error)
         {
             if (safe == nullptr)
                 return;
@@ -707,7 +706,21 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
                 return;
             }
             self->openDetailsFor (tone);
-        });
+        };
+
+        // Their picker, inside our window. Without WebView2 it still works, in
+        // the system browser, exactly as it did before.
+        if (ToneWebView::isSupported())
+        {
+            ensureWebView();
+            webView->openToneFlow (
+                Tone3000Client::selectToneParams (gearFilter, a2Only ? 2 : 0),
+                "Browse TONE3000", std::move (onPicked));
+        }
+        else
+        {
+            client.selectTone (gearFilter, a2Only ? 2 : 0, std::move (onPicked));
+        }
     };
     addChildComponent (browseButton);
 
@@ -880,9 +893,18 @@ void StoreOverlay::visibilityChanged()
 {
     // Card statuses only need to track the rig while the store is open.
     if (isVisible())
+    {
         startTimerHz (2);
+    }
     else
+    {
         stopTimer();
+        // Closing the store abandons any sign-in/picker running inside it -
+        // otherwise the client stays reserved and the next attempt is refused
+        // with "already in progress".
+        if (webView != nullptr)
+            webView->cancel();
+    }
 }
 
 void StoreOverlay::timerCallback()
@@ -918,8 +940,12 @@ bool StoreOverlay::keyPressed (const juce::KeyPress& key)
 {
     if (key == juce::KeyPress::escapeKey)
     {
-        // Sub-overlays close first (splash, then details), then the store itself.
-        if (splashVisible)
+        // Sub-overlays close first (browser, splash, details), then the store.
+        // The browser panel usually handles Esc itself (it holds focus), but it
+        // is checked here too for when focus is elsewhere.
+        if (webView != nullptr && webView->isVisible())
+            webView->cancel();
+        else if (splashVisible)
             setSplashVisible (false);
         else if (detailsView != nullptr && detailsView->isVisible())
             detailsView->setVisible (false);
@@ -957,6 +983,15 @@ void StoreOverlay::openOnPlugins()
 {
     open();
     setTab (Tab::plugins);
+}
+
+void StoreOverlay::openOnBrowser()
+{
+    open();
+    setTab (Tab::explore);
+    // Same path a click takes, so the flag exercises the real thing.
+    if (browseButton.isEnabled())
+        browseButton.triggerClick();
 }
 
 void StoreOverlay::setTab (Tab newTab)
@@ -1626,20 +1661,44 @@ void StoreOverlay::doConnect()
     connectButton.setEnabled (false);
     connectButton.setButtonText (juce::String (juce::CharPointer_UTF8 ("Waiting for login\xe2\x80\xa6")));
     auto* self = this; // MSVC: 'this' in a nested lambda init-capture resolves wrong
-    client.connect ([safe = juce::Component::SafePointer<StoreOverlay> (self)] (bool ok, juce::String error)
+    auto onDone = [safe = juce::Component::SafePointer<StoreOverlay> (self)] (bool ok, juce::String error)
     {
         if (safe == nullptr)
             return;
         safe->connectButton.setEnabled (true);
         safe->connectButton.setButtonText ("Connect TONE3000");
-        safe->bannerError = ok ? juce::String() : "Failed to connect: " + error;
+        // Closing the sign-in panel is a decision, not a failure - no banner.
+        safe->bannerError = (ok || error == "Sign-in cancelled")
+                                ? juce::String()
+                                : "Failed to connect: " + error;
         safe->updateHeaderState();
         if (ok)
             safe->doSearch (1);
         else
             safe->resized();
         safe->repaint();
-    });
+    };
+
+    if (ToneWebView::isSupported())
+    {
+        ensureWebView();
+        webView->openConnect (std::move (onDone));
+    }
+    else
+    {
+        client.connect (std::move (onDone));
+    }
+}
+
+void StoreOverlay::ensureWebView()
+{
+    if (webView != nullptr)
+        return;
+
+    webView = std::make_unique<ToneWebView> (client);
+    webView->brandLogo = brandLogo;
+    addChildComponent (*webView);
+    webView->setBounds (getLocalBounds());
 }
 
 void StoreOverlay::setSplashVisible (bool v)
@@ -2127,6 +2186,9 @@ void StoreOverlay::resized()
 
     if (detailsView != nullptr)
         detailsView->setBounds (getLocalBounds());
+
+    if (webView != nullptr)
+        webView->setBounds (getLocalBounds());
 
     if (splashVisible)
     {

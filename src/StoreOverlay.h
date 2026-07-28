@@ -6,6 +6,7 @@
 
 #include "LookAndFeel.h"
 #include "Tone3000Client.h"
+#include "ToneWebView.h"
 
 class GuitarRigNAMProcessor;
 
@@ -150,6 +151,10 @@ public:
     void open();
     void openOnLibrary();   // used by the GUITARRIG_OPEN_STORE dev flag
     void openOnPlugins();   // VST3 plugin manager (embedded catalog)
+    /// Opens the store and goes straight into the TONE3000 picker - the
+    /// GUITARRIG_OPEN_STORE=browse dev flag, for testing the embedded browser
+    /// without clicking by coordinate.
+    void openOnBrowser();
 
     bool keyPressed (const juce::KeyPress&) override;
 
@@ -233,6 +238,14 @@ private:
     bool showKeySetup() const;
     void updateKeySetupState();
     juce::String keyNotice;   // inline feedback under the field ("" = none)
+
+    // ---- embedded TONE3000 browser --------------------------------------
+    // The free tier browses through TONE3000's own pages, and those pages now
+    // open inside the store instead of in the system browser. Built lazily:
+    // spinning up a WebView2 costs real memory and most sessions never sign in.
+    // Falls back to the system browser when ToneWebView::isSupported() is false.
+    std::unique_ptr<ToneWebView> webView;
+    void ensureWebView();
 
     // TONE3000 notice shown before the first sign-in. NOT a partnership claim -
     // there is no agreement with them; it states the free-tier API use instead.

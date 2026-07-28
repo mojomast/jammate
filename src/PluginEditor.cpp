@@ -3577,10 +3577,11 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                 });
     }
 
-    // Dev flag: GUITARRIG_OPEN_STORE=explore|library|plugins opens the store.
+    // Dev flag: GUITARRIG_OPEN_STORE=explore|library|plugins|browse opens the
+    // store ("browse" goes straight into the embedded TONE3000 picker).
     {
         const auto flag = juce::SystemStats::getEnvironmentVariable ("GUITARRIG_OPEN_STORE", "");
-        if (flag == "library" || flag == "explore" || flag == "plugins")
+        if (flag == "library" || flag == "explore" || flag == "plugins" || flag == "browse")
             juce::MessageManager::callAsync (
                 [safe = juce::Component::SafePointer<RigContent> (this), flag]
                 {
@@ -3588,6 +3589,7 @@ RigContent::RigContent (GuitarRigNAMProcessor& p)
                         return;
                     if (flag == "library")      safe->storeOverlay->openOnLibrary();
                     else if (flag == "plugins") safe->storeOverlay->openOnPlugins();
+                    else if (flag == "browse")  safe->storeOverlay->openOnBrowser();
                     else                        safe->storeOverlay->open();
                 });
     }

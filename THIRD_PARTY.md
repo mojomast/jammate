@@ -166,6 +166,54 @@ TONE3000.** The TONE3000 name and logos belong to them and are used only to
 identify the service, following their published design guidance.
 See <https://www.tone3000.com/api>.
 
+Because that tier browses through TONE3000's own web pages, the Tone Store
+hosts those pages in an embedded browser (see below). The pages shown in it are
+served by tone3000.com and are theirs; PedalForge only opens the authorisation
+URL and reads the redirect that comes back.
+
+## Microsoft Edge WebView2 SDK
+
+The embedded TONE3000 browser uses **WebView2**, through JUCE's
+`WebBrowserComponent`. The build links `WebView2LoaderStatic.lib` from the
+`Microsoft.Web.WebView2` NuGet package (pinned in `CMakeLists.txt`, downloaded
+into the gitignored `third_party/webview2/` at configure time — **no Microsoft
+binary is committed here**). The rendering engine itself is the WebView2
+Runtime already installed on the machine; nothing of it is redistributed.
+
+- **Source:** <https://www.nuget.org/packages/Microsoft.Web.WebView2>
+- **License:** BSD-3-Clause style (the package's `LICENSE.txt`)
+- **Attribution / notice:**
+
+  ```
+  Copyright (C) Microsoft Corporation. All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
+
+     * Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
+     * Redistributions in binary form must reproduce the above
+  copyright notice, this list of conditions and the following disclaimer
+  in the documentation and/or other materials provided with the
+  distribution.
+     * The name of Microsoft Corporation, or the names of its contributors
+  may not be used to endorse or promote products derived from this
+  software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  ```
+
 ## Interface ideas
 
 Some interface concepts of the Drums module (browser, humanization) were

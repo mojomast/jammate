@@ -166,19 +166,18 @@ void Tone3000Client::connect (std::function<void (bool, juce::String)> done)
 
     pool.addJob ([this, done]
     {
-        // "&format=nam" keeps the sign-in page scoped the way it always was
-        const auto r = runAuthFlow ("&format=nam");
+        const auto r = runAuthFlow (connectParams());
         connecting.store (false);
         juce::MessageManager::callAsync ([done, r] { done (r.ok, r.error); });
     });
 }
 
-// The whole PKCE round trip. Shared by the plain connect and by the prompt
-// flows (select_tone / load_tone), which differ only in the authorize params
-// and in the tone_id that comes back on the callback.
-Tone3000Client::AuthOutcome Tone3000Client::runAuthFlow (const juce::String& promptParams)
+// Builds one PKCE authorisation: the verifier/state to keep and the URL to
+// open. Pure computation, so it is safe on any thread - the embedded browser
+// calls it straight from the message thread.
+bool Tone3000Client::prepareAuth (const juce::String& promptParams,
+                                  AuthSession& session, juce::String& error) const
 {
-    AuthOutcome out;
     juce::String key;
     {
         const juce::ScopedLock sl (configLock);
@@ -186,169 +185,198 @@ Tone3000Client::AuthOutcome Tone3000Client::runAuthFlow (const juce::String& pro
     }
     if (key.isEmpty())
     {
-        out.error = "No TONE3000 key set";
+        error = "No TONE3000 key set";
+        return false;
+    }
+
+    session.codeVerifier = randomBase64url (32);
+    session.state = randomBase64url (16);
+
+    const juce::SHA256 hash (session.codeVerifier.toRawUTF8(),
+                             (size_t) session.codeVerifier.getNumBytesAsUTF8());
+    const auto challenge = base64url (hash.getRawData().getData(),
+                                      hash.getRawData().getSize());
+
+    session.authorizeUrl =
+        kApiBase + "/api/v1/oauth/authorize"
+        + "?client_id=" + urlEncode (key)
+        + "&redirect_uri=" + urlEncode (redirectUri())
+        + "&response_type=code"
+        + "&code_challenge=" + urlEncode (challenge)
+        + "&code_challenge_method=S256"
+        + "&state=" + urlEncode (session.state)
+        + promptParams;
+    return true;
+}
+
+// Second half of the dance: takes the query string the callback carried
+// (however it was captured - socket or embedded browser), validates it and
+// exchanges the code for tokens. Pool thread only: it does network I/O and
+// writes accessToken.
+Tone3000Client::AuthOutcome Tone3000Client::completeAuth (const juce::String& callbackQuery,
+                                                          const AuthSession& session)
+{
+    AuthOutcome out;
+    juce::String key;
+    {
+        const juce::ScopedLock sl (configLock);
+        key = publishableKey;
+    }
+
+    juce::String code, returnedState, oauthError;
+    for (const auto& pair : juce::StringArray::fromTokens (callbackQuery, "&", ""))
+    {
+        const auto k = pair.upToFirstOccurrenceOf ("=", false, false);
+        const auto v = juce::URL::removeEscapeChars (pair.fromFirstOccurrenceOf ("=", false, false));
+        if (k == "code") code = v;
+        else if (k == "state") returnedState = v;
+        else if (k == "error") oauthError = v;
+        else if (k == "tone_id") out.toneId = v.getIntValue();   // prompt flows
+    }
+
+    if (oauthError.isNotEmpty()) { out.error = oauthError; return out; }
+    if (returnedState != session.state) { out.error = "state mismatch (CSRF?)"; return out; }
+    if (code.isEmpty()) { out.error = "callback without code"; return out; }
+
+    // Exchanges the code for tokens.
+    const juce::String form =
+        "grant_type=authorization_code&code=" + urlEncode (code)
+        + "&code_verifier=" + urlEncode (session.codeVerifier)
+        + "&redirect_uri=" + urlEncode (redirectUri())
+        + "&client_id=" + urlEncode (key);
+
+    juce::URL tokenUrl (kApiBase + "/api/v1/oauth/token");
+    juce::WebInputStream stream (tokenUrl.withPOSTData (form), true);
+    stream.withExtraHeaders ("Content-Type: application/x-www-form-urlencoded");
+    stream.connect (nullptr);
+
+    if (stream.getStatusCode() != 200)
+    {
+        out.error = "Token exchange failed (HTTP "
+                    + juce::String (stream.getStatusCode()) + ")";
+        return out;
+    }
+
+    const auto json = juce::JSON::parse (stream.readEntireStreamAsString());
+    const auto newAccess = json.getProperty ("access_token", "").toString();
+    const auto newRefresh = json.getProperty ("refresh_token", "").toString();
+    const double expiresIn = (double) json.getProperty ("expires_in", 3600.0);
+
+    if (newAccess.isEmpty() || newRefresh.isEmpty())
+    {
+        out.error = "Invalid token response";
         return out;
     }
 
     {
-        // PKCE
-        const auto codeVerifier = randomBase64url (32);
-        const auto state = randomBase64url (16);
-        const juce::SHA256 hash (codeVerifier.toRawUTF8(),
-                                 (size_t) codeVerifier.getNumBytesAsUTF8());
-        const auto challenge = base64url (hash.getRawData().getData(),
-                                          hash.getRawData().getSize());
+        const juce::ScopedLock sl (configLock);
+        refreshToken = newRefresh;
+    }
+    accessToken = newAccess;
+    accessTokenExpiry = juce::Time::currentTimeMillis() + (juce::int64) (expiresIn * 1000.0) - 60000;
 
-        // Listener BEFORE opening the browser (avoids a race).
-        juce::StreamingSocket server;
-        if (! server.createListener (kCallbackPort, "127.0.0.1"))
-        {
-            out.error = "Port " + juce::String (kCallbackPort) + " is busy";
-            return out;
-        }
+    // Profile (name for the UI chip).
+    int status = 0;
+    const auto userJson = apiGet ("/api/v1/user", status);
+    if (status == 200)
+    {
+        const auto user = juce::JSON::parse (userJson);
+        const juce::ScopedLock sl (configLock);
+        username = user.getProperty ("username", "").toString();
+    }
 
-        const auto authorizeUrl =
-            kApiBase + "/api/v1/oauth/authorize"
-            + "?client_id=" + urlEncode (key)
-            + "&redirect_uri=" + urlEncode (redirectUri())
-            + "&response_type=code"
-            + "&code_challenge=" + urlEncode (challenge)
-            + "&code_challenge_method=S256"
-            + "&state=" + urlEncode (state)
-            + promptParams;
+    saveConfig();
+    out.ok = true;
+    return out;
+}
 
-        juce::MessageManager::callAsync ([authorizeUrl]
-        {
-            juce::URL (authorizeUrl).launchInDefaultBrowser();
-        });
+// The whole PKCE round trip through the SYSTEM browser, with a listener on
+// localhost:53682 catching the redirect. Used when there is no embedded
+// browser; the embedded panel drives prepareAuth/completeAuth itself and never
+// opens a socket.
+Tone3000Client::AuthOutcome Tone3000Client::runAuthFlow (const juce::String& promptParams)
+{
+    AuthOutcome out;
+    AuthSession session;
+    if (! prepareAuth (promptParams, session, out.error))
+        return out;
 
-        // Waits for the redirect (up to 3 minutes). Browsers open empty
-        // speculative connections and request /favicon.ico before the real
-        // redirect - those get a 404 and are IGNORED; we only leave the loop
-        // when a request with the OAuth callback parameters arrives.
-        juce::String request;
-        const auto deadline = juce::Time::currentTimeMillis() + 180000;
-
-        while (juce::Time::currentTimeMillis() < deadline)
-        {
-            if (server.waitUntilReady (true, 1000) != 1)
-                continue;
-
-            std::unique_ptr<juce::StreamingSocket> conn (server.waitForNextConnection());
-            if (conn == nullptr)
-                continue;
-
-            juce::String thisRequest;
-            if (conn->waitUntilReady (true, 3000) == 1)
-            {
-                char buf[8192] = {};
-                const int numRead = conn->read (buf, sizeof (buf) - 1, false);
-                thisRequest = juce::String::fromUTF8 (buf, juce::jmax (0, numRead));
-            }
-
-            const auto line = thisRequest.upToFirstOccurrenceOf ("\r\n", false, false);
-            const bool isCallback = line.startsWith ("GET ")
-                                    && (line.contains ("code=") || line.contains ("error=")
-                                        || line.contains ("state=") || line.contains ("tone_id="));
-
-            if (! isCallback)
-            {
-                const juce::String notFound =
-                    "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
-                conn->write (notFound.toRawUTF8(), (int) notFound.getNumBytesAsUTF8());
-                conn->close();
-                continue;
-            }
-
-            const juce::String reply =
-                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
-                "<html><body style=\"background:#141517;color:#e5e6e8;font-family:sans-serif;"
-                "display:flex;align-items:center;justify-content:center;height:100vh\">"
-                "<h2>Authorized &mdash; go back to PedalForge NAM.</h2></body></html>";
-            conn->write (reply.toRawUTF8(), (int) reply.getNumBytesAsUTF8());
-            conn->close();
-            request = thisRequest;
-            break;
-        }
-
-        server.close();
-
-        if (request.isEmpty())
-        {
-            out.error = "Timed out waiting for login";
-            return out;
-        }
-
-        // Extracts the query params from the first line: GET /callback?... HTTP/1.1
-        const auto firstLine = request.upToFirstOccurrenceOf ("\r\n", false, false);
-        const auto query = firstLine.fromFirstOccurrenceOf ("?", false, false)
-                               .upToFirstOccurrenceOf (" ", false, false);
-        juce::String code, returnedState, oauthError;
-        for (const auto& pair : juce::StringArray::fromTokens (query, "&", ""))
-        {
-            const auto k = pair.upToFirstOccurrenceOf ("=", false, false);
-            const auto v = juce::URL::removeEscapeChars (pair.fromFirstOccurrenceOf ("=", false, false));
-            if (k == "code") code = v;
-            else if (k == "state") returnedState = v;
-            else if (k == "error") oauthError = v;
-            else if (k == "tone_id") out.toneId = v.getIntValue();   // prompt flows
-        }
-
-        if (oauthError.isNotEmpty()) { out.error = oauthError; return out; }
-        if (returnedState != state) { out.error = "state mismatch (CSRF?)"; return out; }
-        if (code.isEmpty()) { out.error = "callback without code"; return out; }
-
-        // Exchanges the code for tokens.
-        const juce::String form =
-            "grant_type=authorization_code&code=" + urlEncode (code)
-            + "&code_verifier=" + urlEncode (codeVerifier)
-            + "&redirect_uri=" + urlEncode (redirectUri())
-            + "&client_id=" + urlEncode (key);
-
-        juce::URL tokenUrl (kApiBase + "/api/v1/oauth/token");
-        juce::WebInputStream stream (tokenUrl.withPOSTData (form), true);
-        stream.withExtraHeaders ("Content-Type: application/x-www-form-urlencoded");
-        stream.connect (nullptr);
-
-        if (stream.getStatusCode() != 200)
-        {
-            out.error = "Token exchange failed (HTTP "
-                        + juce::String (stream.getStatusCode()) + ")";
-            return out;
-        }
-
-        const auto json = juce::JSON::parse (stream.readEntireStreamAsString());
-        const auto newAccess = json.getProperty ("access_token", "").toString();
-        const auto newRefresh = json.getProperty ("refresh_token", "").toString();
-        const double expiresIn = (double) json.getProperty ("expires_in", 3600.0);
-
-        if (newAccess.isEmpty() || newRefresh.isEmpty())
-        {
-            out.error = "Invalid token response";
-            return out;
-        }
-
-        {
-            const juce::ScopedLock sl (configLock);
-            refreshToken = newRefresh;
-        }
-        accessToken = newAccess;
-        accessTokenExpiry = juce::Time::currentTimeMillis() + (juce::int64) (expiresIn * 1000.0) - 60000;
-
-        // Profile (name for the UI chip).
-        int status = 0;
-        const auto userJson = apiGet ("/api/v1/user", status);
-        if (status == 200)
-        {
-            const auto user = juce::JSON::parse (userJson);
-            const juce::ScopedLock sl (configLock);
-            username = user.getProperty ("username", "").toString();
-        }
-
-        saveConfig();
-        out.ok = true;
+    // Listener BEFORE opening the browser (avoids a race).
+    juce::StreamingSocket server;
+    if (! server.createListener (kCallbackPort, "127.0.0.1"))
+    {
+        out.error = "Port " + juce::String (kCallbackPort) + " is busy";
         return out;
     }
+
+    const auto authorizeUrl = session.authorizeUrl;
+    juce::MessageManager::callAsync ([authorizeUrl]
+    {
+        juce::URL (authorizeUrl).launchInDefaultBrowser();
+    });
+
+    // Waits for the redirect (up to 3 minutes). Browsers open empty
+    // speculative connections and request /favicon.ico before the real
+    // redirect - those get a 404 and are IGNORED; we only leave the loop
+    // when a request with the OAuth callback parameters arrives.
+    juce::String request;
+    const auto deadline = juce::Time::currentTimeMillis() + 180000;
+
+    while (juce::Time::currentTimeMillis() < deadline)
+    {
+        if (server.waitUntilReady (true, 1000) != 1)
+            continue;
+
+        std::unique_ptr<juce::StreamingSocket> conn (server.waitForNextConnection());
+        if (conn == nullptr)
+            continue;
+
+        juce::String thisRequest;
+        if (conn->waitUntilReady (true, 3000) == 1)
+        {
+            char buf[8192] = {};
+            const int numRead = conn->read (buf, sizeof (buf) - 1, false);
+            thisRequest = juce::String::fromUTF8 (buf, juce::jmax (0, numRead));
+        }
+
+        const auto line = thisRequest.upToFirstOccurrenceOf ("\r\n", false, false);
+        const bool isCallback = line.startsWith ("GET ")
+                                && (line.contains ("code=") || line.contains ("error=")
+                                    || line.contains ("state=") || line.contains ("tone_id="));
+
+        if (! isCallback)
+        {
+            const juce::String notFound =
+                "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n";
+            conn->write (notFound.toRawUTF8(), (int) notFound.getNumBytesAsUTF8());
+            conn->close();
+            continue;
+        }
+
+        const juce::String reply =
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
+            "<html><body style=\"background:#141517;color:#e5e6e8;font-family:sans-serif;"
+            "display:flex;align-items:center;justify-content:center;height:100vh\">"
+            "<h2>Authorized &mdash; go back to PedalForge NAM.</h2></body></html>";
+        conn->write (reply.toRawUTF8(), (int) reply.getNumBytesAsUTF8());
+        conn->close();
+        request = thisRequest;
+        break;
+    }
+
+    server.close();
+
+    if (request.isEmpty())
+    {
+        out.error = "Timed out waiting for login";
+        return out;
+    }
+
+    // Extracts the query params from the first line: GET /callback?... HTTP/1.1
+    const auto firstLine = request.upToFirstOccurrenceOf ("\r\n", false, false);
+    const auto query = firstLine.fromFirstOccurrenceOf ("?", false, false)
+                           .upToFirstOccurrenceOf (" ", false, false);
+    return completeAuth (query, session);
 }
 
 //==============================================================================
@@ -480,6 +508,42 @@ void Tone3000Client::getTone (int toneId, std::function<void (Tone, juce::String
 //==============================================================================
 // Prompt flows + bounded lists - the only browse paths the free tier allows.
 
+// pool thread: the documented continuation of a prompt flow - the callback
+// hands back a tone id, we read the tone itself. Shared by the system-browser
+// and the embedded-browser paths.
+void Tone3000Client::deliverToneFor (const AuthOutcome& auth,
+                                     const std::function<void (Tone, juce::String)>& deliver)
+{
+    if (! auth.ok)
+    {
+        deliver ({}, auth.error);
+        return;
+    }
+    if (auth.toneId <= 0)
+    {
+        // the user closed the picker without choosing - not an error worth
+        // shouting about, but the caller has to know nothing came back
+        deliver ({}, "No tone was chosen");
+        return;
+    }
+
+    // documented continuation: GET /api/v1/tones/{id}
+    int status = 0;
+    const auto body = apiGet ("/api/v1/tones/" + juce::String (auth.toneId), status);
+    if (status != 200)
+    {
+        deliver ({}, "Could not read the chosen tone (HTTP " + juce::String (status) + ")");
+        return;
+    }
+    deliver (parseToneJson (juce::JSON::parse (body)), {});
+}
+
+void Tone3000Client::runPromptFlowInSystemBrowser (const juce::String& promptParams,
+                                                   std::function<void (Tone, juce::String)> done)
+{
+    runToneFlow (promptParams, std::move (done));
+}
+
 void Tone3000Client::runToneFlow (const juce::String& promptParams,
                                   std::function<void (Tone, juce::String)> done)
 {
@@ -498,47 +562,107 @@ void Tone3000Client::runToneFlow (const juce::String& promptParams,
 
         const auto auth = runAuthFlow (promptParams);
         connecting.store (false);
-
-        if (! auth.ok)
-        {
-            deliver ({}, auth.error);
-            return;
-        }
-        if (auth.toneId <= 0)
-        {
-            // the user closed the picker without choosing - not an error worth
-            // shouting about, but the caller has to know nothing came back
-            deliver ({}, "No tone was chosen");
-            return;
-        }
-
-        // documented continuation: GET /api/v1/tones/{id}
-        int status = 0;
-        const auto body = apiGet ("/api/v1/tones/" + juce::String (auth.toneId), status);
-        if (status != 200)
-        {
-            deliver ({}, "Could not read the chosen tone (HTTP "
-                             + juce::String (status) + ")");
-            return;
-        }
-        deliver (parseToneJson (juce::JSON::parse (body)), {});
+        deliverToneFor (auth, deliver);
     });
 }
 
-void Tone3000Client::selectTone (const juce::String& gears, int architecture,
-                                 std::function<void (Tone, juce::String)> done)
+juce::String Tone3000Client::selectToneParams (const juce::String& gears, int architecture)
 {
     juce::String params = "&prompt=select_tone";
     if (gears.isNotEmpty())
         params += "&gears=" + urlEncode (gears);
     if (architecture > 0)
         params += "&architecture=" + juce::String (architecture);
-    runToneFlow (params, std::move (done));
+    return params;
+}
+
+juce::String Tone3000Client::loadToneParams (int toneId)
+{
+    return "&prompt=load_tone&tone_id=" + juce::String (toneId);
+}
+
+void Tone3000Client::selectTone (const juce::String& gears, int architecture,
+                                 std::function<void (Tone, juce::String)> done)
+{
+    runToneFlow (selectToneParams (gears, architecture), std::move (done));
 }
 
 void Tone3000Client::loadTone (int toneId, std::function<void (Tone, juce::String)> done)
 {
-    runToneFlow ("&prompt=load_tone&tone_id=" + juce::String (toneId), std::move (done));
+    runToneFlow (loadToneParams (toneId), std::move (done));
+}
+
+//==============================================================================
+// Embedded-browser driving: the panel opens the authorize URL itself and hands
+// the redirect back, so no localhost listener is involved.
+
+bool Tone3000Client::beginEmbeddedAuth (const juce::String& promptParams,
+                                        AuthSession& session, juce::String& error)
+{
+    if (connecting.exchange (true))
+    {
+        error = "A TONE3000 authorisation is already in progress";
+        return false;
+    }
+    if (! prepareAuth (promptParams, session, error))
+    {
+        connecting.store (false);
+        return false;
+    }
+    return true;
+}
+
+void Tone3000Client::cancelEmbeddedAuth()
+{
+    connecting.store (false);
+}
+
+bool Tone3000Client::isRedirectUrl (const juce::String& url)
+{
+    // Compare host+path only: the query is exactly what we are after, and the
+    // scheme may come back as http or (behind a proxy) https.
+    return url.fromFirstOccurrenceOf ("//", false, false)
+              .upToFirstOccurrenceOf ("?", false, false)
+              .upToFirstOccurrenceOf ("#", false, false)
+              .trimCharactersAtEnd ("/")
+           == "localhost:" + juce::String (kCallbackPort) + "/callback";
+}
+
+juce::String Tone3000Client::queryFromCallbackUrl (const juce::String& url)
+{
+    return url.fromFirstOccurrenceOf ("?", false, false)
+              .upToFirstOccurrenceOf ("#", false, false);
+}
+
+void Tone3000Client::finishEmbeddedConnect (const AuthSession& session,
+                                            const juce::String& callbackUrl,
+                                            std::function<void (bool, juce::String)> done)
+{
+    const auto query = queryFromCallbackUrl (callbackUrl);
+    pool.addJob ([this, session, query, done]
+    {
+        const auto auth = completeAuth (query, session);
+        connecting.store (false);
+        juce::MessageManager::callAsync ([done, auth] { done (auth.ok, auth.error); });
+    });
+}
+
+void Tone3000Client::finishEmbeddedTone (const AuthSession& session,
+                                         const juce::String& callbackUrl,
+                                         std::function<void (Tone, juce::String)> done)
+{
+    const auto query = queryFromCallbackUrl (callbackUrl);
+    pool.addJob ([this, session, query, done]
+    {
+        auto deliver = [done] (Tone t, juce::String e)
+        {
+            juce::MessageManager::callAsync ([done, t, e] { done (t, e); });
+        };
+
+        const auto auth = completeAuth (query, session);
+        connecting.store (false);
+        deliverToneFor (auth, deliver);
+    });
 }
 
 void Tone3000Client::fetchBoundedList (const juce::String& path,

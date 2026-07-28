@@ -90,6 +90,53 @@ public:
     /// preset) and confirms the user still has access to it.
     void loadTone (int toneId, std::function<void (Tone, juce::String error)> done);
 
+    /// Runs a prompt flow through the SYSTEM browser and the localhost
+    /// listener. selectTone/loadTone go through here; the embedded panel also
+    /// calls it directly when the user asks to finish in their own browser.
+    void runPromptFlowInSystemBrowser (const juce::String& promptParams,
+                                       std::function<void (Tone, juce::String error)> done);
+
+    // ---- driving the flows from an embedded browser ----------------------
+    // The panel (ToneWebView) opens the authorize URL itself and catches the
+    // redirect before it is ever requested, so the localhost:53682 listener is
+    // not involved. The redirect URI string stays the same because it is what
+    // the user registered with their publishable key.
+
+    /// One authorisation in flight: what to keep between opening the page and
+    /// the redirect coming back.
+    struct AuthSession
+    {
+        juce::String codeVerifier, state, authorizeUrl;
+    };
+
+    /// Reserves the client for an embedded authorisation and fills `session`.
+    /// Returns false (with `error` set) if one is already running or no key is
+    /// configured. On success you MUST end it with one of the finish* calls or
+    /// with cancelEmbeddedAuth().
+    bool beginEmbeddedAuth (const juce::String& promptParams,
+                            AuthSession& session, juce::String& error);
+    /// Releases the reservation when the user closes the panel.
+    void cancelEmbeddedAuth();
+    /// Completes a plain sign-in from the captured redirect URL.
+    void finishEmbeddedConnect (const AuthSession&, const juce::String& callbackUrl,
+                                std::function<void (bool ok, juce::String error)> done);
+    /// Completes a prompt flow: exchanges the code and reads the chosen tone.
+    void finishEmbeddedTone (const AuthSession&, const juce::String& callbackUrl,
+                             std::function<void (Tone, juce::String error)> done);
+
+    /// True when a URL the browser is about to load is our OAuth redirect.
+    static bool isRedirectUrl (const juce::String& url);
+    /// Query string of a callback URL (no "?", no fragment).
+    static juce::String queryFromCallbackUrl (const juce::String& url);
+
+    /// Authorize parameters for each prompt flow (also used to sign in: the
+    /// picker authenticates on the way).
+    static juce::String selectToneParams (const juce::String& gears, int architecture);
+    static juce::String loadToneParams (int toneId);
+    /// Parameters of a plain sign-in (no picker). "&format=nam" keeps the
+    /// sign-in page scoped the way it always was.
+    static juce::String connectParams() { return "&format=nam"; }
+
     // ---- bounded list endpoints (allowed on the free tier) ---------------
     /// Top 10 trending tones for a gear type ("amp", "amp-cab", "pedal"...).
     void listTrending (const juce::String& gear, std::function<void (SearchResult)> done);
@@ -153,10 +200,20 @@ private:
         juce::String error;
         int toneId = 0;
     };
-    /// pool thread: the whole PKCE dance (listener, browser, callback, token
-    /// exchange, profile). promptParams is appended to the authorize URL -
-    /// empty for a plain connect, "&prompt=select_tone&..." for the flows.
+    /// Builds one PKCE authorisation (verifier, state, URL). Any thread.
+    bool prepareAuth (const juce::String& promptParams, AuthSession&,
+                      juce::String& error) const;
+    /// pool thread: validates the callback query and exchanges the code for
+    /// tokens (then reads the profile and saves the config).
+    AuthOutcome completeAuth (const juce::String& callbackQuery, const AuthSession&);
+    /// pool thread: the whole PKCE dance through the SYSTEM browser (listener on
+    /// 53682, browser, callback, completeAuth). promptParams is appended to the
+    /// authorize URL - "&format=nam" for a plain connect, "&prompt=select_tone&..."
+    /// for the flows.
     AuthOutcome runAuthFlow (const juce::String& promptParams);
+    /// pool thread: reads the tone a prompt flow handed back and delivers it.
+    void deliverToneFor (const AuthOutcome&,
+                         const std::function<void (Tone, juce::String)>& deliver);
     /// Shared body of select_tone/load_tone: authorise, then read the tone the
     /// callback handed back (the continuation the API guide documents).
     void runToneFlow (const juce::String& promptParams,

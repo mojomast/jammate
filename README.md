@@ -186,6 +186,24 @@ cmake -B build -G "Visual Studio 17 2022" -A x64 -DASIOSDK_DIR="$PWD\third_party
 
 `third_party/asiosdk/` is in `.gitignore` and **never** goes into Git.
 
+### Embedded browser (WebView2)
+
+The Tone Store opens TONE3000's picker inside the app, which needs the WebView2
+SDK. CMake downloads the pinned NuGet package into `third_party/webview2/` on
+the first configure (gitignored — no Microsoft binary is committed) and links
+the loader statically; the rendering engine is the WebView2 Runtime already on
+the machine. Nothing to install by hand.
+
+Building offline, or without it, is fine:
+
+```powershell
+cmake -B build -G "Visual Studio 17 2022" -A x64 -DPEDALFORGE_EMBEDDED_BROWSER=OFF
+```
+
+The store then falls back to the system browser plus the `localhost:53682`
+listener — the path that always existed. The same happens at runtime on a
+machine with no WebView2 Runtime.
+
 ## 🔑 TONE3000 setup
 
 The API requires your own key (free):
@@ -193,6 +211,13 @@ The API requires your own key (free):
 1. Create an account at [tone3000.com](https://www.tone3000.com) → Settings → API Keys
 2. Register the redirect `http://localhost:53682/callback`
 3. In the app: **Tone Store → paste the key → Save key**, then **Connect TONE3000**
+
+Sign-in and browsing happen **inside the app**: TONE3000's own pages open in an
+embedded browser panel, and the tone you pick comes straight back into the rig.
+The sign-in is remembered (its profile lives in `Documents\PedalForge NAM\webview\`),
+so you only do it once. The redirect above is still what your key registers —
+the panel simply catches it instead of a local web server. To sign in as a
+different account, use TONE3000's own account menu on the page inside the panel.
 
 Everyone uses their **own** key, so your downloads and your rate limit are yours and no credential ships in this repository.
 
@@ -210,9 +235,10 @@ docs/screenshots/     project screenshots
 references/           OPTIONAL submodules: reference projects for effects (see references/README.md)
 third_party/JUCE            submodule pinned at 8.0.15 (required to build)
 third_party/NeuralAmpModelerCore  submodule pinned at v0.5.4, A2 support (required to build)
+third_party/webview2/       WebView2 SDK fetched by CMake (gitignored, not committed)
 ```
 
-User data (outside the repo): `Documents\PedalForge NAM\` — `Captures/`, `IRs/`, `Presets/`, `tone3000.json`.
+User data (outside the repo): `Documents\PedalForge NAM\` — `Captures/`, `IRs/`, `Presets/`, `tone3000.json`, `webview/` (the embedded browser's profile: cookies of your TONE3000 sign-in).
 
 ## 🗺️ Roadmap
 
