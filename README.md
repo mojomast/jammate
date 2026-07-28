@@ -10,6 +10,46 @@
 
 ---
 
+## 🌱 Built on open source, and open in return
+
+This program exists because other people published their work. The neural engine, the framework, the DSP it learned from, the drum samples, the music font — none of it was written here first. It would have been impossible to build alone, and it would be dishonest to pretend otherwise.
+
+So the deal is symmetric: **everything this project uses is open source, and this project is open source too** — [AGPLv3](LICENSE), source and history public, no closed core, nothing held back for a paid version. If it helps someone else build their own amp sim, that is the point.
+
+Three rules follow from that, and they are enforced in the repository rather than just stated here:
+
+- **Credit is specific, never vague.** Every effect records *which* project was read for it, and whether the result was **studied** or **ported**. That map is [`docs/EFEITOS.md`](docs/EFEITOS.md), one row per effect. "Inspired by the open-source community" is not a credit; a name and a link is.
+- **Licenses are respected in full**, including the boring parts — MIT notices travel with the code, GPL samples keep their terms, fonts keep their OFL. See [`THIRD_PARTY.md`](THIRD_PARTY.md). This repository redistributes **no** third-party binary: plugins are downloaded from each project's own release.
+- **If a line was crossed, it gets fixed.** Reading source to learn a technique is not copying it — algorithms are not covered by copyright, only their concrete expression. That is exactly why "studied" and "ported" are separated per effect instead of asserted in bulk: the claim is auditable. **If you think something crossed the line, open an issue** and it will be corrected or removed.
+
+### Where the inspirations came from
+
+The people and projects this was built on top of, or learned from:
+
+| Project | By | What it gave this program |
+|---|---|---|
+| [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) | Steven Atkinson | The neural amp engine itself — the core of the whole program |
+| [JUCE](https://juce.com) | Raw Material Software | Audio framework, plugin format, UI toolkit |
+| [Airwindows](https://github.com/airwindows/airwindows) | Chris Johnson | **Ported** (MIT): Tape, Console, and the Valve drive. Also studied for Ring Mod, Bitcrusher, Exciter and modulation |
+| [Guitarix](https://github.com/brummer10/guitarix) · [GxPlugins.lv2](https://github.com/brummer10/GxPlugins.lv2) | brummer10 and the Guitarix project | Studied: slow gear, wah, drive voicing, modulation |
+| [LSP Plugins](https://github.com/lsp-plugins/lsp-plugins) | Vladimir Sadovnikov | Studied: compressor and de-esser behaviour |
+| [ToobAmp](https://github.com/rerdavies/ToobAmp) | rerdavies | Studied: noise gate, pre-EQ, modulation |
+| [BYOD](https://github.com/Chowdhury-DSP/BYOD) | Chowdhury DSP | Studied: drive stages |
+| [Dragonfly Reverb](https://github.com/michaelwillis/dragonfly-reverb) | Michael Willis | Studied: reverb |
+| [rkrlv2](https://github.com/ssj71/rkrlv2) | ssj71, porting Rakarrack | Studied: pitch shifter and harmonizer |
+| [GMRockKit](https://github.com/hydrogen-music/hydrogen) | Glen MacArthur · Sebastian Moors | The internal drum kit's actual samples |
+| [Leland](https://github.com/musescore/MuseScore) | MuseScore | The SMuFL music font the drum notation is engraved with |
+| [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove) | Google Magenta | Part of the groove and fill library |
+| [midi-drums](https://github.com/fsecada01/midi-drums) | fsecada01 | Part of the metal grooves and fills |
+| [DrumGroovePro](https://github.com/InToEtherion/DrumGroovePro) | InToEtherion | Interface ideas for the drum browser and humanisation |
+| [TONE3000](https://www.tone3000.com) | TONE3000 | The capture library the Tone Store reads (public API, free tier — not affiliated) |
+
+The projects marked *studied* are pinned as submodules under [`references/`](references/README.md) so any claim above can be checked against the real source. They are **not** compiled into, linked against, or shipped with this program.
+
+Thank you to all of them. If you are one of these authors and something here is wrong or uncomfortable, please open an issue — it will be treated as a priority.
+
+---
+
 ## 📊 Project status
 
 | Phase | Deliverable | Status |
@@ -261,15 +301,13 @@ User data (outside the repo): `Documents\PedalForge NAM\` — `Captures/`, `IRs/
 
 Contributions are welcome! Read **[CONTRIBUTING.md](CONTRIBUTING.md)** (build, code map, real-time safety rules and known MSVC/JUCE pitfalls) and use the issue/PR templates. Unchecked roadmap items are a great starting point.
 
-## 🔍 Where the ideas came from
+## 🔍 Attribution in detail
 
-This project stands on open-source work and says so precisely, rather than in general terms.
+The credits are up top in [Where the inspirations came from](#where-the-inspirations-came-from). The full paperwork lives in three files:
 
-- **[`docs/EFEITOS.md`](docs/EFEITOS.md)** — the per-effect map. For **every** effect it records three layers: the classic gear the variation chases, the open-source project read to study topology and parameter ranges, and what actually runs in the code. Anything that is a **port** of someone else's code is labelled as a port; everything else is DSP written here after reading the references.
-- **[`THIRD_PARTY.md`](THIRD_PARTY.md)** — every third-party material with its license and required attribution: adapted Airwindows code (MIT), drum grooves (CC BY 4.0 / MIT), the GMRockKit samples (GPL), the fonts (OFL), and the projects studied.
-- **[`references/`](references/README.md)** — the eight studied projects, pinned as submodules. They are **not compiled into, linked against, or shipped with** the program; they are there so any claim above can be checked.
-
-Reading source to learn a technique is not copying it — algorithms are not covered by copyright, only their concrete expression. That is exactly why "study" and "port" are separated per effect instead of asserted in bulk: the line is auditable. **If you think something crossed it, open an issue** and it will be corrected or removed.
+- **[`docs/EFEITOS.md`](docs/EFEITOS.md)** — one row per effect: the classic gear the variation chases, the project read to study it, and what actually runs in the code. Ports are labelled as ports.
+- **[`THIRD_PARTY.md`](THIRD_PARTY.md)** — every third-party material with its license and required attribution text.
+- **[`references/`](references/README.md)** — the studied projects, pinned as submodules so the claims can be checked.
 
 ## 📜 Licenses
 
