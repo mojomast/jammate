@@ -2190,9 +2190,13 @@ void StoreOverlay::resized()
         favChip.setBounds (fx + 68, 150, 58, 28);
     }
 
-    // error banner (below the tools rows)
+    // error banner (below the tools rows). Row 2 only carries content on
+    // Explore (the "Change key" chip + what the grid is showing); on the other
+    // tabs it was an empty 40 px strip, so the area stops after row 1 there.
     const bool extraRow = tab != Tab::plugins && filtersOpen;
-    const int toolsBottom = extraRow ? 186 : 146;
+    const int toolsBottom = showKeySetup() ? 64
+                          : extraRow       ? 186
+                          : tab == Tab::explore ? 146 : 106;
     const int bannerY = toolsBottom + 4;
     const bool banner = bannerError.isNotEmpty();
     retryButton.setVisible (banner);
@@ -2258,7 +2262,9 @@ void StoreOverlay::paint (juce::Graphics& g)
     // a new user sees.
     const bool showTools = tab != Tab::plugins && ! showKeySetup();
     const bool extraRow = showTools && filtersOpen;
-    const int toolsBottom = showKeySetup() ? 64 : (extraRow ? 186 : 146);   // sync with resized()
+    const int toolsBottom = showKeySetup() ? 64                             // sync with resized()
+                          : extraRow       ? 186
+                          : tab == Tab::explore ? 146 : 106;
     if (showTools)
     {
         g.setFont (ui::monoFont (9.0f));

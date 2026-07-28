@@ -3223,8 +3223,14 @@ int DrumOverlay::GridView::stepX (int step) const
 
 int DrumOverlay::GridView::rowH() const
 {
-    // the panel height varies (LIBRARY | KIT MIXER tabs) - never clip a row
-    return juce::jlimit (12, gRowH, (getHeight() - 18) / DrumOverlay::gridRows);
+    // The panel height varies (LIBRARY | KIT MIXER tabs) - never clip a row.
+    // cellBounds lays rows out at 16 + row * (rowH + gRowGap), so the header
+    // offset AND the gaps between rows have to come out of the budget. Dividing
+    // the raw height by the row count ignored both and clipped the 9th voice
+    // (hat pedal) in half.
+    constexpr int n = DrumOverlay::gridRows;
+    const int avail = getHeight() - 16 - 4 - (n - 1) * gRowGap;   // 4 = bottom margin
+    return juce::jlimit (10, gRowH, avail / juce::jmax (1, n));
 }
 
 juce::Rectangle<int> DrumOverlay::GridView::cellBounds (int row, int step) const
