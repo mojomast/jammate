@@ -4,7 +4,9 @@
 
 ![Windows](https://img.shields.io/badge/Windows-10%2F11%20x64-0078d4) ![JUCE](https://img.shields.io/badge/JUCE-8.0.15-8bc34a) ![NAM](https://img.shields.io/badge/NAM%20Core-v0.5.4%20(A2)-33c9d6) ![Status](https://img.shields.io/badge/status-functional%20%C2%B7%20evolving-33c9d6)
 
-![Main screen](docs/screenshots/rig.png)
+![The Rig screen](docs/screenshots/01-rig.jpg)
+
+> **New here? Read [How it works](#-how-it-works) first.** The window looks busy on purpose — it is a pedalboard, and everything on it is reachable in one click. That section walks through it in the order you would actually use it.
 
 ---
 
@@ -38,11 +40,75 @@
 - **External VST3 plugin slot**: host any third-party effect in the chain, with its own panel, MIX and state saved in presets
 - **Real-time safety**: zero allocation/locks/IO in the audio path (a non-negotiable project rule)
 
-## 🖼️ Screens
+## 🧭 How it works
 
-| Tone Store | Offline library |
-|---|---|
-| ![Tone Store](docs/screenshots/tone-store.png) | ![Library](docs/screenshots/biblioteca.png) |
+There is **one signal path**, and it runs left to right:
+
+```
+guitar ──► effects you dragged in ──► AMP + CAB (the neural capture) ──► out
+                                      └─ up to 3 of these in parallel
+```
+
+Everything else is a **screen that edits one part of that path**. There are six, and you reach all of them from the top bar. You only ever need two of them to make sound.
+
+---
+
+### 1 · Rig — where you build the sound
+
+![Rig](docs/screenshots/01-rig.jpg)
+
+Three fixed columns: **INPUT** on the left, the **chain** in the middle, **OUTPUT/MIXER** on the right. The chain shows *only the effects you are actually using* — an empty chain is normal. Add one with **`+ EFFECT`**, drag cards to reorder, click the **✕** on a card to send it back to the drawer (its settings are kept).
+
+The big card in the middle is the **AMP HEAD**: it loads a `.nam` capture of a real amplifier. **CHANGE** picks a different capture, **VARIANTS** switches between the mics and channels of the same amp. Next to it, **Cab IR** is the speaker cabinet.
+
+**`+ ADD AMP+CAB`** (bottom right) adds a second or third amp+cabinet **in parallel** — they are summed in the MIXER card, with a blend per lane.
+
+> If you load nothing at all, you still get sound: the chain just passes your guitar through.
+
+### 2 · Tone Store — where you get amps
+
+![Tone Store](docs/screenshots/04-store.jpg)
+
+Amps and cabinets come from **[TONE3000](https://www.tone3000.com)**, a community library of neural captures. The grid shows **trending and latest**; **BROWSE ON TONE3000** opens their full catalogue in your browser and brings the tone you pick back into the app.
+
+Each card loads straight into **AMP 1**; the small **▾** next to it targets a specific lane (`Load in AMP 2`) or an IR slot. **My library** is everything you already downloaded, and works offline.
+
+You need a free TONE3000 account and your own API key — see [TONE3000 setup](#-tone3000-setup). It takes about a minute.
+
+### 3 · Drums — to play against
+
+![Drums](docs/screenshots/02-drums.jpg)
+
+A drummer, not a metronome. The centre is **real music notation**: click a note to edit it, drag a groove from the library onto a bar to replace it. A song is up to **8 sections of 4 bars**, each bar with its own time signature — odd meters are first-class here.
+
+The strip at the top mirrors your guitar chain, so you can tweak the amp without leaving the screen. **GENERATE** writes a groove for you from genre, style and complexity.
+
+### 4 · Song / Scenes — one rig per section
+
+![Song](docs/screenshots/03-song.jpg)
+
+A **scene** is a snapshot of your whole guitar rig attached to a drum section. Capture a clean rig on the verse and a lead rig on the chorus, turn on **AUTO-SWITCH**, and the rig changes by itself at the bar line — muted while the new capture loads, so the change is silent.
+
+### 5 · Stage — for playing live
+
+![Stage](docs/screenshots/05-stage.jpg)
+
+The same rig with everything small removed: preset name, tuner, big on/off tiles and a footswitch row. Press **F** to enter, **Esc** to leave.
+
+### 6 · Audio & MIDI — your interface
+
+![Audio](docs/screenshots/06-audio.jpg)
+
+Driver, device, sample rate and buffer. Changes are **staged**: nothing happens until you press **APPLY CHANGES**, and if the device fails to open the previous one is restored instead of leaving you silent.
+
+---
+
+### The first five minutes
+
+1. **Audio & MIDI** → pick your interface, **APPLY CHANGES**. Confirm INPUT moves when you play.
+2. **Tone Store** → paste your TONE3000 key, **Connect**, then load any amp into AMP 1.
+3. Back on **Rig** → set GAIN and MASTER on the amp card. That is already a full sound.
+4. Add effects with **`+ EFFECT`** only once you want them.
 
 ## 🔧 Build (Windows)
 
