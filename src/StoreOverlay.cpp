@@ -758,25 +758,13 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
         addAndMakeVisible (chip);
     }
 
-    // tags (multi-select; enter as search terms) and A2 filter
-    for (const auto* tag : { "metal", "clean", "vintage", "blues", "ambient" })
-    {
-        auto* chip = tagChips.add (new juce::TextButton (tag));
-        chip->getProperties().set ("chip", true);
-        chip->getProperties().set ("chipActive", false);
-        const juce::String value (tag);
-        chip->onClick = [this, value, chip]
-        {
-            if (activeTags.contains (value))
-                activeTags.removeString (value);
-            else
-                activeTags.add (value);
-            chip->getProperties().set ("chipActive", activeTags.contains (value));
-            chip->repaint();
-            doSearch (1);
-        };
-        addAndMakeVisible (chip);
-    }
+    // NO tag chips (metal/clean/vintage/...). They only ever worked by being
+    // appended to the /tones/search query, and that endpoint is full API access
+    // - gone on the free tier. Left in place they lit up and did nothing, which
+    // made the grid look broken: picking "metal" + AMP still showed the same
+    // handful of tones and read as "the store only has 11 amps".
+    // Tag search lives in TONE3000's own picker now (BROWSE ON TONE3000).
+    // A2 and favourites stay: those two filter client-side and really work.
 
     loadFavorites();
     favChip.getProperties().set ("chip", true);
@@ -2285,15 +2273,20 @@ void StoreOverlay::paint (juce::Graphics& g)
                              : gearFilter.isEmpty()    ? juce::String ("AMP+CAB")
                                                        : gearFilter.toUpperCase();
             g.setColour (ui::textFaint);
-            g.drawText ("TRENDING " + scope
-                            + juce::String (juce::CharPointer_UTF8 ("  \xc2\xb7  "))
-                            + "LATEST" + juce::String (juce::CharPointer_UTF8 ("  \xc2\xb7  "))
-                            + "use BROWSE ON TONE3000 to search the full catalogue",
+            // Say the size out loud. Users read a short grid as "the store only
+            // has 11 amps" and assume it is broken - it is a curated 20, and
+            // the whole catalogue is one button away.
+            g.drawText ("SHOWING TRENDING " + scope
+                            + juce::String (juce::CharPointer_UTF8 (" \xc2\xb7 "))
+                            + "LATEST"
+                            + juce::String (juce::CharPointer_UTF8 (
+                                  "  \xe2\x80\x94  this is a short curated list, not the catalogue "
+                                  "\xc2\xb7 search all 8000+ tones with BROWSE ON TONE3000")),
                         changeKeyButton.getRight() + 16, 108, W - changeKeyButton.getRight() - 200, 30,
                         juce::Justification::centredLeft);
         }
         if (filtersOpen)
-            g.drawText ("TAGS", 22, 150, 40, 28, juce::Justification::centredLeft);
+            g.drawText ("SHOW", 22, 150, 40, 28, juce::Justification::centredLeft);
 
         // tones count tag, right end of row 1 (mockup "1.248 TONES")
         if (countText.isNotEmpty())
