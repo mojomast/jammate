@@ -201,7 +201,7 @@ Driver, device, sample rate and buffer. Changes are **staged**: nothing happens 
 ## 📥 Install (Windows)
 
 Grab **`Guitar-Companion-0.1-win64-setup.exe`** from the
-[latest release](../../releases/latest) and run it. It installs the standalone
+[releases page](../../releases) and run it. It installs the standalone
 application and, if you keep the box ticked, the **VST3** into
 `C:\Program Files\Common Files\VST3` so your DAW finds it. There is a proper
 uninstaller in Add/Remove Programs.

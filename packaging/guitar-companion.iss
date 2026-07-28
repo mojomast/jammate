@@ -26,8 +26,11 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppUrl}
 ; Where "Support" and "Update" in Add/Remove Programs point. Issues, not the
 ; repo root: someone opening those has a problem, not curiosity.
+; /releases and NOT /releases/latest: GitHub's "latest" skips pre-releases, and
+; while this is a beta that link resolves to nothing. The list page always shows
+; the newest build, pre-release or not.
 AppSupportURL={#AppUrl}/issues
-AppUpdatesURL={#AppUrl}/releases/latest
+AppUpdatesURL={#AppUrl}/releases
 VersionInfoVersion=0.1.0.0
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
