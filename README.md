@@ -26,25 +26,27 @@ Three rules follow from that, and they are enforced in the repository rather tha
 
 The projects this was built on top of, or learned from:
 
-| Project | What it gave this program |
-|---|---|
-| [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) | The neural amp engine itself — the core of the whole program |
-| [JUCE](https://juce.com) | Audio framework, plugin format, UI toolkit |
-| [Airwindows](https://github.com/airwindows/airwindows) | **Ported** (MIT): Tape, Console and the Valve drive. Also studied for Ring Mod, Bitcrusher, Exciter and modulation |
-| [Guitarix](https://github.com/brummer10/guitarix) · [GxPlugins.lv2](https://github.com/brummer10/GxPlugins.lv2) | Studied: slow gear, wah, drive voicing, modulation |
-| [LSP Plugins](https://github.com/lsp-plugins/lsp-plugins) | Studied: compressor and de-esser behaviour |
-| [ToobAmp](https://github.com/rerdavies/ToobAmp) | Studied: noise gate, pre-EQ, modulation |
-| [BYOD](https://github.com/Chowdhury-DSP/BYOD) | Studied: drive stages |
-| [Dragonfly Reverb](https://github.com/michaelwillis/dragonfly-reverb) | Studied: reverb |
-| [rkrlv2](https://github.com/ssj71/rkrlv2) (a port of Rakarrack) | Studied: pitch shifter and harmonizer |
-| [GMRockKit](https://github.com/hydrogen-music/hydrogen), from the Hydrogen project | The internal drum kit's actual samples |
-| [Leland](https://github.com/musescore/MuseScore), from MuseScore | The SMuFL music font the drum notation is engraved with |
-| [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove), from Google Magenta | Part of the groove and fill library |
-| [midi-drums](https://github.com/fsecada01/midi-drums) | Part of the metal grooves and fills |
-| [DrumGroovePro](https://github.com/InToEtherion/DrumGroovePro) | Interface ideas for the drum browser and humanisation |
-| [TONE3000](https://www.tone3000.com) | The capture library the Tone Store reads (public API, free tier — not affiliated) |
+| Project | Credited as | What it gave this program |
+|---|---|---|
+| [Neural Amp Modeler](https://github.com/sdatkinson/NeuralAmpModelerCore) | Steven Atkinson | The neural amp engine itself — the core of the whole program |
+| [JUCE](https://juce.com) | Raw Material Software Limited | Audio framework, plugin format, UI toolkit |
+| [Airwindows](https://github.com/airwindows/airwindows) | Chris Johnson | **Ported** (MIT): Tape, Console and the Valve drive. Also studied for Ring Mod, Bitcrusher, Exciter and modulation |
+| [Guitarix](https://github.com/brummer10/guitarix) · [GxPlugins.lv2](https://github.com/brummer10/GxPlugins.lv2) | the Guitarix contributors | Studied: slow gear, wah, drive voicing, modulation |
+| [LSP Plugins](https://github.com/lsp-plugins/lsp-plugins) | the LSP Plugins contributors | Studied: compressor and de-esser behaviour |
+| [ToobAmp](https://github.com/rerdavies/ToobAmp) | the ToobAmp contributors | Studied: noise gate, pre-EQ, modulation |
+| [BYOD](https://github.com/Chowdhury-DSP/BYOD) | Chowdhury DSP | Studied: drive stages |
+| [Dragonfly Reverb](https://github.com/michaelwillis/dragonfly-reverb) | the Dragonfly Reverb contributors | Studied: reverb |
+| [rkrlv2](https://github.com/ssj71/rkrlv2) | the rkrlv2 contributors, porting Rakarrack | Studied: pitch shifter and harmonizer |
+| [GMRockKit](https://github.com/hydrogen-music/hydrogen) | Glen MacArthur · Sebastian Moors, via the Hydrogen project | The internal drum kit's actual samples |
+| [Leland](https://github.com/musescore/MuseScore) | MuseScore Limited | The SMuFL music font the drum notation is engraved with |
+| [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove) | Google LLC (Magenta) | Part of the groove and fill library |
+| [midi-drums](https://github.com/fsecada01/midi-drums) | fsecada01 | Part of the metal grooves and fills |
+| [DrumGroovePro](https://github.com/InToEtherion/DrumGroovePro) | InToEtherion | Interface ideas for the drum browser and humanisation |
+| [TONE3000](https://www.tone3000.com) | TONE3000 | The capture library the Tone Store reads (public API, free tier — not affiliated) |
 
-Credited by project rather than by person on purpose: these are projects I read and learned from, not people I know, and putting names to work I only met through a repository would be presumptuous — and easy to get wrong. The individual authors are named where their licenses require it, in [`THIRD_PARTY.md`](THIRD_PARTY.md), taken from each project's own notice.
+**About that middle column.** Every name in it was taken from the project's own licence or notice file, not from memory. Where a project **declares a named copyright holder**, that name is used — Airwindows (`Copyright (c) 2018 Chris Johnson`) and Neural Amp Modeler (`Copyright (c) 2023 Steven Atkinson`) both do, and those two are also the ones whose licences legally require the name to travel with the code.
+
+Most of the GPL projects here declare **no single holder** — their `LICENSE` is the plain GPL text and their README carries no copyright statement. For those, "the *X* contributors" is not a hedge, it is the accurate answer: they are years of work by more than one person, and inventing a single author for them would misrepresent that. If you maintain one of these and would rather be credited by name, open an issue and it will be changed.
 
 The projects marked *studied* are pinned as submodules under [`references/`](references/README.md) so any claim above can be checked against the real source. They are **not** compiled into, linked against, or shipped with this program.
 
