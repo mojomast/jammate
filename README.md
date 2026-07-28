@@ -12,15 +12,15 @@ This started from a simple wish: **something that keeps the guitarist company**.
 
 Not just another amp sim. Picking up the guitar alone tends to end the same way
 — the same riff, the same key, the same four bars, and then you put it down.
-What was missing was on the other side of the sound: something to play *against*,
+What was missing was on the other side of the sound: something **to play with**,
 something that answers back, something that makes the next idea show up.
 
 So it grew in that direction. The amp is the foundation, but around it there is a
-drummer you can write a groove for and play with, an arrangement that follows you
-through the sections of a song, a rig that changes on its own when the chorus
-arrives, and a recorder that keeps what you played before you forget it. **The aim
-is to help on the creative side** — to shorten the distance between an idea and
-hearing it out loud.
+drummer you can write a groove for, an arrangement that follows you through the
+sections of a song, a rig that changes on its own when the chorus arrives, and a
+recorder that keeps what you played before you forget it. **The aim is to help on
+the creative side** — to shorten the distance between an idea and hearing it out
+loud.
 
 Whether it manages that is for you to judge. It is what everything here was built
 towards.
@@ -116,7 +116,7 @@ Thank you to all of them. If you maintain one of these projects and something he
 - **Parallel rigs**: up to 3 complete **AMP+CAB** pairs (capture + own knobs + per-lane IR), always in pairs, summed in the **Mixer** card (per-rig blend + global AIR)
 - **Cab IR** by convolution (wav/aiff/flac, glitch-free swap), low/high cut and phase per lane
 - **Tone Store (TONE3000)**: sign-in and the whole catalogue **inside the app** (their own picker runs in an embedded browser), variation picker (mics/channels), downloads with progress, offline library, no re-downloads
-- **Drums to play against**: sequencer with real samples or a hosted drum VST3, editable notation, ~157 grooves and ~53 fills across 14 genres, groove generator
+- **Drums to play with**: sequencer with real samples or a hosted drum VST3, editable notation, ~157 grooves and ~53 fills across 14 genres, groove generator
 - **Song mode**: up to 8 sections, each with its own bars and its own **rig snapshot**, switched on the bar line while you play
 - **Real tuner** (NSDF pitch detection) with on/off
 - **Presets**: 1-click save, "Save as", modified indicator (•), factory presets, ◂ ▸ navigation
@@ -162,7 +162,7 @@ Each card loads straight into **AMP 1**; the small **▾** next to it targets a 
 
 You need a free TONE3000 account and your own API key — see [TONE3000 setup](#-tone3000-setup). It takes about a minute.
 
-### 3 · Drums — to play against
+### 3 · Drums — to play with
 
 ![Drums](docs/screenshots/02-drums.jpg)
 

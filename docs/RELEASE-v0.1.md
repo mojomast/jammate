@@ -1,7 +1,7 @@
 # Guitar Companion v0.1 — first public beta
 
 A companion for the guitarist: a neural amp sim built around the idea of having
-something to play *against*. Amp and cabinet from real captures, a drummer you
+something **to play with**. Amp and cabinet from real captures, a drummer you
 can write grooves for, an arrangement that follows you through a song, and a rig
 that changes on its own when the chorus arrives.
 
