@@ -885,8 +885,23 @@ StoreOverlay::StoreOverlay (GuitarRigNAMProcessor& p)
     applyPrevBtn.onClick = [this] { endPreview (true); };
     addChildComponent (applyPrevBtn);
 
-    retryButton.onClick = [this] { bannerError.clear(); resized(); doSearch (currentPage); };
-    dismissButton.onClick = [this] { bannerError.clear(); resized(); repaint(); };
+    // bannerRetryable goes back to true whenever a banner is dismissed or a new
+    // operation starts: only checkFormatSupported clears it, and that notice
+    // must not leave a later, genuinely retryable error without its button.
+    retryButton.onClick = [this]
+    {
+        bannerError.clear();
+        bannerRetryable = true;
+        resized();
+        doSearch (currentPage);
+    };
+    dismissButton.onClick = [this]
+    {
+        bannerError.clear();
+        bannerRetryable = true;
+        resized();
+        repaint();
+    };
     addChildComponent (retryButton);
     addChildComponent (dismissButton);
 
@@ -1310,6 +1325,7 @@ bool StoreOverlay::checkFormatSupported (const ToneCardComponent::Info& info)
     // the refusal, and it must survive if a long title ever gets appended here.
     bannerError = formatDisplayName (info.format)
                   + " tones are not supported - PedalForge opens NAM captures and IRs.";
+    bannerRetryable = false;   // reloading the grid changes nothing here
     resized();
     repaint();
     return false;
@@ -2114,6 +2130,7 @@ void StoreOverlay::doSearch (int)
         return;
 
     searching = true;
+    bannerRetryable = true;   // a fresh fetch: whatever it reports is retryable
     currentPage = totalPages = 1;
     cards.clear();
 
@@ -2395,7 +2412,7 @@ void StoreOverlay::resized()
                           : tab == Tab::explore ? 146 : 106;
     const int bannerY = toolsBottom + 4;
     const bool banner = bannerError.isNotEmpty();
-    retryButton.setVisible (banner);
+    retryButton.setVisible (banner && bannerRetryable);
     dismissButton.setVisible (banner);
     if (banner)
     {

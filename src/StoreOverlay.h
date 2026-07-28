@@ -240,6 +240,9 @@ private:
     int currentPage = 1, totalPages = 1;
     bool searching = false;
     juce::String bannerError;         // "" = no banner
+    /// False for notices that retrying cannot fix (an unsupported format stays
+    /// unsupported), so the banner does not offer a button that does nothing.
+    bool bannerRetryable = true;
 
     // header
     juce::TextButton closeButton { "X" };
