@@ -16,7 +16,33 @@ cmake --build build --config Release
 ```
 
 - ASIO is optional (see README). The Standalone runs on WASAPI with nothing extra.
+- The embedded TONE3000 browser needs the WebView2 SDK, which CMake downloads on
+  the first configure. Build offline with `-DPEDALFORGE_EMBEDDED_BROWSER=OFF`
+  (the store then uses the system browser, as it always did).
 - Run the Standalone: `build\GuitarRigNAM_artefacts\Release\Standalone\PedalForge NAM.exe`
+
+### 🧪 Dev flags
+
+Environment variables that open a screen straight away. They exist so a screen
+can be checked **deterministically** instead of by clicking at coordinates —
+which is fragile, and which has corrupted state here before (a synthetic drag
+landed on a knob mid-reflow). Prefer adding a flag over scripting clicks.
+
+| Variable | Values | Opens |
+|---|---|---|
+| `GUITARRIG_OPEN_STORE` | `explore` · `library` · `plugins` · `browse` · `rig1..rig3` | Tone Store. `browse` goes into the embedded TONE3000 picker; `rigN` aims the store at that rig (loads land in that amp/cab, and the card labels say so) |
+| `GUITARRIG_LOAD_MENU` | `1..3` | The amp card's LOAD/CHANGE CAPTURE menu for that lane (popup menus are their own window, so they cannot be captured any other way) |
+| `GUITARRIG_OPEN_DRUMS` | `1` · `play` · `grid` · `gen` · `genfill` · `meter` · `rig1..3` | Drums module |
+| `GUITARRIG_OPEN_SONG` | `1` | Song / Scenes |
+| `GUITARRIG_OPEN_AUDIO` | `1` | Audio & MIDI |
+| `GUITARRIG_STAGE` | `1` | Stage mode |
+| `GUITARRIG_TUNER` | `1` | Tuner on at start |
+| `GUITARRIG_EXT_PLUGIN` | `<path>` | Loads that VST3 into the external slot at start |
+| `GUITARRIG_DEBUGLOG` | `<file>` | Logs chain reordering (`setChainOrder`) |
+
+When a screenshot must include a popup menu, capture the **whole screen** and
+crop: do not call `SetForegroundWindow` after the menu is up, because JUCE
+closes it on focus loss.
 
 ## 🗂️ Code map
 
@@ -25,8 +51,9 @@ cmake --build build --config Release
 | `src/PluginProcessor.*` | Audio: DSP chain, parameters (APVTS), loading NAM models/IRs, presets, state |
 | `src/PluginEditor.*` | UI: top bar, chain (`ChainView`, drag-and-drop), tuner, knobs |
 | `src/LookAndFeel.h` | Theme (`ui::` palette), drawing of knobs/buttons/chips |
-| `src/StoreOverlay.*` | Tone Store (search/downloads/library UI) |
-| `src/Tone3000Client.*` | TONE3000 API: OAuth PKCE, search, downloads, images |
+| `src/StoreOverlay.*` | Tone Store (browse/downloads/library UI) |
+| `src/ToneWebView.*` | Embedded TONE3000 picker (WebView2): catches the OAuth redirect in `pageAboutToLoad` |
+| `src/Tone3000Client.*` | TONE3000 API: OAuth PKCE, prompt flows, downloads, images |
 | `src/DrumEngine.* · DrumOverlay.* · DrumGenerator.* · DrumLibrary.cpp` | Drums module: sequencer, staff/library UI, groove generator, factory library |
 
 ## ⚡ Golden rules

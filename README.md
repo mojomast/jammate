@@ -219,6 +219,11 @@ so you only do it once. The redirect above is still what your key registers —
 the panel simply catches it instead of a local web server. To sign in as a
 different account, use TONE3000's own account menu on the page inside the panel.
 
+The panel has an **A1 + CUSTOM / A2** switch. TONE3000 shows one model
+architecture at a time — and asking for none is not neutral, it means
+"A1 + Custom", which hides every A2-only tone behind a "Not supported" notice.
+PedalForge loads both, so flip the switch when a tone you want says that.
+
 Everyone uses their **own** key, so your downloads and your rate limit are yours and no credential ships in this repository.
 
 > ⚠️ **Security**: `tone3000.json` holds your key and your account's refresh token. It lives in `Documents\PedalForge NAM\` — **outside this repository** — and must never be committed anywhere.
