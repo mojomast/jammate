@@ -74,6 +74,33 @@ The internal drum sampler uses the samples of **GMRockKit** (see also
   See `assets/fonts/Leland-OFL.txt` and
   <https://github.com/musescore/MuseScore/tree/main/fonts/leland>.
 
+## Drum notation — MuseScore
+
+The Drums module's score owes MuseScore more than the font, and the font entry
+above understated it.
+
+Everything that is a *symbol* on that staff is a **SMuFL glyph from Leland**:
+the percussion clef (U+E069), the black and X note heads (U+E0A4, U+E0A9), the
+parentheses that mark ghost notes (U+E0F5/U+E0F6), the rests and the time
+signature digits. And the engraving those glyphs sit in — a percussion staff
+read as pitch-mapped voices, a time signature written only where it changes,
+beams grouped by the metre, ghosts in parentheses and accents above the head —
+is standard music engraving as **MuseScore renders it**, which is where those
+conventions were read from.
+
+To be precise about what that is and is not: **no MuseScore code was copied or
+ported**, and MuseScore is not a dependency of this program. The stems, beams
+and staff lines are drawn by this project's own vector code (`DrumOverlay.cpp`).
+What was taken is the font — under its OFL licence, as above — and the
+conventions, which are the shared vocabulary of written music and belong to
+nobody. The credit is here because "we used their font" would not describe what
+the screen actually shows.
+
+- **Source:** MuseScore — <https://github.com/musescore/MuseScore>
+- **SMuFL** (Standard Music Font Layout), the specification Leland implements,
+  is maintained by the W3C Music Notation Community Group —
+  <https://w3c.github.io/smufl/>.
+
 ## Adapted DSP code — Airwindows (MIT)
 
 Three effects are **ports of Airwindows code**, not merely inspired by it:

@@ -69,7 +69,7 @@ The projects this was built on top of, or learned from:
 | [Dragonfly Reverb](https://github.com/michaelwillis/dragonfly-reverb) | the Dragonfly Reverb contributors | Studied: reverb |
 | [rkrlv2](https://github.com/ssj71/rkrlv2) | the rkrlv2 contributors, porting Rakarrack | Studied: pitch shifter and harmonizer |
 | [GMRockKit](https://github.com/hydrogen-music/hydrogen) | Glen MacArthur · Sebastian Moors, via the Hydrogen project | The internal drum kit's actual samples |
-| [Leland](https://github.com/musescore/MuseScore) | MuseScore Limited | The SMuFL music font the drum notation is engraved with |
+| [MuseScore](https://github.com/musescore/MuseScore) | MuseScore Limited | The drum notation: its **Leland** font supplies the glyphs, and its engraving of a percussion staff is the language the score follows |
 | [Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove) | Google LLC (Magenta) | Part of the groove and fill library |
 | [midi-drums](https://github.com/fsecada01/midi-drums) | fsecada01 | Part of the metal grooves and fills |
 | [DrumGroovePro](https://github.com/InToEtherion/DrumGroovePro) | InToEtherion | Interface ideas for the drum browser and humanisation |
@@ -167,7 +167,7 @@ You need a free TONE3000 account and your own API key — see [TONE3000 setup](#
 
 ![Drums](docs/screenshots/02-drums.jpg)
 
-A drummer, not a metronome. The centre is **real music notation**: click a note to edit it, drag a groove from the library onto a bar to replace it. A song is up to **8 sections of 4 bars**, each bar with its own time signature — odd meters are first-class here.
+A drummer, not a metronome. The centre is **real music notation** — engraved with [MuseScore](https://github.com/musescore/MuseScore)'s Leland font, following how MuseScore draws a percussion staff. Click a note to edit it, drag a groove from the library onto a bar to replace it. A song is up to **8 sections of 4 bars**, each bar with its own time signature — odd meters are first-class here.
 
 The strip at the top mirrors your guitar chain, so you can tweak the amp without leaving the screen. **GENERATE** writes a groove for you from genre, style and complexity.
 
