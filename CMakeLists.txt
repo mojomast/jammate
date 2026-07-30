@@ -108,7 +108,15 @@ if(GUITAR_COMPANION_EMBEDDED_BROWSER AND WIN32)
 endif()
 
 juce_add_plugin(GuitarCompanion
-    COMPANY_NAME "Rapha"
+    # The vendor name a DAW shows in its plugin browser, and the CompanyName in
+    # the binaries' version info. Purely cosmetic: the id a host stores is built
+    # from PLUGIN_MANUFACTURER_CODE + PLUGIN_CODE (see jucePluginId), not from
+    # this, so renaming it does not orphan anyone's sessions.
+    COMPANY_NAME "Raphael Fukuda"
+    # Pinned so it stops being derived from COMPANY_NAME behind our backs.
+    # Unused on Windows (it is the macOS/AAX bundle id) but it should not drift
+    # silently every time the vendor name is edited.
+    BUNDLE_ID "com.raphaelfukuda.GuitarCompanion"
     PRODUCT_NAME "Guitar Companion"
     PLUGIN_MANUFACTURER_CODE Raph
     # Changed with the rename, while the plugin is still pre-release: this is

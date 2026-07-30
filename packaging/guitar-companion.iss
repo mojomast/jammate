@@ -11,7 +11,7 @@
 
 #define AppName        "Guitar Companion"
 #define AppVersion     "0.1"
-#define AppPublisher   "Rapha"
+#define AppPublisher   "Raphael Fukuda"
 #define AppUrl         "https://github.com/raphaelfukuda/Guitar-Companion"
 #define ExeName        "Guitar Companion.exe"
 #define Vst3Name       "Guitar Companion.vst3"
