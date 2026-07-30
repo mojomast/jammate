@@ -221,8 +221,20 @@ Requirements: **Windows 10 or 11, 64-bit**.
 > [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
 > (free, from Microsoft).
 
-Prefer not to install? The release also has the plain build if you would rather
-copy the files yourself.
+### Just the plug-in, no installer
+
+If you only want the VST3 in your DAW, take
+**`Guitar-Companion-0.1-VST3-win64.zip`** from the same
+[releases page](../../releases) instead. Unzip it and drop the whole
+`Guitar Companion.vst3` **folder** into either
+`C:\Program Files\Common Files\VST3` (all users, needs admin) or
+`%LOCALAPPDATA%\Programs\Common\VST3` (just you, no admin), then rescan
+plug-ins. To uninstall, delete the folder — that is the whole story.
+
+It is the same plug-in the installer puts there; the installer only adds the
+standalone application, the shortcuts and an entry in Add/Remove Programs.
+Either way your presets, captures and recordings live in
+`Documents\Guitar Companion` and are never touched by removing the plug-in.
 
 ## 🔧 Build (Windows)
 
