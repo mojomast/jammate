@@ -112,10 +112,13 @@ public:
     /// Loudness in dB as measured by the NAM trainer. Captures are published
     /// anywhere from -30 to -10 dB, which is why parallel rigs rarely match.
     static constexpr double kUnknownLoudness = 1.0e9;
-    /// What ALIGN levels every lane to. -18 dB is the Neural Amp Modeler
-    /// plugin's own reference, so a capture lands at the same place here as
-    /// it does anywhere else in the NAM ecosystem.
-    static constexpr double kAlignTargetDb = -18.0;
+    /// What ALIGN levels every lane to.
+    ///
+    /// NOT -18 dB, which is where this started. -18 is the Neural Amp Modeler
+    /// reference for AVERAGE level, and a guitar peaks 12-18 dB above its
+    /// average - aiming the average at -18 puts the transients on top of
+    /// 0 dBFS and the output clips. -30 leaves that peak headroom.
+    static constexpr double kAlignTargetDb = -30.0;
 
     /// Raw "gear_type" ("amp", "amp_cab", "full-rig"...); empty when the
     /// capture carries no such field - roughly a third of them do not.

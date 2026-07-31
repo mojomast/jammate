@@ -3493,7 +3493,10 @@ int GuitarCompanionProcessor::alignRigLevels()
             continue;
 
         const auto range = apvts.getParameterRange ("cab" + juce::String (r + 1) + "Trim");
-        const float wanted = juce::jlimit (range.start, range.end,
+        // Never positive: aligning by pushing the quiet lane UP spends headroom
+        // that the loud lane already needed. Volume left on the table is one
+        // knob away; a clipped peak is not recoverable.
+        const float wanted = juce::jlimit (range.start, 0.0f,
                                            (float) (kAlignTargetDb - loud));
         p->beginChangeGesture();
         p->setValueNotifyingHost (range.convertTo0to1 (wanted));

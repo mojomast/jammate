@@ -3484,9 +3484,9 @@ RigContent::RigContent (GuitarCompanionProcessor& p)
     alignButton.setButtonText ("ALIGN");
     alignButton.getProperties().set ("ghost", true);
     alignButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
-        "Fill every rig's TRIM so the captures meet at -18 dB, the Neural Amp "
-        "Modeler reference. Reads each capture's own loudness; captures that do "
-        "not carry one are left alone.")));
+        "Fill every rig's TRIM so the captures meet at the same level, read from "
+        "each one's own loudness. Only ever turns lanes DOWN, so it never spends "
+        "your headroom. Captures with no loudness value are left alone.")));
     alignButton.setMouseClickGrabsKeyboardFocus (false);
     alignButton.onClick = [this]
     {
