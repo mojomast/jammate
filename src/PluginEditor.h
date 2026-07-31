@@ -322,6 +322,7 @@ private:
     std::unique_ptr<KnobComponent> cabLcKnob[maxRigs];
     std::unique_ptr<KnobComponent> cabHcKnob[maxRigs];
     juce::TextButton cabPhaseChips[maxRigs];
+    juce::TextButton cabIrOnChips[maxRigs];
     juce::TextButton cabIrButtons[maxRigs];
     // "variations" selector on the cab card: other IRs/captures of the same
     // TONE3000 cab tone (only for IRs loaded from the store, tone_id in .meta).
@@ -368,6 +369,7 @@ private:
     std::unique_ptr<Attachment> wahAtt, harmAtt, octAtt, rmAtt, bcAtt, sgAtt, excAtt,
         dsAtt, tapeAtt, cnsAtt, anAtt;
     std::unique_ptr<Attachment> cabPhaseAtt[GuitarCompanionProcessor::maxCabSlots];
+    std::unique_ptr<Attachment> cabIrOnAtt[GuitarCompanionProcessor::maxCabSlots];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChainView)
 };
@@ -448,8 +450,15 @@ private:
     // vertical meter + PEAK tag + "+ PARALLEL RIG"
     juce::Rectangle<int> outputCardB, outputMeterB;
     std::unique_ptr<KnobComponent> rigLevelKnob[GuitarCompanionProcessor::maxRigs];
+    std::unique_ptr<KnobComponent> rigTrimKnob[GuitarCompanionProcessor::maxRigs];
     std::unique_ptr<KnobComponent> airKnob, outLevelKnob;
     juce::TextButton rigSegButtons[GuitarCompanionProcessor::maxRigs];
+    // per-lane mute, so one chain can be judged against another without
+    // losing the blend you dialled in
+    juce::TextButton rigOnButtons[GuitarCompanionProcessor::maxRigs];
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+        rigOnAtt[GuitarCompanionProcessor::maxRigs];
+    juce::TextButton alignButton;
     juce::TextButton addRigButton;
     int rigCountSeen = 0;                 // relayout the OUTPUT card on change
     void setRigCountParam (int count);

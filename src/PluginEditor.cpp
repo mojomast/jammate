@@ -670,6 +670,20 @@ ChainView::ChainView (GuitarCompanionProcessor& p, std::function<void (int)> onL
                                                        cabPhaseChips[r]);
         addChildComponent (cabPhaseChips[r]);
 
+        // Per-lane IR switch. Clears itself when the capture already contains a
+        // cabinet, which is the common case people never notice: an amp_cab
+        // capture with an IR after it is two cabinets stacked.
+        cabIrOnChips[r].setButtonText ("IR");
+        cabIrOnChips[r].getProperties().set ("chip", true);
+        cabIrOnChips[r].setClickingTogglesState (true);
+        cabIrOnChips[r].setTooltip (
+            "Use this lane's IR. Switched off on its own when the loaded capture "
+            "already includes the cabinet - turn it back on if you want both.");
+        cabIrOnChips[r].setMouseClickGrabsKeyboardFocus (false);
+        cabIrOnAtt[r] = std::make_unique<Attachment> (apvts, "cab" + n + "IrOn",
+                                                      cabIrOnChips[r]);
+        addChildComponent (cabIrOnChips[r]);
+
         cabIrButtons[r].setButtonText ("CHANGE");   // narrow card: no room for the caret
         cabIrButtons[r].setTooltip ("Add an IR from the TONE3000 store or a local file");
         cabIrButtons[r].setMouseClickGrabsKeyboardFocus (false);
@@ -2210,6 +2224,7 @@ void ChainView::resized()
             cabLcKnob[r]->setVisible (active);
             cabHcKnob[r]->setVisible (active);
             cabPhaseChips[r].setVisible (active);
+            cabIrOnChips[r].setVisible (active);
             cabIrButtons[r].setVisible (active);
             if (! active)
                 continue;
@@ -2272,6 +2287,9 @@ void ChainView::resized()
             if (! compact)
             {
                 cabPhaseChips[r].setBounds (cabB.getRight() - 12 - 26, cabB.getY() + 36, 26, 20);
+                // clear of the arch badge on the left (x+12) and the phase chip
+                // on the right; the name/photo row below is untouched
+                cabIrOnChips[r].setBounds (cabB.getX() + 44, cabB.getY() + 36, 26, 20);
                 cabLcKnob[r]->setBounds (cabB.getX() + 25, cabB.getY() + 156, 40, 40 + 26);
                 cabHcKnob[r]->setBounds (cabB.getX() + 85, cabB.getY() + 156, 40, 40 + 26);
                 {
@@ -2288,6 +2306,7 @@ void ChainView::resized()
             else
             {
                 cabPhaseChips[r].setBounds (cabB.getRight() - 10 - 26, cabB.getY() + 32, 26, 20);
+                cabIrOnChips[r].setBounds (cabB.getX() + 10, cabB.getY() + 32, 26, 20);
                 const int kh2 = 36 + 26;
                 const int ky = cabB.getY() + 34 + (cabB.getHeight() - 34 - 30 - kh2) / 2;
                 cabLcKnob[r]->setBounds (cabB.getX() + 27, ky, 36, kh2);
@@ -2783,8 +2802,13 @@ void ChainView::paint (juce::Graphics& g)
             drawPedalFrame (g, cabB, count > 1 ? "Cab " + juce::String (s + 1)
                                                : juce::String ("Cab IR"), {});
 
-            // IR's V1/V2 badge (when TONE3000 reports it via .meta)
-            if (const auto irArch = archBadgeForIr (s); irArch.isNotEmpty())
+            // IR's V1/V2 badge (when TONE3000 reports it via .meta).
+            // Large card only: on the stacked 150 px card this badge, the new
+            // IR on/off chip and the IR's name all want the same row, and only
+            // two of the three fit. The chip wins - it is a control, the badge
+            // is a label, and the label is still in the CHANGE menu.
+            if (const auto irArch = compact ? juce::String() : archBadgeForIr (s);
+                irArch.isNotEmpty())
             {
                 auto badge = juce::Rectangle<float> ((float) cabB.getX() + 12.0f,
                                                      (float) cabB.getY() + (compact ? 32.0f : 38.0f),
@@ -2807,7 +2831,41 @@ void ChainView::paint (juce::Graphics& g)
 
             // photo (only on the large card) or IR name
             const auto irName = processor.getIrName (s);
-            if (! compact && cabImages[s].isValid())
+            const bool irOn = processor.apvts
+                                  .getRawParameterValue ("cab" + juce::String (s + 1) + "IrOn")
+                                  ->load() > 0.5f;
+
+            // The compact card is 150 px wide and this line shares its row with
+            // the phase chip on the right. That is why the IR chip went to the
+            // LEFT margin instead of beside it: squeezing both onto the right
+            // left ~32 px of text, which truncated even the IR's name.
+            const juce::Rectangle<int> irTextB (
+                cabB.getX() + (compact ? 46 : 12), cabB.getY() + (compact ? 32 : 60),
+                cabB.getWidth() - (compact ? 84 : 24), compact ? 22 : 34);
+            const int irTextLines = compact ? 2 : 3;
+
+            if (! irOn && irName.isNotEmpty())
+            {
+                // An IR is loaded but not being used. Say WHY, otherwise this
+                // reads as a bug - the cab card looks armed and sounds bypassed.
+                g.setFont (ui::monoFont (8.5f));
+                g.setColour (juce::Colour (0xff8a929c));
+                g.drawFittedText (processor.modelIncludesCab (s)
+                                      ? juce::String ("IR off: capture has a cab")
+                                      : juce::String ("IR off"),
+                                  irTextB, juce::Justification::topLeft, irTextLines);
+            }
+            else if (irOn && irName.isNotEmpty() && processor.modelIncludesCab (s))
+            {
+                // The IR was armed AFTER a capture that already has a cabinet -
+                // an explicit choice, so it is not overridden here. But it IS
+                // two cabinets in series, and that should not be a silent one.
+                g.setFont (ui::monoFont (8.5f));
+                g.setColour (ui::glowOrange);
+                g.drawFittedText ("2 cabs: capture + this IR", irTextB,
+                                  juce::Justification::topLeft, irTextLines);
+            }
+            else if (! compact && cabImages[s].isValid())
             {
                 drawPhoto (g, cabImages[s], { cabB.getX() + 12, cabB.getY() + 60,
                                               cabB.getWidth() - 24, 46 });
@@ -2819,9 +2877,7 @@ void ChainView::paint (juce::Graphics& g)
                 g.drawFittedText (irName.isNotEmpty()
                                       ? irName
                                       : juce::String ("- no IR -"),
-                                  cabB.getX() + (compact ? 46 : 12), cabB.getY() + (compact ? 32 : 60),
-                                  cabB.getWidth() - (compact ? 84 : 24), compact ? 22 : 34,
-                                  juce::Justification::topLeft, compact ? 2 : 3);
+                                  irTextB, juce::Justification::topLeft, irTextLines);
             }
         }
     }
@@ -3396,6 +3452,26 @@ RigContent::RigContent (GuitarCompanionProcessor& p)
         rigLevelKnob[r]->setKnobTooltip ("How much of rig " + n + " enters the output sum");
         addChildComponent (*rigLevelKnob[r]);
 
+        rigTrimKnob[r] = std::make_unique<KnobComponent> (
+            processor.apvts, "cab" + n + "Trim", "TRIM", formatDb);
+        rigTrimKnob[r]->setKnobTooltip (
+            "Level match for rig " + n + ". Captures are published anywhere from "
+            "-30 to -10 dB, so parallel rigs rarely meet on their own - ALIGN fills "
+            "this in from each capture's own loudness.");
+        addChildComponent (*rigTrimKnob[r]);
+
+        rigOnButtons[r].setButtonText ("ON");
+        rigOnButtons[r].getProperties().set ("chip", true);
+        rigOnButtons[r].setClickingTogglesState (true);
+        rigOnButtons[r].setTooltip (
+            "Mute rig " + n + " without touching its blend, to A/B one chain "
+            "against another. A muted lane skips its capture entirely, so it "
+            "costs no CPU either.");
+        rigOnButtons[r].setMouseClickGrabsKeyboardFocus (false);
+        rigOnAtt[r] = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+            processor.apvts, "cab" + n + "On", rigOnButtons[r]);
+        addChildComponent (rigOnButtons[r]);
+
         rigSegButtons[r].setButtonText (n);
         rigSegButtons[r].getProperties().set ("chip", true);
         rigSegButtons[r].setTooltip (juce::String (juce::CharPointer_UTF8 (
@@ -3404,6 +3480,37 @@ RigContent::RigContent (GuitarCompanionProcessor& p)
         rigSegButtons[r].onClick = [this, r] { setRigCountParam (r + 1); };
         addAndMakeVisible (rigSegButtons[r]);
     }
+
+    alignButton.setButtonText ("ALIGN");
+    alignButton.getProperties().set ("ghost", true);
+    alignButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Fill every rig's TRIM so the captures meet at -18 dB, the Neural Amp "
+        "Modeler reference. Reads each capture's own loudness; captures that do "
+        "not carry one are left alone.")));
+    alignButton.setMouseClickGrabsKeyboardFocus (false);
+    alignButton.onClick = [this]
+    {
+        // The TRIM knobs moving IS the feedback - that is the whole reason the
+        // compensation is a visible control instead of a hidden gain. The only
+        // case needing words is the one where nothing moves.
+        if (processor.alignRigLevels() > 0)
+            return;
+
+        alignButton.setButtonText ("NO DATA");
+        alignButton.setEnabled (false);
+        // MSVC: `this` inside a nested lambda's init-capture resolves to the
+        // wrong class here - take the SafePointer OUTSIDE the inner lambda.
+        auto* self = this;
+        juce::Component::SafePointer<juce::Component> safe (this);
+        juce::Timer::callAfterDelay (1400, [self, safe]
+        {
+            if (safe == nullptr)
+                return;
+            self->alignButton.setButtonText ("ALIGN");
+            self->alignButton.setEnabled (true);
+        });
+    };
+    addAndMakeVisible (alignButton);
 
     // "rig" was misleading: what this adds in parallel is an AMP+CAB pair, not
     // a whole second chain
@@ -3783,22 +3890,48 @@ void RigContent::resized()
         const int count = processor.getRigCount();
         const int kw = 40, kh = kw + 26;
         const int rowW = count * kw + (count - 1) * 8;
+        const int blendY = outputCardB.getY() + 82;
+        const int onY = blendY + kh + 2;            // mute chip under its own knob
+        const int trimY = onY + 22;
+        const int alignY = trimY + kh - 8;
         for (int r = 0; r < GuitarCompanionProcessor::maxRigs; ++r)
         {
-            if (rigLevelKnob[r] == nullptr)
-                continue;
-            rigLevelKnob[r]->setVisible (! perfMode && r < count);
-            if (r < count)
-                rigLevelKnob[r]->setBounds (cx - rowW / 2 + r * (kw + 8),
-                                            outputCardB.getY() + 82, kw, kh);
-        }
-        if (airKnob != nullptr)
-            airKnob->setBounds (cx - 46, outputCardB.getY() + 158, 42, 42 + 26);
-        if (outLevelKnob != nullptr)
-            outLevelKnob->setBounds (cx + 4, outputCardB.getY() + 158, 42, 42 + 26);
+            const bool show = ! perfMode && r < count;
+            const int x = cx - rowW / 2 + r * (kw + 8);
 
-        outputMeterB = { cx - 5, outputCardB.getY() + 240,
-                         10, outputCardB.getBottom() - 88 - (outputCardB.getY() + 240) };
+            if (rigLevelKnob[r] != nullptr)
+            {
+                rigLevelKnob[r]->setVisible (show);
+                if (r < count)
+                    rigLevelKnob[r]->setBounds (x, blendY, kw, kh);
+            }
+            if (rigTrimKnob[r] != nullptr)
+            {
+                rigTrimKnob[r]->setVisible (show);
+                if (r < count)
+                    rigTrimKnob[r]->setBounds (x, trimY, kw, kh);
+            }
+            rigOnButtons[r].setVisible (show);
+            if (r < count)
+                rigOnButtons[r].setBounds (x, onY, kw, 20);
+        }
+        alignButton.setVisible (! perfMode);
+        // centred on the card, not on the knob row: with a single rig the row is
+        // only 40 px and the button would hang off to the right of it
+        const int alignW = juce::jmax (rowW, 96);
+        alignButton.setBounds (cx - alignW / 2, alignY, alignW, 22);
+
+        const int knobsY = alignY + 30;
+        if (airKnob != nullptr)
+            airKnob->setBounds (cx - 46, knobsY, 42, 42 + 26);
+        if (outLevelKnob != nullptr)
+            outLevelKnob->setBounds (cx + 4, knobsY, 42, 42 + 26);
+
+        // The meter takes whatever is left between the knobs and the ADD button
+        // instead of a fixed top: the rows above it grow with the rig count.
+        const int meterTop = knobsY + 42 + 26 + 14;
+        outputMeterB = { cx - 5, meterTop,
+                         10, juce::jmax (24, outputCardB.getBottom() - 88 - meterTop) };
         addRigButton.setBounds (outputCardB.getX() + 12, outputCardB.getBottom() - 38,
                                 outputCardB.getWidth() - 24, 26);
     }

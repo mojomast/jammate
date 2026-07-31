@@ -107,6 +107,29 @@ public:
     juce::String getModelArchLabel (int lane) const;
 
     //==========================================================================
+    // Capture metadata read from the .nam itself (message thread)
+
+    /// Loudness in dB as measured by the NAM trainer. Captures are published
+    /// anywhere from -30 to -10 dB, which is why parallel rigs rarely match.
+    static constexpr double kUnknownLoudness = 1.0e9;
+    /// What ALIGN levels every lane to. -18 dB is the Neural Amp Modeler
+    /// plugin's own reference, so a capture lands at the same place here as
+    /// it does anywhere else in the NAM ecosystem.
+    static constexpr double kAlignTargetDb = -18.0;
+
+    /// Raw "gear_type" ("amp", "amp_cab", "full-rig"...); empty when the
+    /// capture carries no such field - roughly a third of them do not.
+    juce::String getModelGearType (int lane) const;
+    /// true only when the gear type SAYS a cabinet is baked in. Unknown gear
+    /// is never guessed: a false positive here silently kills someone's IR.
+    bool modelIncludesCab (int lane) const;
+    /// kUnknownLoudness when the capture has no loudness field.
+    double getModelLoudnessDb (int lane) const;
+    /// Fills every loaded lane's trim so the captures meet at kAlignTargetDb.
+    /// Returns how many lanes it could align.
+    int alignRigLevels();
+
+    //==========================================================================
     // Cab IR - one per rig lane (message thread)
 
     static constexpr int maxCabSlots = maxRigs;
@@ -439,7 +462,14 @@ private:
     juce::String modelNames[maxRigs], modelPaths[maxRigs], loadError;   // under modelInfoLock
     juce::String modelPathsStd[maxRigs], modelPathsEco[maxRigs];        // ECO pair
     juce::String modelArchLabels[maxRigs];                              // "A1"/"A2"
+    juce::String modelGearTypes[maxRigs];                               // under modelInfoLock
+    double modelLoudnessDb[maxRigs] = { kUnknownLoudness, kUnknownLoudness,
+                                        kUnknownLoudness };             // under modelInfoLock
     double modelExpectedSampleRates[maxRigs] = { -1.0, -1.0, -1.0 };
+    /// Set while applyState is restoring a preset/DAW session, so the
+    /// "capture already has a cab" detection never overwrites a saved IR
+    /// switch with its own opinion.
+    std::atomic<bool> restoringState { false };
     juce::String currentPresetName;                      // under modelInfoLock
 
     juce::AudioBuffer<float> monoScratch;
@@ -549,6 +579,9 @@ private:
     std::atomic<float>* pCabLowCut[maxCabSlots] = {};
     std::atomic<float>* pCabHighCut[maxCabSlots] = {};
     std::atomic<float>* pCabPhase[maxCabSlots] = {};
+    std::atomic<float>* pRigOn[maxCabSlots] = {};
+    std::atomic<float>* pCabIrOn[maxCabSlots] = {};
+    std::atomic<float>* pCabTrim[maxCabSlots] = {};
     std::atomic<float>* pOdOn = nullptr;
     std::atomic<float>* pOdDrive = nullptr;
     std::atomic<float>* pOdTone = nullptr;

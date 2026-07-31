@@ -633,6 +633,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout GuitarCompanionProcessor::cr
             juce::AudioParameterFloatAttributes().withLabel ("Hz")));
         layout.add (std::make_unique<BoolParam> (
             juce::ParameterID { "cab" + n + "Phase", 1 }, "Cab " + n + " Phase", false));
+        // Per-lane mute: silences the rig WITHOUT touching its blend, so
+        // A/B-ing one chain against another does not cost you the mix you set.
+        layout.add (std::make_unique<BoolParam> (
+            juce::ParameterID { "cab" + n + "On", 1 }, "Rig " + n + " On", true));
+        // Per-lane IR enable. Auto-cleared when the capture already contains the
+        // cabinet (see applyCabDetectionForLane) and freely re-armable by hand.
+        layout.add (std::make_unique<BoolParam> (
+            juce::ParameterID { "cab" + n + "IrOn", 1 }, "Cab " + n + " IR On", true));
+        // Level match between lanes. Captures are published anywhere from
+        // -30 to -10 dB, so parallel rigs almost never sit at the same volume;
+        // ALIGN fills this from each capture's own "loudness" metadata.
+        layout.add (std::make_unique<FloatParam> (
+            juce::ParameterID { "cab" + n + "Trim", 1 }, "Rig " + n + " Trim",
+            juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f), 0.0f, dB));
     }
 
     layout.add (std::make_unique<BoolParam> (
@@ -795,6 +809,9 @@ GuitarCompanionProcessor::GuitarCompanionProcessor()
         pCabLowCut[s] = apvts.getRawParameterValue ("cab" + n + "LowCut");
         pCabHighCut[s] = apvts.getRawParameterValue ("cab" + n + "HighCut");
         pCabPhase[s] = apvts.getRawParameterValue ("cab" + n + "Phase");
+        pRigOn[s] = apvts.getRawParameterValue ("cab" + n + "On");
+        pCabIrOn[s] = apvts.getRawParameterValue ("cab" + n + "IrOn");
+        pCabTrim[s] = apvts.getRawParameterValue ("cab" + n + "Trim");
     }
     pOdOn = apvts.getRawParameterValue (kParamOdOn);
     pOdDrive = apvts.getRawParameterValue (kParamOdDrive);
@@ -2955,6 +2972,12 @@ void GuitarCompanionProcessor::processAmpAndCabs (juce::AudioBuffer<float>& buff
 
     for (int r = 0; r < count; ++r)
     {
+        // Muted lane: skip the whole thing, not just the sum. The NAM model is
+        // the most expensive block in the plugin, and a lane you switched off to
+        // compare chains has no reason to keep burning CPU.
+        if (pRigOn[r]->load() < 0.5f)
+            continue;
+
         float* lane = cabSlotBuf.getWritePointer (0);
         juce::FloatVectorOperations::copy (lane, cabDryBuf.getReadPointer (0), n);
 
@@ -2963,7 +2986,10 @@ void GuitarCompanionProcessor::processAmpAndCabs (juce::AudioBuffer<float>& buff
 
         if (cabOn)
         {
-            if (irLoadedFlags[r].load() && convolutions[r].getCurrentIRSize() > 0)
+            // Per-lane IR switch on top of the global one: a capture that
+            // already contains the cabinet clears it (double cab = mud).
+            if (pCabIrOn[r]->load() > 0.5f
+                && irLoadedFlags[r].load() && convolutions[r].getCurrentIRSize() > 0)
             {
                 juce::dsp::AudioBlock<float> block (&lane, 1, (size_t) n);
                 juce::dsp::ProcessContextReplacing<float> ctx (block);
@@ -2983,8 +3009,9 @@ void GuitarCompanionProcessor::processAmpAndCabs (juce::AudioBuffer<float>& buff
                 }
         }
 
-        // Mixer: per-lane blend (+ phase inversion)
+        // Mixer: per-lane blend x level-match trim (+ phase inversion)
         const float g = (pCabBlend[r]->load() / 100.0f)
+                        * juce::Decibels::decibelsToGain (pCabTrim[r]->load())
                         * (pCabPhase[r]->load() > 0.5f ? -1.0f : 1.0f);
         if (g != 0.0f)
             juce::FloatVectorOperations::addWithMultiply (
@@ -3148,6 +3175,9 @@ void GuitarCompanionProcessor::setChainOrder (const juce::StringArray& ids)
 }
 
 //==============================================================================
+// defined with the other capture-metadata helpers, below
+static bool gearTypeIncludesCab (const juce::String& gearType);
+
 void GuitarCompanionProcessor::loadModelAsync (int lane, const juce::File& file)
 {
     if (lane < 0 || lane >= maxRigs)
@@ -3171,7 +3201,12 @@ void GuitarCompanionProcessor::loadModelAsync (int lane, const juce::File& file)
     if (forScene)
         sceneLoadsPending.fetch_add (1);
 
-    loaderPool.addJob ([this, lane, file, forScene]
+    // Only a load the USER asked for may re-decide the IR switch. Restoring a
+    // preset, a scene or a DAW session must reproduce what was saved, even if
+    // that means an IR stacked on a capture that already has a cab.
+    const bool userInitiated = ! forScene && ! restoringState.load();
+
+    loaderPool.addJob ([this, lane, file, forScene, userInitiated]
     {
         auto lm = std::make_unique<LoadedModel>();
         juce::String error;
@@ -3243,6 +3278,10 @@ void GuitarCompanionProcessor::loadModelAsync (int lane, const juce::File& file)
             modelPaths[lane] = file.getFullPathName();
             modelExpectedSampleRates[lane] = lm->modelSampleRate;
             modelArchLabels[lane] = archLabel;   // "" -> resolved after the swap
+            // Cleared here, not left stale: until the parse below runs, this
+            // lane must not report the PREVIOUS capture's gear or loudness.
+            modelGearTypes[lane].clear();
+            modelLoudnessDb[lane] = kUnknownLoudness;
             loadError.clear();
         }
 
@@ -3263,20 +3302,53 @@ void GuitarCompanionProcessor::loadModelAsync (int lane, const juce::File& file)
             setLatencySamples (juce::jmax (getLatencySamples(), latency));
         });
 
-        // Architecture badge, expensive half: with no sidecar we have to parse
-        // the whole multi-MB .nam a SECOND time (A2 = SlimmableContainer), so
-        // it deliberately runs after the swap - it is only a label.
-        if (archLabel.isEmpty())
+        // Capture metadata, expensive half: parsing the whole multi-MB .nam a
+        // SECOND time. It deliberately runs AFTER the swap - none of it touches
+        // audio, so the guitar is already playing while this happens.
+        //
+        // This used to be skipped when the sidecar had already given us the
+        // architecture. It cannot be any more: "gear_type" and "loudness" live
+        // only inside the .nam, and they are what drive the IR auto-switch and
+        // ALIGN. The sidecar still saves the badge from being blank meanwhile.
         {
             const auto namJson = juce::JSON::parse (file.loadFileAsString());
             const auto arch = namJson.getProperty ("architecture", "").toString();
-            if (arch.isNotEmpty())
+            const auto meta = namJson.getProperty ("metadata", {});
+            const auto gear = meta.getProperty ("gear_type", "").toString();
+            const auto loudVar = meta.getProperty ("loudness", {});
+
+            bool cabIsBakedIn = false;
             {
                 const juce::ScopedLock sl (modelInfoLock);
                 // only if the lane still holds this capture (a newer load may have won)
                 if (modelPaths[lane] == file.getFullPathName())
-                    modelArchLabels[lane] = arch.containsIgnoreCase ("slimmable") ? "A2" : "A1";
+                {
+                    if (archLabel.isEmpty() && arch.isNotEmpty())
+                        modelArchLabels[lane] = arch.containsIgnoreCase ("slimmable") ? "A2" : "A1";
+
+                    modelGearTypes[lane] = gear;
+                    modelLoudnessDb[lane] = loudVar.isDouble() || loudVar.isInt()
+                                                ? (double) loudVar : kUnknownLoudness;
+                    cabIsBakedIn = gearTypeIncludesCab (gear);
+                }
             }
+
+            // The capture already contains the cabinet, so a loaded IR would be
+            // a SECOND one on top of it. Only ever switches the IR OFF, and only
+            // on a load the user asked for - see userInitiated.
+            if (cabIsBakedIn && userInitiated)
+                juce::MessageManager::callAsync ([this, lane, path = file.getFullPathName()]
+                {
+                    if (getModelPath (lane) != path)
+                        return;   // a newer capture won the lane while we queued
+                    if (auto* p = apvts.getParameter ("cab" + juce::String (lane + 1) + "IrOn"))
+                        if (p->getValue() > 0.5f)
+                        {
+                            p->beginChangeGesture();
+                            p->setValueNotifyingHost (0.0f);
+                            p->endChangeGesture();
+                        }
+                });
         }
 
         loading.store (false);
@@ -3310,6 +3382,8 @@ void GuitarCompanionProcessor::unloadModelLane (int lane)
         modelPathsStd[lane].clear();
         modelPathsEco[lane].clear();
         modelArchLabels[lane].clear();
+        modelGearTypes[lane].clear();
+        modelLoudnessDb[lane] = kUnknownLoudness;
         modelExpectedSampleRates[lane] = -1.0;
     }
 
@@ -3365,6 +3439,69 @@ juce::String GuitarCompanionProcessor::getModelArchLabel (int lane) const
         return {};
     const juce::ScopedLock sl (modelInfoLock);
     return modelArchLabels[lane];
+}
+
+// Two vocabularies meet here. The NAM trainer writes snake_case and composes
+// the signal chain into the name ("amp", "amp_cab", "amp_cab_mic",
+// "pedal_amp_cab"); TONE3000 publishes hyphenated gear ("amp-cab", "full-rig").
+// Either way the question is the same: is a cabinet already in this capture?
+// A bare "cab" counts - that is a cab capture, and an IR after it is a second one.
+static bool gearTypeIncludesCab (const juce::String& gearType)
+{
+    const auto g = gearType.toLowerCase();
+    if (g.isEmpty())
+        return false;   // unknown is NOT a yes: never guess someone's IR away
+    return g.contains ("cab") || g.contains ("full-rig") || g.contains ("full_rig");
+}
+
+juce::String GuitarCompanionProcessor::getModelGearType (int lane) const
+{
+    if (lane < 0 || lane >= maxRigs)
+        return {};
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelGearTypes[lane];
+}
+
+bool GuitarCompanionProcessor::modelIncludesCab (int lane) const
+{
+    return gearTypeIncludesCab (getModelGearType (lane));
+}
+
+double GuitarCompanionProcessor::getModelLoudnessDb (int lane) const
+{
+    if (lane < 0 || lane >= maxRigs)
+        return kUnknownLoudness;
+    const juce::ScopedLock sl (modelInfoLock);
+    return modelLoudnessDb[lane];
+}
+
+int GuitarCompanionProcessor::alignRigLevels()
+{
+    // Writes the trims instead of compensating behind the scenes: you can see
+    // how much each lane was moved, and you can overrule any of it by hand.
+    const int count = getRigCount();
+    int aligned = 0;
+
+    for (int r = 0; r < count; ++r)
+    {
+        const double loud = getModelLoudnessDb (r);
+        if (loud >= kUnknownLoudness)
+            continue;   // no loudness in this capture - leave its trim alone
+
+        auto* p = apvts.getParameter ("cab" + juce::String (r + 1) + "Trim");
+        if (p == nullptr)
+            continue;
+
+        const auto range = apvts.getParameterRange ("cab" + juce::String (r + 1) + "Trim");
+        const float wanted = juce::jlimit (range.start, range.end,
+                                           (float) (kAlignTargetDb - loud));
+        p->beginChangeGesture();
+        p->setValueNotifyingHost (range.convertTo0to1 (wanted));
+        p->endChangeGesture();
+        ++aligned;
+    }
+
+    return aligned;
 }
 
 juce::String GuitarCompanionProcessor::getModelName (int lane) const
@@ -3629,6 +3766,17 @@ void GuitarCompanionProcessor::applyState (juce::ValueTree state)
 {
     if (! state.isValid())
         return;
+
+    // Everything below can fire capture loads, and a load normally gets to
+    // decide the lane's IR switch. Restoring must not: the saved state is the
+    // authority here, even when it disagrees with what the .nam suggests.
+    // Scoped (not set/clear) because applyState has returns further down.
+    struct RestoreGuard
+    {
+        std::atomic<bool>& flag;
+        explicit RestoreGuard (std::atomic<bool>& f) : flag (f) { flag.store (true); }
+        ~RestoreGuard() { flag.store (false); }
+    } restoreGuard (restoringState);
 
     apvts.replaceState (state);
 
