@@ -3575,6 +3575,21 @@ void GuitarCompanionProcessor::loadIrAsync (int slot, const juce::File& file)
     irLoadedFlags[slot].store (true);
 }
 
+void GuitarCompanionProcessor::unloadIrSlot (int slot)
+{
+    if (slot < 0 || slot >= maxCabSlots)
+        return;
+
+    // The convolution keeps whatever it last loaded; the flag is what the audio
+    // thread reads, so clearing it is both enough and RT-safe (no engine work
+    // from the message thread).
+    irLoadedFlags[slot].store (false);
+
+    const juce::ScopedLock sl (modelInfoLock);
+    irNames[slot].clear();
+    irPaths[slot].clear();
+}
+
 juce::String GuitarCompanionProcessor::getIrName (int slot) const
 {
     if (slot < 0 || slot >= maxCabSlots)
@@ -3815,8 +3830,19 @@ void GuitarCompanionProcessor::applyState (juce::ValueTree state)
                              ? juce::String (kStateIrPath)
                              : "irPath" + juce::String (s + 1);
         const juce::File irFile (state.getProperty (key, "").toString());
-        if (irFile.existsAsFile() && irFile.getFullPathName() != getIrPath (s))
-            loadIrAsync (s, irFile);
+        if (irFile.existsAsFile())
+        {
+            if (irFile.getFullPathName() != getIrPath (s))
+                loadIrAsync (s, irFile);
+        }
+        else if (state.hasProperty (key) && getIrPath (s).isNotEmpty())
+        {
+            // Symmetric with the amp lanes above: a state that NAMES the slot
+            // and leaves it empty means "no IR here". Without this the previous
+            // preset's IR survived the switch - a preset built around a capture
+            // that already has a cab would silently keep someone else's cab.
+            unloadIrSlot (s);
+        }
     }
 
     setChainOrder (juce::StringArray::fromTokens (

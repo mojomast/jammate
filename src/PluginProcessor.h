@@ -135,6 +135,8 @@ public:
     static constexpr int maxCabSlots = maxRigs;
 
     void loadIrAsync (int slot, const juce::File& file);
+    /// Empties the slot (a preset that names it and leaves it blank).
+    void unloadIrSlot (int slot);
     juce::String getIrName (int slot) const;
     juce::String getIrPath (int slot) const;
     bool hasIrLoaded (int slot) const noexcept
