@@ -1,5 +1,17 @@
 # EVAL-004 — timing-corrected tracker comparison
 
+## Orchestrator integration review
+
+Merged as `64b39ee`; combined integration build passed **9/9** suites. Review
+found a diagnostic edge case: latency accumulation included backend beats at
+the exact block boundary, while its divisor counted only the non-boundary
+bucket. The integration patch divides by the number of accepted latency samples
+and adds a mixed boundary/interior regression. The real corpus has zero boundary
+bucket beats, so its committed results are unchanged. The comparison now
+distinguishes linear device-audio resampling from BTrack's internal SINC
+onset-function resampling. Tapping's silent occupancy is a caveat pending audit,
+not by itself proof of defective synthesis.
+
 ## Goal
 
 Correct the evidence defects found after EVAL-002R, then produce a fair, real
@@ -207,4 +219,3 @@ Authoritative numbers, commands and per-run JSON/CSV/summary live in
   beat timestamps, honest timing/gate semantics, aubio comparison`).
 - This note's SHA update is the subsequent commit on `wp/EVAL-004-timing`; the
   branch head is the handoff SHA reported to the orchestrator.
-

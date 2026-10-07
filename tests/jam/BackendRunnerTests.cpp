@@ -152,6 +152,24 @@ JAM_TEST (BackendRunner, sampleZeroIsAValidEventTime)
     // boundary, so it lands in the block-start bucket, not the reported bucket.
     CHECK_EQ (series.diagnostics.beatsRejectedNonCausal, static_cast<std::size_t> (0));
     CHECK_EQ (series.diagnostics.beatsAtBlockStart, static_cast<std::size_t> (1));
+    CHECK_NEAR (series.diagnostics.meanReportedAvailabilityLatencySeconds,
+                128.0 / kRate, 1e-12);
+}
+
+JAM_TEST (BackendRunner, availabilityMeanIncludesBlockBoundaryEvents)
+{
+    ScriptedBackend backend ([] (const jam::AnalysisFrame&, std::size_t block)
+    {
+        auto obs = quietBlock (kRate);
+        obs.beatEvent = true;
+        obs.inputSampleTime = block == 0 ? 0 : 200;
+        return obs;
+    });
+    const auto series = BackendRunner (128).run (backend, makeAudio (256));
+    CHECK_EQ (series.diagnostics.beatsAtBlockStart, static_cast<std::size_t> (1));
+    CHECK_EQ (series.diagnostics.beatsReportedByBackend, static_cast<std::size_t> (1));
+    CHECK_NEAR (series.diagnostics.meanReportedAvailabilityLatencySeconds,
+                (128.0 + 56.0) / (2.0 * kRate), 1e-12);
 }
 
 // ---------------------------------------------------------------------------

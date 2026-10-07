@@ -131,6 +131,7 @@ ObservationSeries toSeries (const std::vector<BlockObservation>& blocks,
     series.tempoSamples.reserve (blocks.size());
 
     double reportedLatencySum = 0.0;
+    std::size_t reportedLatencyCount = 0;
 
     for (const BlockObservation& block : blocks)
     {
@@ -178,6 +179,7 @@ ObservationSeries toSeries (const std::vector<BlockObservation>& blocks,
                 if (latency >= 0.0)
                 {
                     reportedLatencySum += latency;
+                    ++reportedLatencyCount;
                     if (latency > series.diagnostics.maxReportedAvailabilityLatencySeconds)
                         series.diagnostics.maxReportedAvailabilityLatencySeconds = latency;
                 }
@@ -197,10 +199,10 @@ ObservationSeries toSeries (const std::vector<BlockObservation>& blocks,
         series.tempoSamples.push_back (s);
     }
 
-    if (series.diagnostics.beatsReportedByBackend > 0)
+    if (reportedLatencyCount > 0)
         series.diagnostics.meanReportedAvailabilityLatencySeconds =
             reportedLatencySum
-            / static_cast<double> (series.diagnostics.beatsReportedByBackend);
+            / static_cast<double> (reportedLatencyCount);
 
     return series;
 }

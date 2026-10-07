@@ -72,7 +72,8 @@ runner defect EVAL-004 fixes.
 | phase | derived from beat-event timing vs estimated period | `aubio_tempo_get_last` position + `get_period` anchor |
 | internal silence gate | none in BTrack | aubio's own gate left at its -90 dBFS default |
 | adapter held-silence gate | -60 dBFS block RMS, 50 ms holdoff | -60 dBFS block RMS, 50 ms holdoff |
-| resampler | libsamplerate SINC best quality | none |
+| device audio resampler | adapter's persistent-phase linear interpolation | none |
+| internal onset-function resampler | BTrack's libsamplerate SINC best quality | none |
 
 The adapter held-silence gate is re-armed per *block*, so the block size changes
 when silence latches (see the framing table). This is an adapter configuration
@@ -205,8 +206,10 @@ analysis worker, not the audio callback.
    `sparse_single_notes` both backends read 1.366/s = 8 held beats; that is the
    sparse fixture doing its job, which is why the SPEC gate is NOT-MEASURED
    rather than a count-based FAIL.
-3. `sustained_chords` and `tapping_muting_only` are corpus synthesis defects for
-   the silence diagnostic (two-stage fast decay), not evidence about a tracker.
+3. `sustained_chords` has a measured synthesis-duration defect. Short percussive
+   events in `tapping_muting_only` are not necessarily defective merely because
+   silent occupancy is high; its exclusion remains a conservative harness caveat,
+   pending an independent onset audit. See `../CORPUS-ACOUSTIC-REVIEW.md`.
 4. Syncopation stability, ramp continuity, resync and Loose-Follow reactivity
    remain unmeasurable offline; they need the Musical Clock and audition.
 5. `analysis queue overrun count` and `platform/build complexity` (SPEC 12.3) are

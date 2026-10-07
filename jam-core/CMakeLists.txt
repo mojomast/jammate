@@ -178,7 +178,20 @@ if (JAM_CORE_BUILD_TESTS AND JAM_TEST_SOURCES)
     list(LENGTH JAM_DISCOVERED_SUITES jam_suite_count)
     string(REPLACE ";" " " JAM_DISCOVERED_SUITES_DISPLAY "${JAM_DISCOVERED_SUITES}")
     message(STATUS "jam-core: registered ${jam_suite_count} test suite(s): "
-                   "${JAM_DISCOVERED_SUITES_DISPLAY}")
+                    "${JAM_DISCOVERED_SUITES_DISPLAY}")
+
+    if (EXISTS "${JAM_ROOT}/tools/rhythm-eval/tools/test_make_derived.py")
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if (Python3_Interpreter_FOUND)
+            add_test(NAME jam.RhythmDerivedGenerator
+                COMMAND ${Python3_EXECUTABLE}
+                    "${JAM_ROOT}/tools/rhythm-eval/tools/test_make_derived.py")
+            set_tests_properties(jam.RhythmDerivedGenerator PROPERTIES
+                WORKING_DIRECTORY "${JAM_ROOT}")
+        else()
+            message(STATUS "jam-core: Python unavailable; derived generator checks not registered")
+        endif()
+    endif()
 elseif (JAM_CORE_BUILD_TESTS)
     message(STATUS "jam-core: no tests/jam/*.cpp found, test target skipped")
 endif()
