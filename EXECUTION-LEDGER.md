@@ -100,6 +100,10 @@ and reports instead.
 | TRACK-001 BTrack backend | **DONE** | `wp/TRACK-001` → merged `c3dad10` | B — intelligence | G3 | 10 tests / 38 940 checks; required an orchestrator vendor fix |
 | EVAL-002 evaluation harness + metrics | **DONE** | `wp/EVAL-002` → merged `3e5bb7b` | B — evidence | G3 | 11 metrics; exposed 2 corpus defects |
 | CI-001 continuous integration | **DONE** | `wp/CI-001` → merged `4376672` | C — evidence | G1 | 3 Gitea workflows; Windows job never run |
+| EVAL-001 repair: true silence + core | **DONE** | `wp/EVAL-001` → merged `c68df60` | C — evidence | G3 | audio provably unchanged |
+| EVAL-002R first real shootout | RUNNING | `wp/EVAL-002R` | B — evidence | G3 | numbers, at last |
+| TRACK-002 aubio backend | RUNNING | `wp/TRACK-002` | B — intelligence | G3 | disk-constrained; CMake wiring reported, not edited |
+| EVAL-003 robustness curves | RUNNING | `wp/EVAL-003` | C — evidence | G3 | degradation curves, not more fixtures |
 | RT-001 remaining (F2 MidiBuffer) | BLOCKED:plugin lane | | A | G1 | needs a measured bound |
 | CI-001 CI baseline | TODO | | C | G1 | Gitea; needs plugin lane to be green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
