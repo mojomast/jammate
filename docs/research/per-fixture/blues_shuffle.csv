@@ -1,0 +1,4 @@
+variant,compensationSeconds,name,core,steady,ramp,predictedBeats,truthBeats,truePositives,precision,recall,fMeasure,acquired,acquisitionBars,bpmRelativeError,halfDoubleTimeError,falseBeatsInTrueSilencePerSecond,trueSilenceSeconds,falseBeatMetricInformative,falseBeatsInUnplayedBeatWindowsPerSecond,falseBeatsOffGridInUnplayedBeatWindowsPerSecond,recoverySeconds,syncopationMaxDeviationFraction,rampLocalTempoRelErrorMean,phaseP95AbsMs,cpuSeconds,allocationCount
+uncompensated,0,blues_shuffle,1,1,0,22,20,16,0.727272727,0.8,0.761904762,1,1.7541,0.00309244792,0,0,0.353152,1,0,0,0,0,0,28.6666663,0.419555,2123
+compensated-23.22ms,0.02322,blues_shuffle,1,1,0,22,20,16,0.727272727,0.8,0.761904762,1,1.989651,0.00309244792,0,0,0.353152,1,0,0,0,0,0,23.8866663,0.419555,2123
+compensated-11.61ms,0.01161,blues_shuffle,1,1,0,22,20,16,0.727272727,0.8,0.761904762,1,1.9948755,0.00309244792,0,0,0.353152,1,0,0,0,0,0,17.0566663,0.419555,2123

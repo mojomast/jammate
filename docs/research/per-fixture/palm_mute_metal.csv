@@ -1,0 +1,4 @@
+variant,compensationSeconds,name,core,steady,ramp,predictedBeats,truthBeats,truePositives,precision,recall,fMeasure,acquired,acquisitionBars,bpmRelativeError,halfDoubleTimeError,falseBeatsInTrueSilencePerSecond,trueSilenceSeconds,falseBeatMetricInformative,falseBeatsInUnplayedBeatWindowsPerSecond,falseBeatsOffGridInUnplayedBeatWindowsPerSecond,recoverySeconds,syncopationMaxDeviationFraction,rampLocalTempoRelErrorMean,phaseP95AbsMs,cpuSeconds,allocationCount
+uncompensated,0,palm_mute_metal,1,1,0,19,20,18,0.947368421,0.9,0.923076923,0,0,0.0234375,0,0,1.41893,1,0,0,0,0,0,19.5238097,0.468467,1986
+compensated-23.22ms,0.02322,palm_mute_metal,1,1,0,19,20,18,0.947368421,0.9,0.923076923,0,0,0.0234375,0,0,1.41893,1,0,0,0,0,0,17.0295233,0.468467,1986
+compensated-11.61ms,0.01161,palm_mute_metal,1,1,0,19,20,18,0.947368421,0.9,0.923076923,0,0,0.0234375,0,0,1.41893,1,0,0,0,0,0,7.91380967,0.468467,1986

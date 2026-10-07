@@ -1,0 +1,4 @@
+variant,compensationSeconds,name,core,steady,ramp,predictedBeats,truthBeats,truePositives,precision,recall,fMeasure,acquired,acquisitionBars,bpmRelativeError,halfDoubleTimeError,falseBeatsInTrueSilencePerSecond,trueSilenceSeconds,falseBeatMetricInformative,falseBeatsInUnplayedBeatWindowsPerSecond,falseBeatsOffGridInUnplayedBeatWindowsPerSecond,recoverySeconds,syncopationMaxDeviationFraction,rampLocalTempoRelErrorMean,phaseP95AbsMs,cpuSeconds,allocationCount
+uncompensated,0,noisy_microphone,0,1,0,22,20,16,0.727272727,0.8,0.761904762,0,0,0.0234375,0,0,0.3511,1,0,0,0,0,0,19.1428567,0.46803,1986
+compensated-23.22ms,0.02322,noisy_microphone,0,1,0,22,20,16,0.727272727,0.8,0.761904762,0,0,0.0234375,0,0,0.3511,1,0,0,0,0,0,17.4104763,0.46803,1986
+compensated-11.61ms,0.01161,noisy_microphone,0,1,0,22,20,16,0.727272727,0.8,0.761904762,0,0,0.0234375,0,0,0.3511,1,0,0,0,0,0,7.91380967,0.46803,1986

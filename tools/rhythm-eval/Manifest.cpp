@@ -78,6 +78,40 @@ std::vector<double> numberArrayStrict (const rhythmjson::Value& parent,
     return out;
 }
 
+/** Parses an array of [start, end] spans. `required` selects whether a missing
+    field is an error (the corpus promises `trueSilenceSpans` on every fixture,
+    so its absence is a manifest bug, not an empty list). */
+std::vector<SilenceSpan> spanArray (const rhythmjson::Value& parent,
+                                    const std::string& key,
+                                    const std::string& context,
+                                    bool required)
+{
+    const rhythmjson::Value* spans = parent.find (key);
+    if (spans == nullptr)
+    {
+        if (required)
+            throw ManifestError (context + ": missing required field \"" + key + "\"");
+        return {};
+    }
+    if (! spans->isArray())
+        throw ManifestError (context + ": \"" + key + "\" must be an array");
+
+    std::vector<SilenceSpan> out;
+    for (const rhythmjson::Value& span : spans->items())
+    {
+        if (! span.isArray() || span.items().size() != 2
+            || ! span.items()[0].isNumber() || ! span.items()[1].isNumber())
+            throw ManifestError (context + ": each " + key + " span must be [start, end]");
+        SilenceSpan s;
+        s.startSeconds = span.items()[0].number();
+        s.endSeconds = span.items()[1].number();
+        if (! (s.endSeconds >= s.startSeconds))
+            throw ManifestError (context + ": " + key + " span end < start");
+        out.push_back (s);
+    }
+    return out;
+}
+
 } // namespace
 
 Manifest parseManifest (const std::string& jsonText)
@@ -151,24 +185,8 @@ Manifest parseManifest (const std::string& jsonText)
         if (f.beats.empty())
             throw ManifestError (ctx + ": \"beats\" must not be empty");
 
-        const rhythmjson::Value* spans = item.find ("silenceSpans");
-        if (spans != nullptr)
-        {
-            if (! spans->isArray())
-                throw ManifestError (ctx + ": \"silenceSpans\" must be an array");
-            for (const rhythmjson::Value& span : spans->items())
-            {
-                if (! span.isArray() || span.items().size() != 2
-                    || ! span.items()[0].isNumber() || ! span.items()[1].isNumber())
-                    throw ManifestError (ctx + ": each silence span must be [start, end]");
-                SilenceSpan s;
-                s.startSeconds = span.items()[0].number();
-                s.endSeconds = span.items()[1].number();
-                if (! (s.endSeconds >= s.startSeconds))
-                    throw ManifestError (ctx + ": silence span end < start");
-                f.silenceSpans.push_back (s);
-            }
-        }
+        f.silenceSpans = spanArray (item, "silenceSpans", ctx, false);
+        f.trueSilenceSpans = spanArray (item, "trueSilenceSpans", ctx, true);
 
         const rhythmjson::Value* silent = item.find ("silentBeats");
         if (silent != nullptr)
@@ -213,6 +231,7 @@ RhythmTruth toTruth (const ManifestFixture& fixture)
     t.beats = fixture.beats;
     t.onsets = fixture.onsets;
     t.silenceSpans = fixture.silenceSpans;
+    t.trueSilenceSpans = fixture.trueSilenceSpans;
     t.silentBeats = fixture.silentBeats;
     t.tempoProfile = fixture.tempoProfile;
     t.hasNominalBpm = fixture.hasNominalBpm;

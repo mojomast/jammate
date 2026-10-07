@@ -292,7 +292,24 @@ struct Options
     std::string backend = "synthetic-ideal";
     std::string backendLib;
     std::size_t blockFrames = 128;
+
+    /** Backend latency compensations to score, seconds, in request order. The
+        uncompensated run (0.0) is always scored; each requested value adds one
+        more variant in the same run, so the effect is measured, not asserted. */
+    std::vector<double> latencyCompensations;
+
+    std::string jsonFile = "results.json";
+    std::string summaryFile = "summary.md";
+    std::string combinedCsvFile = "fixtures.csv";
+    std::string perFixtureDirName = "per_fixture";
 };
+
+std::string compensationLabel (double seconds)
+{
+    char buf[48];
+    std::snprintf (buf, sizeof buf, "compensated-%gms", seconds * 1000.0);
+    return std::string (buf);
+}
 
 bool parseArgs (int argc, char** argv, Options& options, std::string& error)
 {
@@ -326,6 +343,36 @@ bool parseArgs (int argc, char** argv, Options& options, std::string& error)
         {
             if (! needValue (options.backendLib)) return false;
         }
+        else if (arg == "--json-file")
+        {
+            if (! needValue (options.jsonFile)) return false;
+        }
+        else if (arg == "--summary-file")
+        {
+            if (! needValue (options.summaryFile)) return false;
+        }
+        else if (arg == "--csv-file")
+        {
+            if (! needValue (options.combinedCsvFile)) return false;
+        }
+        else if (arg == "--per-fixture-dir")
+        {
+            if (! needValue (options.perFixtureDirName)) return false;
+        }
+        else if (arg == "--compensate-latency")
+        {
+            std::string value;
+            if (! needValue (value)) return false;
+            char* end = nullptr;
+            const double seconds = std::strtod (value.c_str(), &end);
+            if (end == nullptr || *end != '\0' || ! (seconds >= 0.0) || seconds > 5.0)
+            {
+                error = "--compensate-latency must be seconds in [0, 5]";
+                return false;
+            }
+            if (seconds != 0.0)
+                options.latencyCompensations.push_back (seconds);
+        }
         else if (arg == "--block")
         {
             std::string value;
@@ -343,7 +390,14 @@ bool parseArgs (int argc, char** argv, Options& options, std::string& error)
             std::cout <<
                 "usage: rhythm-eval --corpus <dir> --out <dir>\n"
                 "                   [--backend synthetic-ideal|synthetic-degraded]\n"
-                "                   [--backend-lib <shared-library>] [--block <frames>]\n";
+                "                   [--backend-lib <shared-library>] [--block <frames>]\n"
+                "                   [--compensate-latency <seconds>]  (repeatable)\n"
+                "                   [--json-file <name>] [--summary-file <name>]\n"
+                "                   [--csv-file <name>] [--per-fixture-dir <name>]\n"
+                "\n"
+                "Latency compensation is applied to predicted beat times before scoring\n"
+                "and defaults to off. Pass it once per value to score several settings in\n"
+                "the same run; the uncompensated result is always included.\n";
             std::exit (0);
         }
         else
@@ -452,7 +506,26 @@ int main (int argc, char** argv)
 
     BackendRunner runner (options.blockFrames);
 
-    std::vector<FixtureMetrics> results;
+    // Variants: the uncompensated run is always present; each requested
+    // compensation adds one more. Every variant scores the SAME observation
+    // series, so the backend runs once per fixture and only the scoring clock
+    // changes. That is what makes the latency effect measurable rather than
+    // asserted: same evidence, one explicit knob.
+    std::vector<ScoringVariant> variants;
+    {
+        ScoringVariant base;
+        base.label = "uncompensated";
+        base.latencyCompensationSeconds = 0.0;
+        variants.push_back (std::move (base));
+        for (const double seconds : options.latencyCompensations)
+        {
+            ScoringVariant v;
+            v.label = compensationLabel (seconds);
+            v.latencyCompensationSeconds = seconds;
+            variants.push_back (std::move (v));
+        }
+    }
+
     bool hadError = false;
     std::string writeError;
 
@@ -500,13 +573,21 @@ int main (int argc, char** argv)
         series.allocationCount =
             g_allocationCount.load (std::memory_order_relaxed) - before;
 
-        results.push_back (scoreFixture (truth, series, manifest.beatToleranceSeconds));
+        for (ScoringVariant& v : variants)
+            v.fixtures.push_back (scoreFixture (truth, series,
+                                                manifest.beatToleranceSeconds,
+                                                v.latencyCompensationSeconds));
     }
 
-    const AggregateMetrics aggregate = aggregateFixtures (results);
+    for (ScoringVariant& v : variants)
+        v.aggregate = aggregateFixtures (v.fixtures);
 
     // --- write outputs ------------------------------------------------------
-    const std::string perFixtureDir = options.out + "/per_fixture";
+    const std::string perFixtureDir = options.out + "/" + options.perFixtureDirName;
+    const std::string resultsPath = options.out + "/" + options.jsonFile;
+    const std::string summaryPath = options.out + "/" + options.summaryFile;
+    const std::string combinedCsvPath = options.out + "/" + options.combinedCsvFile;
+
     std::error_code ec;
     std::filesystem::create_directories (options.out, ec);
     std::filesystem::create_directories (perFixtureDir, ec);
@@ -516,12 +597,14 @@ int main (int argc, char** argv)
 
     {
         rhythmjson::Value root = rhythmjson::Value::makeObject();
-        root.set ("schemaVersion", rhythmjson::Value::makeNumber (1));
+        root.set ("schemaVersion", rhythmjson::Value::makeNumber (2));
         root.set ("backend", rhythmjson::Value::makeString (backendId));
         root.set ("blockFrames", rhythmjson::Value::makeNumber (
                                      static_cast<double> (options.blockFrames)));
         root.set ("beatToleranceSeconds", rhythmjson::Value::makeNumber (
                                              manifest.beatToleranceSeconds));
+        root.set ("latencyCompensationAppliedToPredictedBeats",
+                  rhythmjson::Value::makeBool (true));
 
         rhythmjson::Value corpus = rhythmjson::Value::makeObject();
         corpus.set ("id", rhythmjson::Value::makeString (manifest.corpusId));
@@ -529,38 +612,71 @@ int main (int argc, char** argv)
                                         static_cast<double> (manifest.fixtures.size())));
         root.set ("corpus", corpus);
 
-        rhythmjson::Value fixtureArray = rhythmjson::Value::makeArray();
-        for (const FixtureMetrics& m : results)
-            fixtureArray.push (fixtureMetricsToJson (m));
-        root.set ("fixtures", fixtureArray);
-        root.set ("aggregate", aggregateMetricsToJson (aggregate));
+        rhythmjson::Value variantArray = rhythmjson::Value::makeArray();
+        for (const ScoringVariant& v : variants)
+            variantArray.push (scoringVariantToJson (v));
+        root.set ("variants", variantArray);
 
-        if (! writeFile (options.out + "/results.json", root.dump() + "\n", writeError))
+        // The uncompensated variant is repeated under flat top-level keys so a
+        // simple consumer does not have to know about variants; the authoritative
+        // full record is `variants`.
+        if (! variants.empty())
+        {
+            rhythmjson::Value fixtureArray = rhythmjson::Value::makeArray();
+            for (const FixtureMetrics& m : variants.front().fixtures)
+                fixtureArray.push (fixtureMetricsToJson (m));
+            root.set ("fixtures", fixtureArray);
+            root.set ("aggregate", aggregateMetricsToJson (variants.front().aggregate));
+        }
+
+        if (! writeFile (resultsPath, root.dump() + "\n", writeError))
         {
             std::cerr << "rhythm-eval: " << writeError << "\n";
             hadError = true;
         }
     }
 
-    std::string combinedCsv = fixtureMetricsCsvHeader();
-    for (const FixtureMetrics& m : results)
+    std::string combinedCsv = fixtureMetricsCsvHeaderWithVariant();
+    const std::size_t fixtureCount =
+        variants.empty() ? 0 : variants.front().fixtures.size();
+    for (std::size_t i = 0; i < fixtureCount; ++i)
     {
-        combinedCsv += fixtureMetricsCsvRow (m);
-        if (! writeFile (perFixtureDir + "/" + m.name + ".json",
-                         fixtureMetricsToJson (m).dump() + "\n", writeError))
+        const std::string name = variants.front().fixtures[i].name;
+
+        rhythmjson::Value one = rhythmjson::Value::makeObject();
+        one.set ("name", rhythmjson::Value::makeString (name));
+        rhythmjson::Value variantArray = rhythmjson::Value::makeArray();
+        std::string fixtureCsv = fixtureMetricsCsvHeaderWithVariant();
+        for (const ScoringVariant& v : variants)
+        {
+            if (i >= v.fixtures.size())
+                continue;
+            const FixtureMetrics& m = v.fixtures[i];
+            combinedCsv += fixtureMetricsCsvRowWithVariant (v, m);
+            fixtureCsv += fixtureMetricsCsvRowWithVariant (v, m);
+
+            rhythmjson::Value entry = rhythmjson::Value::makeObject();
+            entry.set ("label", rhythmjson::Value::makeString (v.label));
+            entry.set ("latencyCompensationSeconds",
+                       rhythmjson::Value::makeNumber (v.latencyCompensationSeconds));
+            entry.set ("metrics", fixtureMetricsToJson (m));
+            variantArray.push (entry);
+        }
+        one.set ("variants", variantArray);
+
+        if (! writeFile (perFixtureDir + "/" + name + ".json",
+                         one.dump() + "\n", writeError))
         {
             std::cerr << "rhythm-eval: " << writeError << "\n";
             hadError = true;
         }
-        if (! writeFile (perFixtureDir + "/" + m.name + ".csv",
-                         std::string (fixtureMetricsCsvHeader())
-                             + fixtureMetricsCsvRow (m), writeError))
+        if (! writeFile (perFixtureDir + "/" + name + ".csv", fixtureCsv, writeError))
         {
             std::cerr << "rhythm-eval: " << writeError << "\n";
             hadError = true;
         }
     }
-    if (! writeFile (options.out + "/fixtures.csv", combinedCsv, writeError))
+    if (! writeFile (combinedCsvPath, combinedCsv, writeError))
     {
         std::cerr << "rhythm-eval: " << writeError << "\n";
         hadError = true;
@@ -568,18 +684,17 @@ int main (int argc, char** argv)
 
     const std::string md = markdownSummary (backendId, manifest.corpusId,
                                             manifest.beatToleranceSeconds,
-                                            results, aggregate);
-    if (! writeFile (options.out + "/summary.md", md, writeError))
+                                            variants);
+    if (! writeFile (summaryPath, md, writeError))
     {
         std::cerr << "rhythm-eval: " << writeError << "\n";
         hadError = true;
     }
 
     std::cout << md;
-    std::cout << "wrote " << options.out << "/results.json, "
-              << options.out << "/fixtures.csv, "
-              << options.out << "/summary.md, "
-              << "and per-fixture JSON/CSV in " << perFixtureDir << "\n";
+    std::cout << "wrote " << resultsPath << ", " << combinedCsvPath << ", "
+              << summaryPath << ", and per-fixture JSON/CSV in "
+              << perFixtureDir << "\n";
 
     return hadError ? 1 : 0;
 }

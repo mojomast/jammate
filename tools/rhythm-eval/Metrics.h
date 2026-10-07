@@ -92,7 +92,16 @@ struct RhythmTruth
 
     std::vector<double> beats;                 // metric grid, strictly increasing
     std::vector<double> onsets;                // as-played attacks
-    std::vector<SilenceSpan> silenceSpans;     // declared silence regions
+    /** +/-30 ms windows around beats the player deliberately did not play while
+        the phrase continued. NOT silence: a beat here is still intended and a
+        tracker holding time through it is correct. Scored by the secondary
+        counter only. */
+    std::vector<SilenceSpan> silenceSpans;
+    /** Regions where the guitar genuinely stopped (see the corpus manifest's
+        `trueSilenceDerivation`). A beat event here is fabricated, whatever the
+        notional grid says. This is the field the SPEC 19 silence gate is scored
+        against. */
+    std::vector<SilenceSpan> trueSilenceSpans;
     std::vector<int> silentBeats;              // indices into `beats`
 
     std::string tempoProfile;                  // "constant" | "linear-ramp"
@@ -197,16 +206,39 @@ struct FixtureMetrics
     bool doubleTimeLock = false;
     bool halfDoubleTimeError = false;
 
-    // --- false beats in silence (SPEC 12.3) --------------------------------
-    // Primary: predicted beat events inside a declared silence span, per second
-    // of declared silence. Off-grid: the same excluding beats that match the
-    // maintained ground-truth grid beat (the corpus's spans are +/-30 ms around
-    // silent beats, so the maintained grid is inside them by construction).
-    int falseBeatsInSilence = 0;
-    double silenceSeconds = 0.0;
-    double falseBeatsInSilencePerSecond = 0.0;
-    int falseBeatsOffGridInSilence = 0;
-    double falseBeatsOffGridInSilencePerSecond = 0.0;
+    // --- false beats in silence (SPEC 12.3 / SPEC 19) ----------------------
+    //
+    // There are TWO distinct failures and they are reported separately, never
+    // merged and never dropped.
+    //
+    // Primary: predicted beat events inside a `trueSilenceSpan` — a region where
+    // the guitar genuinely stopped. A beat there is fabricated no matter where
+    // the notional grid is, so every such prediction counts. This is SPEC 19's
+    // "silence does not create false acceleration". Denominator is the total
+    // true-silence duration.
+    int falseBeatsInTrueSilence = 0;
+    double trueSilenceSeconds = 0.0;
+    double trueSilenceFractionOfDuration = 0.0;
+    double falseBeatsInTrueSilencePerSecond = 0.0;
+    /** False when this fixture cannot inform the primary metric: at least half
+        its duration is true silence, so there is almost no playing for the
+        tracker to fabricate against and the rate is low for the wrong reason.
+        Such a fixture must be read as NOT-INFORMATIVE, never as a pass. */
+    bool falseBeatMetricInformative = true;
+
+    // Secondary (a different failure): predicted beat events inside the declared
+    // `silenceSpans` — +/-30 ms windows around beats the player deliberately did
+    // not play while playing around them. A tracker that invents beats here is
+    // hallucinating inside playing material, not free-running through a stop.
+    // `falseBeatsOffGridInUnplayedBeatWindows` excludes predictions that match
+    // the maintained ground-truth grid beat (the maintained grid is inside these
+    // windows by construction), so it is literally "extra beats where none were
+    // played".
+    int falseBeatsInUnplayedBeatWindows = 0;
+    double unplayedBeatWindowsSeconds = 0.0;
+    double falseBeatsInUnplayedBeatWindowsPerSecond = 0.0;
+    int falseBeatsOffGridInUnplayedBeatWindows = 0;
+    double falseBeatsOffGridInUnplayedBeatWindowsPerSecond = 0.0;
 
     // --- recovery after stop/start (SPEC 12.3) -----------------------------
     // Only for the `stop_start` fixture: lock time minus the first onset after
@@ -287,7 +319,13 @@ struct AggregateMetrics
     double halfDoubleErrorRateCore = 0.0;
 
     int silenceFixtures = 0;
-    double falseBeatsInSilencePerSecondWorst = 0.0;
+    int trueSilenceInformativeFixtures = 0;
+    double falseBeatsInTrueSilencePerSecondWorst = 0.0;
+    /** Worst primary rate over fixtures that are informative for it; this is the
+        number the silence gate is read from. */
+    double falseBeatsInTrueSilencePerSecondWorstInformative = 0.0;
+    double falseBeatsInUnplayedBeatWindowsPerSecondWorst = 0.0;
+    double falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst = 0.0;
 
     bool hasRecovery = false;
     double recoverySecondsWorst = 0.0;
@@ -319,15 +357,35 @@ struct AggregateMetrics
 /** Score one fixture. Deterministic and I/O-free. `beatToleranceSeconds` may
     be overridden (e.g. from the manifest); it defaults to 70 ms.
 
+    `latencyCompensationSeconds` is the backend's documented output delay. When
+    non-zero it is SUBTRACTED from every predicted beat time before any metric
+    is computed, so a backend that reports its beats `L` seconds late is scored
+    as if it reported them on time. It is applied once, up front, so F-measure,
+    phase error, acquisition, false beats and recovery all see the compensated
+    clock; a compensation that fixed phase but not F would be a bug. Default 0
+    (off): the harness never compensates unless the caller asks.
+
     Domain: `truth.beats` may be empty (returns a finite all-zero result);
     `obs` may be empty or contain duplicate/out-of-order beats (handled without
     NaN or division by zero). */
 FixtureMetrics scoreFixture (const RhythmTruth& truth,
                              const ObservationSeries& obs,
-                             double beatToleranceSeconds = kBeatMatchToleranceSeconds);
+                             double beatToleranceSeconds = kBeatMatchToleranceSeconds,
+                             double latencyCompensationSeconds = 0.0);
 
 /** Aggregate per-fixture results and evaluate the SPEC 19 gates. */
 AggregateMetrics aggregateFixtures (const std::vector<FixtureMetrics>& perFixture);
+
+/** One run of the whole corpus at a single latency-compensation setting. The
+    CLI produces the uncompensated variant always and one variant per requested
+    compensation, so the size of the effect is measured rather than asserted. */
+struct ScoringVariant
+{
+    std::string label;                            // e.g. "uncompensated"
+    double latencyCompensationSeconds = 0.0;
+    std::vector<FixtureMetrics> fixtures;
+    AggregateMetrics aggregate;
+};
 
 // ---------------------------------------------------------------------------
 // Deterministic serialisation (SPEC 21.3: JSON/CSV + Markdown summary)
@@ -340,16 +398,25 @@ AggregateMetrics aggregateFixtures (const std::vector<FixtureMetrics>& perFixtur
 rhythmjson::Value fixtureMetricsToJson (const FixtureMetrics& metrics);
 rhythmjson::Value aggregateMetricsToJson (const AggregateMetrics& aggregate);
 
+/** One variant as {label, latencyCompensationSeconds, fixtures, aggregate}. */
+rhythmjson::Value scoringVariantToJson (const ScoringVariant& variant);
+
 const char* fixtureMetricsCsvHeader();
 std::string fixtureMetricsCsvRow (const FixtureMetrics& metrics);
 
-/** Human-readable Markdown summary. One row per fixture plus per-metric
-    aggregates and the SPEC 19 gate table. */
+/** CSV header/row with a leading `variant,compensationSeconds` pair, so one
+    per-fixture file and the combined CSV can carry every variant. */
+const char* fixtureMetricsCsvHeaderWithVariant();
+std::string fixtureMetricsCsvRowWithVariant (const ScoringVariant& variant,
+                                             const FixtureMetrics& metrics);
+
+/** Human-readable Markdown summary covering every variant: per-fixture tables,
+    per-metric aggregates, the SPEC 19 gate table (each gate PASS / FAIL /
+    NOT-INFORMATIVE with its reason) and the measured latency effect. */
 std::string markdownSummary (const std::string& backendId,
                              const std::string& corpusId,
                              double toleranceSeconds,
-                             const std::vector<FixtureMetrics>& fixtures,
-                             const AggregateMetrics& aggregate);
+                             const std::vector<ScoringVariant>& variants);
 
 // ---------------------------------------------------------------------------
 // Small pure helpers, exposed for tests and for EVAL-003 extensions

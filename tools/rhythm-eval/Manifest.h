@@ -52,6 +52,7 @@ struct ManifestFixture
     std::vector<double> beats;
     std::vector<double> onsets;
     std::vector<SilenceSpan> silenceSpans;
+    std::vector<SilenceSpan> trueSilenceSpans;
     std::vector<int> silentBeats;
     std::vector<std::string> tags;
 };
