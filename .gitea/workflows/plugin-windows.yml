@@ -119,24 +119,35 @@ jobs:
           # reference DSP that no target in this repository compiles.
           #
           # Verified from the .gitmodules of the pinned SHAs over the network
-          # on 2026-10-07 (see docs/research/CI-SETUP.md for the exact commands):
+          # on 2026-10-07 and re-checked for CI-002 (see
+          # docs/research/CI-SETUP.md §5 for the exact commands and SHAs):
           #   - JUCE 91ad83ae… has NO .gitmodules, so a plain --init is enough.
-          #   - NAM  1f42f885… declares Dependencies/eigen and
-          #     Dependencies/AudioDSPTools as ITS OWN submodules, and
-          #     root CMakeLists.txt:36-40 puts Dependencies/eigen on the
-          #     include path. So NAM alone needs --recursive. Dependencies/
-          #     nlohmann is vendored in-tree (a tree, not a gitlink) and needs
-          #     nothing.
+          #   - NAM  1f42f885… declares Dependencies/eigen (bc3b3987…) and
+          #     Dependencies/AudioDSPTools (0827c6c2…) as ITS OWN submodules.
+          #   - AudioDSPTools 0827c6c2… itself declares a Dependencies/eigen of
+          #     its own. So the nesting is two levels deep, and only --recursive
+          #     fetches all three: a non-recursive init leaves AudioDSPTools
+          #     empty, and PluginProcessor.cpp includes LanczosResampler.h from
+          #     there, so the plugin cannot compile. Dependencies/nlohmann is
+          #     vendored in-tree (a tree, not a gitlink) and needs nothing.
+          # Root CMakeLists.txt:36-40 puts Dependencies/eigen on the include
+          # path. Do not "simplify" this to a non-recursive init.
           git submodule update --init third_party/JUCE
           git submodule update --init --recursive third_party/NeuralAmpModelerCore
 
           # Assert what we got rather than trusting the command's exit code.
+          # The three nested gitlinks are all checked, not just NAM's direct
+          # eigen: a partial tree otherwise surfaces as a compile error 200
+          # lines later.
           for p in third_party/JUCE/CMakeLists.txt \
                    third_party/NeuralAmpModelerCore/NAM/dsp.cpp \
-                   third_party/NeuralAmpModelerCore/Dependencies/eigen/Eigen/Core; do
+                   third_party/NeuralAmpModelerCore/Dependencies/eigen/Eigen/Core \
+                   third_party/NeuralAmpModelerCore/Dependencies/AudioDSPTools/CMakeLists.txt \
+                   third_party/NeuralAmpModelerCore/Dependencies/AudioDSPTools/Dependencies/eigen/Eigen/Core; do
             if [ ! -e "$p" ]; then
               echo "::error::expected ${p} after submodule init — the NAM nested-submodule"
-              echo "::error::recipe above is incomplete; NAM needs Dependencies/eigen"
+              echo "::error::recipe above is incomplete; NAM needs eigen and AudioDSPTools,"
+              echo "::error::and AudioDSPTools needs its own nested eigen (use --recursive)"
               exit 1
             fi
           done

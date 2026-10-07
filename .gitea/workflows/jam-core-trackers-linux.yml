@@ -1,0 +1,305 @@
+# jam-core + the optional GPL tracker backends (ADR-0003 lane "core", GPL lanes).
+#
+# WHAT CHANGED SINCE CI-001, AND WHY THERE IS NO EXPECTED-FAILURE STEP ANY MORE
+#
+# CI-001 (commit a8da4f2) shipped this lane as a tripwire: BTrack was not
+# implemented yet, so `-DJAM_ENABLE_BTRACK=ON` was *asserted to fail* with the
+# specific "the adapter has not been written yet" message, and the job was
+# designed to go red the moment TRACK-001 landed so someone would replace it
+# with a real build.
+#
+# That moment has arrived. Both optional trackers are now real:
+#   - TRACK-001  src/btrack/BTrackBackend.* + tests/jam/BTrackBackendTests.cpp
+#   - TRACK-002  src/aubio/AubioBackend.*  + tests/jam/AubioBackendTests.cpp
+# and jam-core/CMakeLists.txt wires both. The expected-failure assertion is
+# therefore obsolete: keeping it would make this lane permanently red for the
+# opposite reason. It is deleted, not suppressed, and replaced with a genuine
+# configure + build + ctest run for every tracker configuration:
+#
+#   depfree  JAM_ENABLE_BTRACK=OFF JAM_ENABLE_AUBIO=OFF  (the dependency-free core)
+#   btrack   JAM_ENABLE_BTRACK=ON  JAM_ENABLE_AUBIO=OFF
+#   aubio    JAM_ENABLE_BTRACK=OFF JAM_ENABLE_AUBIO=ON
+#   both     JAM_ENABLE_BTRACK=ON  JAM_ENABLE_AUBIO=ON
+#
+# The four configurations run in ONE job, sequentially, and each is allowed to
+# fail without hiding the others: the runner measures all four and the job is
+# red if any of them is. A `strategy.matrix` would give per-configuration check
+# names, but Gitea's support for `strategy.matrix` on this server is unverified
+# (see docs/research/CI-SETUP.md, "Assumed, not verified"), and an unsupported
+# key kills the job before the first step runs. A `for` loop needs nothing the
+# server can lack, so it is used instead.
+#
+# THE OFF BOUNDARY IS PROVEN, NOT ASSUMED
+#
+# `src/jam/` (the jam-core target) must never reference third-party code, so the
+# same archive and test binary are checked in ALL FOUR configurations:
+#   - `libjam-core.a` and `jamTests` must contain ZERO BTrack/btrack/kiss_fft/aubio
+#     symbols. This is the property the licence boundary in
+#     jam-core/CMakeLists.txt and third_party/{BTrack,aubio}/CMakeLists.txt rests
+#     on, and it holds whether the trackers are ON or OFF.
+#   - In the dependency-free configuration the build graph must not reference
+#     third_party/BTrack or third_party/aubio at all.
+#   - A disabled tracker must NOT register its ctest suite (`jam.BTrackBackend` /
+#     `jam.AubioBackend`), so the option genuinely gates the code.
+#   - An enabled tracker must register its suite AND link real symbols into its
+#     own test binary, so "ON" is not a no-op.
+#
+# The `nm` check strips nm's `path:` header lines before matching. Without that
+# the build directory name ("build-btrack", "build-aubio") is itself a match for
+# `btrack`/`aubio`; that false positive was measured while writing this job.
+#
+# NO SUBMODULES. Both trackers are vendored in-tree (third_party/BTrack,
+# third_party/aubio), so this lane needs no network fetch of any kind. Do not add
+# `git submodule update` here.
+#
+# NO `uses:` ACTIONS, for the same reason as the core lane: an unresolvable
+# `uses:` kills a job before the first step runs and `continue-on-error` cannot
+# save it. Checkout is plain git. See docs/research/CI-SETUP.md §1.1.
+
+name: jam-core + trackers (linux, GPL lanes)
+
+on:
+  # No branch filter on purpose: `push:` with no filter means every branch and
+  # tag, and needs no glob support from the server. DEVPLAN CI-001's goal is
+  # "make every branch prove it builds and tests".
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jam-core-trackers-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jam-core-trackers-linux:
+    name: jam-core / trackers / ctest
+    runs-on: ubuntu-latest
+    # Four cold jam-core builds, of which two compile BTrack (libsamplerate's
+    # SINC filter) and aubio. Measured locally: ~1 min total. 45 is generous.
+    timeout-minutes: 45
+
+    env:
+      CI_REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
+      CI_COMMIT_SHA: ${{ github.sha }}
+
+    steps:
+      - name: Check out the commit under test (NO submodules — BTrack and aubio are vendored)
+        run: |
+          set -eu
+          if [ -n "${GITHUB_WORKSPACE:-}" ]; then
+            CI_WORKDIR="$GITHUB_WORKSPACE/guitar-companion-ci"
+          else
+            CI_WORKDIR="${HOME}/guitar-companion-ci"
+          fi
+          echo "CI_WORKDIR=$CI_WORKDIR" >> "${GITHUB_ENV}"
+          mkdir -p "$CI_WORKDIR"
+          cd "$CI_WORKDIR"
+
+          git init -q .
+          git remote add origin "${CI_REPO_URL}"
+          if ! git -c protocol.version=2 fetch -q --no-tags --depth 1 origin "${CI_COMMIT_SHA}"; then
+            echo "Direct fetch by SHA refused; retrying via ref tips."
+            git -c protocol.version=2 fetch -q --no-tags --depth 1 origin \
+              '+refs/heads/*:refs/remotes/origin/*' \
+              '+refs/pull/*/head:refs/remotes/pull/*'
+          fi
+          git checkout -q --detach "${CI_COMMIT_SHA}"
+          got="$(git rev-parse HEAD)"
+          echo "checked out ${got}"
+          test "${got}" = "${CI_COMMIT_SHA}"
+
+          # Both trackers are vendored, so a full check of the checkout is enough;
+          # if either is missing, the lane cannot do its job.
+          for p in third_party/BTrack/CMakeLists.txt \
+                   third_party/BTrack/src/BTrack.cpp \
+                   third_party/aubio/CMakeLists.txt \
+                   third_party/aubio/src/tempo/tempo.c; do
+            if [ ! -f "$p" ]; then
+              echo "::error::$p is missing; this lane assumes both trackers are vendored in-tree"
+              exit 1
+            fi
+          done
+          if [ -e third_party/JUCE/CMakeLists.txt ]; then
+            echo "::error::third_party/JUCE was materialised in the core lane; it must not be"
+            exit 1
+          fi
+
+      - name: Toolchain — cmake + ninja + binutils
+        run: |
+          set -eu
+          # `command -v sudo` is not a sufficient test — sudo can exist and
+          # still demand a password. `sudo -n true` is the one that means
+          # something.
+          if [ "$(id -u)" -eq 0 ]; then
+            APT="apt-get"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+            APT="sudo -n apt-get"
+          else
+            echo "::error::cannot install cmake/ninja: this runner is neither root nor"
+            echo "::error::passwordless-sudo. Install cmake, ninja-build and binutils on the"
+            echo "::error::runner image, or grant NOPASSWD in its sudoers."
+            exit 1
+          fi
+          $APT update -qq
+          $APT install -y -qq --no-install-recommends cmake ninja-build binutils
+          command -v ninja
+          cmake --version | head -1
+          ninja --version
+
+      - name: Configure, build and test all four tracker configurations
+        run: |
+          set -u
+          cd "$CI_WORKDIR"
+          # Disk/CPU budget: two of the four builds compile libsamplerate's SINC
+          # filter and all of aubio. Cap the parallelism so a shared runner is not
+          # starved; `cmake --build --parallel` then inherits this.
+          export CMAKE_BUILD_PARALLEL_LEVEL=2
+
+          # Core suites that must be registered in every configuration. Kept as a
+          # fixed list on purpose: deleting a suite from a source file must turn
+          # this job red rather than silently reduce coverage. BackendRunner was
+          # added to main after this job's base commit, so it is required only when
+          # its source is present — hard-coding it would make the job red on the
+          # commit it is committed to.
+          CORE_SUITES="jam.AnalysisAudioRing jam.DrumTransportAdapter jam.MusicalClock jam.RhythmCorpus jam.RhythmEvalMetrics jam.RtSignal"
+          if [ -f tests/jam/BackendRunnerTests.cpp ]; then
+            CORE_SUITES="$CORE_SUITES jam.BackendRunner"
+          fi
+
+          run_config() {
+            cfg="$1"; bt="$2"; au="$3"
+            build="build-$cfg"
+            want=""
+            if [ "$bt" = "ON" ]; then want="$want jam.BTrackBackend"; fi
+            if [ "$au" = "ON" ]; then want="$want jam.AubioBackend"; fi
+
+            echo "============================================================"
+            echo "== configuration $cfg: JAM_ENABLE_BTRACK=$bt JAM_ENABLE_AUBIO=$au"
+            echo "============================================================"
+
+            echo "-- configure"
+            status=0
+            cmake -S jam-core -B "$build" -G Ninja \
+                  -DJAM_CORE_BUILD_TESTS=ON \
+                  -DJAM_ENABLE_BTRACK="$bt" -DJAM_ENABLE_AUBIO="$au" \
+                  > "$cfg-configure.log" 2>&1 || status=$?
+            cat "$cfg-configure.log"
+            if [ "$status" -ne 0 ]; then
+              echo "::error::$cfg: configure failed (exit ${status})"
+              return 1
+            fi
+
+            echo "-- build (parallel 2)"
+            status=0
+            cmake --build "$build" --parallel > "$cfg-build.log" 2>&1 || status=$?
+            tail -n 40 "$cfg-build.log"
+            if [ "$status" -ne 0 ]; then
+              echo "::error::$cfg: build failed (exit ${status})"
+              return 1
+            fi
+
+            echo "-- suite registration"
+            total="$(ctest --test-dir "$build" -N 2>/dev/null \
+                      | sed -n 's/^Total Tests: \([0-9][0-9]*\)$/\1/p' | head -1 || true)"
+            if [ -z "${total}" ] || [ "${total}" -lt 1 ]; then
+              echo "::error::$cfg: ctest registered no tests — refusing to report a green run"
+              return 1
+            fi
+            registered="$(ctest --test-dir "$build" -N 2>/dev/null \
+                          | sed -n 's/^ *Test *#[0-9][0-9]*: *//p')"
+            printf '%s\n' "$registered" | sed 's/^/    registered: /'
+            if [ "$(printf '%s\n' "$registered" | grep -c .)" -ne "$total" ]; then
+              echo "::error::$cfg: parsed ${total} test(s) but read different names; parser is out of date"
+              return 1
+            fi
+            bad=0
+            for suite in $CORE_SUITES $want; do
+              if ! printf '%s\n' "$registered" | grep -qx "$suite"; then
+                echo "::error::$cfg: expected suite $suite is not registered"
+                bad=1
+              fi
+            done
+            # The OFF half of the boundary: a disabled tracker must not register
+            # its suite, proving the option actually gates the code.
+            for tracker in BTrack Aubio; do
+              case "$tracker" in
+                BTrack) on="$bt";;
+                Aubio)  on="$au";;
+              esac
+              if [ "$on" = "OFF" ] && printf '%s\n' "$registered" | grep -qx "jam.${tracker}Backend"; then
+                echo "::error::$cfg: jam.${tracker}Backend is registered although ${tracker} is OFF"
+                bad=1
+              fi
+            done
+            if [ "$bad" -ne 0 ]; then
+              return 1
+            fi
+
+            echo "-- licence boundary (jam-core and jamTests must be GPL-free in EVERY configuration)"
+            command -v nm >/dev/null 2>&1 || { echo "::error::$cfg: nm missing"; return 1; }
+            # Strip nm's "path:" header lines: the build directory name is a
+            # substring match for btrack/aubio and would otherwise be a false
+            # positive (measured while writing this job).
+            hits="$(nm -C "$build/libjam-core.a" "$build/jamTests" 2>/dev/null \
+                    | grep -Ev '^[^:]+:$' \
+                    | grep -c 'BTrack\|btrack::\|kiss_fft\|aubio' || true)"
+            if [ "${hits}" != "0" ]; then
+              echo "::error::$cfg: ${hits} GPL tracker symbol(s) in libjam-core.a/jamTests — boundary broken"
+              return 1
+            fi
+
+            if [ "$bt" = "OFF" ] && [ "$au" = "OFF" ]; then
+              echo "-- dependency-free boundary (no third_party tracker in the build graph)"
+              if grep -q 'third_party/BTrack\|third_party/aubio' "$build/build.ninja"; then
+                echo "::error::$cfg: dependency-free build references a third_party tracker"
+                return 1
+              fi
+            fi
+
+            echo "-- ctest"
+            status=0
+            ctest --test-dir "$build" --output-on-failure > "$cfg-ctest.log" 2>&1 || status=$?
+            cat "$cfg-ctest.log"
+            if [ "$status" -ne 0 ]; then
+              echo "::error::$cfg: ctest exited ${status}"
+              return 1
+            fi
+            echo "== $cfg OK: all ${total} suite(s) passed"
+            return 0
+          }
+
+          overall=0
+          if run_config depfree OFF OFF; then :; else overall=1; fi
+          if run_config btrack  ON  OFF; then :; else overall=1; fi
+          if run_config aubio   OFF ON;  then :; else overall=1; fi
+          if run_config both    ON  ON;  then :; else overall=1; fi
+
+          if [ "$overall" -ne 0 ]; then
+            echo "::error::one or more tracker configurations failed; every configuration was still measured. See the per-configuration logs above and below."
+            exit 1
+          fi
+          echo "all four tracker configurations configured, built and passed ctest"
+
+      - name: Show the logs if this job failed (and only if they are small)
+        if: failure()
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          # 2 MiB cap per log; the tail of a ctest log is the useful part.
+          for log in *-configure.log *-build.log *-ctest.log; do
+            [ -f "$log" ] || continue
+            size="$(wc -c < "$log")"
+            echo "----- $log ($size bytes) -----"
+            if [ "${size}" -gt 2097152 ]; then
+              echo "(over 2 MiB; showing the last 2 MiB)"
+              tail -c 2097152 "$log"
+            else
+              cat "$log"
+            fi
+          done
+          echo
+          echo "NOTE: no actions/upload-artifact here — whether that action exists on this"
+          echo "Gitea server is unverified. docs/research/CI-SETUP.md has the step to add."

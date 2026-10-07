@@ -143,11 +143,19 @@ jobs:
           ninja --version
           cc --version | head -1
 
-      - name: "Configure jam-core (default: JAM_ENABLE_BTRACK=OFF)"
+      - name: "Configure jam-core (dependency-free: both trackers OFF)"
         run: |
           set -eu
           cd "$CI_WORKDIR"
-          cmake -S jam-core -B build -G Ninja
+          # Both tracker options are named explicitly rather than left to their
+          # defaults, so this lane keeps meaning "dependency-free" even if a
+          # default is ever flipped. JAM_CORE_BUILD_TESTS is likewise explicit:
+          # jam-core now honours it (main, after CI-001) and this job's whole
+          # point is to run the tests.
+          cmake -S jam-core -B build -G Ninja \
+                -DJAM_CORE_BUILD_TESTS=ON \
+                -DJAM_ENABLE_BTRACK=OFF \
+                -DJAM_ENABLE_AUBIO=OFF
           # -S jam-core, not the repository root: configuring the root needs
           # JUCE and the NAM submodule, which this lane must not require.
 
@@ -157,33 +165,37 @@ jobs:
           cd "$CI_WORKDIR"
           cmake --build build --parallel
 
-      - name: Licence boundary — the default build must contain no GPL BTrack objects
+      - name: Licence boundary — the dependency-free build must contain no GPL tracker objects
         run: |
           set -eu
           cd "$CI_WORKDIR"
-          # third_party/BTrack is GPLv3 and is guarded by JAM_ENABLE_BTRACK,
-          # which is OFF by default. "src/jam/ stays free of third-party code"
-          # (jam-core/CMakeLists.txt rules 2 and 3) is only true if this
-          # assertion keeps holding, so it is asserted, not assumed.
+          # third_party/BTrack and third_party/aubio are both GPLv3 and both
+          # guarded by an OFF-by-default option. "src/jam/ stays free of
+          # third-party code" (jam-core/CMakeLists.txt rules 2 and 3) is only
+          # true if this assertion keeps holding, so it is asserted, not assumed.
           #
-          # Check 1: no reference to third_party/BTrack anywhere in the build
-          # graph at all — the option is OFF, so it should not even be parsed.
-          if grep -q 'third_party/BTrack' build/build.ninja; then
-            echo "::error::default jam-core build references third_party/BTrack — GPL code leaked in"
+          # Check 1: no reference to either tracker anywhere in the build graph
+          # at all — both options are OFF, so neither should even be parsed.
+          if grep -q 'third_party/BTrack\|third_party/aubio' build/build.ninja; then
+            echo "::error::dependency-free jam-core build references a third_party tracker — GPL code leaked in"
             exit 1
           fi
 
           # Check 2: no GPL symbol in the produced archive or test binary.
           # binutils' nm is installed by the previous step; fail if it is not
-          # there rather than quietly skipping the check.
+          # there rather than quietly skipping the check. nm's "path:" header
+          # lines are stripped first: they contain the build directory name and
+          # would otherwise match the word "btrack"/"aubio" (a measured false
+          # positive, see jam-core-trackers-linux.yml).
           command -v nm >/dev/null 2>&1 || { echo "::error::nm missing"; exit 1; }
           hits="$(nm -C build/libjam-core.a build/jamTests 2>/dev/null \
-                  | grep -c 'BTrack\|btrack::\|kiss_fft' || true)"
+                  | grep -Ev '^[^:]+:$' \
+                  | grep -c 'BTrack\|btrack::\|kiss_fft\|aubio' || true)"
           if [ "${hits}" != "0" ]; then
-            echo "::error::${hits} GPL BTrack/kiss_fft symbol(s) in the default build"
+            echo "::error::${hits} GPL tracker symbol(s) in the dependency-free build"
             exit 1
           fi
-          echo "licence boundary OK: default build has no GPL BTrack objects"
+          echo "licence boundary OK: dependency-free build has no GPL tracker objects"
 
       - name: Run every ctest suite
         run: |
@@ -205,8 +217,17 @@ jobs:
           # The suites jam-core/CMakeLists.txt generates from JAM_TEST(...)
           # registrations. A suite deleted from a source file must turn this job
           # red rather than quietly reduce coverage.
-          for suite in jam.AnalysisAudioRing jam.DrumTransportAdapter \
-                       jam.MusicalClock jam.RhythmCorpus jam.RtSignal; do
+          #
+          # BackendRunner landed on main after this job's base commit, so it is
+          # required only when its source is present: hard-coding it would make
+          # this job red on the older commit it was written against.
+          expected="jam.AnalysisAudioRing jam.DrumTransportAdapter \
+                    jam.MusicalClock jam.RhythmCorpus jam.RhythmEvalMetrics \
+                    jam.RtSignal"
+          if [ -f tests/jam/BackendRunnerTests.cpp ]; then
+            expected="$expected jam.BackendRunner"
+          fi
+          for suite in $expected; do
             if ! ctest --test-dir build -N | grep -q " ${suite}$"; then
               echo "::error::expected suite ${suite} is not registered with ctest"
               exit 1
