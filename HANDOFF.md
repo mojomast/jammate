@@ -31,6 +31,10 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
   Source/weight hashes and dependency blockers recorded; no inference benchmark.
   Repository CC-BY-4.0 is the only stated term found; weights redistribution
   remains unresolved. See `docs/research/BEATNET-FEASIBILITY.md`.
+- Paired robustness diagnostics (`816a955`) integrated: **29 tests pass**, both
+  real trackers over 24 derived clips, 2160 metric rows exactly reproduced from
+  stored raw runs. Corrected numerical 2% diagnostic; missing data and structural
+  noise-silence caveats retained. See `docs/research/robustness/README.md`.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
@@ -55,28 +59,26 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 |---|---|---|
 | CI-002 tracker workflows | `wp/CI-002-trackers`, `../worktrees/CI-002-trackers` | `ses_ee75a1084ffep3AxLvnl0Kqa3d` |
 | TRACK-003 integrated partial feasibility (worker finished) | `wp/TRACK-003-beatnet`, `../worktrees/TRACK-003-beatnet` | `ses_ee745589effeU0Q5VSCHfvX51T` |
-| EVAL-005 paired robustness curves | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
+| EVAL-005 integrated paired diagnostics (worker finished) | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
 tree and SHA. Review/merge returned work rather than rerunning a worker's topic
 concurrently. The user asked for Flash; escalation, if genuinely necessary, is
 `openai/gpt-6.1-sol#xhigh`, not the OpenCode provider.
 
-All three initial handoffs have returned. TRACK-003's corrected `1ef3d5c` is now
-integrated as partial feasibility with final scorer fixes. The other sessions
-are correcting integration-review findings: EVAL-005 `acc6e7f`
-(numeric BPM-threshold bug, pairing/identity checks and current-main runner
-regeneration), and CI-002 `4dfbc96` (enabled symbols, fail-closed nm, Python/
-derived-suite requirements and empty reference gitlink guards). See the ledger's
-returned-handoff review section. Await revised clean SHAs; do not merge the
-initial EVAL-005/CI-002 handoffs as completed work. BeatNet has no inference result and remains
-a partial feasibility review.
+All three initial handoffs have returned. TRACK-003's corrected `1ef3d5c` is
+integrated as partial feasibility with final scorer fixes; EVAL-005's corrected
+`816a955` is integrated as scoped paired diagnostics. CI-002 is still correcting
+review findings from `4dfbc96` (enabled symbols, fail-closed nm, Python/derived
+suite requirements and empty reference gitlink guards). Await its revised clean
+SHA; do not merge the initial CI-002 handoff as completed work. BeatNet has no
+inference result and remains a partial feasibility review.
 
 ### Remaining gate work
 
 G0/G1 remain partial: Windows/ASIO, hardware timing, full callback heap/locking
 and scene delivery need evidence. G2 lacks live analyzer/UI and real DrumEngine
-transport wiring. G3 still needs corpus-duration repair/robustness review and an
+transport wiring. G3 still needs corpus-duration repair/acquisition improvement and an
 evidence-backed selection ADR. `sustained_chords` collapses to the noise floor
 within about 0.5 s; sparse tapping alone is not proof of a defect. See the
 independent `CORPUS-ACOUSTIC-REVIEW.md`. G4's deterministic implementation does

@@ -1,0 +1,3 @@
+backend,fixtures,fixturesPresent,fixturesMissing,metricRows,metricRowsMeasured,metricRowsMissing,metricRowsProxyNotGate,metricRowsNotAssessedNoise
+btrack,24,24,0,1080,868,202,0,10
+aubio,24,24,0,1080,890,180,0,10

@@ -1464,7 +1464,7 @@ Keep this near the top of the live devplan during implementation.
 | TRACK-003 | integrated feasibility; benchmark PARTIAL (no inference) | main | 1ef3d5c + integration corrections | G3 |
 | EVAL-003 | DONE (scoped derived corpus) | main | 0a15eef | G3 |
 | EVAL-004 | DONE (timing/gate audit + real comparison) | main | 64b39ee | G3 |
-| EVAL-005 | review corrections running (numeric threshold + evidence regeneration) | wp/EVAL-005-robustness | initial acc6e7f, not merged | G3 |
+| EVAL-005 | DONE (scoped paired diagnostics; G3 open) | main | 816a955 | G3 |
 | CI-002 | review corrections running (workflow guards) | wp/CI-002-trackers | initial 4dfbc96, not merged | G1/G3 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
 | ANALYSIS-001 | BLOCKED:G3 | | | G4 |

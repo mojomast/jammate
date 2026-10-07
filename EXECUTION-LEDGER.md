@@ -36,7 +36,7 @@ PARTIAL, never PASSED.
 | **G0** fork/license/baseline | **PARTIAL** | current fork builds/tests on Linux; baseline audio/device and Windows evidence incomplete |
 | **G1** real-time foundation | **PARTIAL** | scene code compiled against JUCE; engine-generated MIDI bound measured; full callback, scene delivery and actual CI runs incomplete |
 | **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam tested; live analyzer, real DrumEngine integration and Jam UI incomplete |
-| **G3** tracker selected | **IN PROGRESS (advanced early)** | both candidate adapters and partial BeatNet feasibility integrated; corpus repairs, robustness integration and selection ADR incomplete |
+| **G3** tracker selected | **IN PROGRESS (advanced early)** | candidate comparison, paired robustness and partial BeatNet feasibility integrated; corpus repairs, acquisition/BPM limitations and selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
 | **G5** adaptive drummer | not started | — |
 | **G6/G7** UX / release | not started | — |
@@ -89,6 +89,11 @@ review findings and correction status are:
   stronger source-window/identity validation, both backends in reproduction,
   and regeneration against main's `0027baa` latency-mean correction. Whole-clip
   median BPM does not establish within-clip tempo-step following.
+  Revised `816a955` is accepted and integrated: **29 tests pass**, including
+  both real trackers; all 24 derived WAV hashes/sizes checked. Integration
+  independently verified manifest/raw-result hashes and reproduced all **2160
+  rows** and coverage exactly. The threshold correction changes 27 diagnostic
+  rows to within-2%; no release gate or selection changes.
 - **TRACK-003 `6a84ae1`:** accept the direction of the measured partial
   feasibility result (no inference), pending precise licence wording and scorer
   contract corrections. Repository CC-BY-4.0 terms and absence of a separate
@@ -155,7 +160,7 @@ and reports instead.
 | EVAL-004 timing/gate audit + comparison | **DONE** | `wp/EVAL-004-timing` → `64b39ee` | B — evidence, Flash | G3 | combined 9/9 suites; both acquisition gates fail; aubio BPM passes, BTrack BPM fails |
 | TRACK-003 BeatNet feasibility | INTEGRATED:PARTIAL; benchmark unavailable | `wp/TRACK-003-beatnet`, `1ef3d5c` → main + scorer corrections | C — research, Flash | G3 | pinned source/weight terms and measured dependency blockers; 51 scorer tests; no inference; redistribution review unresolved |
 | CI-002 tracker CI repair | REVIEW CORRECTIONS RUNNING | `wp/CI-002-trackers`, initial `4dfbc96` | C — evidence, Flash | G1/G3 | local four-config evidence returned; symbol/error/materialization guards need repair; remote/Windows unverified |
-| EVAL-005 paired robustness curves | REVIEW CORRECTIONS RUNNING | `wp/EVAL-005-robustness`, initial `acc6e7f` | B — evidence, Flash | G3 | raw paired runs returned; numerical threshold bug and provenance/reproduction corrections required |
+| EVAL-005 paired robustness curves | **DONE: scoped paired diagnostics** | `wp/EVAL-005-robustness`, `816a955` → main | B — evidence, Flash | G3 | 29 tests; 2160 rows exactly reproduced; all 24 derived WAV hashes/sizes checked; short-window/missing-data caveats retained |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
