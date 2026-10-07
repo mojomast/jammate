@@ -20,16 +20,31 @@ class ProvenanceTest(unittest.TestCase):
         self.assertEqual(self.doc["beatnet"]["spec_cited_repo"]["commit"], provenance.SPEC_CITED_COMMIT)
         self.assertEqual(self.doc["beatnet"]["upstream_repo"]["commit"], provenance.UPSTREAM_COMMIT)
 
-    def test_license_is_cc_by_4_and_covers_weights(self):
+    def test_license_is_cc_by_4_and_unresolved(self):
         lic = self.doc["beatnet"]["license"]
         self.assertEqual(lic["spdx"], "CC-BY-4.0")
         self.assertEqual(lic["sha256"], "7e7170e3cebf88a9f60c7b8421418323c09304da1af4d5e90f4da1dc1c8a2661")
+        self.assertTrue(lic["only_stated_term"])
         self.assertTrue(lic["no_separate_weight_terms_found"])
-        self.assertIn("model weights", lic["applies_to"])
+        self.assertEqual(lic["weights_scope"], "unresolved")
+        self.assertEqual(lic["redistribution_review"], "unresolved")
 
-    def test_weight_hashes_match_constants(self):
-        models = {m["name"]: m["sha256"] for m in self.doc["beatnet"]["models"]["files"]}
-        self.assertEqual(models, provenance.MODEL_WEIGHT_SHA256)
+    def test_license_makes_no_blanket_incompatibility_claim(self):
+        concern = self.doc["beatnet"]["license"]["concern"].lower()
+        self.assertIn("unresolved", concern)
+        for phrase in ("not compatible", "is incompatible", "incompatible with",
+                       "cannot be combined", "violates"):
+            self.assertNotIn(phrase, concern)
+        self.assertTrue(self.doc["beatnet"]["license"]["facts"])
+
+    def test_weight_hashes_verified_at_pinned_commit_url(self):
+        models = self.doc["beatnet"]["models"]
+        template = models["sha256_source_url_template"]
+        self.assertIn(provenance.UPSTREAM_COMMIT, template)
+        self.assertNotIn("/main/", template)
+        self.assertTrue(models["sha256_verified_at_pinned_commit"])
+        hashes = {m["name"]: m["sha256"] for m in models["files"]}
+        self.assertEqual(hashes, provenance.MODEL_WEIGHT_SHA256)
 
     def test_blockers_are_measured_not_guessed(self):
         ids = {b["id"] for b in self.doc["dependency_blockers"]}

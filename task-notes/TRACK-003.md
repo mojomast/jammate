@@ -32,20 +32,26 @@ Machine-readable evidence: `tools/beatnet-eval/provenance.json`.
    `81cedd4beeb7235262db80969a0c9ce9a48a0ed4` (`setup.py` 1.2.0). Both
    CC-BY-4.0; `LICENSE` sha256
    `7e7170e3cebf88a9f60c7b8421418323c09304da1af4d5e90f4da1dc1c8a2661`, identical
-   in both. CC-BY-4.0 covers the **code and the bundled weights**; there is no
-   separate weights terms file. It is a content licence with no patent grant and
-   is not AGPLv3-shipping-compatible, so `SPEC §25.5` still bars model import
-   into release artifacts. PyPI `BeatNet` 1.1.3 has an empty licence field; wheel
-   sha256 `1ecfa17b…`, sdist sha256 `bb76dd00…`.
+   in both. That repository `LICENSE` is the **only stated term found**; the
+   weights are bundled with no separate weights-licence/terms file, so whether it
+   covers the weights and how redistribution is treated is **unresolved** and
+   must be reviewed under `SPEC §25.5`. Fact (not a compatibility conclusion):
+   CC-BY-4.0 grants no patent rights and CC advises against CC licences for
+   software; no blanket AGPLv3 compatibility determination is made. PyPI
+   `BeatNet` 1.1.3 has an empty licence field; wheel sha256 `1ecfa17b…`, sdist
+   sha256 `bb76dd00…`.
 2. **Weights.** Three `model_{1,2,3}_weights.pt`, each 1 612 179 B, GTZAN /
    Ballroom / Rock Corpus, with exact git blob SHA-1 and content sha256 in
-   `provenance.json`; downloaded to scratch to hash, not committed.
+   `provenance.json`, verified at the pinned upstream commit URL (not `/main`);
+   downloaded to scratch to hash, not committed.
 3. **Causal vs offline.** `stream`/`realtime` are hop-by-hop PF; `online` is the
    causal PF algorithm but reads the whole file first, so it has **no per-event
    causal availability**; `offline` is non-causal madmom DBN. The causal path
    still hard-imports madmom (`log_spect.py`, `particle_filtering_cascade.py`,
    and a top-level `BeatNet.py` import). Documented stream lookahead ≈ 0.084 s
-   plus a 5-hop warmup; 22 050 Hz, 20 ms hop, 64 ms window, PF 50 fps.
+   plus a 5-hop warmup; `realtime`'s 64 ms window extends ~64 ms beyond the
+   current hop, so it is causal only after the window completes (not
+   zero-lookahead); 22 050 Hz, 20 ms hop, 64 ms window, PF 50 fps.
 4. **Measured blockers (not guessed).**
    - `madmom==0.16.1` isolated build fails (`No module named 'Cython'`); the
      required `numpy<1.24` cannot build on 3.13 (`pkgutil.ImpImporter`); it
@@ -62,43 +68,53 @@ Machine-readable evidence: `tools/beatnet-eval/provenance.json`.
 ```
 docs/research/BEATNET-FEASIBILITY.md     # findings, SHA/citations, blockers, budget, runbook
 tools/beatnet-eval/README.md             # offline runbook
-tools/beatnet-eval/provenance.json       # pinned SHAs, licence, weight hashes, measured blockers
+tools/beatnet-eval/provenance.json       # pinned SHAs, licence status, weight hashes, measured blockers
 tools/beatnet-eval/probe.py              # offline environment probe (never installs/runs BeatNet)
 tools/beatnet-eval/probe-report.json     # measured probe output for this machine (exit 2)
-tools/beatnet-eval/score.py              # scores a declared real run; refuses unverified input
+tools/beatnet-eval/score.py              # scores a DECLARED run; metadata/format + WAV-hash gate
 tools/beatnet-eval/beatnet_eval/         # pure-stdlib corpus/metric/contract helpers
 tools/beatnet-eval/fixtures/observations.schema.json
-tools/beatnet-eval/tests/                # 31 unit tests
+tools/beatnet-eval/tests/                # 48 unit tests
 task-notes/TRACK-003.md                  # this note
 ```
 
 ## Tests executed
 
 ```
-python3 -m unittest discover -s tools/beatnet-eval/tests -v
-  Ran 31 tests ... OK
+python3 -m unittest discover -s tools/beatnet-eval/tests
+  Ran 48 tests ... OK
 python3 tools/beatnet-eval/probe.py --json --out tools/beatnet-eval/probe-report.json
   exit 2, beatnet_importable=false   (expected on Python 3.13)
-python3 tools/beatnet-eval/score.py --observations <fabricated>.json ...
-  exit 2, "missing 'provenance' object; refusing unverified input"
+python3 tools/beatnet-eval/score.py --observations <no-metadata>.json ...
+  exit 2, metadata/format gate: "missing 'provenance' metadata object"
 ```
 
-The 31 tests include the scorer's refusal paths, the corpus-WAV hash guard, the
-metrics arithmetic, the contract rules and the probe. The scorer tests use a
-**labelled synthetic unit fixture**; they are not BeatNet observations and are
-not BeatNet evidence. No test implies a real BeatNet run.
+The 48 tests cover the contract's mode/availability rules and rejection paths,
+the corpus-WAV hash guard, metrics arithmetic, coverage/missing reporting and the
+probe. The scorer tests use a **labelled synthetic unit fixture**; they are not
+BeatNet observations and are not BeatNet evidence.
+
+**Provenance is self-reported metadata.** The contract checks format/consistency
+and the scorer verifies the WAV hash, but neither proves BeatNet produced the
+beats. A synthetic document with well-formed metadata is accepted by design (a
+test asserts this) — which is why the scorer labels its output *declared,
+unverified* and why no score may be read as a BeatNet result without a separately
+executed driver run and raw output.
 
 ## Executed vs unexecuted
 
-Executed: source/licence/weight inspection and hashing; dependency metadata
-inspection; madmom/numpy build+import attempts; probe; 31 tests; scorer refusal.
-Not executed: any BeatNet inference or measurement; any model-licence conclusion
-beyond the stated CC-BY-4.0; any offline DBN test; any G3/CMake/corpus change.
+Executed: source/licence/weight inspection and hashing (at the pinned commit);
+dependency metadata inspection; madmom/numpy build+import attempts; probe; 48
+tests; scorer metadata-gate rejection of a document with missing provenance.
+Not executed: any BeatNet inference or measurement; any determination that
+CC-BY-4.0 is or is not AGPLv3-compatible; any DBN run; any G3/CMake/corpus change.
 
 ## Handoff
 
-- Deliverables commit: **`f2cdf90`** — *docs(track-003): BeatNet feasibility
-  review — measured blockers, no fabricated benchmark*.
+- Feasibility-review commit: `f2cdf90`.
+- Integration-review corrections commit: `<CORR>` — scoped fixes to licence
+  wording, provenance-is-metadata, IO mode semantics and coverage reporting; no
+  inference, dependency provisioning, benchmark or gate change.
 - SHA-reporting commit: the commit that fills in the line above; this file is the
   only change.
 - Authoritative artifacts: `docs/research/BEATNET-FEASIBILITY.md` and

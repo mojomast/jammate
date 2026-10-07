@@ -1,8 +1,12 @@
-"""Honest, dependency-free metric math for a future real BeatNet run.
+"""Dependency-free metric math for a declared BeatNet observation series.
 
-These metrics are a *research* scorer. They are not the C++ harness's metric
-definitions and must not be presented as a G3 gate result. Their only input is
-a predicted beat/availability series that a declared real BeatNet run produced.
+These metrics are a *research* scorer, deliberately separate from and **not
+comparable to the C++ harness** (``tools/rhythm-eval``). In particular:
+
+- ``impliedBpm`` is the median inter-beat interval of the predicted beats, not
+  the harness's locked-tempo estimate, and there is no acquisition metric here.
+- The scorer takes the predicted series at face value; it does not verify that
+  BeatNet produced it. That is declared metadata plus, separately, the WAV hash.
 
 Definitions
 -----------
@@ -14,7 +18,7 @@ Definitions
 - Implied BPM: 60 / median inter-beat interval of the predicted beats.
 - Availability: for each observation that carries a causal-availability time,
   ``available - event`` in milliseconds. ``mode == online`` carries none, so
-  every availability summary is ``None`` rather than a fabricated zero.
+  every availability summary is ``None`` rather than a zero.
 """
 
 from __future__ import annotations

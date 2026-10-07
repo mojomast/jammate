@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/beatnet-eval/observations.schema.json",
-  "title": "beatnet-eval observations v1 (declared real BeatNet run)",
-  "description": "Schema for the output a real BeatNet driver must produce before score.py will score it. The committed corpus manifest supplies the ground truth; this file is an ILLUSTRATIVE SCHEMA only and contains no BeatNet observation or score.",
+  "title": "beatnet-eval observations v1 (declared, unverified run)",
+  "description": "Input contract for score.py. The provenance block is SELF-REPORTED metadata: schema-validity does not prove BeatNet produced these beats. This causal contract covers the particle-filter (PF) path only; the non-causal offline/DBN path is rejected. This file is a SCHEMA only and contains no BeatNet observation or score.",
   "type": "object",
   "required": ["schema", "provenance", "availability_semantics", "fixtures"],
   "properties": {
@@ -16,8 +16,8 @@
         "repo_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
         "package_version": { "type": "string" },
         "model": { "type": "integer", "minimum": 1, "maximum": 3 },
-        "mode": { "enum": ["stream", "realtime", "online", "offline"] },
-        "inference_model": { "enum": ["PF", "DBN"] },
+        "mode": { "enum": ["stream", "realtime", "online"] },
+        "inference_model": { "const": "PF", "description": "only the causal particle filter is in scope; DBN/offline is rejected" },
         "device": { "enum": ["cpu", "cuda"] },
         "raw_output_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "driver": { "type": "string" },
@@ -27,7 +27,7 @@
     },
     "availability_semantics": {
       "enum": ["per_chunk", "online_batch"],
-      "description": "per_chunk: each observation has a real available time (realtime/stream). online_batch: the whole file was processed at once, so available must be null."
+      "description": "per_chunk: causal stream/realtime, every observation carries a real available time after its window completes (never zero-lookahead). online_batch: whole-file online PF, available must be null."
     },
     "fixtures": {
       "type": "array",
@@ -62,5 +62,44 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "availability_semantics": { "const": "per_chunk" } } },
+      "then": {
+        "properties": {
+          "provenance": { "properties": { "mode": { "enum": ["stream", "realtime"] } } },
+          "fixtures": {
+            "items": {
+              "properties": {
+                "beats": {
+                  "items": {
+                    "required": ["time", "available"],
+                    "properties": { "available": { "type": "number" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "availability_semantics": { "const": "online_batch" } } },
+      "then": {
+        "properties": {
+          "provenance": { "properties": { "mode": { "const": "online" } } },
+          "fixtures": {
+            "items": {
+              "properties": {
+                "beats": {
+                  "items": { "properties": { "available": { "type": "null" } } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

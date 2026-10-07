@@ -54,14 +54,16 @@ is the original author's repo. Both were inspected at a pinned commit on
   - sdist `BeatNet-1.1.3.tar.gz`, 9 159 220 B,
     sha256 `bb76dd00561562602b63fa301ffedef55fb87a484ce80a230d8914cd3c39bd43`
 
-**Licence finding.** The repository licence (CC-BY-4.0) is the *only* stated
-term and it covers **both the code and the bundled weights**. There is no
-separate weights licence or weights terms file. CC-BY-4.0 is a **content**
-licence, not a software licence: it carries no patent grant and is not
-compatible with combining/redistributing code under this project's AGPLv3
-shipping path. So the model-weight terms are *identified but unresolved for
-shipping*, and `SPEC §25.5` continues to bar model/dataset import into release
-artifacts. Benchmark-only, non-runtime study is the most this evidence supports.
+**Licence finding.** The repository `LICENSE` (CC-BY-4.0) is the **only stated
+term found**; the model weights are bundled in the same repository with no
+separate weights-licence or weights-terms file. Whether `LICENSE` covers the
+weights, and how redistribution would be treated, is **unresolved** and must be
+reviewed under `SPEC §25.5` before any release use. Two facts are recorded
+without drawing a compatibility conclusion: CC-BY-4.0 grants **no patent
+rights**, and Creative Commons advises against using CC licences for software.
+Neither fact is by itself a determination that CC-BY-4.0 is incompatible with
+this project's AGPLv3 path, and **no blanket compatibility determination is made
+here**. Benchmark-only, non-runtime study is what this evidence supports.
 
 ---
 
@@ -77,10 +79,12 @@ loaded by `BeatNet.py` (`BDA(272, 150, 2)`), one per training corpus:
 | `model_2_weights.pt` | Ballroom | 1 612 179 | `d1c2d7b3862d30417f2102dcab96143402c0e27d` | `5878a18c079fa0b0139879b14ed2b5b7595faef8c3d16210aed141fd00fa2d58` |
 | `model_3_weights.pt` | Rock Corpus | 1 612 179 | `6c1c388586ddc2ed8b1335a8435aed2ebae3bae0` | `0c52a074ea38e8cb4a760ecfa3747c9cf91a1e3cd19f238eed80b0de763989ca` |
 
-The weights were downloaded to scratch only to compute the sha256 values; they
-are **not committed** and not part of any artifact. The repo also ships three
-duplicate `model-{1,2,3}.pt` files. Same licence as §1 — CC-BY-4.0, no separate
-terms.
+The weights were downloaded to scratch only to compute the sha256 values, at the
+**pinned upstream commit** (`raw.githubusercontent.com/mjhydri/BeatNet/81cedd4b…/src/BeatNet/models/…`),
+not from the mutable `main` branch. They are **not committed** and not part of
+any artifact. The repo also ships three duplicate `model-{1,2,3}.pt` files. Same
+licence status as §1 — CC-BY-4.0 is the only stated term and the scope for the
+weights is unresolved.
 
 ---
 
@@ -109,8 +113,10 @@ BeatNet resamples internally via `librosa.load`.
 
 plus a **5-hop warmup (≈100 ms)** before the first non-zero activation
 (`if self.counter < 5: self.pred = zeros`). `realtime` builds its feature window
-as `audio[hop*(N-2) : hop*N + win_length]`, so the 64 ms window extends beyond
-the current hop. These are non-trivial and would need to be quantified against
+as `audio[hop*(N-2) : hop*N + win_length]`, so the 64 ms window extends ~64 ms
+beyond the current hop: the observation is causal only **after that window has
+completed**, and the causal-availability time is the window end — this is **not
+zero-lookahead**. These are non-trivial and would need to be quantified against
 the C++ harness's own framing — but they cannot be measured here (see §5).
 
 **Hard dependency even for the causal path.** `log_spect.py` imports
@@ -207,8 +213,9 @@ budget and licence review:
 3. Skip madmom by reimplementing its feature front-end — then it is no longer
    "the official BeatNet", and its license/weights question remains.
 
-The model-weight licence question (CC-BY-4.0, §1) is independent of any of these
-and still blocks shipping under `SPEC §25.5`.
+The model-weight redistribution question (CC-BY-4.0, §1) is independent of any of
+these and remains **unresolved** under `SPEC §25.5`; no compatibility conclusion
+is drawn.
 
 ---
 
@@ -219,15 +226,19 @@ and still blocks shipping under `SPEC §25.5`.
 - `probe.py` measures the environment and exits 2 when BeatNet is not runnable.
   Measured here: **exit 2**, `beatnet_importable: false`, blockers listed; the
   report is committed as `tools/beatnet-eval/probe-report.json`.
-- `score.py` scores a **declared real** BeatNet run and refuses anything
-  unverified (no bypass flag). It verifies each fixture's WAV sha256 against the
-  committed manifest before scoring and keeps event time separate from causal
+- `score.py` scores a **declared** BeatNet run. The contract is a
+  metadata/format gate: it checks that the declared provenance is well-formed and
+  the scorer separately verifies each fixture's WAV sha256 against the committed
+  manifest. It **cannot** prove the beats came from BeatNet, so its output is
+  labelled *declared, unverified* and reports fixture coverage/missing data
+  instead of silently omitting fixtures. It keeps event time separate from causal
   availability.
-- `tests/` — **31 unit tests pass** on this machine
+- `tests/` — **48 unit tests pass** on this machine
   (`python3 -m unittest discover -s tools/beatnet-eval/tests`), covering the
-  contract rejection paths, metric math and the probe. The scorer tests use a
-  **labelled synthetic unit fixture**, explicitly not BeatNet observations.
-- `fixtures/observations.schema.json` — the schema a real driver must satisfy.
+  contract's mode/availability rules and rejection paths, metric math, coverage
+  reporting and the probe. The scorer tests use a **labelled synthetic unit
+  fixture**, explicitly not BeatNet observations.
+- `fixtures/observations.schema.json` — the schema a declared driver must satisfy.
 
 Procedure to obtain a real file (not executed; see `tools/beatnet-eval/README.md`)
 is pinned to the commits in §1 and the weight hashes in §2.
@@ -243,13 +254,16 @@ Executed here:
   wheel installed; torch deliberately not installed).
 - Real build/import attempts for madmom and numpy variants, capturing exact
   errors (B1/B2).
-- `probe.py` and the full 31-test suite.
-- Scorer refusal of a fabricated document (exit 2).
+- `probe.py` and the full 48-test suite.
+- Scorer metadata/format gate rejection of a document with missing declared
+  provenance (exit 2). Note the gate also *accepts* a synthetic document with
+  well-formed metadata, which is exactly why its output is labelled unverified.
 
 **Not** executed: any BeatNet inference; any accuracy/acquisition/F-measure/BPM/
-phase/CPU/startup measurement for BeatNet; any model-weight licence conclusion
-beyond "CC-BY-4.0 is the only stated term"; any change to CMake, trackers, the
-harness, the corpus, packaging or `src/`.
+phase/CPU/startup measurement for BeatNet; any determination that CC-BY-4.0 is
+or is not AGPLv3-compatible (only the facts in §1 and the unresolved
+redistribution review are recorded); any change to CMake, trackers, the harness,
+the corpus, packaging or `src/`.
 
 ## 9. Boundedness / non-claims
 

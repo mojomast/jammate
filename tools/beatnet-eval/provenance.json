@@ -38,9 +38,16 @@
       "bytes": 18650,
       "sha256": "7e7170e3cebf88a9f60c7b8421418323c09304da1af4d5e90f4da1dc1c8a2661",
       "identical_in_both_repos": true,
-      "applies_to": "the whole repository, i.e. source code AND the bundled model weights; there is no separate weights licence or terms file in either repo",
+      "only_stated_term": true,
       "no_separate_weight_terms_found": true,
-      "concern": "CC-BY-4.0 is a content licence, not a software licence: it has no patent grant and is not compatible with combining/redistributing code under the project's AGPLv3 shipping path. SPEC.md 25.5 still bars model/dataset import into release artifacts. Benchmark-only, non-runtime use is the extent of what is currently defensible."
+      "weights_scope": "unresolved",
+      "redistribution_review": "unresolved",
+      "facts": [
+        "The repository LICENSE is the only stated term found; the model weights are bundled in the same repository and no separate weights-licence or weights-terms file exists.",
+        "CC-BY-4.0 grants no patent rights.",
+        "Creative Commons advises against using CC licences for software, but that advice is not by itself a determination that CC-BY-4.0 is incompatible with AGPLv3."
+      ],
+      "concern": "Whether the repository LICENSE covers the bundled weights, and how redistribution would be treated, is UNRESOLVED and must be reviewed under SPEC.md 25.5 before any release use. The absence of a patent grant is a fact, not proof of any AGPLv3 conflict. No blanket compatibility determination is made here; benchmark-only non-runtime study is all this evidence supports."
     },
     "pypi": {
       "package": "BeatNet",
@@ -91,8 +98,12 @@
           "sha256": "0c52a074ea38e8cb4a760ecfa3747c9cf91a1e3cd19f238eed80b0de763989ca"
         }
       ],
-      "sha256_provenance": "computed locally from raw.githubusercontent.com/mjhydri/BeatNet/main/src/BeatNet/models/model_{1,2,3}_weights.pt on 2026-10-07; the files were not committed and are not part of any release artifact",
-      "note": "Three separate 1.54 MiB CRNN state dicts (plus duplicate .pt variants in the repo). All are trained on mastered commercial datasets; README states the streaming recipe assumes mastered songs."
+      "sha256_provenance": "sha256 computed locally on 2026-10-07 from the PINNED upstream commit, not from the mutable branch",
+      "sha256_source_url_template": "https://raw.githubusercontent.com/mjhydri/BeatNet/81cedd4beeb7235262db80969a0c9ce9a48a0ed4/src/BeatNet/models/{name}",
+      "sha256_verified_at_pinned_commit": true,
+      "git_blob_sha1_source": "GitHub git/trees API at commit 81cedd4beeb7235262db80969a0c9ce9a48a0ed4",
+      "note": "The three 1.54 MiB CRNN state dicts are loaded by BeatNet.py; the repo also ships duplicate model-{1,2,3}.pt variants. All were trained on mastered commercial datasets; the README states the streaming recipe assumes mastered songs.",
+      "scratch_only": "the weight files were downloaded to scratch only to compute sha256; they are not committed and are not part of any release artifact"
     }
   },
   "inference_facts": {
@@ -111,7 +122,7 @@
       },
       "realtime": {
         "execution": "file read one 20 ms hop at a time, PF causal",
-        "lookahead_note": "feature window for hop N spans [hop*(N-2), hop*N + win_length], i.e. the 64 ms window extends beyond the current hop"
+        "lookahead_note": "the feature window for hop N spans [hop*(N-2), hop*N + win_length], i.e. the 64 ms window extends ~64 ms beyond the current hop; an observation is therefore causal only once that window has completed — this is not zero-lookahead, and per_chunk availability must be the window end"
       },
       "online": {
         "execution": "whole file in one batch for activations, then PF over the whole sequence; README claims identical outcomes to realtime",

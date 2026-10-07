@@ -28,16 +28,17 @@ python3 tools/beatnet-eval/probe.py --beatnet-dir /path/to/BeatNet
 # 3. Run the unit tests (stdlib only, no third-party deps):
 python3 -m unittest discover -s tools/beatnet-eval/tests -v
 
-# 4. Score a REAL run once one exists (refuses anything unverified):
+# 4. Score a DECLARED run (provenance is self-reported metadata; the scorer
+#    verifies metadata/format and the corpus WAV hash, but not authenticity):
 python3 tools/beatnet-eval/score.py \
-    --observations /path/to/real-observations.json \
+    --observations /path/to/declared-observations.json \
     --corpus testdata/rhythm --out /tmp/beatnet-score
 ```
 
-## Producing a real observation file (on a supported interpreter)
+## Producing a declared observation file (future, on a supported interpreter)
 
 This is the procedure a future task must follow. It is **not** executed here
-because no supported interpreter exists on this machine. Do not fake step 2.
+because no supported interpreter exists on this machine. Do not fabricate output.
 
 1. Provision a pinned environment where the pinned BeatNet can run. As measured
    in `provenance.json`, that means Python 3.9 with `numpy<1.24` (madmom 0.16.1
@@ -49,24 +50,33 @@ because no supported interpreter exists on this machine. Do not fake step 2.
    BeatNet's own `librosa.load`.
 3. Emit `beatnet-eval/observations/v1` JSON as in
    `fixtures/observations.schema.json`, including the raw-output hash, the
-   driver hash, and the real `input_wav_sha256` for each fixture.
+   driver hash, and the actual `input_wav_sha256` for each fixture.
 4. Score with `score.py`. The scorer recomputes metrics from the **committed**
-   manifest and refuses any input whose WAV hash differs.
+   manifest and rejects any input whose WAV hash differs, and reports fixture
+   coverage/missing data so omission is visible.
+
+The provenance block is **self-reported metadata**. The scorer checks its format
+and the WAV hash; it cannot prove BeatNet produced the beats. Any score is
+therefore a *declared, unverified* result until a separately executed driver run
+and its raw output are recorded and reviewed.
 
 `mode='online'` uses the causal particle filter but reads the whole file first,
 so it must declare `availability_semantics: "online_batch"` and
-`available: null`. Only `realtime`/`stream` can carry a per-event causal
-availability, which is the SPEC 12.3 split this project cares about.
+`available: null`. Only `realtime`/`stream` carry a per-event causal
+availability. In `realtime` the feature window extends 64 ms beyond the current
+hop, so an observation is causally available only after the window completes —
+this is not zero-lookahead. That event-vs-availability split is the SPEC 12.3
+concern this project cares about.
 
 ## Files
 
 | file | purpose |
 |---|---|
-| `provenance.json` | pinned SHAs, licence, weight hashes, measured blockers, budget |
+| `provenance.json` | pinned SHAs, licence status, weight hashes, measured blockers, budget |
 | `provenance.json` → `dependency_blockers` | the measured reasons no run happened |
 | `probe.py` | offline environment probe (exit 2 = not runnable) |
 | `probe-report.json` | measured probe output for this machine |
-| `score.py` | scores a declared real run; refuses unverified input |
+| `score.py` | scores a declared (unverified) run; metadata/format + WAV-hash gate |
 | `beatnet_eval/` | pure-stdlib corpus/metric/contract helpers |
 | `fixtures/observations.schema.json` | the input contract (schema only, no data) |
-| `tests/` | 31 unit tests; synthetic fixtures are labelled and are not BeatNet evidence |
+| `tests/` | unit tests; synthetic fixtures are labelled and are not BeatNet evidence |
