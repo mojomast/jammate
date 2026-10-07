@@ -1,0 +1,247 @@
+# jam-core — the CORE verification lane (ADR-0003 lane "core").
+#
+# This is the job that actually proves things today. jam-core is platform
+# neutral: no JUCE, no audio device, no audio headers, no hardware. It
+# compiles the SAME src/jam/*.cpp objects the shipping plugin links
+# (ADR-0003 rule 3), so a green run here is evidence about the musical
+# intelligence itself, not about a stub.
+#
+# NO SUBMODULES. Deliberate and load-bearing:
+#   - jam-core needs none. It depends on Threads and nothing else.
+#   - every submodule in .gitmodules is large (JUCE alone is ~300 MB) and the
+#     references/* ones are enormous and unused by the build.
+#   - if a future editor adds `submodule: recursive` or
+#     `git submodule update --init --recursive` to this file, they will make
+#     this lane slow, flaky and disk-hungry for zero benefit. Do not "fix" it.
+#
+# Uses NO `uses:` actions at all — checkout is a plain `git` command. Reason:
+# on a Gitea server whose action configuration I cannot see, a `uses:` that
+# fails to resolve kills the job before the first step runs, and
+# `continue-on-error` does not save it. Plain git is the one dependency every
+# runner is guaranteed to have. See docs/research/CI-SETUP.md.
+
+name: jam-core (linux, core lane)
+
+on:
+  # No branch filter on purpose: `push:` with no filter means every branch and
+  # tag, and needs no glob support from the server. DEVPLAN CI-001's goal is
+  # "make every branch prove it builds and tests".
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cheap and correct: a new push to a branch supersedes the previous run.
+concurrency:
+  group: jam-core-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jam-core-linux:
+    name: jam-core / cmake+ninja / ctest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Job-level so both the checkout and the toolchain step see them.
+    #
+    # ASSUMED expression fields: `github.server_url`, `github.repository` and
+    # `github.sha`. If the server populates `github.sha` with an unreachable
+    # merge ref on pull_request events, the checkout step falls back to
+    # fetching ref tips and still hard-fails if it cannot land on the SHA.
+    # See docs/research/CI-SETUP.md, "Assumed, not verified".
+    env:
+      CI_REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
+      CI_COMMIT_SHA: ${{ github.sha }}
+
+    steps:
+      - name: Check out the commit under test (NO submodules)
+        run: |
+          set -eu
+          # Resolve a workdir once and publish it to the later steps. Both
+          # GITHUB_WORKSPACE and the $HOME fallback are runner-provided.
+          if [ -n "${GITHUB_WORKSPACE:-}" ]; then
+            CI_WORKDIR="$GITHUB_WORKSPACE/guitar-companion-ci"
+          else
+            CI_WORKDIR="${HOME}/guitar-companion-ci"
+          fi
+          echo "CI_WORKDIR=$CI_WORKDIR" >> "${GITHUB_ENV}"
+          mkdir -p "$CI_WORKDIR"
+          cd "$CI_WORKDIR"
+
+          # Explicit, shallow, depth-1 fetch of the exact SHA. No tags, no
+          # history, no branch tracking. This is `actions/checkout` behaviour
+          # without the action.
+          #
+          # ASSUMED: the server allows fetching a commit by SHA. If it does not
+          # (uploadpack.allowAnySHA1InWant), the fallback below fetches ref tips
+          # instead. Either path is checked against the SHA we asked for.
+          git init -q .
+          git remote add origin "${CI_REPO_URL}"
+          if ! git -c protocol.version=2 fetch -q --no-tags --depth 1 origin "${CI_COMMIT_SHA}"; then
+            echo "Direct fetch by SHA refused; retrying via ref tips."
+            git -c protocol.version=2 fetch -q --no-tags --depth 1 origin \
+              '+refs/heads/*:refs/remotes/origin/*' \
+              '+refs/pull/*/head:refs/remotes/pull/*'
+          fi
+          git checkout -q --detach "${CI_COMMIT_SHA}"
+
+          # Never trust the checkout blindly. If this test fails, everything
+          # downstream is testing the wrong tree.
+          got="$(git rev-parse HEAD)"
+          echo "checked out ${got}"
+          test "${got}" = "${CI_COMMIT_SHA}"
+
+          # SUBMODULES ARE NOT INITIALISED HERE, AND MUST NOT BE.
+          # Assert it, so a later "harmless" addition is caught by CI.
+          if [ -e third_party/JUCE/CMakeLists.txt ]; then
+            echo "::error::third_party/JUCE was materialised in the core lane; it must not be"
+            exit 1
+          fi
+
+      - name: Toolchain — cmake + ninja
+        run: |
+          set -eu
+          # ASSUMED: the runner is root, or has passwordless sudo. If neither,
+          # this fails loudly rather than silently using an unexpected cmake.
+          #
+          # `command -v sudo` is NOT a sufficient test: sudo can be installed
+          # and still demand a password, in which case `sudo -n apt-get` fails
+          # with "sudo: a password is required" and buries the real problem.
+          # `sudo -n true` is the test that actually means something.
+          if [ "$(id -u)" -eq 0 ]; then
+            APT="apt-get"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+            APT="sudo -n apt-get"
+          else
+            echo "::error::cannot install cmake/ninja: this runner is neither root nor"
+            echo "::error::passwordless-sudo. Install cmake, ninja-build and binutils on the"
+            echo "::error::runner image, or grant NOPASSWD in its sudoers."
+            exit 1
+          fi
+          # cmake is required by this lane's CMakeLists (floor 3.16, see
+          # jam-core/CMakeLists.txt line 1). ninja-build is the Debian/Ubuntu
+          # package name for ninja. binutils supplies nm, which the licence
+          # boundary assertion uses.
+          $APT update -qq
+          $APT install -y -qq --no-install-recommends cmake ninja-build binutils
+
+          command -v ninja
+          want_major=3 want_minor=16
+          have="$(cmake --version | head -1 | sed -n 's/^cmake version \([0-9]*\)\.\([0-9]*\)\..*/\1 \2/p')"
+          set -- ${have}
+          if [ -z "${1:-}" ] || [ -z "${2:-}" ]; then
+            echo "::error::could not parse cmake version"
+            exit 1
+          fi
+          if [ "$1" -lt "$want_major" ] || { [ "$1" -eq "$want_major" ] && [ "$2" -lt "$want_minor" ]; }; then
+            echo "::error::cmake $have is older than the required $want_major.$want_minor"
+            exit 1
+          fi
+          cmake --version | head -1
+          ninja --version
+          cc --version | head -1
+
+      - name: "Configure jam-core (default: JAM_ENABLE_BTRACK=OFF)"
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          cmake -S jam-core -B build -G Ninja
+          # -S jam-core, not the repository root: configuring the root needs
+          # JUCE and the NAM submodule, which this lane must not require.
+
+      - name: Build jam-core (parallel)
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          cmake --build build --parallel
+
+      - name: Licence boundary — the default build must contain no GPL BTrack objects
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          # third_party/BTrack is GPLv3 and is guarded by JAM_ENABLE_BTRACK,
+          # which is OFF by default. "src/jam/ stays free of third-party code"
+          # (jam-core/CMakeLists.txt rules 2 and 3) is only true if this
+          # assertion keeps holding, so it is asserted, not assumed.
+          #
+          # Check 1: no reference to third_party/BTrack anywhere in the build
+          # graph at all — the option is OFF, so it should not even be parsed.
+          if grep -q 'third_party/BTrack' build/build.ninja; then
+            echo "::error::default jam-core build references third_party/BTrack — GPL code leaked in"
+            exit 1
+          fi
+
+          # Check 2: no GPL symbol in the produced archive or test binary.
+          # binutils' nm is installed by the previous step; fail if it is not
+          # there rather than quietly skipping the check.
+          command -v nm >/dev/null 2>&1 || { echo "::error::nm missing"; exit 1; }
+          hits="$(nm -C build/libjam-core.a build/jamTests 2>/dev/null \
+                  | grep -c 'BTrack\|btrack::\|kiss_fft' || true)"
+          if [ "${hits}" != "0" ]; then
+            echo "::error::${hits} GPL BTrack/kiss_fft symbol(s) in the default build"
+            exit 1
+          fi
+          echo "licence boundary OK: default build has no GPL BTrack objects"
+
+      - name: Run every ctest suite
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+
+          # ctest exits 0 with "No tests were found!!!" when a build directory
+          # has no tests registered. That is a silent pass and it is exactly
+          # the failure mode this job exists to prevent, so the suite count is
+          # asserted before the run and the exit code is asserted after it.
+          total="$(ctest --test-dir build -N 2>/dev/null \
+                    | sed -n 's/^Total Tests: \([0-9][0-9]*\)$/\1/p' | head -1 || true)"
+          if [ -z "${total}" ] || [ "${total}" -lt 1 ]; then
+            echo "::error::ctest found no tests in build/ — refusing to report a green run"
+            exit 1
+          fi
+          echo "ctest reports ${total} suite(s)"
+
+          # The suites jam-core/CMakeLists.txt generates from JAM_TEST(...)
+          # registrations. A suite deleted from a source file must turn this job
+          # red rather than quietly reduce coverage.
+          for suite in jam.AnalysisAudioRing jam.DrumTransportAdapter \
+                       jam.MusicalClock jam.RhythmCorpus jam.RtSignal; do
+            if ! ctest --test-dir build -N | grep -q " ${suite}$"; then
+              echo "::error::expected suite ${suite} is not registered with ctest"
+              exit 1
+            fi
+          done
+
+          status=0
+          ctest --test-dir build --output-on-failure > ctest.log 2>&1 || status=$?
+          cat ctest.log
+          if [ "${status}" -ne 0 ]; then
+            # The project's test runner also exits non-zero when a filter
+            # matches zero tests, so this catches a renamed case too. Do not
+            # mask a non-zero exit with `|| true` anywhere above.
+            echo "::error::ctest exited ${status}"
+            exit "${status}"
+          fi
+          echo "all ${total} suite(s) passed"
+
+      - name: Show the ctest log if this job failed (and only if it is small)
+        if: failure()
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          [ -f ctest.log ] || { echo "no ctest.log was produced"; exit 0; }
+          size="$(wc -c < ctest.log)"
+          echo "ctest.log is ${size} bytes"
+          # Cap at 2 MiB. The tail is what matters — ctest prints the failure
+          # last — so an oversized log is truncated rather than dropped.
+          if [ "${size}" -gt 2097152 ]; then
+            echo "log exceeds 2 MiB; showing the last 2 MiB"
+            tail -c 2097152 ctest.log
+          else
+            cat ctest.log
+          fi
+          echo
+          echo "NOTE: this job does not use actions/upload-artifact, because"
+          echo "whether that action exists on this Gitea server is unverified."
+          echo "docs/research/CI-SETUP.md has the exact step to add once confirmed."
