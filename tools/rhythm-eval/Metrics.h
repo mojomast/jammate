@@ -63,10 +63,14 @@ inline constexpr double kHalfDoubleBandFraction = 0.10;
     inside a declared silence span is the maintained grid beat or an extra. */
 inline constexpr double kSilentOnsetWindowSeconds = 0.030;
 
-/** SPEC 19: "no tempo jump from one isolated syncopated event". A first
-    difference of the reported BPM larger than this fraction of nominal is a
-    jump. */
-inline constexpr double kSyncopationJumpFraction = 0.05;
+/** EVAL-004: `syncopationMaxStepFraction` (the largest first difference of the
+    reported BPM on the syncopated fixture, as a fraction of nominal) is still
+    computed and reported as a raw diagnostic, but it is NOT a gate. The SPEC 19
+    target is "no tempo jump from one isolated syncopated event"; a generic
+    syncopated-funk fixture contains many syncopated events, so a whole-fixture
+    first difference cannot isolate one, and any numeric threshold here would be
+    fabricated. The EVAL-002R 5 % threshold was removed with the gate. See
+    `markdownSummary`'s gate table. */
 
 // ---------------------------------------------------------------------------
 // Inputs
@@ -126,13 +130,59 @@ struct RhythmTruth
     bool isRamp() const    { return tempoProfile == "linear-ramp"; }
 };
 
-/** One time-stamped tempo/phase report from a backend. */
+/** One time-stamped tempo/phase report from a backend. Two clocks are carried
+    so that "when the beat actually happened" and "when the harness learned
+    about it" can never be confused (EVAL-004):
+
+      - `timeSeconds` is the EVENT time: the device time of the audio the
+        evidence is about. The runner stamps this from the block start, because
+        a tempo/phase report describes the audio in its block.
+      - `availabilitySeconds` is the CAUSAL AVAILABILITY time: the device time at
+        which `IRhythmTracker::process()` returned, i.e. the block end. A
+        real-time consumer cannot use evidence before this time. `hasAvailability`
+        is false for hand-built test input, where no such timing exists; the
+        consumer must then not invent one. */
 struct TempoSample
 {
     double timeSeconds = 0.0;
+    double availabilitySeconds = 0.0;
+    bool   hasAvailability = false;
     double bpm = 0.0;
     bool   phaseValid = false;
     bool   silence = false;
+};
+
+/** BackendRunner timing diagnostics for one fixture run (EVAL-004). These are
+    counters about how the runner mapped a backend's evidence onto its own
+    block timeline; they are not scored, but they make the event-vs-availability
+    distinction auditable and expose a backend that reports a device timestamp on
+    a clock the runner did not feed it. */
+struct BackendRunnerDiagnostics
+{
+    std::size_t blocks = 0;
+    std::size_t partialFinalBlocks = 0;
+
+    std::size_t beatEvents = 0;
+    /** Beat events whose reported device time equalled the block start (either
+        the backend reported exactly there or it left the field alone; the two
+        are indistinguishable and both give the same event time). */
+    std::size_t beatsAtBlockStart = 0;
+    /** Beat events with a backend-reported device time strictly before the
+        block start, accepted as causal. */
+    std::size_t beatsReportedByBackend = 0;
+    /** Beat events the backend reported AFTER the end of the block that produced
+        them: non-causal, rejected, event time fell back to the block start. */
+    std::size_t beatsRejectedNonCausal = 0;
+
+    /** Blocks whose declared `sourceSampleRate` differed from the rate the
+        frames were actually fed at. The runner still converts on the fed clock;
+        a non-zero count means the backend's declared clock cannot be trusted. */
+    std::size_t rateMismatchBlocks = 0;
+
+    /** For accepted backend-reported beats, availability (block end) minus the
+        reported event time: how late the harness learned of the beat. */
+    double meanReportedAvailabilityLatencySeconds = 0.0;
+    double maxReportedAvailabilityLatencySeconds = 0.0;
 };
 
 /** What an `IRhythmTracker` produced when driven over one fixture, reduced to
@@ -140,14 +190,24 @@ struct TempoSample
     backend's `RhythmObservation` stream, or built by hand in a unit test. */
 struct ObservationSeries
 {
-    /** Predicted beat-event times, seconds, in emission order. */
+    /** Predicted beat-event times, seconds, in emission order. These are the
+        backend's reported device times when it supplies a causal one, else the
+        block start. */
     std::vector<double> beatTimesSeconds;
+
+    /** Causal availability of each beat in `beatTimesSeconds`, seconds,
+        parallel. Empty when the producer had no block timing (hand-built test
+        input); `toSeries` never invents it. */
+    std::vector<double> beatAvailabilitySeconds;
 
     /** Tempo/phase evidence over time (typically one sample per block). */
     std::vector<TempoSample> tempoSamples;
 
     double audioDurationSeconds = 0.0;
     double sampleRate = 48000.0;
+
+    /** Runner timing diagnostics; all zero for hand-built input. */
+    BackendRunnerDiagnostics diagnostics;
 
     /** Resource metrics, carried through unchanged; not used by scoring maths. */
     double cpuSeconds = 0.0;
@@ -157,6 +217,36 @@ struct ObservationSeries
 // ---------------------------------------------------------------------------
 // Outputs
 // ---------------------------------------------------------------------------
+
+/** Why the true-silence false-beat metric is or is not usable for a fixture
+    (EVAL-004). The old metric collapsed two different things — a fixture with
+    no silence at all, and a fixture whose declared silence is a synthesis
+    artifact — into a numeric ">= 50 % silence" censoring rule. That rule
+    censored genuine data by an arbitrary threshold. They are now distinct:
+
+      - `Measured`: there is true silence and it is real performance silence.
+      - `NoTrueSilence`: the fixture never stops, so the metric is NOT MEASURED.
+        A rate of 0 here is not a pass, it is an absence of data.
+      - `CorpusDefect`: the declared true silence is a known artifact of the
+        two-stage fast decay used to synthesise the fixture, not a performance.
+        Reported with the fixture name; see `scoreFixture`. */
+enum class FalseBeatCoverage : int
+{
+    Measured = 0,
+    NoTrueSilence = 1,
+    CorpusDefect = 2
+};
+
+inline const char* toString (FalseBeatCoverage c) noexcept
+{
+    switch (c)
+    {
+        case FalseBeatCoverage::Measured:      return "Measured";
+        case FalseBeatCoverage::NoTrueSilence: return "NoTrueSilence";
+        case FalseBeatCoverage::CorpusDefect:  return "CorpusDefect";
+    }
+    return "Unknown";
+}
 
 /** All metrics for one fixture. Field comments give unit + aggregation. */
 struct FixtureMetrics
@@ -168,6 +258,11 @@ struct FixtureMetrics
     double beatToleranceSeconds = kBeatMatchToleranceSeconds;
 
     // --- beat-event detection (SPEC 12.3 "beat-event F-measure") -----------
+    // detectionMeasured is false only when the fixture has no ground-truth
+    // beats, where precision/recall/F are undefined rather than 1. The corpus
+    // never does this; the flag stops an empty grid from inflating the aggregate
+    // detection means.
+    bool detectionMeasured = true;
     int predictedBeats = 0;
     int truthBeats = 0;
     int truePositives = 0;
@@ -206,25 +301,46 @@ struct FixtureMetrics
     bool doubleTimeLock = false;
     bool halfDoubleTimeError = false;
 
-    // --- false beats in silence (SPEC 12.3 / SPEC 19) ----------------------
+    // --- false beats in silence (SPEC 12.3) --------------------------------
     //
     // There are TWO distinct failures and they are reported separately, never
-    // merged and never dropped.
+    // merged and never dropped. EVAL-004 reframes the primary counter as a
+    // DIAGNOSTIC, not as SPEC 19's "false acceleration" gate: a beat event in a
+    // declared true-silence span is an event in silence, but SPEC 19 forbids
+    // false ACCELERATION, and a tracker that holds a steady grid through a short
+    // gap is doing exactly what a holdover is for. Counting held grid beats as a
+    // gate failure (as EVAL-002R did) was wrong. See the silence-acceleration
+    // diagnostic below and `markdownSummary`'s gate table.
     //
-    // Primary: predicted beat events inside a `trueSilenceSpan` — a region where
-    // the guitar genuinely stopped. A beat there is fabricated no matter where
-    // the notional grid is, so every such prediction counts. This is SPEC 19's
-    // "silence does not create false acceleration". Denominator is the total
+    // Primary diagnostic: predicted beat events inside a `trueSilenceSpan` — a
+    // region where the guitar genuinely stopped. Denominator is the total
     // true-silence duration.
     int falseBeatsInTrueSilence = 0;
     double trueSilenceSeconds = 0.0;
     double trueSilenceFractionOfDuration = 0.0;
     double falseBeatsInTrueSilencePerSecond = 0.0;
-    /** False when this fixture cannot inform the primary metric: at least half
-        its duration is true silence, so there is almost no playing for the
-        tracker to fabricate against and the rate is low for the wrong reason.
-        Such a fixture must be read as NOT-INFORMATIVE, never as a pass. */
+    /** True when the fixture has real true silence to measure against at all.
+        False means the metric is NOT MEASURED, not passed. */
+    bool trueSilenceMeasured = false;
+    /** Coverage/reason for the primary diagnostic (see FalseBeatCoverage). */
+    FalseBeatCoverage falseBeatCoverage = FalseBeatCoverage::Measured;
+    /** Legacy alias kept for existing consumers: true iff `falseBeatCoverage ==
+        Measured`. Must never be read as a gate result. */
     bool falseBeatMetricInformative = true;
+
+    // --- silence acceleration diagnostic (EVAL-004) ------------------------
+    // SPEC 19: "silence does not create false acceleration". This measures the
+    // reported BPM just after each true-silence span minus the reported BPM just
+    // before it; a positive value is a tempo INCREASE across the gap. It is a
+    // diagnostic, not a gate: the offline harness cannot attribute a tempo
+    // increase to the silence rather than to a legitimate tempo follow, and the
+    // SPEC gate is marked NOT-MEASURED in `markdownSummary`. When no phase-valid
+    // tempo samples flank a span the comparison has insufficient evidence.
+    bool silenceAccelerationMeasured = false;
+    bool silenceAccelerationInsufficientEvidence = false;
+    int silenceSpansEvaluated = 0;
+    int silenceSpansInsufficientEvidence = 0;
+    double maxSilenceTempoIncreaseBpm = 0.0;
 
     // Secondary (a different failure): predicted beat events inside the declared
     // `silenceSpans` — +/-30 ms windows around beats the player deliberately did
@@ -240,10 +356,23 @@ struct FixtureMetrics
     int falseBeatsOffGridInUnplayedBeatWindows = 0;
     double falseBeatsOffGridInUnplayedBeatWindowsPerSecond = 0.0;
 
+    // --- backend timing diagnostics (EVAL-004) -----------------------------
+    // Copied from ObservationSeries::diagnostics. `timingDiagnosticsMeasured`
+    // is false for hand-built series that carry no block timeline.
+    bool timingDiagnosticsMeasured = false;
+    std::size_t beatsReportedByBackend = 0;
+    std::size_t beatsStampAtBlockStart = 0;
+    std::size_t beatsRejectedNonCausal = 0;
+    std::size_t rateMismatchBlocks = 0;
+    double causalAvailabilityMeanSeconds = 0.0;
+    double causalAvailabilityMaxSeconds = 0.0;
+
     // --- recovery after stop/start (SPEC 12.3) -----------------------------
     // Only for the `stop_start` fixture: lock time minus the first onset after
-    // the last declared silence span. Seconds and beats. hasRecovery==false
-    // means not applicable or no post-silence lock.
+    // the end of the last TRUE silence span (the real stop). Seconds and beats.
+    // hasRecovery==false means not applicable or no post-stop lock. Searching
+    // only from the stop end is what makes a pre-stop lock unable to count as
+    // recovery.
     bool hasRecovery = false;
     double recoverySeconds = 0.0;
     double recoveryBeats = 0.0;
@@ -270,6 +399,11 @@ struct FixtureMetrics
     // --- phase error (SPEC 12.3) -------------------------------------------
     // Signed and absolute error of matched predicted beats against the nearest
     // ground-truth beat, in ms and in local beats. Mean and p50/p95 of |error|.
+    // `phaseMeasured` is false when NO predicted beat matched any ground-truth
+    // beat; the zero-valued fields are then UNDEFINED and must be shown as
+    // missing, never as a perfect zero phase.
+    bool phaseMeasured = false;
+    int phaseMatchedBeats = 0;
     double phaseMeanMs = 0.0;
     double phaseMeanAbsMs = 0.0;
     double phaseP50AbsMs = 0.0;
@@ -305,10 +439,12 @@ struct AggregateMetrics
     double bpmRelErrorMedianSteady = 0.0;
     double bpmRelErrorWorstCore = 0.0;
 
-    // Detection, averaged over all fixtures.
+    // Detection, averaged over fixtures that have ground-truth beats.
+    int detectionFixtures = 0;
     double fMeasureMean = 0.0;
     double precisionMean = 0.0;
     double recallMean = 0.0;
+    int phaseMeasuredFixtures = 0;
 
     // SPEC 19: half/double-time errors < 5% on core fixtures.
     int halfDoubleEvaluated = 0;
@@ -319,24 +455,44 @@ struct AggregateMetrics
     double halfDoubleErrorRateCore = 0.0;
 
     int silenceFixtures = 0;
+    int trueSilenceMeasuredFixtures = 0;
+    int trueSilenceNoSilenceFixtures = 0;
+    int trueSilenceCorpusDefectFixtures = 0;
+    /** Legacy alias: number of fixtures whose false-beat diagnostic is usable. */
     int trueSilenceInformativeFixtures = 0;
     double falseBeatsInTrueSilencePerSecondWorst = 0.0;
-    /** Worst primary rate over fixtures that are informative for it; this is the
-        number the silence gate is read from. */
+    /** Worst primary rate over fixtures that are MEASURED for it. NOT a gate:
+        the SPEC 19 target is false acceleration, not a zero beat count. */
     double falseBeatsInTrueSilencePerSecondWorstInformative = 0.0;
     double falseBeatsInUnplayedBeatWindowsPerSecondWorst = 0.0;
     double falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst = 0.0;
 
+    // Silence acceleration diagnostic (EVAL-004). Not a gate.
+    int silenceAccelerationEvaluatedFixtures = 0;
+    int silenceAccelerationInsufficientFixtures = 0;
+    double maxSilenceTempoIncreaseBpm = 0.0;
+
     bool hasRecovery = false;
     double recoverySecondsWorst = 0.0;
 
+    int syncopationMeasuredFixtures = 0;
     bool hasSyncopation = false;
     double syncopationMaxDeviationFraction = 0.0;
     double syncopationMaxStepFraction = 0.0;
 
+    int rampFixturesMeasured = 0;
     bool hasRamp = false;
     double rampLocalTempoRelErrorMean = 0.0;
     double rampLocalTempoRelErrorWorst = 0.0;
+
+    // Backend timing diagnostics (EVAL-004), summed/worst over the corpus.
+    int timingDiagnosticsFixtures = 0;
+    std::size_t beatsReportedByBackend = 0;
+    std::size_t beatsStampAtBlockStart = 0;
+    std::size_t beatsRejectedNonCausal = 0;
+    std::size_t rateMismatchBlocks = 0;
+    double causalAvailabilityMeanSeconds = 0.0;
+    double causalAvailabilityMaxSeconds = 0.0;
 
     double cpuSecondsTotal = 0.0;
     std::size_t allocationsTotal = 0;
@@ -345,9 +501,12 @@ struct AggregateMetrics
     // above the corresponding FixtureMetrics field.
     bool gateAcquire95Core = false;
     bool gateBpm2Core = false;
+    /** True only when EVERY core fixture produced a BPM lock, so the 2 % rule
+        was actually evaluated on the whole core set. A missing lock must not be
+        silently dropped to let the gate pass on the residual fixtures. */
+    bool bpmCoreAllLocked = false;
+    int bpmCoreLockedFixtures = 0;
     bool gateHalfDouble5Core = false;
-    bool gateSyncopationNoJump = false;
-    bool gateRampFollows = false;
 };
 
 // ---------------------------------------------------------------------------

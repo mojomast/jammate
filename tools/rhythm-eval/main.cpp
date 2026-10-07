@@ -293,6 +293,12 @@ struct Options
     std::string backendLib;
     std::size_t blockFrames = 128;
 
+    /** Reproduce the pre-EVAL-004 runner defect (stamp every beat event at its
+        block start, discarding the backend's reported device time). Diagnostic
+        only; it exists so the effect of the defect can be measured, and must
+        never be used for gate evidence. Off by default. */
+    bool legacyBlockStampedBeats = false;
+
     /** Backend latency compensations to score, seconds, in request order. The
         uncompensated run (0.0) is always scored; each requested value adds one
         more variant in the same run, so the effect is measured, not asserted. */
@@ -385,6 +391,10 @@ bool parseArgs (int argc, char** argv, Options& options, std::string& error)
                 return false;
             }
         }
+        else if (arg == "--legacy-block-stamped-beats")
+        {
+            options.legacyBlockStampedBeats = true;
+        }
         else if (arg == "--help" || arg == "-h")
         {
             std::cout <<
@@ -392,12 +402,16 @@ bool parseArgs (int argc, char** argv, Options& options, std::string& error)
                 "                   [--backend synthetic-ideal|synthetic-degraded]\n"
                 "                   [--backend-lib <shared-library>] [--block <frames>]\n"
                 "                   [--compensate-latency <seconds>]  (repeatable)\n"
+                "                   [--legacy-block-stamped-beats]  (diagnostic only)\n"
                 "                   [--json-file <name>] [--summary-file <name>]\n"
                 "                   [--csv-file <name>] [--per-fixture-dir <name>]\n"
                 "\n"
                 "Latency compensation is applied to predicted beat times before scoring\n"
                 "and defaults to off. Pass it once per value to score several settings in\n"
-                "the same run; the uncompensated result is always included.\n";
+                "the same run; the uncompensated result is always included.\n"
+                "--legacy-block-stamped-beats reproduces the pre-EVAL-004 defect that\n"
+                "overwrote every beat's device timestamp with its block start, so its\n"
+                "effect can be measured. It must not be used for gate decisions.\n";
             std::exit (0);
         }
         else
@@ -504,7 +518,7 @@ int main (int argc, char** argv)
     }
 #endif
 
-    BackendRunner runner (options.blockFrames);
+    BackendRunner runner (options.blockFrames, options.legacyBlockStampedBeats);
 
     // Variants: the uncompensated run is always present; each requested
     // compensation adds one more. Every variant scores the SAME observation
@@ -605,6 +619,17 @@ int main (int argc, char** argv)
                                              manifest.beatToleranceSeconds));
         root.set ("latencyCompensationAppliedToPredictedBeats",
                   rhythmjson::Value::makeBool (true));
+        // EVAL-004 timing semantics, recorded so a consumer cannot confuse the
+        // two clocks.
+        root.set ("beatEventTimeSemantics", rhythmjson::Value::makeString (
+            "backend-reported device time when causal, else block start; see BackendRunner"));
+        root.set ("beatAvailabilitySemantics", rhythmjson::Value::makeString (
+            "device time at which process() returned (block end); separate series"));
+        root.set ("legacyBlockStampedBeats",
+                  rhythmjson::Value::makeBool (options.legacyBlockStampedBeats));
+        root.set ("allocationCounterScope", rhythmjson::Value::makeString (
+            "C++ operator new/delete only, including the CLI's own allocations; "
+            "C allocations are not counted and this is not an RT-safety claim"));
 
         rhythmjson::Value corpus = rhythmjson::Value::makeObject();
         corpus.set ("id", rhythmjson::Value::makeString (manifest.corpusId));

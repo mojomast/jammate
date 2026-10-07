@@ -824,3 +824,186 @@ JAM_TEST (RhythmEvalMetrics, manifestParsingAndMalformedJsonRejection)
         CHECK_EQ (v.dump(), std::string ("{\"a\":1,\"b\":[true,null,\"x\"]}"));
     }
 }
+
+// ---------------------------------------------------------------------------
+// 8. EVAL-004: recovery is measured from the REAL stop, not unplayed windows.
+// ---------------------------------------------------------------------------
+
+JAM_TEST (RhythmEvalMetrics, recoveryUsesTrueSilenceStopNotUnplayedWindows)
+{
+    // A stop_start-style fixture. A narrow unplayed-beat window ends at 1.2 s;
+    // the real stop is 4.0..6.0 s. A tracker that stayed locked until the stop
+    // and never re-locked must NOT be reported as recovered. The old code took
+    // the max end of `silenceSpans` (1.2 s), searched from there, and found the
+    // pre-stop lock.
+    RhythmTruth truth = makeSteady ("stop_start", 120.0, 17, 0.5);
+    truth.silenceSpans.push_back (SilenceSpan { 1.00, 1.20 });
+    truth.trueSilenceSpans.clear();
+    truth.trueSilenceSpans.push_back (SilenceSpan { 4.00, 6.00 });
+    truth.onsets.clear();
+    for (const double b : truth.beats)
+        if (b < 4.0 || b >= 6.0)
+            truth.onsets.push_back (b);
+
+    ObservationSeries beforeOnly;
+    beforeOnly.audioDurationSeconds = truth.durationSeconds;
+    beforeOnly.sampleRate = truth.sampleRate;
+    for (const double b : truth.beats)
+    {
+        if (b >= 4.0)
+            break;
+        beforeOnly.beatTimesSeconds.push_back (b);
+        TempoSample s;
+        s.timeSeconds = b;
+        s.bpm = 120.0;
+        s.phaseValid = true;
+        beforeOnly.tempoSamples.push_back (s);
+    }
+
+    const FixtureMetrics noRecovery =
+        scoreFixture (truth, beforeOnly, kBeatMatchToleranceSeconds);
+    CHECK (! noRecovery.hasRecovery);
+
+    // A lock that begins after the real stop is a genuine recovery, measured
+    // from the stop end to the first onset after it (6.0 + 0.5 = 6.5).
+    ObservationSeries after;
+    after.audioDurationSeconds = truth.durationSeconds;
+    after.sampleRate = truth.sampleRate;
+    for (const double b : truth.beats)
+    {
+        if (b < 6.5)
+            continue;
+        after.beatTimesSeconds.push_back (b);
+        TempoSample s;
+        s.timeSeconds = b;
+        s.bpm = 120.0;
+        s.phaseValid = true;
+        after.tempoSamples.push_back (s);
+    }
+
+    const FixtureMetrics recovered =
+        scoreFixture (truth, after, kBeatMatchToleranceSeconds);
+    CHECK (recovered.hasRecovery);
+    CHECK_NEAR (recovered.recoverySeconds, 0.5, 1e-9);
+}
+
+// ---------------------------------------------------------------------------
+// 9. EVAL-004: true-silence coverage is a per-fixture property, not a duration
+//    threshold, and no silence is NOT MEASURED rather than a trivial pass.
+// ---------------------------------------------------------------------------
+
+JAM_TEST (RhythmEvalMetrics, silenceCoverageIsNotADurationThreshold)
+{
+    auto coverageOf = [] (const std::string& name, double silenceSeconds,
+                          double duration)
+    {
+        RhythmTruth t = makeSteady (name, 120.0, 8);
+        t.trueSilenceSpans.clear();
+        if (silenceSeconds > 0.0)
+            t.trueSilenceSpans.push_back (SilenceSpan { 0.0, silenceSeconds });
+        t.durationSeconds = duration;
+        return scoreFixture (t, perfectSeries (t, 120.0), kBeatMatchToleranceSeconds);
+    };
+
+    // 60 % true silence, but genuine sparse playing: MEASURED. The EVAL-002R
+    // >= 50 % rule censored this.
+    const FixtureMetrics genuine = coverageOf ("genuine_sparse", 6.0, 10.0);
+    CHECK (genuine.falseBeatCoverage == FalseBeatCoverage::Measured);
+    CHECK (genuine.falseBeatMetricInformative);
+
+    // No silence at all: NOT MEASURED.
+    const FixtureMetrics none = coverageOf ("no_silence", 0.0, 10.0);
+    CHECK (none.falseBeatCoverage == FalseBeatCoverage::NoTrueSilence);
+    CHECK (! none.trueSilenceMeasured);
+    CHECK (! none.falseBeatMetricInformative);
+
+    // The two known synthesis defects are flagged by name, not by percentage.
+    CHECK (coverageOf ("sustained_chords", 8.0, 10.0).falseBeatCoverage
+           == FalseBeatCoverage::CorpusDefect);
+    CHECK (coverageOf ("tapping_muting_only", 8.0, 10.0).falseBeatCoverage
+           == FalseBeatCoverage::CorpusDefect);
+}
+
+// ---------------------------------------------------------------------------
+// 10. EVAL-004: a missing BPM lock on a core fixture cannot let the gate pass.
+// ---------------------------------------------------------------------------
+
+JAM_TEST (RhythmEvalMetrics, missingBpmLockCannotPassTheCoreGate)
+{
+    RhythmTruth a = makeSteady ("coreA", 120.0, 8, 0.5, 4, true);
+    RhythmTruth b = makeSteady ("coreB", 120.0, 8, 0.5, 4, true);
+
+    ObservationSeries obsA = perfectSeries (a, 120.0);
+    ObservationSeries obsB = perfectSeries (b, 120.0);
+    obsB.tempoSamples.clear();   // no tempo evidence -> never locks BPM
+
+    const FixtureMetrics ma = scoreFixture (a, obsA, kBeatMatchToleranceSeconds);
+    const FixtureMetrics mb = scoreFixture (b, obsB, kBeatMatchToleranceSeconds);
+    CHECK (ma.hasBpmLock);
+    CHECK (! mb.hasBpmLock);
+
+    const AggregateMetrics agg = aggregateFixtures (std::vector<FixtureMetrics> { ma, mb });
+    CHECK_EQ (agg.coreFixtures, 2);
+    CHECK_EQ (agg.bpmCoreLockedFixtures, 1);
+    CHECK (! agg.bpmCoreAllLocked);
+    CHECK (! agg.gateBpm2Core);   // NOT a pass on the one locked fixture
+}
+
+// ---------------------------------------------------------------------------
+// 11. EVAL-004: zero phase with no matched beats is missing, not perfect.
+// ---------------------------------------------------------------------------
+
+JAM_TEST (RhythmEvalMetrics, phaseIsUndefinedWhenNoBeatMatches)
+{
+    RhythmTruth truth = makeSteady ("nomatch", 120.0, 8);
+    ObservationSeries obs = perfectSeries (truth, 120.0);
+    for (double& t : obs.beatTimesSeconds)
+        t += 0.25;   // half a beat off: no prediction is within 70 ms of a beat
+
+    const FixtureMetrics m = scoreFixture (truth, obs, kBeatMatchToleranceSeconds);
+    CHECK_EQ (m.truePositives, 0);
+    CHECK (! m.phaseMeasured);
+    CHECK_EQ (m.phaseMatchedBeats, 0);
+    CHECK_NEAR (m.phaseP95AbsMs, 0.0, 1e-12);   // the raw field is zero ...
+    CHECK (fixtureMetricsToJson (m).dump().find ("\"phaseMeasured\":false")
+           != std::string::npos);               // ... but it is labelled missing
+}
+
+// ---------------------------------------------------------------------------
+// 12. EVAL-004: the silence-acceleration diagnostic distinguishes a measured
+//     tempo increase from insufficient evidence.
+// ---------------------------------------------------------------------------
+
+JAM_TEST (RhythmEvalMetrics, silenceAccelerationDistinguishesInsufficientEvidence)
+{
+    RhythmTruth truth = makeSteady ("accel", 120.0, 8);
+    truth.trueSilenceSpans.clear();
+    truth.trueSilenceSpans.push_back (SilenceSpan { 2.0, 2.4 });
+
+    ObservationSeries none;
+    none.beatTimesSeconds = truth.beats;   // no tempo samples at all
+
+    const FixtureMetrics m0 = scoreFixture (truth, none, kBeatMatchToleranceSeconds);
+    CHECK (! m0.silenceAccelerationMeasured);
+    CHECK (m0.silenceAccelerationInsufficientEvidence);
+    CHECK_EQ (m0.silenceSpansInsufficientEvidence, 1);
+    CHECK_NEAR (m0.maxSilenceTempoIncreaseBpm, 0.0, 1e-12);
+
+    ObservationSeries up;
+    up.beatTimesSeconds = truth.beats;
+    TempoSample before;
+    before.timeSeconds = 1.5;
+    before.bpm = 120.0;
+    before.phaseValid = true;
+    TempoSample after;
+    after.timeSeconds = 3.0;
+    after.bpm = 126.0;
+    after.phaseValid = true;
+    up.tempoSamples.push_back (before);
+    up.tempoSamples.push_back (after);
+
+    const FixtureMetrics m1 = scoreFixture (truth, up, kBeatMatchToleranceSeconds);
+    CHECK (m1.silenceAccelerationMeasured);
+    CHECK (! m1.silenceAccelerationInsufficientEvidence);
+    CHECK_NEAR (m1.maxSilenceTempoIncreaseBpm, 6.0, 1e-9);
+}
