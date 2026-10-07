@@ -7,6 +7,12 @@
 **Purpose:** satisfy SPEC.md §25 (licensing/provenance gate) and DEVPLAN G0
 ("dependency/license inventory captured", "exact upstream SHA frozen").
 
+**Resumption update:** the optional tracker inventory in §3.1 supersedes the
+original unpinned BTrack/aubio candidate rows in §6. NAM's nested Eigen and
+AudioDSPTools submodules are now checked out at their existing gitlinks. Full
+upstream history has been restored (175 commits through the frozen base), so
+the historical history-gap statements below are resolved, not release blockers.
+
 Every row cites the file or the git object it was read from. Where a licence or
 a version **cannot be determined from this tree**, the cell reads
 `UNKNOWN — verify at <exact place>` — a licence is never guessed and a
@@ -108,6 +114,27 @@ concrete, closable gap for the release owner.**
 | `jam-core` static library (`src/jam/**`, 8 files) | `48f301c8fd046429fe55519ec3a2d20a2fccaa44` (introducing commit) | this repository | AGPLv3 (own code) | build-only / linked-when-plugin-links-it | as code: yes (it *is* AGPL source). As a binary: it ships **only** if the JUCE plugin links it, which it does not yet | none beyond the project's own AGPL | **No third-party dependency at all.** `jam-core/CMakeLists.txt` rule 2 makes `juce::` a review-time rejection, which is precisely why it has no JUCE/Eigen/etc. on its include path. Built in *every* configuration, not behind an option (`CMakeLists.txt` lines 268–274). |
 | `GuitarCompanionTests` (`tests/`, opt-in) | upstream `tests/CMakeLists.txt` blob `e44602d10ffee1f0870203a1964d9204ef6f11ec` | this repository | AGPLv3 | build-only | **No** | none | Gated behind `-DGUITAR_COMPANION_BUILD_TESTS=ON`, `OFF` by default (`CMakeLists.txt` line 284). Links `GuitarCompanionAssets` (so the embedded WAVs must be present even in tests) plus `juce::juce_audio_formats` and `juce::juce_audio_processors` — which is why ADR-0003 rules it unbuildable here. 4 ctest entries: `drums.parseSpec`, `drums.library`, `drums.generator`, `drums.barCodec`. |
 | `jamTests` (`tests/jam/**`, from `48f301c`) | `48f301c8…` | this repository | AGPLv3 | build-only | **No** | none | `JAM_CORE_BUILD_TESTS` defaults **ON** inside `jam-core`, so this lane is the one that runs on any machine including CI. Generated `add_test` entries, one per `JAM_TEST(...)` suite. |
+
+### 3.1 Vendored optional tracker evaluation dependencies (current)
+
+These are compiled into offline evaluation/test binaries only when opted in;
+the product target does not link either adapter. G3 selection is still open.
+`jam-core` itself stays free of foreign tracker headers and symbols.
+
+| Component | Exact pin | Licence evidence | Current build/use | Notices retained |
+|---|---|---|---|---|
+| BTrack | `9d6127618a5679e9caa74c594b88f1d74f0e035f` | GPLv3, `third_party/BTrack/LICENSE.txt` and upstream source headers | `JAM_ENABLE_BTRACK=ON`; `jam-btrack` adapter in `src/btrack/`; real corpus evaluation | Licence, source authorship and `VENDORED-PATCHES.md`; full corresponding source retained |
+| kiss_fft (bundled by BTrack) | part of the above BTrack pin, `libs/kiss_fft130/` | BSD-style notice, `third_party/BTrack/libs/kiss_fft130/COPYING` | linked only by optional BTrack build | Original copyright, conditions and disclaimer |
+| libsamplerate | `0844c208f683527c08ea8a80acc13b398aa9c8bf` | BSD-2-Clause, `third_party/libsamplerate/COPYING` | optional BTrack dependency; its onset-function resampler **is causal** and must not be stubbed | Erik de Castro Lopo copyright, conditions and disclaimer |
+| aubio 0.4.9 | `90bd27a23123fcc524c31787c9c8fc0ae4c79378` | GPL-3.0-or-later, `third_party/aubio/COPYING` and source headers | `JAM_ENABLE_AUBIO=ON`; `jam-aubio` adapter in `src/aubio/`; 26-file tempo dependency closure | Licence, `AUTHORS`, upstream source headers and `VENDORED-PATCHES.md` |
+
+Official sources: <https://github.com/adamstark/BTrack>,
+<https://github.com/libsndfile/libsamplerate>, <https://github.com/aubio/aubio>.
+aubio uses the vendored Ooura FFT implementation (retained upstream headers),
+with no new external FFT dependency. Both options default OFF. The initial
+inventory's description of aubio as LGPL was incorrect for this pinned code.
+Any future product linking must include these notices and source in its release
+inventory; the current optional libraries do not imply tracker adoption.
 
 ---
 

@@ -120,6 +120,11 @@ target_include_directories(jam-aubio PUBLIC ${JAM_ROOT}/src)
 target_link_libraries(jam-aubio PUBLIC aubio jam-core)
 target_compile_definitions(jam-aubio PUBLIC JAM_AUBIO_ENABLED=1)
 set_target_properties(jam-aubio PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if (MSVC)
+    target_compile_options(jam-aubio PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(jam-aubio PRIVATE -Wall -Wextra -Wpedantic)
+endif()
 
 message(STATUS
     "jam-aubio: aubio 0.4.9 (GPLv3-or-later) enabled — DEPENDENCIES.md must "

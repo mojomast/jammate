@@ -13,16 +13,16 @@ task note + commit SHA + successful integration.
 |---|---|
 | Branch | `main` (single integration branch; workers branch from it) |
 | Frozen upstream SHA | `88f7e7c805c9c5e17388154a678c2c6a3633ff23` (verified zero drift) |
-| Submodules initialised | `third_party/JUCE`, `third_party/NeuralAmpModelerCore` only (disk at 96 %) |
-| Forge | Gitea (`.gitea/`), **not** GitHub — CI-001 must target Gitea Actions |
+| Submodules initialised | JUCE, NAM Core, and NAM's pinned Eigen / AudioDSPTools; no reference repositories |
+| Forge | Gitea workflow definitions; actual hosting and runners remain unverified |
 | Build seam | `jam-core/` — platform-neutral, no `juce::`, tests via ctest |
 
 ## Verification lanes
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) | yes | SPEC §9, §10, §13, §14, §19, §21.1, §21.2 |
-| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | **no** — missing ALSA + freetype headers, no `sudo` (ADR-0003) | SPEC §7.1, §17, §18.1 on the real callback, §21.5 |
+| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: 8/8 suites | deterministic seams and offline tracker diagnostics; not all SPEC acceptance conditions |
+| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | retry underway with local development headers; Windows/ASIO and hardware unverified | real JUCE compilation, upstream drum tests; callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
 PARTIAL, never PASSED.
@@ -33,11 +33,11 @@ PARTIAL, never PASSED.
 
 | Gate | State | Blocking items |
 |---|---|---|
-| **G0** fork/license/baseline | **PARTIAL** | provenance ✅ · history ✅ · submodules ✅ · RT audit ✅ · license inventory ✅ · **baseline build ⛔ plugin lane** |
-| **G1** real-time foundation | **READY TO START (plugin-lane parts ⛔)** | RT-001 now unblocked by FND-003 |
-| **G2** new module seams | **PARTIAL (advanced early)** | types ✅ · ring ⏳ tests running · adapter ⛔ · Jam UI ⛔ (needs JUCE) |
-| **G3** tracker selected | not started | blocked on G2 |
-| **G4** musical clock | not started | — |
+| **G0** fork/license/baseline | **PARTIAL** | baseline application build/audio evidence incomplete |
+| **G1** real-time foundation | **PARTIAL** | scene signal code integrated; real callback verification, MIDI bound and actual CI runs incomplete |
+| **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam tested; live analyzer, real DrumEngine integration and Jam UI incomplete |
+| **G3** tracker selected | **IN PROGRESS (advanced early)** | both candidate adapters integrated; timestamp/gate audit, corpus repairs, robustness and selection ADR incomplete |
+| **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
 | **G5** adaptive drummer | not started | — |
 | **G6/G7** UX / release | not started | — |
 
@@ -54,7 +54,14 @@ PARTIAL, never PASSED.
    an exact procedure in `docs/research/BASELINE-BUILD.md` (deferred task),
    not as done.
 3. **D3 — CI-001 targets Gitea Actions**, not `.github/workflows/`, because
-   Gitea is the forge this repository actually uses.
+    Gitea is the forge this repository actually uses.
+4. **D4 — offline tracker work advanced before G0/G1/G2 closure.** This yields
+   evaluation evidence only; no production tracker has been selected or wired.
+5. **D5 — local JUCE verification retried without root.** Extracted Debian
+   development packages and existing runtime libraries can supply a user prefix.
+   ADR-0003's assertion that this necessarily requires root was too strong.
+   `/tmp` is a full tmpfs, distinct from `/home`; plugin build and compiler
+   scratch use `/home/mojo/projects/guitars-build-resume/`.
 
 ---
 
@@ -62,7 +69,7 @@ PARTIAL, never PASSED.
 
 | Work class | Model |
 |---|---|
-| Bounded mechanical implementation, doc/evidence enumeration, checklist-driven tests | `opencode/space-bunny-free` |
+| Bounded mechanical implementation, doc/evidence enumeration, checklist-driven tests | `deepseek/deepseek-flash` (user's resumption instruction) |
 | Substantive code or analysis needing real reasoning (call-graph tracing, musical-intelligence algorithm design) | `deepseek/deepseek-flash` |
 | Escalation only: central integration patches, cross-branch conflict resolution, real-time safety review, blocked-worker repair | `openai/gpt-6.1-sol#xhigh` |
 
@@ -86,7 +93,7 @@ and reports instead.
 | Task | State | Branch | Owner lane | Gate | Notes |
 |---|---|---|---|---|---|
 | FND-001 provenance/dependency inventory | **DONE** | `wp/FND-001-deps` → merged `724e6d9` | C — evidence | G0 | verified; 2 corrections applied by orchestrator |
-| FND-002 baseline build record | BLOCKED:plugin lane | — | — | G0 | D2 |
+| FND-002 baseline build record | IN PROGRESS:local retry | main | orchestrator | G0 | local headers and nested submodules available; device/Windows evidence outstanding |
 | FND-003 RT reachability map | **DONE** | `wp/FND-003-rt-reach` → merged `931be23` | A — real-time | G0 | P0 `triggerAsyncUpdate` CONFIRMED reachable |
 | — ADR-0003 build environment | **DONE** | `48f301c` | orchestrator | G0 | two-lane verification split |
 | MOD-001 analysis ring tests | **DONE** | `wp/MOD-001-ring` → merged `89db28d` | B — intelligence | G2 | 19 tests / 95 236 checks; 2 header defects fixed in `efb820b` |
@@ -101,18 +108,22 @@ and reports instead.
 | EVAL-002 evaluation harness + metrics | **DONE** | `wp/EVAL-002` → merged `3e5bb7b` | B — evidence | G3 | 11 metrics; exposed 2 corpus defects |
 | CI-001 continuous integration | **DONE** | `wp/CI-001` → merged `4376672` | C — evidence | G1 | 3 Gitea workflows; Windows job never run |
 | EVAL-001 repair: true silence + core | **DONE** | `wp/EVAL-001` → merged `c68df60` | C — evidence | G3 | audio provably unchanged |
-| EVAL-002R first real shootout | RUNNING | `wp/EVAL-002R` | B — evidence | G3 | numbers, at last |
-| TRACK-002 aubio backend | RUNNING | `wp/TRACK-002` | B — intelligence | G3 | disk-constrained; CMake wiring reported, not edited |
-| EVAL-003 robustness curves | RUNNING | `wp/EVAL-003` | C — evidence | G3 | degradation curves, not more fixtures |
+| EVAL-002R first real shootout | INTEGRATED:diagnostics under review | `wp/EVAL-002R` → main | B — evidence | G3 | event timestamps overwritten; silence/ramp gate claims need correction in EVAL-004 |
+| TRACK-002 aubio backend | **DONE** | `wp/TRACK-002` → main; build wiring `eac59ba` | B — intelligence | G3 | 11 adapter tests; combined 8/8 ctest suites pass |
+| EVAL-003 robustness fixtures | RUNNING | `wp/EVAL-003` | C — evidence, Flash | G3 | narrowed to new generator/derived corpus/tests; no shared scoring edits |
+| EVAL-004 timing/gate audit + comparison | RUNNING | `wp/EVAL-004-timing` | B — evidence, Flash | G3 | preserve backend event time, record causal availability, compare both real trackers |
+| CI-002 tracker CI repair | RUNNING | `wp/CI-002-trackers` | C — evidence, Flash | G1/G3 | replace expected-failure tripwire; Windows/remote execution unverified |
 | RT-001 remaining (F2 MidiBuffer) | BLOCKED:plugin lane | | A | G1 | needs a measured bound |
-| CI-001 CI baseline | TODO | | C | G1 | Gitea; needs plugin lane to be green |
+| CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
-| MOD-002 drum transport adapter | BLOCKED:G2 | | B | G2 | seam `IDrumTransport.h` exists |
 | MOD-003 Jam UI shell | BLOCKED:G2 | | C | G2 | **not verifiable here** — needs JUCE |
 
 ---
 
-## Measured finding — grooves have no string ID
+## Historical scoping finding — grooves have no string ID
+
+The provisional slug proposal below was rejected after the collision audit;
+the later positional-identity decision is authoritative.
 
 Scoping STYLE-001 against the real code, `src/DrumLibrary.cpp` has **no** string
 identifier scheme. `grep -cE '"[a-z]+\.[a-z0-9]+\.[a-z0-9.]+"' src/DrumLibrary.cpp`
@@ -236,6 +247,13 @@ silently skips the build it exists to verify is worse than no pipeline.
 ---
 
 ## Wave 2 outcomes
+
+Historical records below retain the evidence available at that wave. Current
+status is the gate/task tables above. In particular the initial BTrack
+libsamplerate removal was wrong and retracted in `VENDORED-PATCHES.md`:
+`resampleOnsetDetectionFunction()` is called causally. Source was restored.
+Feeding 48 kHz at the original hop biased BPM **low**, not fast. Old statements
+that JUCE cannot build locally are being reassessed using a user-prefix build.
 
 ### EVAL-001 accepted, including its size
 

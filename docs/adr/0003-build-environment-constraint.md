@@ -8,6 +8,29 @@
   ADR-TRACKER-001 (tracker selection). This record is 0003 so that the two
   worker-owned ADRs keep their planned numbers.
 
+## Resumption correction (2026-10-07)
+
+The environment restriction is narrower than originally recorded. Root access
+is **not** required to extract Debian development packages into a user prefix
+and link the already-installed runtime libraries. The local JUCE configure,
+including building/testing `juceaide`, now succeeds with ALSA/freetype/fontconfig
+headers supplied this way. NAM's nested Eigen/AudioDSPTools gitlinks have also
+been initialized. The original rejected alternative #1 was factually too strong.
+
+`/tmp` is a separate full 7.9 GB tmpfs; the approximately 8 GB free on `/home`
+does not help builds placed there. The retry uses
+`/home/mojo/projects/guitars-build-resume/` for the prefix, build and `TMPDIR`.
+The first application compile exposed real upstream Linux portability defects
+(the `juce::jmin<int64>` SIMD overload and unguarded `windowsLocalAppData`), which
+are being repaired narrowly. Successful configuration alone is not an app build.
+
+The two-lane architecture and evidence requirements remain valid. Local Linux
+compilation/tests can supply real JUCE evidence, while Windows/ASIO, scene
+delivery with the editor closed, physical-device latency and complete callback
+instrumentation still require their own runs. Current outcomes are recorded in
+`EXECUTION-LEDGER.md`; the historical context/decision below describes the
+limitations known when this ADR was written.
+
 ---
 
 ## Context

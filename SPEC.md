@@ -7,6 +7,10 @@
 **Primary implementation candidate:** `raphaelfukuda/Guitar-Companion` at `88f7e7c805c9c5e17388154a678c2c6a3633ff23`  
 **License assumption:** An AGPLv3/open-source product is acceptable. If closed-source distribution is required, stop before forking and replace the base architecture.
 
+**Implementation evidence:** see [`EXECUTION-LEDGER.md`](EXECUTION-LEDGER.md).
+G0/G1 remain partial; offline BTrack/aubio candidates and deterministic clock
+seams are integrated, but G3 selection and the live join/follow slice are open.
+
 ---
 
 ## 1. Product definition

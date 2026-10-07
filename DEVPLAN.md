@@ -8,6 +8,10 @@
 
 This plan is intentionally structured for an orchestration agent directing **less-capable parallel subagents**. Work is decomposed so workers can execute bounded tasks with narrow file ownership and objective acceptance checks.
 
+**Live status:** [`EXECUTION-LEDGER.md`](EXECUTION-LEDGER.md) is authoritative.
+On resumption the user requested `deepseek/deepseek-flash` workers. Offline
+G3/G4 work has advanced under recorded deviations; G0/G1 are still partial.
+
 ---
 
 # 1. Orchestration model
@@ -1444,22 +1448,24 @@ Keep this near the top of the live devplan during implementation.
 
 | Task | State | Branch | SHA | Gate |
 |---|---|---|---|---|
-| FND-001 | TODO | | | G0 |
-| FND-002 | TODO | | | G0 |
-| FND-003 | TODO | | | G0 |
-| RT-001 | BLOCKED:G0 | | | G1 |
-| CI-001 | BLOCKED:G0 | | | G1 |
+| FND-001 | DONE | main | 724e6d9 + corrections | G0 |
+| FND-002 | local build retry; hardware/Windows open | main | | G0 |
+| FND-003 | DONE | main | 931be23 | G0 |
+| RT-001 | F1 code integrated; F2/runtime evidence open | main | 135b4b7 | G1 |
+| CI-001 | definitions integrated; actual runner execution open | main | 4376672 | G1 |
 | TEST-001 | BLOCKED:G0 | | | G1 |
-| MOD-001 | BLOCKED:G1 | | | G2 |
-| MOD-002 | BLOCKED:G1 | | | G2 |
+| MOD-001 | DONE (offline seam) | main | 89db28d + efb820b | G2 |
+| MOD-002 | DONE (offline seam); real engine wiring open | main | 86544f1 | G2 |
 | MOD-003 | BLOCKED:G1 | | | G2 |
-| EVAL-001 | BLOCKED:G2 | | | G3 |
-| EVAL-002 | BLOCKED:G2 | | | G3 |
-| TRACK-001 | BLOCKED:G2 | | | G3 |
-| TRACK-002 | BLOCKED:Wave3 | | | G3 |
+| EVAL-001 | integrated; sustained/tapping synthesis defects open | main | f5f5a11 + c68df60 | G3 |
+| EVAL-002 | integrated; timestamp/gate follow-up underway | main | 3e5bb7b + wp/EVAL-002R | G3 |
+| TRACK-001 | DONE (offline candidate) | main | c3dad10 | G3 |
+| TRACK-002 | DONE (offline candidate) | main | wp/TRACK-002 + eac59ba | G3 |
 | TRACK-003 | BLOCKED:Wave3 | | | G3 |
-| EVAL-003 | BLOCKED:Wave3 | | | G3 |
-| CLOCK-001 | BLOCKED:G3 | | | G4 |
+| EVAL-003 | RUNNING (scoped derived corpus) | wp/EVAL-003 | | G3 |
+| EVAL-004 | RUNNING (timing/gate audit + real comparison) | wp/EVAL-004-timing | | G3 |
+| CI-002 | RUNNING (tracker jobs) | wp/CI-002-trackers | | G1/G3 |
+| CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
 | ANALYSIS-001 | BLOCKED:G3 | | | G4 |
 | DIAG-001 | BLOCKED:G3 | | | G4 |
 | STYLE-001 | BLOCKED:G4 | | | G5 |

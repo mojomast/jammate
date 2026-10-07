@@ -138,7 +138,7 @@ inline const char* toString (TempoMode m) noexcept
 enum class ClockCommandType : int
 {
     None = 0,
-    SetMode,        // arg0 = int(TempoMode)
+    SetMode,        // tapSampleTime = uint64_t(TempoMode), bounds-checked by the clock
     TapTempo,       // tapSampleTime = when the user tapped
     ResyncNextBeat,
     ResyncNextBar,

@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    project(JamCore LANGUAGES C CXX)
+endif()
+
 # jam-core — platform-neutral musical intelligence.
 #
 # Purpose: let the rhythm-analysis chain (SPEC.md sections 6, 9, 10) be compiled
@@ -76,7 +80,7 @@ endif()
 option(JAM_ENABLE_BTRACK "Build the GPL BTrack backend behind IRhythmTracker" OFF)
 if (JAM_ENABLE_BTRACK)
     add_subdirectory(${JAM_ROOT}/third_party/BTrack ${CMAKE_CURRENT_BINARY_DIR}/btrack)
-    if (EXISTS ${JAM_ROOT}/tests/jam/BTrackBackendTests.cpp)
+    if (JAM_CORE_BUILD_TESTS AND EXISTS ${JAM_ROOT}/tests/jam/BTrackBackendTests.cpp)
         enable_testing()
         add_executable(jamBTrackTests
             ${JAM_ROOT}/tests/jam/JamTestMain.cpp
@@ -88,7 +92,7 @@ if (JAM_ENABLE_BTRACK)
             target_compile_options(jamBTrackTests PRIVATE -Wall -Wextra)
         endif()
         add_test(NAME jam.BTrackBackend COMMAND jamBTrackTests BTrackBackend.)
-    else()
+    elseif (JAM_CORE_BUILD_TESTS)
         message(STATUS "jam-core: JAM_ENABLE_BTRACK=ON but no BTrackBackendTests.cpp yet")
     endif()
 endif()
@@ -96,17 +100,19 @@ endif()
 option(JAM_ENABLE_AUBIO "Build the GPL aubio backend behind IRhythmTracker" OFF)
 if (JAM_ENABLE_AUBIO)
     add_subdirectory(${JAM_ROOT}/third_party/aubio ${CMAKE_CURRENT_BINARY_DIR}/aubio)
-    enable_testing()
-    add_executable(jamAubioTests
-        ${JAM_ROOT}/tests/jam/JamTestMain.cpp
-        ${JAM_ROOT}/tests/jam/AubioBackendTests.cpp)
-    target_include_directories(jamAubioTests PRIVATE
-        ${JAM_ROOT}/tests/jam ${JAM_ROOT}/tests)
-    target_link_libraries(jamAubioTests PRIVATE jam-aubio)
-    if (NOT MSVC)
-        target_compile_options(jamAubioTests PRIVATE -Wall -Wextra -Wpedantic)
+    if (JAM_CORE_BUILD_TESTS)
+        enable_testing()
+        add_executable(jamAubioTests
+            ${JAM_ROOT}/tests/jam/JamTestMain.cpp
+            ${JAM_ROOT}/tests/jam/AubioBackendTests.cpp)
+        target_include_directories(jamAubioTests PRIVATE
+            ${JAM_ROOT}/tests/jam ${JAM_ROOT}/tests)
+        target_link_libraries(jamAubioTests PRIVATE jam-aubio)
+        if (NOT MSVC)
+            target_compile_options(jamAubioTests PRIVATE -Wall -Wextra -Wpedantic)
+        endif()
+        add_test(NAME jam.AubioBackend COMMAND jamAubioTests AubioBackend.)
     endif()
-    add_test(NAME jam.AubioBackend COMMAND jamAubioTests AubioBackend.)
 endif()
 
 add_library(jam-core STATIC ${JAM_CORE_SOURCES})
@@ -126,7 +132,7 @@ target_link_libraries(jam-core PUBLIC Threads::Threads)
 
 # --- tests -------------------------------------------------------------------
 
-if (JAM_TEST_SOURCES)
+if (JAM_CORE_BUILD_TESTS AND JAM_TEST_SOURCES)
     enable_testing()
 
     add_executable(jamTests
@@ -173,6 +179,6 @@ if (JAM_TEST_SOURCES)
     string(REPLACE ";" " " JAM_DISCOVERED_SUITES_DISPLAY "${JAM_DISCOVERED_SUITES}")
     message(STATUS "jam-core: registered ${jam_suite_count} test suite(s): "
                    "${JAM_DISCOVERED_SUITES_DISPLAY}")
-else()
+elseif (JAM_CORE_BUILD_TESTS)
     message(STATUS "jam-core: no tests/jam/*.cpp found, test target skipped")
 endif()
