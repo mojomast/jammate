@@ -166,17 +166,17 @@ bool findFirstLockFrom (const RhythmTruth& truth,
     return false;
 }
 
-double silenceTotalSeconds (const RhythmTruth& truth)
+double spanTotalSeconds (const std::vector<SilenceSpan>& spans)
 {
     double total = 0.0;
-    for (const SilenceSpan& s : truth.silenceSpans)
+    for (const SilenceSpan& s : spans)
         total += std::max (0.0, s.endSeconds - s.startSeconds);
     return total;
 }
 
-bool inAnySilenceSpan (const RhythmTruth& truth, double t)
+bool inAnySpan (const std::vector<SilenceSpan>& spans, double t)
 {
-    for (const SilenceSpan& s : truth.silenceSpans)
+    for (const SilenceSpan& s : spans)
         if (t >= s.startSeconds && t <= s.endSeconds)
             return true;
     return false;
@@ -315,7 +315,8 @@ double localTruthBpmAtTime (const RhythmTruth& truth, double t)
 
 FixtureMetrics scoreFixture (const RhythmTruth& truth,
                              const ObservationSeries& obs,
-                             double beatToleranceSeconds)
+                             double beatToleranceSeconds,
+                             double latencyCompensationSeconds)
 {
     FixtureMetrics m;
     m.name = truth.name;
@@ -329,9 +330,18 @@ FixtureMetrics scoreFixture (const RhythmTruth& truth,
     m.cpuSeconds = obs.cpuSeconds;
     m.allocationCount = obs.allocationCount;
 
+    // Latency compensation is applied exactly once, here, to the predicted beat
+    // clock. Every metric below reads `scored`, never `obs.beatTimesSeconds`, so
+    // F-measure, phase, acquisition, false beats and recovery can never disagree
+    // about when a beat happened. A no-op at 0.0 by construction.
+    ObservationSeries scored = obs;
+    if (latencyCompensationSeconds != 0.0)
+        for (double& t : scored.beatTimesSeconds)
+            t -= latencyCompensationSeconds;
+
     // --- matching, precision/recall/F, phase error -------------------------
     std::vector<int> predMatch;
-    m.truePositives = matchBeats (obs.beatTimesSeconds, truth.beats,
+    m.truePositives = matchBeats (scored.beatTimesSeconds, truth.beats,
                                   beatToleranceSeconds, predMatch);
     m.falsePositives = m.predictedBeats - m.truePositives;
     m.falseNegatives = m.truthBeats - m.truePositives;
@@ -356,15 +366,15 @@ FixtureMetrics scoreFixture (const RhythmTruth& truth,
         double signedMsSum = 0.0;
         double signedBeatsSum = 0.0;
         int signedCount = 0;
-        for (std::size_t i = 0; i < obs.beatTimesSeconds.size(); ++i)
+        for (std::size_t i = 0; i < scored.beatTimesSeconds.size(); ++i)
         {
             if (predMatch[i] < 0)
                 continue;
-            const int near = nearestTruthIndex (truth.beats, obs.beatTimesSeconds[i]);
+            const int near = nearestTruthIndex (truth.beats, scored.beatTimesSeconds[i]);
             if (near < 0)
                 continue;
             const double signedSeconds =
-                obs.beatTimesSeconds[i] - truth.beats[static_cast<std::size_t> (near)];
+                scored.beatTimesSeconds[i] - truth.beats[static_cast<std::size_t> (near)];
             const double localBpm = localBpmAtIndex (truth, static_cast<std::size_t> (near));
             const double localBeats =
                 localBpm > 0.0 ? signedSeconds * localBpm / 60.0 : 0.0;
@@ -395,12 +405,12 @@ FixtureMetrics scoreFixture (const RhythmTruth& truth,
     {
         std::size_t lockPred = 0;
         std::size_t lockTruth = 0;
-        if (findFirstLockFrom (truth, obs, beatToleranceSeconds,
+        if (findFirstLockFrom (truth, scored, beatToleranceSeconds,
                                -std::numeric_limits<double>::infinity(),
                                lockPred, lockTruth))
         {
             m.acquired = true;
-            const double lockTime = obs.beatTimesSeconds[lockPred];
+            const double lockTime = scored.beatTimesSeconds[lockPred];
             m.acquisitionSeconds = std::max (0.0, lockTime - truth.beats.front());
             m.acquisitionBeats = std::max (0.0, beatPositionAt (truth, lockTime));
             m.acquisitionBars = truth.beatsPerBar > 0
@@ -444,24 +454,52 @@ FixtureMetrics scoreFixture (const RhythmTruth& truth,
         m.halfDoubleTimeError = m.halfTimeLock || m.doubleTimeLock;
     }
 
-    // --- false beats in silence -------------------------------------------
+    // --- false beats -------------------------------------------------------
     {
-        m.silenceSeconds = silenceTotalSeconds (truth);
-        for (const double t : obs.beatTimesSeconds)
+        m.trueSilenceSeconds = spanTotalSeconds (truth.trueSilenceSpans);
+        m.unplayedBeatWindowsSeconds = spanTotalSeconds (truth.silenceSpans);
+        m.trueSilenceFractionOfDuration =
+            truth.durationSeconds > 0.0
+                ? m.trueSilenceSeconds / truth.durationSeconds : 0.0;
+
+        for (const double t : scored.beatTimesSeconds)
         {
-            if (! inAnySilenceSpan (truth, t))
-                continue;
-            ++m.falseBeatsInSilence;
-            if (! nearAnyTruthBeat (truth.beats, t, kSilentOnsetWindowSeconds))
-                ++m.falseBeatsOffGridInSilence;
+            // Primary: a beat in genuine silence is fabricated, period. The
+            // notional grid runs through the stop; the guitar does not, and
+            // SPEC 19 forbids manufacturing beats there.
+            if (inAnySpan (truth.trueSilenceSpans, t))
+                ++m.falseBeatsInTrueSilence;
+
+            // Secondary: a beat in an unplayed-beat window is a different
+            // failure (hallucination inside playing material). Counted
+            // separately; the off-grid variant excludes the held grid beat.
+            if (inAnySpan (truth.silenceSpans, t))
+            {
+                ++m.falseBeatsInUnplayedBeatWindows;
+                if (! nearAnyTruthBeat (truth.beats, t, kSilentOnsetWindowSeconds))
+                    ++m.falseBeatsOffGridInUnplayedBeatWindows;
+            }
         }
-        if (m.silenceSeconds > 0.0)
+
+        if (m.trueSilenceSeconds > 0.0)
+            m.falseBeatsInTrueSilencePerSecond =
+                static_cast<double> (m.falseBeatsInTrueSilence) / m.trueSilenceSeconds;
+        if (m.unplayedBeatWindowsSeconds > 0.0)
         {
-            m.falseBeatsInSilencePerSecond =
-                static_cast<double> (m.falseBeatsInSilence) / m.silenceSeconds;
-            m.falseBeatsOffGridInSilencePerSecond =
-                static_cast<double> (m.falseBeatsOffGridInSilence) / m.silenceSeconds;
+            m.falseBeatsInUnplayedBeatWindowsPerSecond =
+                static_cast<double> (m.falseBeatsInUnplayedBeatWindows)
+                / m.unplayedBeatWindowsSeconds;
+            m.falseBeatsOffGridInUnplayedBeatWindowsPerSecond =
+                static_cast<double> (m.falseBeatsOffGridInUnplayedBeatWindows)
+                / m.unplayedBeatWindowsSeconds;
         }
+
+        // Mostly-silent fixtures cannot inform this metric: there is almost no
+        // playing for a tracker to fabricate against, so a low rate is trivial.
+        // Threshold stated here rather than hidden in the report: >= 50 % of the
+        // fixture is true silence. On this corpus that flags exactly
+        // sustained_chords (0.77) and tapping_muting_only (0.83).
+        m.falseBeatMetricInformative = ! (m.trueSilenceFractionOfDuration >= 0.5);
     }
 
     // --- recovery after stop/start ----------------------------------------
@@ -480,11 +518,11 @@ FixtureMetrics scoreFixture (const RhythmTruth& truth,
 
         std::size_t lockPred = 0;
         std::size_t lockTruth = 0;
-        const bool lockedAfter = findFirstLockFrom (truth, obs, beatToleranceSeconds,
+        const bool lockedAfter = findFirstLockFrom (truth, scored, beatToleranceSeconds,
                                                     evidenceResume, lockPred, lockTruth);
         if (lockedAfter)
         {
-            const double lockTime = obs.beatTimesSeconds[lockPred];
+            const double lockTime = scored.beatTimesSeconds[lockPred];
             m.hasRecovery = true;
             m.recoverySeconds = std::max (0.0, lockTime - evidenceResume);
             const double bpm = localTruthBpmAtTime (truth, evidenceResume);
@@ -531,19 +569,19 @@ FixtureMetrics scoreFixture (const RhythmTruth& truth,
     }
 
     // --- ramp local-tempo tracking ----------------------------------------
-    if (truth.isRamp() && obs.beatTimesSeconds.size() >= 2)
+    if (truth.isRamp() && scored.beatTimesSeconds.size() >= 2)
     {
         double sum = 0.0;
         double worst = 0.0;
         int count = 0;
-        for (std::size_t i = 0; i + 1 < obs.beatTimesSeconds.size(); ++i)
+        for (std::size_t i = 0; i + 1 < scored.beatTimesSeconds.size(); ++i)
         {
-            const double gap = obs.beatTimesSeconds[i + 1] - obs.beatTimesSeconds[i];
+            const double gap = scored.beatTimesSeconds[i + 1] - scored.beatTimesSeconds[i];
             if (! (gap > 0.0) || ! isFinite (gap))
                 continue;
             const double predBpm = 60.0 / gap;
-            const double tMid = 0.5 * (obs.beatTimesSeconds[i]
-                                       + obs.beatTimesSeconds[i + 1]);
+            const double tMid = 0.5 * (scored.beatTimesSeconds[i]
+                                       + scored.beatTimesSeconds[i + 1]);
             const double truthBpm = localTruthBpmAtTime (truth, tMid);
             if (! (truthBpm > 0.0) || ! isFinite (predBpm))
                 continue;
@@ -620,13 +658,27 @@ AggregateMetrics aggregateFixtures (const std::vector<FixtureMetrics>& perFixtur
             }
         }
 
-        if (m.silenceSeconds > 0.0)
+        if (m.trueSilenceSeconds > 0.0)
         {
             ++a.silenceFixtures;
-            a.falseBeatsInSilencePerSecondWorst =
-                std::max (a.falseBeatsInSilencePerSecondWorst,
-                          m.falseBeatsInSilencePerSecond);
+            a.falseBeatsInTrueSilencePerSecondWorst =
+                std::max (a.falseBeatsInTrueSilencePerSecondWorst,
+                          m.falseBeatsInTrueSilencePerSecond);
+            if (m.falseBeatMetricInformative)
+            {
+                ++a.trueSilenceInformativeFixtures;
+                a.falseBeatsInTrueSilencePerSecondWorstInformative =
+                    std::max (a.falseBeatsInTrueSilencePerSecondWorstInformative,
+                              m.falseBeatsInTrueSilencePerSecond);
+            }
         }
+
+        a.falseBeatsInUnplayedBeatWindowsPerSecondWorst =
+            std::max (a.falseBeatsInUnplayedBeatWindowsPerSecondWorst,
+                      m.falseBeatsInUnplayedBeatWindowsPerSecond);
+        a.falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst =
+            std::max (a.falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst,
+                      m.falseBeatsOffGridInUnplayedBeatWindowsPerSecond);
 
         if (m.hasRecovery)
         {
@@ -690,8 +742,13 @@ AggregateMetrics aggregateFixtures (const std::vector<FixtureMetrics>& perFixtur
     // --- SPEC 19 gates -----------------------------------------------------
     a.gateAcquire95Core = a.acquisitionCoreEvaluated > 0
                           && a.acquisitionCorePassFraction >= 0.95;
+    // SPEC 19: <= 2%. kBpmAgreementFraction IS the 2% (0.02); the gate must use
+    // it directly. An earlier revision multiplied it by 2, making the gate 4%
+    // while its own name, comment and constant all said 2% -- a false PASS on any
+    // tracker whose worst core error sat in (2%, 4%]. Found by running the real
+    // corpus, where BTrack's 2.34% was being reported as a pass.
     a.gateBpm2Core = a.bpmRelErrorCoreEvaluated > 0
-                     && a.bpmRelErrorWorstCore <= 2.0 * kBpmAgreementFraction;
+                     && a.bpmRelErrorWorstCore <= kBpmAgreementFraction;
     a.gateHalfDouble5Core = a.halfDoubleEvaluatedCore > 0
                             && a.halfDoubleErrorRateCore < 0.05;
     a.gateSyncopationNoJump =
@@ -751,12 +808,22 @@ rhythmjson::Value fixtureMetricsToJson (const FixtureMetrics& m)
     o.set ("doubleTimeLock", Value::makeBool (m.doubleTimeLock));
     o.set ("halfDoubleTimeError", Value::makeBool (m.halfDoubleTimeError));
 
-    o.set ("falseBeatsInSilence", Value::makeNumber (m.falseBeatsInSilence));
-    o.set ("silenceSeconds", Value::makeNumber (m.silenceSeconds));
-    o.set ("falseBeatsInSilencePerSecond", Value::makeNumber (m.falseBeatsInSilencePerSecond));
-    o.set ("falseBeatsOffGridInSilence", Value::makeNumber (m.falseBeatsOffGridInSilence));
-    o.set ("falseBeatsOffGridInSilencePerSecond",
-           Value::makeNumber (m.falseBeatsOffGridInSilencePerSecond));
+    o.set ("falseBeatsInTrueSilence", Value::makeNumber (m.falseBeatsInTrueSilence));
+    o.set ("trueSilenceSeconds", Value::makeNumber (m.trueSilenceSeconds));
+    o.set ("trueSilenceFractionOfDuration",
+           Value::makeNumber (m.trueSilenceFractionOfDuration));
+    o.set ("falseBeatsInTrueSilencePerSecond",
+           Value::makeNumber (m.falseBeatsInTrueSilencePerSecond));
+    o.set ("falseBeatMetricInformative", Value::makeBool (m.falseBeatMetricInformative));
+    o.set ("falseBeatsInUnplayedBeatWindows",
+           Value::makeNumber (m.falseBeatsInUnplayedBeatWindows));
+    o.set ("unplayedBeatWindowsSeconds", Value::makeNumber (m.unplayedBeatWindowsSeconds));
+    o.set ("falseBeatsInUnplayedBeatWindowsPerSecond",
+           Value::makeNumber (m.falseBeatsInUnplayedBeatWindowsPerSecond));
+    o.set ("falseBeatsOffGridInUnplayedBeatWindows",
+           Value::makeNumber (m.falseBeatsOffGridInUnplayedBeatWindows));
+    o.set ("falseBeatsOffGridInUnplayedBeatWindowsPerSecond",
+           Value::makeNumber (m.falseBeatsOffGridInUnplayedBeatWindowsPerSecond));
 
     o.set ("hasRecovery", Value::makeBool (m.hasRecovery));
     o.set ("recoverySeconds", Value::makeNumber (m.recoverySeconds));
@@ -818,8 +885,16 @@ rhythmjson::Value aggregateMetricsToJson (const AggregateMetrics& a)
     o.set ("halfDoubleErrorRateCore", Value::makeNumber (a.halfDoubleErrorRateCore));
 
     o.set ("silenceFixtures", Value::makeNumber (a.silenceFixtures));
-    o.set ("falseBeatsInSilencePerSecondWorst",
-           Value::makeNumber (a.falseBeatsInSilencePerSecondWorst));
+    o.set ("trueSilenceInformativeFixtures",
+           Value::makeNumber (a.trueSilenceInformativeFixtures));
+    o.set ("falseBeatsInTrueSilencePerSecondWorst",
+           Value::makeNumber (a.falseBeatsInTrueSilencePerSecondWorst));
+    o.set ("falseBeatsInTrueSilencePerSecondWorstInformative",
+           Value::makeNumber (a.falseBeatsInTrueSilencePerSecondWorstInformative));
+    o.set ("falseBeatsInUnplayedBeatWindowsPerSecondWorst",
+           Value::makeNumber (a.falseBeatsInUnplayedBeatWindowsPerSecondWorst));
+    o.set ("falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst",
+           Value::makeNumber (a.falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst));
 
     o.set ("hasRecovery", Value::makeBool (a.hasRecovery));
     o.set ("recoverySecondsWorst", Value::makeNumber (a.recoverySecondsWorst));
@@ -846,13 +921,30 @@ rhythmjson::Value aggregateMetricsToJson (const AggregateMetrics& a)
     return o;
 }
 
+rhythmjson::Value scoringVariantToJson (const ScoringVariant& variant)
+{
+    using rhythmjson::Value;
+    Value o = Value::makeObject();
+    o.set ("label", Value::makeString (variant.label));
+    o.set ("latencyCompensationSeconds",
+           Value::makeNumber (variant.latencyCompensationSeconds));
+    Value fixtureArray = Value::makeArray();
+    for (const FixtureMetrics& m : variant.fixtures)
+        fixtureArray.push (fixtureMetricsToJson (m));
+    o.set ("fixtures", fixtureArray);
+    o.set ("aggregate", aggregateMetricsToJson (variant.aggregate));
+    return o;
+}
+
 const char* fixtureMetricsCsvHeader()
 {
     return "name,core,steady,ramp,predictedBeats,truthBeats,truePositives,precision,recall,"
            "fMeasure,acquired,acquisitionBars,bpmRelativeError,halfDoubleTimeError,"
-           "falseBeatsInSilencePerSecond,falseBeatsOffGridInSilencePerSecond,recoverySeconds,"
-           "syncopationMaxDeviationFraction,rampLocalTempoRelErrorMean,phaseP95AbsMs,cpuSeconds,"
-           "allocationCount\n";
+           "falseBeatsInTrueSilencePerSecond,trueSilenceSeconds,falseBeatMetricInformative,"
+           "falseBeatsInUnplayedBeatWindowsPerSecond,"
+           "falseBeatsOffGridInUnplayedBeatWindowsPerSecond,recoverySeconds,"
+           "syncopationMaxDeviationFraction,rampLocalTempoRelErrorMean,phaseP95AbsMs,"
+           "cpuSeconds,allocationCount\n";
 }
 
 std::string fixtureMetricsCsvRow (const FixtureMetrics& m)
@@ -886,9 +978,15 @@ std::string fixtureMetricsCsvRow (const FixtureMetrics& m)
     row += ',';
     row += m.halfDoubleTimeError ? '1' : '0';
     row += ',';
-    row += csvNumber (m.falseBeatsInSilencePerSecond);
+    row += csvNumber (m.falseBeatsInTrueSilencePerSecond);
     row += ',';
-    row += csvNumber (m.falseBeatsOffGridInSilencePerSecond);
+    row += csvNumber (m.trueSilenceSeconds);
+    row += ',';
+    row += m.falseBeatMetricInformative ? '1' : '0';
+    row += ',';
+    row += csvNumber (m.falseBeatsInUnplayedBeatWindowsPerSecond);
+    row += ',';
+    row += csvNumber (m.falseBeatsOffGridInUnplayedBeatWindowsPerSecond);
     row += ',';
     row += csvNumber (m.recoverySeconds);
     row += ',';
@@ -905,13 +1003,66 @@ std::string fixtureMetricsCsvRow (const FixtureMetrics& m)
     return row;
 }
 
+const char* fixtureMetricsCsvHeaderWithVariant()
+{
+    static const std::string header =
+        std::string ("variant,compensationSeconds,") + fixtureMetricsCsvHeader();
+    return header.c_str();
+}
+
+std::string fixtureMetricsCsvRowWithVariant (const ScoringVariant& variant,
+                                             const FixtureMetrics& m)
+{
+    std::string row = variant.label;
+    row += ',';
+    row += csvNumber (variant.latencyCompensationSeconds);
+    row += ',';
+    row += fixtureMetricsCsvRow (m);
+    return row;
+}
+
+namespace
+{
+
+/** Mean signed / absolute / p95 phase over the fixtures that produced matched
+    beats. Used by the latency-effect table. */
+void meanPhase (const ScoringVariant& v,
+                double& signedMeanMs, double& absMeanMs, double& p95MeanMs)
+{
+    double s = 0.0;
+    double a = 0.0;
+    double p = 0.0;
+    int n = 0;
+    for (const FixtureMetrics& m : v.fixtures)
+    {
+        if (m.truePositives <= 0)
+            continue;
+        s += m.phaseMeanMs;
+        a += m.phaseMeanAbsMs;
+        p += m.phaseP95AbsMs;
+        ++n;
+    }
+    const double inv = n > 0 ? 1.0 / static_cast<double> (n) : 0.0;
+    signedMeanMs = s * inv;
+    absMeanMs = a * inv;
+    p95MeanMs = p * inv;
+}
+
+const char* gateStatus (bool evaluated, bool pass)
+{
+    if (! evaluated)
+        return "NOT-MEASURED";
+    return pass ? "PASS" : "FAIL";
+}
+
+} // namespace
+
 std::string markdownSummary (const std::string& backendId,
                              const std::string& corpusId,
                              double toleranceSeconds,
-                             const std::vector<FixtureMetrics>& fixtures,
-                             const AggregateMetrics& aggregate)
+                             const std::vector<ScoringVariant>& variants)
 {
-    char buf[512];
+    char buf[640];
     std::string md;
     md += "# Rhythm evaluation summary\n\n";
     md += "- backend: `" + backendId + "`\n";
@@ -919,98 +1070,332 @@ std::string markdownSummary (const std::string& backendId,
     std::snprintf (buf, sizeof buf, "- beat-match tolerance: %.0f ms\n",
                    toleranceSeconds * 1000.0);
     md += buf;
-    std::snprintf (buf, sizeof buf, "- fixtures: %d (%d core, %d steady, %d ramp)\n\n",
-                   aggregate.fixtures, aggregate.coreFixtures,
-                   aggregate.steadyFixtures, aggregate.rampFixtures);
-    md += buf;
-
-    md += "| fixture | core | pred | TP | P | R | F | acq bars | BPM err | h/d | "
-          "false/s | false off-grid/s | recovery s | sync dev | ramp err | p95 phase ms |\n";
-    md += "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n";
-    for (const FixtureMetrics& m : fixtures)
+    md += "- variants in this run: ";
+    for (std::size_t i = 0; i < variants.size(); ++i)
     {
-        const double acq = m.acquired ? m.acquisitionBars : -1.0;
+        if (i != 0)
+            md += ", ";
+        std::snprintf (buf, sizeof buf, "`%s` (%.2f ms)",
+                       variants[i].label.c_str(),
+                       variants[i].latencyCompensationSeconds * 1000.0);
+        md += buf;
+    }
+    md += "\n";
+    if (! variants.empty())
+    {
         std::snprintf (buf, sizeof buf,
-                       "| %s | %s | %d | %d | %.3f | %.3f | %.3f | %.2f | %.3f | %s | "
-                       "%.3f | %.3f | %.3f | %.4f | %.4f | %.2f |\n",
-                       m.name.c_str(),
-                       m.core ? "yes" : "",
-                       m.predictedBeats,
-                       m.truePositives,
-                       m.precision,
-                       m.recall,
-                       m.fMeasure,
-                       acq,
-                       m.bpmRelativeError,
-                       m.halfDoubleTimeError ? "ERR" : "-",
-                       m.falseBeatsInSilencePerSecond,
-                       m.falseBeatsOffGridInSilencePerSecond,
-                       m.recoverySeconds,
-                       m.syncopationMaxDeviationFraction,
-                       m.rampLocalTempoRelErrorMean,
-                       m.phaseP95AbsMs);
+                       "- fixtures per variant: %d (%d core, %d steady, %d ramp)\n",
+                       variants.front().aggregate.fixtures,
+                       variants.front().aggregate.coreFixtures,
+                       variants.front().aggregate.steadyFixtures,
+                       variants.front().aggregate.rampFixtures);
+        md += buf;
+    }
+    md += "\n";
+
+    // --- per-variant per-fixture tables ------------------------------------
+    for (const ScoringVariant& v : variants)
+    {
+        std::snprintf (buf, sizeof buf, "## Variant `%s`", v.label.c_str());
+        md += buf;
+        if (v.latencyCompensationSeconds != 0.0)
+        {
+            std::snprintf (buf, sizeof buf, " — latency compensation %.2f ms",
+                           v.latencyCompensationSeconds * 1000.0);
+            md += buf;
+        }
+        else
+        {
+            md += " — uncompensated";
+        }
+        md += "\n\n";
+        md += "| fixture | core | inform | pred | TP | P | R | F | acq bars | BPM err | "
+              "h/d | trueSil F/s | unplayed F/s | unplayed off-grid F/s | recovery s | "
+              "sync dev | ramp err | p95 phase ms |\n";
+        md += "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n";
+        for (const FixtureMetrics& m : v.fixtures)
+        {
+            const double acq = m.acquired ? m.acquisitionBars : -1.0;
+            std::snprintf (buf, sizeof buf,
+                           "| %s | %s | %s | %d | %d | %.3f | %.3f | %.3f | %.2f | %.3f | "
+                           "%s | %.3f | %.3f | %.3f | %.3f | %.4f | %.4f | %.2f |\n",
+                           m.name.c_str(),
+                           m.core ? "yes" : "",
+                           m.falseBeatMetricInformative ? "yes" : "NO",
+                           m.predictedBeats,
+                           m.truePositives,
+                           m.precision,
+                           m.recall,
+                           m.fMeasure,
+                           acq,
+                           m.bpmRelativeError,
+                           m.halfDoubleTimeError ? "ERR" : "-",
+                           m.falseBeatsInTrueSilencePerSecond,
+                           m.falseBeatsInUnplayedBeatWindowsPerSecond,
+                           m.falseBeatsOffGridInUnplayedBeatWindowsPerSecond,
+                           m.recoverySeconds,
+                           m.syncopationMaxDeviationFraction,
+                           m.rampLocalTempoRelErrorMean,
+                           m.phaseP95AbsMs);
+            md += buf;
+        }
+        md += "\n";
+    }
+
+    // --- aggregates --------------------------------------------------------
+    md += "## Aggregates\n\n";
+    for (const ScoringVariant& v : variants)
+    {
+        const AggregateMetrics& a = v.aggregate;
+        std::snprintf (buf, sizeof buf, "### `%s`\n\n", v.label.c_str());
+        md += buf;
+        std::snprintf (buf, sizeof buf,
+                       "- F-measure mean %.4f (precision %.4f, recall %.4f)\n",
+                       a.fMeasureMean, a.precisionMean, a.recallMean);
+        md += buf;
+        std::snprintf (buf, sizeof buf,
+                       "- BPM relative error (steady): mean %.4f, median %.4f, core worst %.4f\n",
+                       a.bpmRelErrorMeanSteady, a.bpmRelErrorMedianSteady,
+                       a.bpmRelErrorWorstCore);
+        md += buf;
+        std::snprintf (buf, sizeof buf,
+                       "- half/double-time error rate: %.4f (%d/%d), core %.4f (%d/%d)\n",
+                       a.halfDoubleErrorRate, a.halfDoubleErrors,
+                       a.halfDoubleEvaluated, a.halfDoubleErrorRateCore,
+                       a.halfDoubleErrorsCore, a.halfDoubleEvaluatedCore);
+        md += buf;
+        std::snprintf (buf, sizeof buf,
+                       "- acquisition within 2 bars (core): %d/%d = %.4f\n",
+                       a.acquisitionCoreWithin2Bars, a.acquisitionCoreEvaluated,
+                       a.acquisitionCorePassFraction);
+        md += buf;
+        std::snprintf (buf, sizeof buf,
+                       "- false beats in TRUE silence: worst %.4f/s over %d fixtures; "
+                       "worst informative %.4f/s over %d informative fixtures\n",
+                       a.falseBeatsInTrueSilencePerSecondWorst, a.silenceFixtures,
+                       a.falseBeatsInTrueSilencePerSecondWorstInformative,
+                       a.trueSilenceInformativeFixtures);
+        md += buf;
+        std::snprintf (buf, sizeof buf,
+                       "- false beats in UNPLAYED-BEAT windows (separate metric): worst %.4f/s, "
+                       "off-grid worst %.4f/s\n",
+                       a.falseBeatsInUnplayedBeatWindowsPerSecondWorst,
+                       a.falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst);
+        md += buf;
+        std::snprintf (buf, sizeof buf,
+                       "- ramp local-tempo relative error: mean %.4f, worst %.4f\n",
+                       a.rampLocalTempoRelErrorMean, a.rampLocalTempoRelErrorWorst);
+        md += buf;
+        std::snprintf (buf, sizeof buf,
+                       "- syncopation max deviation %.4f, max step %.4f\n",
+                       a.syncopationMaxDeviationFraction, a.syncopationMaxStepFraction);
+        md += buf;
+        std::snprintf (buf, sizeof buf, "- CPU %.4f s total, %llu allocations total\n\n",
+                       a.cpuSecondsTotal,
+                       static_cast<unsigned long long> (a.allocationsTotal));
         md += buf;
     }
 
-    md += "\n## Aggregates\n\n";
-    std::snprintf (buf, sizeof buf,
-                   "- F-measure mean %.4f (precision %.4f, recall %.4f)\n",
-                   aggregate.fMeasureMean, aggregate.precisionMean, aggregate.recallMean);
-    md += buf;
-    std::snprintf (buf, sizeof buf,
-                   "- BPM relative error (steady): mean %.4f, median %.4f, core worst %.4f\n",
-                   aggregate.bpmRelErrorMeanSteady, aggregate.bpmRelErrorMedianSteady,
-                   aggregate.bpmRelErrorWorstCore);
-    md += buf;
-    std::snprintf (buf, sizeof buf,
-                   "- half/double-time error rate: %.4f (%d/%d), core %.4f (%d/%d)\n",
-                   aggregate.halfDoubleErrorRate, aggregate.halfDoubleErrors,
-                   aggregate.halfDoubleEvaluated, aggregate.halfDoubleErrorRateCore,
-                   aggregate.halfDoubleErrorsCore, aggregate.halfDoubleEvaluatedCore);
-    md += buf;
-    std::snprintf (buf, sizeof buf,
-                   "- acquisition within 2 bars (core): %d/%d = %.4f\n",
-                   aggregate.acquisitionCoreWithin2Bars, aggregate.acquisitionCoreEvaluated,
-                   aggregate.acquisitionCorePassFraction);
-    md += buf;
-    std::snprintf (buf, sizeof buf,
-                   "- worst false beats/s in declared silence: %.4f\n",
-                   aggregate.falseBeatsInSilencePerSecondWorst);
-    md += buf;
-    std::snprintf (buf, sizeof buf,
-                   "- ramp local-tempo relative error: mean %.4f, worst %.4f\n",
-                   aggregate.rampLocalTempoRelErrorMean,
-                   aggregate.rampLocalTempoRelErrorWorst);
-    md += buf;
-    std::snprintf (buf, sizeof buf,
-                   "- syncopation max deviation %.4f, max step %.4f\n",
-                   aggregate.syncopationMaxDeviationFraction,
-                   aggregate.syncopationMaxStepFraction);
-    md += buf;
-    std::snprintf (buf, sizeof buf, "- CPU %.4f s total, %llu allocations total\n\n",
-                   aggregate.cpuSecondsTotal,
-                   static_cast<unsigned long long> (aggregate.allocationsTotal));
-    md += buf;
-
-    md += "## SPEC 19 gates\n\n";
-    md += "| gate | result |\n|---|---|\n";
-    auto gate = [&md] (const char* name, bool pass)
+    // --- latency compensation effect ---------------------------------------
+    md += "## Latency compensation effect\n\n";
+    if (variants.size() < 2)
     {
-        md += "| ";
-        md += name;
-        md += " | ";
-        md += pass ? "PASS" : "FAIL";
-        md += " |\n";
-    };
-    gate ("acquire within 2 bars for >= 95% of core", aggregate.gateAcquire95Core);
-    gate ("locked BPM relative error <= 2% on core", aggregate.gateBpm2Core);
-    gate ("half/double-time errors < 5% on core", aggregate.gateHalfDouble5Core);
-    gate ("no tempo jump from isolated syncopation", aggregate.gateSyncopationNoJump);
-    gate ("follow ramps (mean local-tempo error <= 2%)", aggregate.gateRampFollows);
-    md += "\n";
-    md += "The silence gate (SPEC 19 \"silence does not create false acceleration\") "
-          "is qualitative; the false-beat-in-silence columns above report the raw "
-          "numbers and the `*_offGrid` column excludes the maintained grid beat.\n";
+        md += "No compensation was requested (`--compensate-latency` absent or 0). "
+              "The table below is therefore empty by design; re-run with a non-zero "
+              "value to measure the effect.\n\n";
+    }
+    else
+    {
+        const ScoringVariant& base = variants.front();
+        double baseSigned = 0.0, baseAbs = 0.0, baseP95 = 0.0;
+        meanPhase (base, baseSigned, baseAbs, baseP95);
+        md += "Positive mean phase means the predicted beats are LATE. Compensation subtracts "
+              "the requested seconds from every predicted beat before scoring, so a correctly "
+              "compensated backend moves the mean phase toward zero. Delta is "
+              "`compensated - uncompensated`.\n\n";
+        md += "| metric | uncompensated | compensated | delta |\n";
+        md += "|---|---|---|---|\n";
+        for (std::size_t i = 1; i < variants.size(); ++i)
+        {
+            const ScoringVariant& c = variants[i];
+            double signedM = 0.0, absM = 0.0, p95M = 0.0;
+            meanPhase (c, signedM, absM, p95M);
+            std::snprintf (buf, sizeof buf, "| `%s` | | | |\n", c.label.c_str());
+            md += buf;
+            md += "| F-measure mean | ";
+            std::snprintf (buf, sizeof buf, "%.4f | %.4f | %+.4f |\n",
+                           base.aggregate.fMeasureMean, c.aggregate.fMeasureMean,
+                           c.aggregate.fMeasureMean - base.aggregate.fMeasureMean);
+            md += buf;
+            md += "| precision mean | ";
+            std::snprintf (buf, sizeof buf, "%.4f | %.4f | %+.4f |\n",
+                           base.aggregate.precisionMean, c.aggregate.precisionMean,
+                           c.aggregate.precisionMean - base.aggregate.precisionMean);
+            md += buf;
+            md += "| recall mean | ";
+            std::snprintf (buf, sizeof buf, "%.4f | %.4f | %+.4f |\n",
+                           base.aggregate.recallMean, c.aggregate.recallMean,
+                           c.aggregate.recallMean - base.aggregate.recallMean);
+            md += buf;
+            md += "| mean signed phase (ms) | ";
+            std::snprintf (buf, sizeof buf, "%.3f | %.3f | %+.3f |\n",
+                           baseSigned, signedM, signedM - baseSigned);
+            md += buf;
+            md += "| mean |phase| (ms) | ";
+            std::snprintf (buf, sizeof buf, "%.3f | %.3f | %+.3f |\n",
+                           baseAbs, absM, absM - baseAbs);
+            md += buf;
+            md += "| mean p95 |phase| (ms) | ";
+            std::snprintf (buf, sizeof buf, "%.3f | %.3f | %+.3f |\n",
+                           baseP95, p95M, p95M - baseP95);
+            md += buf;
+            md += "| acquisition within 2 bars (core fraction) | ";
+            std::snprintf (buf, sizeof buf, "%.4f | %.4f | %+.4f |\n",
+                           base.aggregate.acquisitionCorePassFraction,
+                           c.aggregate.acquisitionCorePassFraction,
+                           c.aggregate.acquisitionCorePassFraction
+                               - base.aggregate.acquisitionCorePassFraction);
+            md += buf;
+            md += "| BPM rel error core worst | ";
+            std::snprintf (buf, sizeof buf, "%.4f | %.4f | %+.4f |\n",
+                           base.aggregate.bpmRelErrorWorstCore,
+                           c.aggregate.bpmRelErrorWorstCore,
+                           c.aggregate.bpmRelErrorWorstCore
+                               - base.aggregate.bpmRelErrorWorstCore);
+            md += buf;
+            md += "| false beats/s true silence (worst informative) | ";
+            std::snprintf (buf, sizeof buf, "%.4f | %.4f | %+.4f |\n",
+                           base.aggregate.falseBeatsInTrueSilencePerSecondWorstInformative,
+                           c.aggregate.falseBeatsInTrueSilencePerSecondWorstInformative,
+                           c.aggregate.falseBeatsInTrueSilencePerSecondWorstInformative
+                               - base.aggregate.falseBeatsInTrueSilencePerSecondWorstInformative);
+            md += buf;
+            md += "| false beats/s unplayed windows (worst, off-grid) | ";
+            std::snprintf (buf, sizeof buf, "%.4f | %.4f | %+.4f |\n",
+                           base.aggregate.falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst,
+                           c.aggregate.falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst,
+                           c.aggregate.falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst
+                               - base.aggregate.falseBeatsOffGridInUnplayedBeatWindowsPerSecondWorst);
+            md += buf;
+        }
+        md += "\n";
+    }
+    md += "**The orchestrator, not the harness, decides whether to compensate.** "
+          "Compensation is a claim about the backend, and it can be as wrong as no "
+          "compensation: subtracting a latency the backend does not actually have is "
+          "just a bias in the other direction, and for a non-causal or tempo-adaptive "
+          "backend the delay may not even be constant. This table exists so the ADR can "
+          "see the size of the decision, not so the harness can make it.\n\n";
+
+    // --- SPEC 19 gate table, per variant -----------------------------------
+    md += "## SPEC 19 gates\n\n";
+    for (const ScoringVariant& v : variants)
+    {
+        const AggregateMetrics& a = v.aggregate;
+        std::snprintf (buf, sizeof buf, "### `%s`\n\n", v.label.c_str());
+        md += buf;
+        md += "| gate | result | reason |\n|---|---|---|\n";
+        auto row = [&md] (const char* name, const char* status, const std::string& reason)
+        {
+            md += "| ";
+            md += name;
+            md += " | ";
+            md += status;
+            md += " | ";
+            md += reason;
+            md += " |\n";
+        };
+
+        {
+            std::snprintf (buf, sizeof buf,
+                           "%d/%d core fixtures acquired within 2 bars (fraction %.4f)",
+                           a.acquisitionCoreWithin2Bars, a.acquisitionCoreEvaluated,
+                           a.acquisitionCorePassFraction);
+            row ("acquire useful lock within 2 bars for >= 95% of core fixtures",
+                 gateStatus (a.acquisitionCoreEvaluated > 0, a.gateAcquire95Core), buf);
+        }
+        {
+            std::snprintf (buf, sizeof buf, "worst core BPM relative error %.4f (%d core fixtures evaluated)",
+                           a.bpmRelErrorWorstCore, a.bpmRelErrorCoreEvaluated);
+            row ("locked BPM relative error <= 2% on steady-tempo core fixtures",
+                 gateStatus (a.bpmRelErrorCoreEvaluated > 0, a.gateBpm2Core), buf);
+        }
+        {
+            std::snprintf (buf, sizeof buf, "core half/double-time errors %d/%d (rate %.4f)",
+                           a.halfDoubleErrorsCore, a.halfDoubleEvaluatedCore,
+                           a.halfDoubleErrorRateCore);
+            row ("half/double-time errors < 5% on core fixtures",
+                 gateStatus (a.halfDoubleEvaluatedCore > 0, a.gateHalfDouble5Core), buf);
+        }
+        {
+            std::snprintf (buf, sizeof buf, "max first-difference of reported BPM %.4f of nominal",
+                           a.syncopationMaxStepFraction);
+            row ("no tempo jump from one isolated syncopated event",
+                 gateStatus (a.hasSyncopation, a.gateSyncopationNoJump), buf);
+        }
+        {
+            std::snprintf (buf, sizeof buf, "worst informative true-silence false-beat rate %.4f/s "
+                                             "(%d informative fixtures; SPEC gives no numeric threshold, "
+                                             "any fabricated beat is read as a failure)",
+                           a.falseBeatsInTrueSilencePerSecondWorstInformative,
+                           a.trueSilenceInformativeFixtures);
+            const bool evaluated = a.trueSilenceInformativeFixtures > 0;
+            row ("silence does not create false acceleration",
+                 gateStatus (evaluated,
+                             evaluated && a.falseBeatsInTrueSilencePerSecondWorstInformative <= 0.0),
+                 buf);
+        }
+        row ("explicit resync establishes new phase within the requested boundary",
+             "NOT-MEASURED",
+             "the offline harness has no resync command path; the Musical Clock is the only place this can be tested");
+        {
+            std::snprintf (buf, sizeof buf, "mean local-tempo relative error %.4f over %d ramp fixtures; "
+                                             "audible discontinuity is not measurable offline",
+                           a.rampLocalTempoRelErrorMean, a.rampFixtures);
+            row ("Follow handles controlled gradual tempo ramps without abrupt audible discontinuities",
+                 gateStatus (a.hasRamp, a.gateRampFollows), buf);
+        }
+        row ("Loose Follow is measurably less reactive than Follow",
+             "NOT-MEASURED",
+             "requires the Musical Clock and a real controller; no clock runs in this offline harness");
+        {
+            std::snprintf (buf, sizeof buf, "offline proxy: worst post-stop lock recovery %.4f s; "
+                                             "audio-device restart is not observable offline",
+                           a.recoverySecondsWorst);
+            row ("stop/start recovery succeeds without restarting the audio device",
+                 "NOT-INFORMATIVE", buf);
+        }
+        md += "\n";
+    }
+
+    // --- not-informative fixtures ------------------------------------------
+    md += "## Fixtures not informative for the true-silence false-beat metric\n\n";
+    bool anyNotInformative = false;
+    for (const ScoringVariant& v : variants)
+    {
+        for (const FixtureMetrics& m : v.fixtures)
+        {
+            if (m.falseBeatMetricInformative)
+                continue;
+            anyNotInformative = true;
+            std::snprintf (buf, sizeof buf,
+                           "- `%s` (`%s`): %.2f s of true silence, %.0f%% of the fixture — almost "
+                           "no playing to fabricate against, so a low rate is trivial and must not "
+                           "be read as a pass.\n",
+                           m.name.c_str(), v.label.c_str(),
+                           m.trueSilenceSeconds,
+                           100.0 * m.trueSilenceFractionOfDuration);
+            md += buf;
+        }
+    }
+    if (! anyNotInformative)
+    {
+        md += "None: no fixture is >= 50% true silence, so every fixture informs the metric.\n";
+    }
+    md += "\nCriterion (stated, not hidden): a fixture is not informative when true silence "
+          "covers at least half its duration. On this corpus that is exactly "
+          "`sustained_chords` and `tapping_muting_only`, whose two-stage fast decay ends each "
+          "note in ~0.2 s, so the declared true silence is most of the file.\n";
     return md;
 }
 
