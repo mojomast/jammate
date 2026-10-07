@@ -91,7 +91,11 @@ and reports instead.
 | — ADR-0003 build environment | **DONE** | `48f301c` | orchestrator | G0 | two-lane verification split |
 | MOD-001 analysis ring tests | **DONE** | `wp/MOD-001-ring` → merged `89db28d` | B — intelligence | G2 | 19 tests / 95 236 checks; 2 header defects fixed in `efb820b` |
 | CLOCK-001 musical clock | **DONE** | `wp/CLOCK-001-clock` → merged `b78c43c` | B — intelligence | G4 | 16 scenarios green; 2 policy gaps decided |
-| RT-001 callback-safe control plane | **READY** | | A | G1 | unblocked by FND-003; ⛔ unverifiable here |
+| — library-identity decision | **DONE** | `f04c055` | orchestrator | G5 | `LibraryIndex` positional, not string id |
+| RT-SIGNAL-001 RT-safe signal primitive | RUNNING | `wp/RT-SIGNAL-001` | A — real-time | G1 | enables the central RT-001 patch |
+| MOD-002 drum transport adapter | RUNNING | `wp/MOD-002` | B — intelligence | G2 | |
+| EVAL-001 guitar rhythm corpus | RUNNING | `wp/EVAL-001` | C — evidence | G3 | |
+| RT-001 callback-safe control plane | BLOCKED:RT-SIGNAL-001 | | A + orchestrator | G1 | central edit is orchestrator-owned; ⛔ unverifiable here |
 | CI-001 CI baseline | TODO | | C | G1 | Gitea; needs plugin lane to be green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
 | MOD-002 drum transport adapter | BLOCKED:G2 | | B | G2 | seam `IDrumTransport.h` exists |
@@ -159,6 +163,27 @@ Recorded so a later reader can tell worker claim from verified fact.
 | "25 commits past v0.1" | `BASELINE.md` V19 | **wrong** — `git rev-list --count v0.1..88f7e7c` = **7** | corrected in `BASELINE.md` §1.1 and V19 |
 | `references/*` submodules have no gitlink | declared in `.gitmodules`, absent from the tree | **true, and upstream's own defect** — `git ls-tree 88f7e7c:references/` returns only `README.md` | left open; no history operation can fix it. Closes only on a release decision. |
 | AudioDSPTools licence | THIRD_PARTY says MIT, README says Apache-2.0/MIT | unverifiable (submodule not checked out) | stays `UNKNOWN` with the exact file to read |
+
+---
+
+## Wave 2 — running, three non-overlapping lanes
+
+Deliberately **not** delegating `src/PluginProcessor.*`. The confirmed P0 needs an
+edit to a central file, so the pattern is the one DEVPLAN §4 prescribes: isolated
+module → unit tests → review → small orchestrator-controlled patch. The worker
+builds and proves the primitive; I apply the one-line change to the callback.
+
+| Lane | Task | Model | Owns | Proves |
+|---|---|---|---|---|
+| A real-time | RT-SIGNAL-001 | `openai/gpt-6.1-sol#xhigh` | `src/rt/RtSignal.h`, `tests/jam/RtSignalTests.cpp` | coalescible `SignalFlag` + `LatestValue<T>`; torn-read analysis |
+| B intelligence | MOD-002 | `deepseek/deepseek-flash` | `src/jam/DrumTransportAdapter.*`, `tests/jam/DrumTransportAdapterTests.cpp` | boundary quantisation, anti-drift position model |
+| C evidence | EVAL-001 | `opencode/space-bunny-free` | `testdata/rhythm/**`, `tools/gen_fixtures.py`, `tests/jam/RhythmCorpusTests.cpp` | the corpus G3 needs |
+
+RT-SIGNAL-001 is the one task escalated to the top model. A wrong memory ordering
+in a primitive whose entire purpose is to be trusted from an audio callback is
+not a bug that tests will catch later — it is the kind of defect that survives
+review and glitches audio. Cheap models get correctness-provable work; this is
+correctness-*unprovable*-by-inspection work.
 
 ---
 
