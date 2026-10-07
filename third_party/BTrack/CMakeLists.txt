@@ -58,12 +58,42 @@ endif()
 # which BTrack selects explicitly. Accepted: exact fidelity is worth the bytes
 # when this benchmark decides the production beat tracker.
 set(LSR_DIR ${JAM_ROOT}/third_party/libsamplerate)
+
+# libsamplerate's sources #include "config.h", which autotools normally generates.
+# Upstream's own CMakeLists.txt generates it from config.h.cmake; we do exactly
+# that rather than hand-writing a header, so the feature macros stay honest.
+set(PACKAGE     "libsamplerate")
+set(VERSION     "0.2.2")
+# Every libsamplerate source wraps its config.h include in #ifdef HAVE_CONFIG_H,
+# exactly as upstream's CMakeLists.txt sets with add_definitions(-DHAVE_CONFIG_H).
+# Without this the header is skipped, HAVE_STDBOOL_H is never defined, and
+# common.h's `#ifdef HAVE_STDBOOL_H #include <stdbool.h>` is skipped too - so
+# `bool` is an unknown type in src_linear.c and src_zoh.c.
+# Only check_include_file is used: check_symbol_exists needs a project() context
+# (it pulls in CheckFunctionExists/try_compile), and jam-core deliberately has no
+# project() of its own. HAVE_SIGNAL is only consulted by libsamplerate to allow
+# interrupting a long SINC conversion with SIGALRM, which an audio product must
+# not do anyway, so it is simply left undefined.
+include(CheckIncludeFile)
+check_include_file (stdbool.h     HAVE_STDBOOL_H)
+check_include_file (unistd.h      HAVE_UNISTD_H)
+check_include_file (immintrin.h   HAVE_IMMINTRIN_H)
+check_include_file (sys/times.h   HAVE_SYS_TIMES_H)
+# BTrack asks for SRC_SINC_BEST_QUALITY, so the best converter is mandatory.
+# The fast and medium converters are cheap and come along for the ride.
+set(ENABLE_SINC_FAST_CONVERTER  1)
+set(ENABLE_SINC_MEDIUM_CONVERTER 1)
+set(ENABLE_SINC_BEST_CONVERTER  1)
+configure_file (${LSR_DIR}/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h @ONLY)
+
 add_library(samplerate STATIC
     ${LSR_DIR}/src/samplerate.c
     ${LSR_DIR}/src/src_linear.c
     ${LSR_DIR}/src/src_sinc.c
     ${LSR_DIR}/src/src_zoh.c)
-target_include_directories(samplerate PUBLIC ${LSR_DIR}/src)
+target_include_directories(samplerate PUBLIC
+    ${CMAKE_CURRENT_BINARY_DIR} ${LSR_DIR}/src)
+target_compile_definitions(samplerate PUBLIC HAVE_CONFIG_H=1)
 set_target_properties(samplerate PROPERTIES
     C_STANDARD 99 POSITION_INDEPENDENT_CODE ON)
 if (NOT MSVC)
