@@ -53,6 +53,41 @@ if (NOT JAM_CORE_SOURCES)
         "identification/schema surface); check the checkout.")
 endif()
 
+# Optional GPL third-party tracker backend (TRACK-001).
+#
+# Kept OUT of the jam-core target and OFF by default, for two reasons that are
+# both load-bearing:
+#
+#   1. Licence. BTrack is GPL v3. `src/jam/` — the Musical Clock, the Jam
+#      Director, the analysis ring — stays free of third-party code so the
+#      dependency-free core remains auditable and buildable anywhere. Only
+#      `src/btrack/` may reference GPL code.
+#   2. Evidence. The musical-intelligence gates (G4, G5) must stay provable on a
+#      machine that has no third-party audio libraries. Folding a GPL tracker
+#      into jam-core would put that at risk for no benefit.
+#
+# Enabled by the rhythm evaluation harness and by CI. See
+# third_party/BTrack/CMakeLists.txt for the full licensing note.
+option(JAM_ENABLE_BTRACK "Build the GPL BTrack backend behind IRhythmTracker" OFF)
+if (JAM_ENABLE_BTRACK)
+    add_subdirectory(${JAM_ROOT}/third_party/BTrack ${CMAKE_CURRENT_BINARY_DIR}/btrack)
+    if (EXISTS ${JAM_ROOT}/tests/jam/BTrackBackendTests.cpp)
+        enable_testing()
+        add_executable(jamBTrackTests
+            ${JAM_ROOT}/tests/jam/JamTestMain.cpp
+            ${JAM_ROOT}/tests/jam/BTrackBackendTests.cpp)
+        target_include_directories(jamBTrackTests PRIVATE
+            ${JAM_ROOT}/tests/jam ${JAM_ROOT}/tests)
+        target_link_libraries(jamBTrackTests PRIVATE jam-btrack)
+        if (NOT MSVC)
+            target_compile_options(jamBTrackTests PRIVATE -Wall -Wextra)
+        endif()
+        add_test(NAME jam.BTrackBackend COMMAND jamBTrackTests BTrackBackend.)
+    else()
+        message(STATUS "jam-core: JAM_ENABLE_BTRACK=ON but no BTrackBackendTests.cpp yet")
+    endif()
+endif()
+
 add_library(jam-core STATIC ${JAM_CORE_SOURCES})
 
 target_include_directories(jam-core PUBLIC ${JAM_ROOT}/src)
