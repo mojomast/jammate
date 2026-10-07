@@ -21,7 +21,7 @@ task note + commit SHA + successful integration.
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **11/11 suites** | deterministic seams, derived generator and offline tracker diagnostics; not all SPEC acceptance conditions |
+| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **13/13 suites** | deterministic seams, derived generator, paired robustness and BeatNet research-tool contracts; not all SPEC acceptance conditions |
 | **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **5/5 passed**; **Standalone and VST3 built** | Windows/ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
@@ -74,6 +74,10 @@ PARTIAL, never PASSED.
 - Default-OFF core: **9/9 passed**; no foreign tracker archives or symbols.
 - Both adapters with `JAM_CORE_BUILD_TESTS=OFF` built with no test binaries or
   test registrations. The option now actually controls all test targets.
+- After TRACK-003/EVAL-005 integration, research-tool tests are registered in
+  CMake: enabled trackers **13/13 suites pass**, default-OFF **11/11 pass**.
+  Both-enabled tests-OFF still registers **0 tests**. The two new suites verify
+  scorer/aggregator contracts; the BeatNet suite runs no model inference.
 - Corrected corpus comparison: BTrack F=0.7099, acquisition 4/11, worst core BPM
   error 2.34%; aubio F=0.5357, acquisition 7/11, worst core BPM error 1.33%.
   Acquisition fails for both. No tracker selected and no G0/G1/G3 pass claimed.
@@ -161,6 +165,8 @@ and reports instead.
 | TRACK-003 BeatNet feasibility | INTEGRATED:PARTIAL; benchmark unavailable | `wp/TRACK-003-beatnet`, `1ef3d5c` → main + scorer corrections | C — research, Flash | G3 | pinned source/weight terms and measured dependency blockers; 51 scorer tests; no inference; redistribution review unresolved |
 | CI-002 tracker CI repair | REVIEW CORRECTIONS RUNNING | `wp/CI-002-trackers`, initial `4dfbc96` | C — evidence, Flash | G1/G3 | local four-config evidence returned; symbol/error/materialization guards need repair; remote/Windows unverified |
 | EVAL-005 paired robustness curves | **DONE: scoped paired diagnostics** | `wp/EVAL-005-robustness`, `816a955` → main | B — evidence, Flash | G3 | 29 tests; 2160 rows exactly reproduced; all 24 derived WAV hashes/sizes checked; short-window/missing-data caveats retained |
+| EVAL-006 sustained-corpus repair + tapping audit | RUNNING | `wp/EVAL-006-sustain`, base `6287288` | C — evidence, Flash | G3 | new versioned replacement corpus; original hashes preserved; independent duration/energy checks and paired tracker runs |
+| TRACK-004 acquisition/BPM diagnosis | RUNNING | `wp/TRACK-004-acquisition`, base `6287288` | B — evidence, Flash | G3 | causal observation traces and exact acquisition replay; per-core reasons and BTrack bias diagnosis; no shared tracker/scorer changes |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |

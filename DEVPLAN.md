@@ -1466,6 +1466,8 @@ Keep this near the top of the live devplan during implementation.
 | EVAL-004 | DONE (timing/gate audit + real comparison) | main | 64b39ee | G3 |
 | EVAL-005 | DONE (scoped paired diagnostics; G3 open) | main | 816a955 | G3 |
 | CI-002 | review corrections running (workflow guards) | wp/CI-002-trackers | initial 4dfbc96, not merged | G1/G3 |
+| EVAL-006 | RUNNING (versioned sustained repair + tapping audit) | wp/EVAL-006-sustain | base 6287288 | G3 |
+| TRACK-004 | RUNNING (causal acquisition/BPM diagnosis) | wp/TRACK-004-acquisition | base 6287288 | G3 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
 | ANALYSIS-001 | BLOCKED:G3 | | | G4 |
 | DIAG-001 | BLOCKED:G3 | | | G4 |

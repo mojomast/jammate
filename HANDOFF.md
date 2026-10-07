@@ -38,7 +38,9 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
-  pass **11/11**, including the derived generator's Python acoustic checks.
+  pass **13/13**, including the derived generator's Python acoustic checks,
+  robustness aggregation and BeatNet research-tool contracts. Default-OFF is
+  **11/11**; tests-OFF registers zero tests.
 - Drum MIDI prepare-time reservation now uses a scheduling bound. Old 256-byte
   storage grows to **2115 bytes** in the test; bounded storage shows zero observed
   allocations/frees across 16 rate/block combinations. Cosmetic meter CAS no
@@ -60,6 +62,8 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | CI-002 tracker workflows | `wp/CI-002-trackers`, `../worktrees/CI-002-trackers` | `ses_ee75a1084ffep3AxLvnl0Kqa3d` |
 | TRACK-003 integrated partial feasibility (worker finished) | `wp/TRACK-003-beatnet`, `../worktrees/TRACK-003-beatnet` | `ses_ee745589effeU0Q5VSCHfvX51T` |
 | EVAL-005 integrated paired diagnostics (worker finished) | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
+| EVAL-006 sustained repair + tapping audit | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
+| TRACK-004 acquisition/BPM diagnosis | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
 tree and SHA. Review/merge returned work rather than rerunning a worker's topic
@@ -73,6 +77,13 @@ review findings from `4dfbc96` (enabled symbols, fail-closed nm, Python/derived
 suite requirements and empty reference gitlink guards). Await its revised clean
 SHA; do not merge the initial CI-002 handoff as completed work. BeatNet has no
 inference result and remains a partial feasibility review.
+
+EVAL-006 and TRACK-004 started from `6287288` in new isolated Flash lanes. The
+first owns a versioned sustained replacement corpus, generator/tests and acoustic
+report; it preserves the historical corpus and audits tapping before proposing
+changes. The second owns new causal trace/replay diagnostics and its report,
+with no tracker/harness/scoring edits. CI-002 continues independently. Current
+integration merges: TRACK-003 `e61784d`, EVAL-005 `6287288`.
 
 ### Remaining gate work
 

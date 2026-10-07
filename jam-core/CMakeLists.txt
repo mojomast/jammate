@@ -180,17 +180,31 @@ if (JAM_CORE_BUILD_TESTS AND JAM_TEST_SOURCES)
     message(STATUS "jam-core: registered ${jam_suite_count} test suite(s): "
                     "${JAM_DISCOVERED_SUITES_DISPLAY}")
 
-    if (EXISTS "${JAM_ROOT}/tools/rhythm-eval/tools/test_make_derived.py")
-        find_package(Python3 COMPONENTS Interpreter QUIET)
-        if (Python3_Interpreter_FOUND)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if (Python3_Interpreter_FOUND)
+        if (EXISTS "${JAM_ROOT}/tools/rhythm-eval/tools/test_make_derived.py")
             add_test(NAME jam.RhythmDerivedGenerator
                 COMMAND ${Python3_EXECUTABLE}
                     "${JAM_ROOT}/tools/rhythm-eval/tools/test_make_derived.py")
             set_tests_properties(jam.RhythmDerivedGenerator PROPERTIES
                 WORKING_DIRECTORY "${JAM_ROOT}")
-        else()
-            message(STATUS "jam-core: Python unavailable; derived generator checks not registered")
         endif()
+        if (EXISTS "${JAM_ROOT}/tools/rhythm-eval/tools/test_run_robustness.py")
+            add_test(NAME jam.RhythmRobustness
+                COMMAND ${Python3_EXECUTABLE}
+                    "${JAM_ROOT}/tools/rhythm-eval/tools/test_run_robustness.py")
+            set_tests_properties(jam.RhythmRobustness PROPERTIES
+                WORKING_DIRECTORY "${JAM_ROOT}")
+        endif()
+        if (EXISTS "${JAM_ROOT}/tools/beatnet-eval/tests/test_score.py")
+            add_test(NAME jam.BeatNetResearch
+                COMMAND ${Python3_EXECUTABLE} -m unittest discover
+                    -s "${JAM_ROOT}/tools/beatnet-eval/tests")
+            set_tests_properties(jam.BeatNetResearch PROPERTIES
+                WORKING_DIRECTORY "${JAM_ROOT}")
+        endif()
+    else()
+        message(STATUS "jam-core: Python unavailable; research tool checks not registered")
     endif()
 elseif (JAM_CORE_BUILD_TESTS)
     message(STATUS "jam-core: no tests/jam/*.cpp found, test target skipped")
