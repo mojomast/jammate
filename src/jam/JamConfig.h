@@ -121,4 +121,45 @@ struct DirectorConfig
     uint64_t randomSeed = 0x5EED5EEDull;        // determinism for tests
 };
 
+/** Drum-transport scheduler configuration (DEVPLAN MOD-002).
+ *
+ * IMPORTANT: these are mechanical scheduling bounds and clock-state reactions,
+ * NOT musical policy. Which groove or fill plays, when the drummer joins, and
+ * when a fill happens stay in the Jam Director (SPEC.md 15: "The director owns
+ * musical decisions but not sample rendering"). Nothing here selects a tempo.
+ *
+ * SPEC.md 10.2: "All thresholds must live in one configuration structure and be
+ * covered by tests." These fields live here for exactly that reason; the
+ * DrumTransportAdapter.cpp contains no magic numbers.
+ */
+struct TransportConfig
+{
+    // Absolute safety rails on the tempo the adapter will accept. Deliberately
+    // wider than the musical ClockConfig range (SPEC 10.2: 50-220 BPM) so a
+    // legitimate already-smoothed clock belief always passes through unchanged;
+    // only a nonsense value is bounded. Justified by the "absurdBpm" test
+    // (requirement 4: feeding 3 BPM / 1000 BPM must be a documented clamp).
+    double minBpm = 20.0;
+    double maxBpm = 400.0;
+
+    // Sample rate assumed before prepare() runs, for the deterministic tests
+    // that drive the adapter without an audio device. Justified by every test
+    // in DrumTransportAdapterTests.cpp, which runs with no device.
+    double defaultSampleRate = 48000.0;
+
+    // Fixed capacity of the pending-musical-change buffer. SPEC.md 8.3 requires
+    // a fixed-capacity command structure with an explicit full policy; the
+    // overflow test drives this to a small value to prove the drop-and-count
+    // policy. Bounded by kMaxPendingChanges, the compile-time storage size.
+    int maxPendingChanges = 8;
+
+    // Mechanical reaction to the clock being Lost (SPEC.md 10.1: Lost means the
+    // ensemble grid is untrustworthy). When false (default) a bar change queued
+    // while Lost is DEFERRED, not discarded, until the lock recovers; when true
+    // it is applied on our free-running grid anyway. This is a documented
+    // judgement call (played back in the task note, for the orchestrator);
+    // justified by the "lostDefersChanges" test.
+    bool honourChangesWhileLost = false;
+};
+
 } // namespace jam
