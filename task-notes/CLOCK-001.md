@@ -324,6 +324,7 @@ header-clean, and contains no unbounded containers.
 
 ## Final commit SHA
 
-Implementation commit: `ccb0add11db488a4a7abdc573437aa9ad767acf6`
-(the commit containing `MusicalClock.h/.cpp`, the test suite and the
-`JamConfig.h` additions). This note was committed in the same change set.
+Implementation commit (contains `MusicalClock.h/.cpp`, the test suite and the
+`JamConfig.h` additions): `2d8688497f1330981b9112ff346aedb4f23bb263`.
+The tip of `wp/CLOCK-001-clock` is the immediately following documentation
+commit that records this line.
