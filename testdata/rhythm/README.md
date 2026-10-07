@@ -137,6 +137,9 @@ harness that misreads these fields will produce confidently wrong numbers.
 - **`silentBeats`** — indices into `beats` with no onset within ±30 ms. These
   beats are still scored, but a tracker has no transient to hear there.
 - **`silenceSpans`** — coalesced `[startSeconds, endSeconds]` of `silentBeats`.
+  **This is not a description of silence.** See the warning below.
+- **`trueSilenceSpans`** — `[startSeconds, endSeconds]` regions where the guitar
+  is genuinely near-silent. **This is the field to score silence against.**
 - **`downbeats`** — indices into `beats` of the meter's strong beat.
 - **`subdivision`** — `perBeat` subdivisions per beat and their nominal BPM, so a
   harness can also score a finer grid (eighths, sixteenths, compound eighths).
@@ -148,7 +151,79 @@ harness that misreads these fields will produce confidently wrong numbers.
   beat-event scoring, chosen well above the generator's worst-case ±10 ms timing
   humanisation so the tolerance measures the *tracker*, not the humanisation.
 
-### How ramp beat times are derived
+### `silenceSpans` vs `trueSilenceSpans` — read this before scoring silence
+
+These are two different things and conflating them breaks a SPEC §19 gate.
+
+**`silenceSpans`** names narrow ±30 ms windows around beats the player
+deliberately did **not** play. That is real, useful ground truth — it tells a
+harness that a beat is still expected on a grid the audio does not reinforce.
+But it is *not* silence, and consuming it as if it were measures nothing:
+
+| Fixture | `silenceSpans` total | `trueSilenceSpans` total |
+|---|---|---|
+| `stop_start` | 0.480 s across 8 windows | **4.82 s** across 3 windows, incl. one contiguous 4.02 s gap |
+| `missing_downbeats` | 0.180 s across 3 windows | 0.85 s |
+
+Every beat of a tracker maintaining the correct grid falls inside one of the
+`silenceSpans` windows, so a false-beat-rate-in-silence metric computed over them
+scores **16.7 false beats per second on `stop_start`** — counting the correct
+behaviour (holding time through a gap) as fabrication. The instrument could not
+measure the gate it was built for.
+
+**`trueSilenceSpans`** is the field that describes where the guitarist stopped.
+SPEC §19's "silence does not create false acceleration" and SPEC §12.3's "false
+beat rate in silence" must be measured against it.
+
+### How `trueSilenceSpans` is derived, and why not from the audio
+
+A note counts as **inaudible once it has fallen 45 dB below its own peak**
+(`conventions.trueSilenceDepthDb`). The 45 dB figure is chosen musically, not
+arithmetically: it sits below the noise floor of any reasonable recording chain
+and below the level at which a decaying string is still perceptually "ringing",
+so a held, muted or decaying string is not silence — the guitarist stopping is.
+
+The threshold is deliberately **relative to the note, not to the file's noise
+floor**. The corpus spans a 43 dB range of noise floors, from −76 dBFS (quiet
+line capture) to −34 dBFS (noisy mic). A noise-floor-relative test would call the
+noisy mic's gaps silent where the clean capture's would not, even though the
+guitarist is equally absent from both.
+
+A span is declared only when it is at least **0.25 s** long
+(`conventions.trueSilenceMinSeconds`). At 126 BPM a sixteenth note is 0.12 s, so
+the floor excludes every subdivision a player could be playing through while
+admitting any deliberate pause. This matters: palm-muted sixteenths have ~0.1 s
+of audible ring between notes, and without the floor the corpus would declare 80
+"silent" spans inside a fixture that is audibly continuous chugging.
+
+**Derivation is from synthesis intent, not from the WAV.** Each event's audible
+window is `[onset, onset + attack settling + decay time + room tail]`, computed
+from the generator's own decay model — the same two-stage law `karplus_strong`
+implements — and silence is the complement of the union of those windows. The
+audio is measured **afterwards, to verify**. That ordering is the whole point: a
+field reverse-engineered from the file it describes cannot catch a synthesis
+bug, because it would faithfully describe the bug. Measurement can disagree with
+the declaration, and when it does, the declaration is wrong.
+
+Two details in that derivation were learned by measuring the audio and are
+commented at their site:
+
+- **Attack settling.** A pluck does not reach its loudest instant when the pick
+  touches the string; the strings beat against each other for tens of
+  milliseconds. Anchoring the window at the first sample produced spans whose
+  first 20–30 ms contained the loudest part of the note.
+- **No coalescing.** Two gaps separated by a short audible chord are genuinely
+  two silences. Merging them (an earlier version did) swallowed the attack
+  between them and produced spans that overlapped real onsets.
+
+Spans are also rounded **conservatively** — start rounded up, end rounded down
+to 6 dp — so a serialised span can only ever be smaller than the derived region.
+Plain `round()` pushed one span's end past the onset that terminates it, which
+the generator's own check caught.
+
+Every declared span is then verified against the committed audio by
+`RhythmCorpus.trueSilenceSpansMatchTheAudioOnDisk`: inside a span the level must
+stay within 15 dB of that fixture's measured noise floor.
 
 This is the part that would invalidate every tempo-drift metric if done wrongly,
 so it is derived rather than assumed.
@@ -184,6 +259,38 @@ selection. Two details matter:
 
 Measured spacing range, `accelerando` 108→146 BPM: **0.5506 s down to 0.4130 s**,
 a 1.33× ratio. `ritardando` is the same curve reversed.
+
+### The `core` set — which fixtures SPEC §19 scores
+
+SPEC §19 phrases every rhythm-quality gate against "core fixtures", so which
+fixtures those are is a load-bearing definition for release gates, not a label.
+`tagVocabulary.core` is therefore an explicit list of **fixture names**:
+
+```
+arpeggio, blues_shuffle, clean_eighths, clean_sixteenths, missing_downbeats,
+palm_mute_metal, power_chords_distorted, sparse_single_notes, stop_start,
+sustained_chords, syncopated_funk
+```
+
+The definition is: **core means the steady-tempo set on which SPEC §19's BPM
+relative-error, half/double-time and lock-time gates are meaningful.**
+
+**`missing_downbeats` is in**, and that is a decision rather than an oversight.
+It is steady tempo — 120 BPM throughout, constant spacing verified to 1e-9 — so
+the tempo gates are perfectly well defined on it. What it omits is the *attack*
+on alternate downbeats, not the tempo. SPEC §19's *"no tempo jump from one
+isolated syncopated event"* is precisely the gate it exists to test, and a corpus
+that excluded it would have no fixture for that sentence at all. It is **not**
+core for anything needing an attack on every beat; `silentBeats` marks the beats
+where that applies, and a harness should exclude those from onset-based
+precision while keeping them for phase and tempo.
+
+The list previously held *scenario tag* names (`palm_mute`,
+`distorted_power_chords`) while the fixtures are named `palm_mute_metal` and
+`power_chords_distorted`. The two namespaces only partly overlap, so a harness
+resolving membership by fixture name matched 7 of 11. Membership is now by
+fixture name, and the generator **and** the C++ suite both fail loudly if the
+list and the per-fixture `core` tag ever disagree again.
 
 ## The synthesis
 
@@ -326,7 +433,10 @@ corpus rather than generating it (generation is Python). It runs in the existing
 | `steadyFixturesMatchTheirDeclaredNominalBpm` | **the important one** — every beat gap on a steady fixture matches `nominalBpm` to within **0.05 %**. Catches a generator bug that would otherwise silently corrupt the benchmark |
 | `rampFixturesHaveGenuinelyNonUniformBeats` | re-integrates the tempo function across each gap independently (must equal exactly 1 beat) and requires a > 1.20× spacing ratio, so a "ramp" with a constant grid fails |
 | `allNineteenRequiredScenarioTagsArePresentExactlyOnce` | all 19 SPEC §12.2 cases present, each exactly once, with no unexpected primary tag |
-| `tagVocabularyIsClosed` | no tag outside the declared vocabulary — a typo cannot create a category nothing consumes |
+| `tagVocabularyIsClosed` | no tag outside the declared vocabulary — a typo cannot create a category nothing consumes — **and every tag that carries membership has a declared, non-empty membership list** |
+| `trueSilenceSpansAreDeclaredAndSelfConsistent` | `trueSilenceSpans` present and well-formed on **every** fixture; within `[0, durationSeconds]`; sorted and non-overlapping; **no span overlaps any onset** |
+| `trueSilenceSpansMatchTheAudioOnDisk` | parses the RIFF `data` chunk and checks every declared span is actually quiet — at most 15 dB above that fixture's measured noise floor. This is the independent second opinion on the audio claim; the field itself is derived from synthesis intent |
+| `coreMembershipListAgreesWithTheCoreTag` | `tagVocabulary.core` and the per-fixture `core` tag name the **same** fixtures; every listed name is a real fixture; core fixtures are `steady_tempo` with constant tempo |
 | `meterLicenseAndProvenanceAreDeclaredEverywhere` | `meter`, `license` (`CC0-1.0`) and `provenance` on every entry; `beatsPerBar` consistent with the meter; ≥ 4 bars per fixture |
 | `meterSpecificFixturesUseTheIntendedMeter` | 3/4 and 6/8 really have 3 and 2 beats per bar, and the 3/4 bar really spans three beat intervals |
 | `coreTagMarksTheFixturesSpec19ScoresAgainst` | `core` fixtures are all `steady_tempo`, and the count is non-trivial |
@@ -338,6 +448,14 @@ worse, because the manifest *is* the contract and a second file duplicating its
 fields is a second thing that can drift from it. No JSON dependency was added and
 nothing here is on any real-time path; `SPEC.md` §7.1 only forbids JSON parsing on
 the audio thread, and no audio thread exists in this test.
+
+`trueSilenceSpansMatchTheAudioOnDisk` is the only test that reads sample data, so
+it is also the only one that needs a WAV reader. It parses the RIFF chunk list
+rather than assuming a 44-byte header: an earlier version read the whole file as
+samples and interpreted the ASCII `RIFF`/`WAVE` header as audio, which put a
+spurious 0 dBFS transient at the start of all 19 files and failed every one of
+them for a reason that had nothing to do with the corpus. Real captures carry
+`LIST` or `fact` chunks, so the offset is not a constant either.
 
 The suite finds the corpus via `JAM_RHYTHM_CORPUS`, then `__FILE__`, then the
 working directory, and **throws** if all miss — a relocated corpus is a red test,
