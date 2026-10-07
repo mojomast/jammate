@@ -99,7 +99,7 @@ and reports instead.
 | — BTrack vendored + licence seam | **DONE** | `a8da4f2` | orchestrator | G3 | 2 vendor defects found by smoke-build before delegating |
 | TRACK-001 BTrack backend | RUNNING | `wp/TRACK-001` | B — intelligence | G3 | |
 | EVAL-002 evaluation harness + metrics | RUNNING | `wp/EVAL-002` | B — evidence | G3 | |
-| CI-001 continuous integration | RUNNING | `wp/CI-001` | C — evidence | G1 | Gitea, not GitHub |
+| CI-001 continuous integration | **DONE** | `wp/CI-001` → merged `4376672` | C — evidence | G1 | 3 Gitea workflows; Windows job never run |
 | RT-001 remaining (F2 MidiBuffer) | BLOCKED:plugin lane | | A | G1 | needs a measured bound |
 | CI-001 CI baseline | TODO | | C | G1 | Gitea; needs plugin lane to be green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |

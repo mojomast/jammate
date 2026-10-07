@@ -385,7 +385,42 @@ The only lane that *is* buildable and testable on this machine is `jam-core`
 | A1 | JUCE is version **8.0.15** | The submodule is not checked out, so no `JUCE/CMakeLists.txt` / `juce_5.x` version constant is readable. Claimed by `README.md` line 342 and `THIRD_PARTY.md` line 55, neither of which is the version file | after `git submodule update --init third_party/JUCE`: `third_party/JUCE/CMakeLists.txt` `VERSION` / `JUCE_VERSION`, or `git -C third_party/JUCE describe --tags` at SHA `91ad83ae…` |
 | A2 | NAM Core is version **v0.5.4** | Submodule not checked out. Claimed by the `CMakeLists.txt` line 13 comment ("Lista de fontes pinada ao v0.5.4"), `README.md` line 343 and `THIRD_PARTY.md` line 18 | after init: `git -C third_party/NeuralAmpModelerCore describe --tags` at SHA `1f42f885…`, and the submodule's own `LICENSE` |
 | A3 | Eigen version | No version string in the tree; `Dependencies/eigen` does not exist locally | `third_party/NeuralAmpModelerCore/Dependencies/eigen/` after init — see `CMakeLists.txt` for the submodule's own pinning (`git submodule status` *inside* the NAM submodule) |
-| A4 | AudioDSPTools licence — **the tree disagrees with itself** | `THIRD_PARTY.md` line 24–26 says **MIT**; `README.md` line 458 says **Apache-2.0/MIT**. Both are quoted verbatim in `DEPENDENCIES.md`. The library is inside the NAM submodule, so it is unreadable here | `third_party/NeuralAmpModelerCore/Dependencies/AudioDSPTools/LICENSE` (or `COPYING`) at SHA `1f42f885…`. **Resolve before any release.** |
+| A4 | ~~AudioDSPTools licence — the tree disagrees with itself~~ | **RESOLVED 2026-10-07** | **MIT**, verified by fetching the pinned nested-submodule SHA `0827c6c2fc0deced568536142ea86f189e0b98a1` and reading its `LICENSE` (which exists and says *"MIT License / Copyright (c) 2023 Steven Atkinson"*). No `NOTICE` file in the repository, so `README.md` line 458's "Apache-2.0/MIT" is **wrong** and `THIRD_PARTY.md` line 24–26 is **right**. | — |
+
+### 5.4 Corrections made by the orchestrator after FND-001
+
+Two upstream contradictions were resolved by measurement rather than left as
+"assumed", because both affected a release gate:
+
+1. **AudioDSPTools is MIT, not Apache-2.0/MIT.** See A4 above. The practical
+   consequence: there is no undischarged Apache NOTICE obligation, and the MIT
+   notice already carried by `THIRD_PARTY.md` is sufficient.
+2. **`README.md` line 458 is the incorrect document**, not `THIRD_PARTY.md`.
+   Recorded here rather than edited, because `README.md` is upstream text: the
+   fork must not silently diverge from upstream in a user-facing file, and the
+   correction belongs in `DEPENDENCIES.md` (done) rather than in a file whose
+   divergence would be invisible to anyone diffing against upstream.
+
+### 5.5 Nested submodules — a trap for any fresh clone
+
+`third_party/NeuralAmpModelerCore` has its **own** `.gitmodules`:
+
+```text
+Dependencies/eigen          https://gitlab.com/libeigen/eigen
+Dependencies/AudioDSPTools  https://github.com/sdatkinson/AudioDSPTools.git
+```
+
+Both are uninitialised here. A **non-recursive** `git submodule update --init`
+— the command most people reach for, and the one that looks sufficient because
+the top-level `.gitmodules` lists only two submodules — leaves both directories
+empty. The root `CMakeLists.txt` adds
+`${NAM_CORE_DIR}/Dependencies/eigen` to `nam_core`'s include path, so the plugin
+build then fails on a missing header with an error that points nowhere near the
+real cause.
+
+Verified: `git submodule status` inside the NAM checkout shows both entries with a
+leading `-`. Any build recipe must use a scoped **recursive** init, and CI-001
+asserts that it does.
 | A5 | Steinberg **VST3 SDK** version and licence terms | It ships *inside* the JUCE submodule; nothing in this tree names a version. `THIRD_PARTY.md` line 61 says it is "dual-licensed GPLv3 / proprietary; this project uses the GPLv3 option" | `third_party/JUCE/modules/juce_audio_processors/format_types/VST3_SDK/` after init — read its own `LICENSE` and version header |
 | A6 | Exact licence **version** strings of most GPL reference projects | Submodules are not cloned and are not pinned in the tree. `references/README.md` and `THIRD_PARTY.md` disagree with each other in places (see the conflict table in `DEPENDENCIES.md` §6) | upstream `LICENSE` of each project at a recorded SHA — which requires first *pinning* them (V9 defect) |
 | A7 | Airwindows copyright year | `THIRD_PARTY.md` line 210 says `Copyright (c) Chris Johnson / Airwindows` while `README.md` line 83 says `Copyright (c) 2018 Chris Johnson` | the `LICENSE` file of `airwindows/airwindows` at a pinned SHA |
