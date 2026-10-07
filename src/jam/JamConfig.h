@@ -68,6 +68,32 @@ struct ClockConfig
     // --- Meter -------------------------------------------------------------
     int defaultBeatsPerBar = 4;
     int defaultBeatUnit = 4;
+
+    // --- Simulator / pre-audio defaults -------------------------------------
+    // Rate assumed by commands that can arrive before the first advance()
+    // (TapTempo / Resync carry sample times). Justified by the tap-tempo and
+    // resync tests, which drive the clock without an audio device.
+    double defaultSampleRate = 48000.0;
+
+    // --- Clock mode ---------------------------------------------------------
+    // SPEC 5.3: the initial clock mode. Follow is the responsive default;
+    // SPEC 5.4 expects Loose to become the shipping default once tuned, which
+    // is a config edit, not a code edit. Justified by the Fixed/Follow/Loose
+    // test.
+    TempoMode defaultMode = TempoMode::Follow;
+
+    // --- Time-based confidence decay ---------------------------------------
+    // SPEC 10.1 Holdover: "Reduce confidence over time." Decay must continue
+    // while observations are absent, so it is expressed per second of audio
+    // rather than per observation. Justified by the two-bar-silence and
+    // prolonged-silence tests.
+    float holdoverConfidenceDecayPerSecond = 0.12f;
+
+    // --- Tap tempo ----------------------------------------------------------
+    // SPEC 5.6/10.2: a tap sequence is an explicit human override. A gap
+    // longer than this starts a new sequence instead of averaging an unrelated
+    // tap into the tempo. Justified by the tap-tempo test.
+    double tapTempoResetSeconds = 2.0;
 };
 
 /** Director policy. SPEC.md sections 13.3, 14, 15. */
