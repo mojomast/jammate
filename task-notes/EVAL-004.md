@@ -200,3 +200,11 @@ ctest (default, backends OFF):                      7/7 passed
 
 Authoritative numbers, commands and per-run JSON/CSV/summary live in
 `docs/research/tracker-comparison/`. G3 remains OPEN.
+
+## Final commit SHA
+
+- Implementation + evidence commit: `8ae3249` (`fix(eval-004): preserve backend
+  beat timestamps, honest timing/gate semantics, aubio comparison`).
+- This note's SHA update is the subsequent commit on `wp/EVAL-004-timing`; the
+  branch head is the handoff SHA reported to the orchestrator.
+
