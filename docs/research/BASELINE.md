@@ -52,8 +52,13 @@ $ git ls-remote https://github.com/raphaelfukuda/Guitar-Companion
 **Result: the upstream SHA has NOT drifted.** It is identical to the SHA frozen
 in `SPEC.md` and it is still the tip of `master`. The newest tag is `v0.1`, whose
 annotated tag object is `1a20c070…` peeling to commit `55d1bffeb5a7…` — i.e. the
-frozen `88f7e7c…` is **25 commits past the v0.1 release tag**, on an unreleased
+frozen `88f7e7c…` is **7 commits past the v0.1 release tag**, on an unreleased
 `master`. There is no upstream commit after `88f7e7c…`.
+
+```
+$ git rev-list --count v0.1..88f7e7c
+7
+```
 
 ### 1.2 Content identity: VERIFIED, not assumed
 
@@ -92,10 +97,13 @@ $ git log --format='%H%x09%an%x09%ae%x09%ad%x09%s' --date=short
 48f301c8fd046429fe55519ec3a2d20a2fccaa44	Orchestrator	orchestrator@local	2026-10-07	feat(jam-core): frozen jam seams, working platform-neutral build, and test harness
 ad3ce6c18dc3f5577c77c91632f203be28d13460	Jam Orchestrator	orchestrator@local	2026-10-07	docs: add SPEC.md and DEVPLAN.md on top of upstream baseline 88f7e7c
 88f7e7c805c9c5e17388154a678c2c6a3633ff23	rapha	fukuda.rullo@gmail.com	2026-07-31	align: mirar -30 dB e nunca subir lane - -18 estourava a saida
-
-$ git rev-list --count HEAD
-3
+1d307b6ec61a5eea43c52c67e6b35f71d4dbe14e	rapha	...	2026-07-31	preset: slot de IR nomeado e vazio agora ESVAZIA, em vez de manter o anterior
+… 171 further upstream commits, root 19bc59a (2026-07-21) …
 ```
+
+Two commits belong to this project; the 175 below them are upstream's, in their
+original order and authorship. See §2.2 — recovering that history changed no
+file content.
 
 `git show --stat 88f7e7c` reports **123 files changed, 34 940 insertions** — a
 single commit that introduces the entire project.
@@ -111,27 +119,46 @@ Because `CMakeLists.txt` blob at `48f301c` is `8479a9fc…` and at `88f7e7c` is
 `181d8439…`, the upstream file is still recoverable verbatim with
 `git show 88f7e7c:CMakeLists.txt`.
 
-### 2.2 ⚠ The upstream ancestry is missing locally
+### 2.2 The upstream ancestry was missing locally — **RESOLVED by the orchestrator**
 
-**This is the single most important provenance finding in this task.**
+> **Correction, 2026-10-07.** This section originally recorded that the upstream
+> ancestry was absent and left the fix to a later decision. The orchestrator has
+> since executed that fix: the clone was unshallowed against the `upstream`
+> remote and the full history is now present. The original finding and the
+> resolution are both kept below so the audit trail survives. Re-verified
+> independently of the original author.
+
+The original finding: the local clone was shallow, so `88f7e7c` appeared as a
+root commit with no parents, breaking the promise in `README.md` line 48 /
+`CONTRIBUTING.md` line 82 that the project's history is preserved, and falling
+short of SPEC.md §25.2.
+
+The resolution:
 
 ```
-$ git log --format='%H %P' 88f7e7c
-88f7e7c805c9c5e17388154a678c2c6a3633ff23
+$ git fetch --unshallow upstream
+$ git rev-parse --is-shallow-repository
+false
+$ git rev-list --count 88f7e7c
+175
+$ git rev-list --max-parents=0 88f7e7c
+19bc59a257e513669e295f549c72fd789cc7235f
 ```
 
-Locally, `88f7e7c` is a **root commit with no parents**. Upstream, the same SHA
-has a parent:
+The full 175-commit upstream history is now present locally, the root commit is
+`19bc59a` (2026-07-21, "Fase 0: plugin passthrough JUCE (Standalone + VST3)"),
+and `git log --format='%H %P' 88f7e7c` now reports its real parent. `.git`
+grew only 39 MB → 42 MB, so the fix was cheap and is now permanent.
 
-```json
-"parents": [{"sha": "1d307b6ec61a5eea43c52c67e6b35f71d4dbe14e", ...}]
-```
+**Tree content is unchanged by this.** `git rev-parse 88f7e7c^{tree}` is still
+`67ddc31f773020158ed0d071d531b0983653177c` — identical to §1.2 — and the working
+tree is byte-for-byte the same. Recovering history altered no file, so the
+frozen-SHA guarantee every other document relies on still holds. This is option
+(b) of the two the original finding offered, and it satisfies SPEC.md §25.2
+without needing a graft, a replace, or a filter.
 
-Walking the upstream chain via the GitHub API reached **59 ancestors**, all
-single-parent, back to at least `145a69c…` / 2026-07-24 (the walk stopped there
-because the unauthenticated GitHub API rate limit was exhausted —
-`rate_limit.core.remaining = 0` — so the **total upstream commit count could not
-be determined**; the true depth is ≥ 60).
+**Consequence:** SPEC.md §25.2 is now satisfied. The remaining open provenance
+item is §3.2 below, which no amount of history can fix.
 
 Representative tip messages of the upstream ancestry (newest first), so a later
 reader can see what kind of project this is:
@@ -157,21 +184,9 @@ e0d7ae1  2026-07-25  vNext: redesign completo conforme docs/design/pedalforge-vn
 (Commit subjects are unaccented here only because this record is written in
 English; they are Portuguese in the repository.)
 
-**Consequence, stated plainly:** the tree content of the fork is exactly
-upstream's `master`, but the *history* was replaced by a single snapshot
-commit. `README.md` line 48 and `CONTRIBUTING.md` line 82 promise that the
-project's own history is preserved — that promise is true upstream and
-**currently not true in this fork**. `SPEC.md` §25.2 requires preserving
-"Guitar-Companion notices and history required by its license".
-
-**Action for the orchestrator (not performed by this task, which is
-documentation-only and does not touch git history):** decide explicitly whether
-to (a) keep the snapshot and record the upstream SHA + URL + this file as the
-authoritative provenance pointer, or (b) re-import the upstream ancestry
-(`git fetch upstream && git replace`/`filter-branch`-style graft) before any
-release. Option (a) preserves the frozen-SHA guarantee that every other document
-in this repository relies on; option (b) is better for AGPL §13 notice
-purposes. This is a gate-G0 item, not an FND-001 code change.
+**Historical note:** the local history was originally a single snapshot commit,
+which broke the history-preservation promise in `README.md` line 48 and
+`CONTRIBUTING.md` line 82. See the resolution at the top of §2.2.
 
 ---
 
@@ -344,8 +359,8 @@ The only lane that *is* buildable and testable on this machine is `jam-core`
 |---|---|---|
 | V1 | Upstream `master` tip is `88f7e7c805c9c5e17388154a678c2c6a3633ff23` | `git ls-remote`, verbatim in §1.1 |
 | V2 | Local `88f7e7c` tree is byte-identical to upstream's | tree SHA equality, §1.2 |
-| V3 | The repo has 3 commits; `88f7e7c` is a local root commit | `git rev-list --count HEAD`, `git log --format='%H %P'` |
-| V4 | Upstream `88f7e7c` has ≥ 60 ancestors; 59 walked | GitHub `git/commits` API |
+| V3 | The repo is no longer shallow; `88f7e7c` has its real parent `1d307b6` (orchestrator resolution, §2.2) | `git rev-parse --is-shallow-repository`, `git log --format='%H %P' 88f7e7c` |
+| V4 | Upstream `88f7e7c` has **175** commits of ancestry, root `19bc59a` | `git rev-list --count 88f7e7c`, `git rev-list --max-parents=0 88f7e7c` |
 | V5 | Project licence is AGPLv3 | `LICENSE` lines 1–2 |
 | V6 | JUCE pinned at `91ad83ae34a81e0833b1a2b0866f54846370ae53` | `git ls-tree HEAD:third_party/` |
 | V7 | NAM Core pinned at `1f42f88535884450104b8711d7595019afa0495b` | same |
@@ -360,7 +375,7 @@ The only lane that *is* buildable and testable on this machine is `jam-core`
 | V16 | The installer ships only the two artefacts, the icon, LICENSE, THIRD_PARTY.md, README.md | `packaging/guitar-companion.iss` `[Files]` |
 | V17 | The JUCE target cannot be built here | ADR-0003 measured table |
 | V18 | `jam-core` has no `juce::` dependency | `jam-core/CMakeLists.txt` rules 1–2 |
-| V19 | The frozen SHA is 25 commits past the upstream `v0.1` tag | `git ls-remote` tags vs master |
+| V19 | The frozen SHA is 7 commits past the upstream `v0.1` tag | `git rev-list --count v0.1..88f7e7c` |
 | V20 | The commit is unsigned | GitHub API `verification.reason = "unsigned"` |
 
 ### 5.2 ASSUMED / NOT VERIFIABLE HERE
@@ -374,7 +389,7 @@ The only lane that *is* buildable and testable on this machine is `jam-core`
 | A5 | Steinberg **VST3 SDK** version and licence terms | It ships *inside* the JUCE submodule; nothing in this tree names a version. `THIRD_PARTY.md` line 61 says it is "dual-licensed GPLv3 / proprietary; this project uses the GPLv3 option" | `third_party/JUCE/modules/juce_audio_processors/format_types/VST3_SDK/` after init — read its own `LICENSE` and version header |
 | A6 | Exact licence **version** strings of most GPL reference projects | Submodules are not cloned and are not pinned in the tree. `references/README.md` and `THIRD_PARTY.md` disagree with each other in places (see the conflict table in `DEPENDENCIES.md` §6) | upstream `LICENSE` of each project at a recorded SHA — which requires first *pinning* them (V9 defect) |
 | A7 | Airwindows copyright year | `THIRD_PARTY.md` line 210 says `Copyright (c) Chris Johnson / Airwindows` while `README.md` line 83 says `Copyright (c) 2018 Chris Johnson` | the `LICENSE` file of `airwindows/airwindows` at a pinned SHA |
-| A8 | Total upstream commit count | GitHub API rate limit exhausted mid-walk (`remaining = 0`) | `git clone --filter=blob:none https://github.com/raphaelfukuda/Guitar-Companion` then `git rev-list --count 88f7e7c` |
+| ~~A8~~ | ~~Total upstream commit count~~ | **RESOLVED** — the clone was unshallowed; the answer is 175 (V4) | — |
 | A9 | Whether the shipped binary actually contains what `CMakeLists.txt` says | No build was performed (forbidden) and the JUCE target cannot be built here anyway (ADR-0003) | FND-002 on a Windows/ASIO machine |
 | A10 | BeatNet / BTrack / aubio / JJazzLab / Basic Pitch licences | Not vendored, not pinned, not in `.gitmodules`; nothing in the tree states them. `DEPENDENCIES.md` therefore records them as **candidate / deferred with an unverified licence** rather than asserting one | each project's own `LICENSE` at a pinned SHA, at the time it is actually adopted |
 | A11 | TONE3000 logo/asset usage rights | `THIRD_PARTY.md` line 284 says they are used "following their published design guidance"; no licence file exists in the tree | `https://www.tone3000.com/api` published brand/terms, plus TONE3000's written permission |

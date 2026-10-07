@@ -33,9 +33,9 @@ PARTIAL, never PASSED.
 
 | Gate | State | Blocking items |
 |---|---|---|
-| **G0** fork/license/baseline | **PARTIAL** | provenance ✅ · submodules ✅ · RT audit ⏳ · **build ⛔ plugin lane** · license inventory ⏳ |
-| **G1** real-time foundation | not started | blocked on G0 (and FND-003) |
-| **G2** new module seams | **PARTIAL (advanced early)** | types ✅ · ring ⚠️ untested · adapter ⛔ · Jam UI ⛔ |
+| **G0** fork/license/baseline | **PARTIAL** | provenance ✅ · history ✅ · submodules ✅ · RT audit ✅ · license inventory ✅ · **baseline build ⛔ plugin lane** |
+| **G1** real-time foundation | **READY TO START (plugin-lane parts ⛔)** | RT-001 now unblocked by FND-003 |
+| **G2** new module seams | **PARTIAL (advanced early)** | types ✅ · ring ⏳ tests running · adapter ⛔ · Jam UI ⛔ (needs JUCE) |
 | **G3** tracker selected | not started | blocked on G2 |
 | **G4** musical clock | not started | — |
 | **G5** adaptive drummer | not started | — |
@@ -58,6 +58,18 @@ PARTIAL, never PASSED.
 
 ---
 
+## Model routing for delegated work
+
+| Work class | Model |
+|---|---|
+| Bounded mechanical implementation, doc/evidence enumeration, checklist-driven tests | `opencode/space-bunny-free` |
+| Substantive code or analysis needing real reasoning (call-graph tracing, musical-intelligence algorithm design) | `deepseek/deepseek-flash` |
+| Escalation only: central integration patches, cross-branch conflict resolution, real-time safety review, blocked-worker repair | `openai/gpt-6.1-sol#xhigh` |
+
+Escalation is not the default. A worker that reports a blocked contract is
+reassigned at the same tier first; only a genuinely central, safety-critical, or
+cross-cutting problem goes to `gpt-6.1-sol#xhigh`.
+
 ## Controlled integration surfaces (orchestrator-only unless granted)
 
 `src/PluginProcessor.*` · `src/PluginEditor.*` · `src/DrumEngine.*` ·
@@ -73,21 +85,108 @@ and reports instead.
 
 | Task | State | Branch | Owner lane | Gate | Notes |
 |---|---|---|---|---|---|
-| FND-001 provenance/dependency inventory | RUNNING | `wp/FND-001-deps` | C — evidence | G0 | docs only |
+| FND-001 provenance/dependency inventory | **DONE** | `wp/FND-001-deps` → merged `724e6d9` | C — evidence | G0 | verified; 2 corrections applied by orchestrator |
 | FND-002 baseline build record | BLOCKED:plugin lane | — | — | G0 | D2 |
-| FND-003 RT reachability map | RUNNING | `wp/FND-003-rt-reach` | A — real-time | G0 | read-only on `src/` |
+| FND-003 RT reachability map | **DONE** | `wp/FND-003-rt-reach` → merged `931be23` | A — real-time | G0 | P0 `triggerAsyncUpdate` CONFIRMED reachable |
+| — ADR-0003 build environment | **DONE** | `48f301c` | orchestrator | G0 | two-lane verification split |
 | MOD-001 analysis ring tests | RUNNING | `wp/MOD-001-ring` | B — intelligence | G2 | D1 |
 | CLOCK-001 musical clock | RUNNING | `wp/CLOCK-001-clock` | B — intelligence | G4 | D1 |
-| RT-001 callback-safe control plane | BLOCKED:G0 | | A | G1 | needs FND-003 |
+| RT-001 callback-safe control plane | **READY** | | A | G1 | unblocked by FND-003; ⛔ unverifiable here |
 | CI-001 CI baseline | TODO | | C | G1 | Gitea; needs plugin lane to be green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
 | MOD-002 drum transport adapter | BLOCKED:G2 | | B | G2 | seam `IDrumTransport.h` exists |
-| MOD-003 Jam UI shell | BLOCKED:G2 | | C | G2 | |
+| MOD-003 Jam UI shell | BLOCKED:G2 | | C | G2 | **not verifiable here** — needs JUCE |
+
+---
+
+## Measured finding — grooves have no string ID
+
+Scoping STYLE-001 against the real code, `src/DrumLibrary.cpp` has **no** string
+identifier scheme. `grep -cE '"[a-z]+\.[a-z0-9]+\.[a-z0-9.]+"' src/DrumLibrary.cpp`
+returns **0**. SPEC §13.2's `"grooves": {"low": ["rock.basic.01", …]}` example and
+`IDrumTransport::queueBarChange(std::string grooveId)` therefore refer to an
+identifier that does not yet exist.
+
+What actually exists is `struct Groove` in `src/DrumEngine.h`:
+
+```cpp
+struct Groove
+{
+    const char* genre;   // "ROCK", "POP", "PUNK", "METAL", …
+    const char* name;    // UTF-8 display name, e.g. "Half-time 16"
+    int  bpm;            // 0 = keep current tempo
+    int  swing;          // 0..60 percent
+    bool fill;           // true = fill, false = groove
+    const char* spec;    // compact pattern string
+    int  num = 4;        // bar formula, default 4/4
+    int  den = 4;
+};
+```
+
+Entries are anonymous values in a `static const std::vector<Groove>` built inside
+`drum::library()`; there is no lookup function, no index, and no key. Identity is
+positional.
+
+Consequences for planning, not yet actioned:
+
+1. **The drift between SPEC §13.2 and the code is a real architectural decision,
+   not a worker detail.** The cheapest correct path is a *derived* stable ID
+   (`genre` + slug of `name`, e.g. `rock.half-time-16`) resolved once at catalogue
+   build time, validated against the real library, with the positional index kept
+   as the transport key. That avoids rewriting 673 lines of library data and keeps
+   `DrumEngine` untouched.
+2. **STYLE-001 must not be delegated until this is decided**, or a worker will
+   invent an ID scheme and bake it into a catalog.
+3. `Groove::bpm == 0` means "keep current tempo". Any style catalogue that treats
+   a groove's `bpm` as an authoritative tempo will produce wrong behaviour; the
+   clock owns tempo (SPEC §10.3), so the catalogue must treat groove BPM as a
+   suitability hint only.
 | EVAL-001/002, TRACK-001 | BLOCKED:G2 | | | G3 | |
 | ANALYSIS-001, DIAG-001 | BLOCKED:G4 | | | G4 | |
 | STYLE-001, DIRECTOR-001, DRUM-001 | BLOCKED:G4 | | | G5 | |
 | UI-001, AUDIO-001, PERSIST-001 | BLOCKED:G5 | | | G6 | |
 | E2E-001/002/003 | BLOCKED:G6 | | | G7 | |
+
+---
+
+## Orchestrator corrections applied to merged worker output
+
+Recorded so a later reader can tell worker claim from verified fact.
+
+| Finding | Claim | Verified | Action |
+|---|---|---|---|
+| Upstream history missing | local `88f7e7c` was a root commit; ancestry unrecoverable without API walking | **true** — repo was shallow (`.git/shallow`) | `git fetch --unshallow upstream` executed. 175 commits now present, root `19bc59a`, `.git` 39→42 MB. **Tree hash `67ddc31f` unchanged**, working tree byte-identical, so the frozen-SHA guarantee still holds. SPEC §25.2 now satisfied. |
+| "25 commits past v0.1" | `BASELINE.md` V19 | **wrong** — `git rev-list --count v0.1..88f7e7c` = **7** | corrected in `BASELINE.md` §1.1 and V19 |
+| `references/*` submodules have no gitlink | declared in `.gitmodules`, absent from the tree | **true, and upstream's own defect** — `git ls-tree 88f7e7c:references/` returns only `README.md` | left open; no history operation can fix it. Closes only on a release decision. |
+| AudioDSPTools licence | THIRD_PARTY says MIT, README says Apache-2.0/MIT | unverifiable (submodule not checked out) | stays `UNKNOWN` with the exact file to read |
+
+---
+
+## Wave 1 findings that change planning
+
+### The G0 real-time risk is real and now precisely located
+
+FND-003 answered the question SPEC §2.1 left open:
+
+- **`PluginProcessor.cpp:1227` — `triggerAsyncUpdate()` IS reachable from
+  `processBlock`**, inside `SceneEnv::fadeOut`, guarded by `if (g1 <= 0.0f)`.
+  The condition: a scene envelope is armed and its fade reaches silence in this
+  block. Reached via `processBlock:1270 → processDrums:2604 → armSceneEnvelope:2648`.
+- `PluginProcessor.cpp:1070` is inside `prepareToPlay` (`:896`) and is **not**
+  callback-reachable.
+- The JUCE documentation quote backing the P0 was verified against the pinned
+  submodule: "beware of calling it from a real-time (e.g. audio) thread, because
+  it involves posting a message to the system queue, which means it may block".
+
+So DEVPLAN RT-001's premise holds. It is now the top G1 task.
+
+Second P0: conditional `juce::MidiBuffer` growth on the hosted-drum-VST path.
+`ensureSize(256)` is called in `prepareToPlay` (`:1019`) but `clear()` maps to
+`clearQuick()`, which keeps storage — so the risk is a *per-block event count*
+over 256 bytes, not a lost reservation. `DrumEngine::fireStep` can emit up to
+`numVoices` (9) note-ons per step, plus pending note-offs from `pendingOffs[64]`.
+Bounded, but the bound has not been measured. RT-001 must size it properly
+rather than assume.
 
 ---
 
