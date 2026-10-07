@@ -401,4 +401,7 @@ build.
 
 ## Final commit SHA
 
-Recorded in the follow-up content-free commit that fills in this line.
+- Deliverables commit: `17fe481de94d6b91b1c0b084f3d177c53376c59d` —
+  *feat(track-001): BTrack backend, 44.1 kHz-corrected, with tests*
+- SHA-reporting commit: *the commit that fills in the line above* (this file is
+  the only change).
