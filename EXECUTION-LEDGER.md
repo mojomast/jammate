@@ -78,6 +78,31 @@ PARTIAL, never PASSED.
   error 2.34%; aubio F=0.5357, acquisition 7/11, worst core BPM error 1.33%.
   Acquisition fails for both. No tracker selected and no G0/G1/G3 pass claimed.
 
+### Returned handoffs under integration review (2026-10-07)
+
+All three initial Flash handoffs were committed with clean worker trees. None
+has been integrated yet; the same workers are correcting scoped review findings:
+
+- **EVAL-005 `acc6e7f`:** both real trackers produced derived-corpus runs, but
+  `spec2pctWithin` coerces relative error to a boolean before thresholding,
+  incorrectly failing small nonzero errors. Require numerical regression cases,
+  stronger source-window/identity validation, both backends in reproduction,
+  and regeneration against main's `0027baa` latency-mean correction. Whole-clip
+  median BPM does not establish within-clip tempo-step following.
+- **TRACK-003 `6a84ae1`:** accept the direction of the measured partial
+  feasibility result (no inference), pending precise licence wording and scorer
+  contract corrections. Repository CC-BY-4.0 terms and absence of a separate
+  weights file do not establish blanket AGPL incompatibility or verified model
+  redistribution rights. Declared provenance hashes do not authenticate a run.
+  Require mode/availability validation, finite timestamps and explicit coverage.
+- **CI-002 `4dfbc96`:** genuine four-configuration builds replace the tripwire,
+  pending enabled-symbol assertions, fail-closed `nm` checks, required Python/
+  derived suites, and a Windows reference-materialization guard that tolerates
+  empty gitlink placeholders. Correct stale Linux build and checkout claims.
+
+These are review findings, not new tracker measurements or gate passes. Exact
+continuation sessions remain in `HANDOFF.md`; no worker topics are duplicated.
+
 ## Model routing for delegated work
 
 | Work class | Model |
@@ -125,9 +150,9 @@ and reports instead.
 | TRACK-002 aubio backend | **DONE** | `wp/TRACK-002` → main; build wiring `eac59ba` | B — intelligence | G3 | 11 adapter tests; combined 8/8 ctest suites pass |
 | EVAL-003 robustness fixtures | **DONE: scoped corpus** | `wp/EVAL-003` → `0a15eef` | C — evidence, Flash | G3 | 24 derived clips, 11.12 MiB; C++/Python checks integrated; comparison follows in EVAL-005 |
 | EVAL-004 timing/gate audit + comparison | **DONE** | `wp/EVAL-004-timing` → `64b39ee` | B — evidence, Flash | G3 | combined 9/9 suites; both acquisition gates fail; aubio BPM passes, BTrack BPM fails |
-| TRACK-003 BeatNet feasibility | RUNNING | `wp/TRACK-003-beatnet` | C — research, Flash | G3 | pinned code/model terms and bounded dependency feasibility; no production import |
-| CI-002 tracker CI repair | RUNNING | `wp/CI-002-trackers` | C — evidence, Flash | G1/G3 | replace expected-failure tripwire; Windows/remote execution unverified |
-| EVAL-005 paired robustness curves | RUNNING | `wp/EVAL-005-robustness` | B — evidence, Flash | G3 | both real candidates over derived pairs; missing data and 5 s window limits explicit |
+| TRACK-003 BeatNet feasibility | REVIEW CORRECTIONS RUNNING; benchmark PARTIAL | `wp/TRACK-003-beatnet`, initial `6a84ae1` | C — research, Flash | G3 | measured dependency blockers; no inference; licence/scorer claims being corrected |
+| CI-002 tracker CI repair | REVIEW CORRECTIONS RUNNING | `wp/CI-002-trackers`, initial `4dfbc96` | C — evidence, Flash | G1/G3 | local four-config evidence returned; symbol/error/materialization guards need repair; remote/Windows unverified |
+| EVAL-005 paired robustness curves | REVIEW CORRECTIONS RUNNING | `wp/EVAL-005-robustness`, initial `acc6e7f` | B — evidence, Flash | G3 | raw paired runs returned; numerical threshold bug and provenance/reproduction corrections required |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |

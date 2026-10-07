@@ -57,6 +57,16 @@ tree and SHA. Review/merge returned work rather than rerunning a worker's topic
 concurrently. The user asked for Flash; escalation, if genuinely necessary, is
 `openai/gpt-6.1-sol#xhigh`, not the OpenCode provider.
 
+All three initial handoffs have returned and are **not yet integrated**. The same
+sessions are now correcting integration-review findings: EVAL-005 `acc6e7f`
+(numeric BPM-threshold bug, pairing/identity checks and current-main runner
+regeneration), TRACK-003 `6a84ae1` (licence/authenticity wording and scorer causal
+contract/coverage), and CI-002 `4dfbc96` (enabled symbols, fail-closed nm, Python/
+derived-suite requirements and empty reference gitlink guards). See the ledger's
+returned-handoff review section. Await revised clean SHAs; do not merge the
+initial handoffs as completed work. BeatNet has no inference result and remains
+a partial feasibility review.
+
 ### Remaining gate work
 
 G0/G1 remain partial: Windows/ASIO, hardware timing, full callback heap/locking

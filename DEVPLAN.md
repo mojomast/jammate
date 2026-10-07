@@ -1461,11 +1461,11 @@ Keep this near the top of the live devplan during implementation.
 | EVAL-002 | integrated; timestamp/gate follow-up underway | main | 3e5bb7b + wp/EVAL-002R | G3 |
 | TRACK-001 | DONE (offline candidate) | main | c3dad10 | G3 |
 | TRACK-002 | DONE (offline candidate) | main | wp/TRACK-002 + eac59ba | G3 |
-| TRACK-003 | RUNNING (bounded feasibility review) | wp/TRACK-003-beatnet | | G3 |
+| TRACK-003 | review corrections running; benchmark PARTIAL (no inference) | wp/TRACK-003-beatnet | initial 6a84ae1, not merged | G3 |
 | EVAL-003 | DONE (scoped derived corpus) | main | 0a15eef | G3 |
 | EVAL-004 | DONE (timing/gate audit + real comparison) | main | 64b39ee | G3 |
-| EVAL-005 | RUNNING (paired robustness curves) | wp/EVAL-005-robustness | | G3 |
-| CI-002 | RUNNING (tracker jobs) | wp/CI-002-trackers | | G1/G3 |
+| EVAL-005 | review corrections running (numeric threshold + evidence regeneration) | wp/EVAL-005-robustness | initial acc6e7f, not merged | G3 |
+| CI-002 | review corrections running (workflow guards) | wp/CI-002-trackers | initial 4dfbc96, not merged | G1/G3 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
 | ANALYSIS-001 | BLOCKED:G3 | | | G4 |
 | DIAG-001 | BLOCKED:G3 | | | G4 |
