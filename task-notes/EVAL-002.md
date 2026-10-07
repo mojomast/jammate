@@ -341,4 +341,7 @@ need so EVAL-003 can add metrics without touching `Manifest.cpp`.
 
 ## Final commit SHA
 
-_(filled in after commit)_
+- Implementation commit: `26397ee2ce88828f7430ed3dd9b9b5b3cca73210`
+  (`feat(eval-002): rhythm evaluation harness, metrics, and one-command CLI`).
+- This note's SHA-record commit is the branch head reported to the
+  orchestrator; the code under test is the implementation commit above.
