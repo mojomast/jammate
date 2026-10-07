@@ -92,10 +92,11 @@ and reports instead.
 | MOD-001 analysis ring tests | **DONE** | `wp/MOD-001-ring` → merged `89db28d` | B — intelligence | G2 | 19 tests / 95 236 checks; 2 header defects fixed in `efb820b` |
 | CLOCK-001 musical clock | **DONE** | `wp/CLOCK-001-clock` → merged `b78c43c` | B — intelligence | G4 | 16 scenarios green; 2 policy gaps decided |
 | — library-identity decision | **DONE** | `f04c055` | orchestrator | G5 | `LibraryIndex` positional, not string id |
-| RT-SIGNAL-001 RT-safe signal primitive | RUNNING | `wp/RT-SIGNAL-001` | A — real-time | G1 | enables the central RT-001 patch |
-| MOD-002 drum transport adapter | RUNNING | `wp/MOD-002` | B — intelligence | G2 | |
+| RT-SIGNAL-001 RT-safe signal primitive | **DONE** | `wp/RT-SIGNAL-001` → merged `63259a3` | A — real-time | G1 | 14 tests / 110 090 checks |
+| MOD-002 drum transport adapter | **DONE** | `wp/MOD-002` → merged `86544f1` | B — intelligence | G2 | 13 tests / 129 checks; 3 extra probes |
+| **RT-001 remove callback-unsafe control plane** | **CODE DONE — UNVERIFIED** | orchestrator, `135b4b7` | A + orchestrator | G1 | F1 fixed; ⛔ cannot be compiled here |
 | EVAL-001 guitar rhythm corpus | RUNNING | `wp/EVAL-001` | C — evidence | G3 | |
-| RT-001 callback-safe control plane | BLOCKED:RT-SIGNAL-001 | | A + orchestrator | G1 | central edit is orchestrator-owned; ⛔ unverifiable here |
+| RT-001 remaining (F2 MidiBuffer) | BLOCKED:plugin lane | | A | G1 | needs a measured bound |
 | CI-001 CI baseline | TODO | | C | G1 | Gitea; needs plugin lane to be green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
 | MOD-002 drum transport adapter | BLOCKED:G2 | | B | G2 | seam `IDrumTransport.h` exists |
@@ -166,7 +167,82 @@ Recorded so a later reader can tell worker claim from verified fact.
 
 ---
 
-## Wave 2 — running, three non-overlapping lanes
+## Wave 2 outcomes
+
+### RT-001 F1 is fixed in code — and is explicitly NOT verified
+
+`135b4b7`. `processBlock` no longer posts a system message, takes a blocking
+CriticalSection, or can allocate on the scene path.
+
+**This does not close G1 and must not be reported as done.** The JUCE target
+cannot be built in this environment (ADR-0003), so the patch is reviewed and
+type-checked but never compiled against JUCE. What *was* verified:
+
+- the member / base-class / override shape and the `signal()`/`consume()` call
+  pattern compile clean under `-Wall -Wextra -Wpedantic`, and under
+  `-std=c++20 -Werror`, against a stub `Timer`;
+- zero `AsyncUpdater`, `triggerAsyncUpdate` or `handleAsyncUpdate` references
+  remain anywhere in `src/`;
+- jam-core stays green (3 suites).
+
+**What a Windows/ASIO build must confirm before G1 is called:** that the class
+compiles with a real `juce::Timer` private base, that `startTimer` in the
+processor constructor is safe for every host (VST3 in particular), and that scene
+changes still fire with the editor window closed.
+
+### A design cost accepted deliberately
+
+The replacement polls at **25 Hz for the lifetime of the plugin**, so the message
+thread wakes 25×/second per plugin instance even when no scene is pending. The
+alternative — arming the timer only while the scene system is active — is cheaper
+but needs a state machine around a flag the audio thread sets, which is exactly
+the kind of stale-state bug that leaves scene changes silently dead. A 40 ms
+`std::atomic` load is not worth that risk. Revisit only if measurement shows
+message-thread contention.
+
+### RT-001 F2 is still open, and is now better specified
+
+The second P0 (conditional `juce::MidiBuffer` growth on the hosted-drum-VST path)
+is untouched. The mechanism is now pinned down: `ensureSize(256)` runs once in
+`prepareToPlay`, and JUCE's `MidiBuffer::clear()` delegates to `clearQuick()`,
+which *keeps* storage — so the reservation is not lost. The real risk is a
+per-block event count exceeding 256 bytes. `DrumEngine::fireStep` emits up to
+`numVoices` (9) note-ons per step, plus pending note-offs from a 64-entry
+`pendingOffs` array, and `midi.clear()` runs once per block.
+
+This needs a **measured bound**, not an assumed one, and it is plugin-lane work.
+
+### MOD-002 verified beyond its own suite
+
+Three probes written at merge, for behaviour the worker's suite did not cover:
+a tempo change while a change is pending still applies exactly once on a
+downbeat of the new grid (within 2 µs); stop-at-boundary supersedes and drops a
+pending change as documented; and a 400→60 BPM collapse does not strand a queued
+change. The first probe run failed and the cause was **my own** arithmetic — at
+120 BPM a bar is 96 000 samples and I had fed 25 000 — not a defect in the
+adapter. Recorded because the near-miss is the useful part.
+
+### RT-SIGNAL-001's `LatestValue` design, and why it was worth escalating
+
+A conventional seqlock over a plain `T` copy is **not sufficient in C++**: a
+writer overlapping that copy is a data race even when the reader later rejects
+the result on generation mismatch. The delivered design makes every shared
+payload byte a lock-free atomic, keeps any speculative mixture in a local byte
+array that is never materialised as a `T`, and uses sequentially consistent
+operations so the reader's two generation loads bracket the writer's stores in
+one total order. The reader makes **one** attempt and never retries, which
+satisfies SPEC §7.1's no-unbounded-retry rule structurally rather than by
+arguing a bound.
+
+Compile-time `static_assert`s reject any target where the required atomics are
+not natively lock-free, so a silent fallback to a library lock becomes a build
+failure instead of an audio glitch. That is the property that justifies the
+escalation: cheap models get correctness-provable work; this was
+correctness-unprovable-by-inspection work.
+
+---
+
+## Wave 2 lane assignment (as launched)
 
 Deliberately **not** delegating `src/PluginProcessor.*`. The confirmed P0 needs an
 edit to a central file, so the pattern is the one DEVPLAN §4 prescribes: isolated
