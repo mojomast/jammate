@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/beatnet-eval/observations.schema.json",
+  "title": "beatnet-eval observations v1 (declared, unverified run)",
+  "description": "Input contract for score.py. The provenance block is SELF-REPORTED metadata: schema-validity does not prove BeatNet produced these beats. This causal contract covers the particle-filter (PF) path only; the non-causal offline/DBN path is rejected. This file is a SCHEMA only and contains no BeatNet observation or score.",
+  "type": "object",
+  "required": ["schema", "provenance", "availability_semantics", "fixtures"],
+  "properties": {
+    "schema": { "const": "beatnet-eval/observations/v1" },
+    "provenance": {
+      "type": "object",
+      "required": ["source", "repo_commit", "mode", "inference_model", "device", "raw_output_sha256", "driver_sha256", "created_utc"],
+      "properties": {
+        "source": { "const": "BeatNet" },
+        "repo_url": { "type": "string" },
+        "repo_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "package_version": { "type": "string" },
+        "model": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "mode": { "enum": ["stream", "realtime", "online"] },
+        "inference_model": { "const": "PF", "description": "only the causal particle filter is in scope; DBN/offline is rejected" },
+        "device": { "enum": ["cpu", "cuda"] },
+        "raw_output_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "driver": { "type": "string" },
+        "driver_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "created_utc": { "type": "string" }
+      }
+    },
+    "availability_semantics": {
+      "enum": ["per_chunk", "online_batch"],
+      "description": "per_chunk: causal stream/realtime, every observation carries a real available time after its window completes (never zero-lookahead). online_batch: whole-file online PF, available must be null."
+    },
+    "fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "input_wav_sha256", "beats"],
+        "properties": {
+          "name": { "type": "string" },
+          "input_wav_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "sample_rate_hz": { "type": "number" },
+          "beats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["time"],
+              "properties": {
+                "time": { "type": "number", "minimum": 0 },
+                "available": { "type": ["number", "null"] }
+              }
+            }
+          },
+          "downbeats": { "type": "array", "items": { "type": "number" } },
+          "resource": {
+            "type": "object",
+            "properties": {
+              "startup_seconds": { "type": "number" },
+              "cpu_seconds": { "type": "number" },
+              "peak_rss_bytes": { "type": "integer" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "availability_semantics": { "const": "per_chunk" } } },
+      "then": {
+        "properties": {
+          "provenance": { "properties": { "mode": { "enum": ["stream", "realtime"] } } },
+          "fixtures": {
+            "items": {
+              "properties": {
+                "beats": {
+                  "items": {
+                    "required": ["time", "available"],
+                    "properties": { "available": { "type": "number" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "availability_semantics": { "const": "online_batch" } } },
+      "then": {
+        "properties": {
+          "provenance": { "properties": { "mode": { "const": "online" } } },
+          "fixtures": {
+            "items": {
+              "properties": {
+                "beats": {
+                  "items": { "properties": { "available": { "type": "null" } } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

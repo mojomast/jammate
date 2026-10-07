@@ -1,0 +1,217 @@
+{
+  "schema": "beatnet-eval/provenance/v1",
+  "review": "TRACK-003 BeatNet feasibility research",
+  "reviewed_utc": "2026-10-07",
+  "spec_refs": [
+    "SPEC.md 2.2 (BeatNet: research benchmark only)",
+    "SPEC.md 12.1 (BeatNet as a research benchmark if practical)",
+    "SPEC.md 25.5 (do not import models/datasets into release artifacts until exact redistribution terms are reviewed)",
+    "DEVPLAN.md 11 TRACK-003 (accuracy, acquisition, CPU/GPU, startup, package size, solo-guitar vs mastered-song)"
+  ],
+  "beatnet": {
+    "spec_cited_repo": {
+      "url": "https://github.com/hashimkarim/beatnet",
+      "owner": "hashimkarim",
+      "is_fork": true,
+      "parent": "mjhydri/BeatNet",
+      "default_branch": "main",
+      "commit": "be864a4b0f126aa90aeabdeedf23f48865e09512",
+      "commit_date_utc": "2026-04-24T17:22:16Z",
+      "commit_subject": "Merge remote-tracking branch 'mjhydri/main'",
+      "note": "SPEC.md 27 cites this URL. It is a fork that tracks upstream; no code changes of its own were found that affect the inference path."
+    },
+    "upstream_repo": {
+      "url": "https://github.com/mjhydri/BeatNet",
+      "owner": "mjhydri",
+      "is_fork": false,
+      "default_branch": "main",
+      "commit": "81cedd4beeb7235262db80969a0c9ce9a48a0ed4",
+      "commit_date_utc": "2026-04-13T20:17:41Z",
+      "commit_subject": "Train Script added",
+      "setup_py_version": "1.2.0",
+      "note": "Authoritative upstream; PyPI 1.1.3 metadata points here as Homepage."
+    },
+    "license": {
+      "spdx": "CC-BY-4.0",
+      "name": "Creative Commons Attribution 4.0 International",
+      "file": "LICENSE",
+      "bytes": 18650,
+      "sha256": "7e7170e3cebf88a9f60c7b8421418323c09304da1af4d5e90f4da1dc1c8a2661",
+      "identical_in_both_repos": true,
+      "only_stated_term": true,
+      "no_separate_weight_terms_found": true,
+      "weights_scope": "unresolved",
+      "redistribution_review": "unresolved",
+      "facts": [
+        "The repository LICENSE is the only stated term found; the model weights are bundled in the same repository and no separate weights-licence or weights-terms file exists.",
+        "CC-BY-4.0 grants no patent rights.",
+        "Creative Commons advises against using CC licences for software, but that advice is not by itself a determination that CC-BY-4.0 is incompatible with AGPLv3."
+      ],
+      "concern": "Whether the repository LICENSE covers the bundled weights, and how redistribution would be treated, is UNRESOLVED and must be reviewed under SPEC.md 25.5 before any release use. The absence of a patent grant is a fact, not proof of any AGPLv3 conflict. No blanket compatibility determination is made here; benchmark-only non-runtime study is all this evidence supports."
+    },
+    "pypi": {
+      "package": "BeatNet",
+      "version": "1.1.3",
+      "homepage": "https://github.com/mjhydri/BeatNet",
+      "license_field": "(empty)",
+      "license_expression": null,
+      "requires_python": "(none declared)",
+      "declared_runtime_deps_1_1_3": [
+        "numpy", "cython", "librosa>=0.8.0", "numba==0.54.1", "scipy",
+        "mido>=1.2.6", "pytest", "madmom", "torch", "Matplotlib"
+      ],
+      "wheel": {
+        "filename": "BeatNet-1.1.3-py3-none-any.whl",
+        "bytes": 9155419,
+        "sha256": "1ecfa17bdcbe899975a88bdb6efebd6970d846a4f3b6cfd5c6f320647c641c7e"
+      },
+      "sdist": {
+        "filename": "BeatNet-1.1.3.tar.gz",
+        "bytes": 9159220,
+        "sha256": "bb76dd00561562602b63fa301ffedef55fb87a484ce80a230d8914cd3c39bd43"
+      }
+    },
+    "models": {
+      "install_path": "src/BeatNet/models/",
+      "bundled_in_repo_and_dist": true,
+      "loader": "src/BeatNet/BeatNet.py loads models/model_{1,2,3}_weights.pt via torch.load(..., map_location default) into BDA(272,150,2)",
+      "files": [
+        {
+          "name": "model_1_weights.pt",
+          "dataset": "GTZAN (out-trained)",
+          "bytes": 1612179,
+          "git_blob_sha1": "9243fc43c8f6f63b2e46db9fa8b621b145595f81",
+          "sha256": "619091bc317ca3e83b45591d46f6de3d5a41588bcb39fe9fe7be30cffa6aca84"
+        },
+        {
+          "name": "model_2_weights.pt",
+          "dataset": "Ballroom (out-trained)",
+          "bytes": 1612179,
+          "git_blob_sha1": "d1c2d7b3862d30417f2102dcab96143402c0e27d",
+          "sha256": "5878a18c079fa0b0139879b14ed2b5b7595faef8c3d16210aed141fd00fa2d58"
+        },
+        {
+          "name": "model_3_weights.pt",
+          "dataset": "Rock Corpus (out-trained)",
+          "bytes": 1612179,
+          "git_blob_sha1": "6c1c388586ddc2ed8b1335a8435aed2ebae3bae0",
+          "sha256": "0c52a074ea38e8cb4a760ecfa3747c9cf91a1e3cd19f238eed80b0de763989ca"
+        }
+      ],
+      "sha256_provenance": "sha256 computed locally on 2026-10-07 from the PINNED upstream commit, not from the mutable branch",
+      "sha256_source_url_template": "https://raw.githubusercontent.com/mjhydri/BeatNet/81cedd4beeb7235262db80969a0c9ce9a48a0ed4/src/BeatNet/models/{name}",
+      "sha256_verified_at_pinned_commit": true,
+      "git_blob_sha1_source": "GitHub git/trees API at commit 81cedd4beeb7235262db80969a0c9ce9a48a0ed4",
+      "note": "The three 1.54 MiB CRNN state dicts are loaded by BeatNet.py; the repo also ships duplicate model-{1,2,3}.pt variants. All were trained on mastered commercial datasets; the README states the streaming recipe assumes mastered songs.",
+      "scratch_only": "the weight files were downloaded to scratch only to compute sha256; they are not committed and are not part of any release artifact"
+    }
+  },
+  "inference_facts": {
+    "sample_rate_hz": 22050,
+    "feature_hop_ms": 20,
+    "feature_window_ms": 64,
+    "feature_hop_samples": 441,
+    "feature_window_samples": 1411,
+    "n_mel_bands": 24,
+    "feature_stack": "log-mel + positive first difference (SpectrogramDifferenceProcessor diff_ratio=0.5)",
+    "particle_filter_fps": 50,
+    "modes": {
+      "stream": {
+        "execution": "microphone, one 20 ms hop at a time, PF causal",
+        "lookahead_note": "source comment: centred training window causes 0.084 s delay that 'needs to be fixed'; plus 5-hop warmup (100 ms) before first non-zero activation"
+      },
+      "realtime": {
+        "execution": "file read one 20 ms hop at a time, PF causal",
+        "lookahead_note": "the feature window for hop N spans [hop*(N-2), hop*N + win_length], i.e. the 64 ms window extends ~64 ms beyond the current hop; an observation is therefore causal only once that window has completed — this is not zero-lookahead, and per_chunk availability must be the window end"
+      },
+      "online": {
+        "execution": "whole file in one batch for activations, then PF over the whole sequence; README claims identical outcomes to realtime",
+        "lookahead_note": "causal algorithm, but the whole file must be read first, so per-event causal availability cannot be measured; suitable for corpus accuracy, not for the availability half of a SPEC 12.3 claim"
+      },
+      "offline": {
+        "execution": "whole file in one batch, then madmom DBNDownBeatTrackingProcessor (non-causal)",
+        "lookahead_note": "not causal; PF is the causal path"
+      }
+    },
+    "hard_imports_even_for_causal_path": [
+      "src/BeatNet/log_spect.py: madmom.audio.signal, madmom.audio.stft, madmom.audio.spectrogram, madmom.processors",
+      "src/BeatNet/particle_filtering_cascade.py: madmom.features.beats_hmm, madmom.ml.hmm",
+      "src/BeatNet/BeatNet.py: from madmom.features import DBNDownBeatTrackingProcessor (top-level, so madmom is required even for PF)"
+    ],
+    "device": "CPU or CUDA; no CUDA device present in this review environment (no /dev/dri, no nvidia-smi)"
+  },
+  "environment": {
+    "os": "Debian GNU/Linux 13 (trixie)",
+    "kernel": "6.12.105+deb13-cloud-amd64",
+    "cpu_count": 4,
+    "python": "3.13.5 (/usr/bin/python3); the only interpreter present (python3.9..3.12 absent)",
+    "pip": "25.1.1 system; 26.2.1 in the review venv",
+    "gpu": "none",
+    "disk_free_bytes_approx": 8000000000,
+    "tmpfs_note": "/tmp is a 7.9 GB tmpfs and was 100% full (39 MB free); all scratch used /home/mojo/projects/build-TRACK-003"
+  },
+  "dependency_blockers": [
+    {
+      "id": "B1",
+      "summary": "madmom 0.16.1 (2018, unmaintained) is a hard dependency of the causal path and cannot be installed/imported unmodified on Python 3.13",
+      "measured": [
+        "pip install madmom==0.16.1 (isolated build): 'ModuleNotFoundError: No module named Cython' while getting requirements (madmom sdist has no pyproject build-system requires for Cython)",
+        "pip install 'numpy<1.24' (era-appropriate for madmom): build fails with \"AttributeError: module 'pkgutil' has no attribute 'ImpImporter'\" (removed in Python 3.12)",
+        "with modern Cython 3.3.0 + numpy 2.5.3 + scipy 1.18.1 and --no-build-isolation, madmom 0.16.1 DOES build (wheel 21806757 bytes)",
+        "even then, importing any required madmom module fails: first 'ModuleNotFoundError: No module named pkg_resources' (fixed by setuptools<81), then 'ImportError: cannot import name MutableSequence from collections' (removed in Python 3.10), then, after a scratch-only collections shim, 'AttributeError: module numpy has no attribute float' (removed in numpy 1.24)"
+      ],
+      "conclusion": "madmom 0.16.1 simultaneously requires the numpy<1.24 API and a Python that can build numpy<1.24; Python 3.13 satisfies neither. Running BeatNet here would require either patching unmaintained madmom source or provisioning an older interpreter."
+    },
+    {
+      "id": "B2",
+      "summary": "PyPI BeatNet 1.1.3 hard-pins numba==0.54.1, which predates Python 3.13",
+      "measured": [
+        "PyPI beatnet 1.1.3 requires_dist lists 'numba ==0.54.1'",
+        "numba 0.54.1 (2021) supports Python <= 3.9; no cp313 wheel exists and the source needs llvmlite 0.37 which does not build on 3.13"
+      ],
+      "note": "The git tree (setup.py version 1.2.0) drops the numba pin, but the last published PyPI release (1.1.3) carries it."
+    },
+    {
+      "id": "B3",
+      "summary": "Default PyPI torch wheel exceeds the 500 MB download budget on its own",
+      "measured": [
+        "torch 2.14.1 cp313 manylinux_2_28_x86_64.whl = 554.6 MB (PyPI default Linux wheel, CUDA-enabled runtime payload)"
+      ],
+      "note": "The CPU-only wheel from download.pytorch.org is much smaller (see budget) but requires the extra index and torch==2.6.0+cpu rather than what BeatNet's unconstrained 'torch' resolves to."
+    },
+    {
+      "id": "B4",
+      "summary": "No compatible Python interpreter is present and no GPU is available",
+      "measured": [
+        "only /usr/bin/python3 -> Python 3.13.5; python3.9/3.10/3.11/3.12 absent; no pyenv/conda",
+        "no /dev/dri and no nvidia-smi output"
+      ],
+      "conclusion": "A CPU-only causal benchmark would require provisioning a separate supported interpreter first; that is outside this bounded feasibility review and carries its own download/disk budget."
+    }
+  ],
+  "budget": {
+    "download_budget_bytes": 524288000,
+    "review_downloads_used_bytes_approx": 150000000,
+    "torch_cpu_wheel": {
+      "filename": "torch-2.6.0+cpu-cp313-cp313-linux_x86_64.whl",
+      "url": "https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp313-cp313-linux_x86_64.whl",
+      "bytes": 178571455,
+      "sha256": "e70ee2e37ad27a90201d101a41c2e10df7cf15a9ebd17c084f54cf2518c57bdf"
+    },
+    "selected_cp313_wheels_bytes": {
+      "torch_2_6_0_cpu": 178571455,
+      "numpy_2_5_3": 16708577,
+      "scipy_1_18_1": 35312578,
+      "llvmlite_0_50_0": 59700000,
+      "numba_0_68_0": 3800000,
+      "Cython_3_3_0": 1349151,
+      "madmom_0_16_1_sdist": 20040947,
+      "note": "plus librosa/matplotlib/tensorboard/mido/pyyaml/pytest and their transitive wheels; a full closure is well over 300 MB of downloads and, once installed, torch alone unpacks to roughly 1 GB"
+    },
+    "measured_venv_after_numpy_scipy_cython_madmom": {
+      "installed_bytes": 277000000,
+      "note": "the review venv contained Cython, numpy, scipy, madmom (built), setuptools<81, mido, packaging, wheel, pip; torch was deliberately not installed"
+    }
+  },
+  "verdict": "INFEASIBLE now within the stated environment/budget without either provisioning an additional supported Python interpreter or patching unmaintained third-party source. No BeatNet accuracy, latency, CPU or startup number is produced by this review."
+}

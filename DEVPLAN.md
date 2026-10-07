@@ -1461,7 +1461,7 @@ Keep this near the top of the live devplan during implementation.
 | EVAL-002 | integrated; timestamp/gate follow-up underway | main | 3e5bb7b + wp/EVAL-002R | G3 |
 | TRACK-001 | DONE (offline candidate) | main | c3dad10 | G3 |
 | TRACK-002 | DONE (offline candidate) | main | wp/TRACK-002 + eac59ba | G3 |
-| TRACK-003 | review corrections running; benchmark PARTIAL (no inference) | wp/TRACK-003-beatnet | initial 6a84ae1, not merged | G3 |
+| TRACK-003 | integrated feasibility; benchmark PARTIAL (no inference) | main | 1ef3d5c + integration corrections | G3 |
 | EVAL-003 | DONE (scoped derived corpus) | main | 0a15eef | G3 |
 | EVAL-004 | DONE (timing/gate audit + real comparison) | main | 64b39ee | G3 |
 | EVAL-005 | review corrections running (numeric threshold + evidence regeneration) | wp/EVAL-005-robustness | initial acc6e7f, not merged | G3 |

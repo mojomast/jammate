@@ -36,7 +36,7 @@ PARTIAL, never PASSED.
 | **G0** fork/license/baseline | **PARTIAL** | current fork builds/tests on Linux; baseline audio/device and Windows evidence incomplete |
 | **G1** real-time foundation | **PARTIAL** | scene code compiled against JUCE; engine-generated MIDI bound measured; full callback, scene delivery and actual CI runs incomplete |
 | **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam tested; live analyzer, real DrumEngine integration and Jam UI incomplete |
-| **G3** tracker selected | **IN PROGRESS (advanced early)** | both candidate adapters integrated; timestamp/gate audit, corpus repairs, robustness and selection ADR incomplete |
+| **G3** tracker selected | **IN PROGRESS (advanced early)** | both candidate adapters and partial BeatNet feasibility integrated; corpus repairs, robustness integration and selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
 | **G5** adaptive drummer | not started | — |
 | **G6/G7** UX / release | not started | — |
@@ -80,8 +80,8 @@ PARTIAL, never PASSED.
 
 ### Returned handoffs under integration review (2026-10-07)
 
-All three initial Flash handoffs were committed with clean worker trees. None
-has been integrated yet; the same workers are correcting scoped review findings:
+All three initial Flash handoffs were committed with clean worker trees. Their
+review findings and correction status are:
 
 - **EVAL-005 `acc6e7f`:** both real trackers produced derived-corpus runs, but
   `spec2pctWithin` coerces relative error to a boolean before thresholding,
@@ -95,6 +95,9 @@ has been integrated yet; the same workers are correcting scoped review findings:
   weights file do not establish blanket AGPL incompatibility or verified model
   redistribution rights. Declared provenance hashes do not authenticate a run.
   Require mode/availability validation, finite timestamps and explicit coverage.
+  Revised `1ef3d5c` is accepted and integrated with two final scorer corrections:
+  actual WAV-byte hashing and `time`-key availability math, plus nonnegative
+  clip times. **51 tests pass on main.** No BeatNet inference was executed.
 - **CI-002 `4dfbc96`:** genuine four-configuration builds replace the tripwire,
   pending enabled-symbol assertions, fail-closed `nm` checks, required Python/
   derived suites, and a Windows reference-materialization guard that tolerates
@@ -150,7 +153,7 @@ and reports instead.
 | TRACK-002 aubio backend | **DONE** | `wp/TRACK-002` → main; build wiring `eac59ba` | B — intelligence | G3 | 11 adapter tests; combined 8/8 ctest suites pass |
 | EVAL-003 robustness fixtures | **DONE: scoped corpus** | `wp/EVAL-003` → `0a15eef` | C — evidence, Flash | G3 | 24 derived clips, 11.12 MiB; C++/Python checks integrated; comparison follows in EVAL-005 |
 | EVAL-004 timing/gate audit + comparison | **DONE** | `wp/EVAL-004-timing` → `64b39ee` | B — evidence, Flash | G3 | combined 9/9 suites; both acquisition gates fail; aubio BPM passes, BTrack BPM fails |
-| TRACK-003 BeatNet feasibility | REVIEW CORRECTIONS RUNNING; benchmark PARTIAL | `wp/TRACK-003-beatnet`, initial `6a84ae1` | C — research, Flash | G3 | measured dependency blockers; no inference; licence/scorer claims being corrected |
+| TRACK-003 BeatNet feasibility | INTEGRATED:PARTIAL; benchmark unavailable | `wp/TRACK-003-beatnet`, `1ef3d5c` → main + scorer corrections | C — research, Flash | G3 | pinned source/weight terms and measured dependency blockers; 51 scorer tests; no inference; redistribution review unresolved |
 | CI-002 tracker CI repair | REVIEW CORRECTIONS RUNNING | `wp/CI-002-trackers`, initial `4dfbc96` | C — evidence, Flash | G1/G3 | local four-config evidence returned; symbol/error/materialization guards need repair; remote/Windows unverified |
 | EVAL-005 paired robustness curves | REVIEW CORRECTIONS RUNNING | `wp/EVAL-005-robustness`, initial `acc6e7f` | B — evidence, Flash | G3 | raw paired runs returned; numerical threshold bug and provenance/reproduction corrections required |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |

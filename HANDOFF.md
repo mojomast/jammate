@@ -26,6 +26,11 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
   Current comparison: `docs/research/tracker-comparison/comparison.md`.
 - BTrack core acquisition 4/11 and worst BPM error 2.34%; aubio 7/11 and 1.33%.
   Both acquisition gates fail. No production tracker selected; G3 remains open.
+- Partial BeatNet feasibility review (`wp/TRACK-003-beatnet` handoff `1ef3d5c`)
+  integrated with final scorer corrections; **51 research-tool tests pass**.
+  Source/weight hashes and dependency blockers recorded; no inference benchmark.
+  Repository CC-BY-4.0 is the only stated term found; weights redistribution
+  remains unresolved. See `docs/research/BEATNET-FEASIBILITY.md`.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
@@ -44,12 +49,12 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 `/home/mojo/projects/guitars-build-resume/`. CMake/Ninja still live in
 `/tmp/opencode/venv/bin` and must be added to PATH.
 
-### Active independent Flash lanes
+### Flash lane continuations
 
 | Task | Branch / worktree | Session |
 |---|---|---|
 | CI-002 tracker workflows | `wp/CI-002-trackers`, `../worktrees/CI-002-trackers` | `ses_ee75a1084ffep3AxLvnl0Kqa3d` |
-| TRACK-003 BeatNet feasibility | `wp/TRACK-003-beatnet`, `../worktrees/TRACK-003-beatnet` | `ses_ee745589effeU0Q5VSCHfvX51T` |
+| TRACK-003 integrated partial feasibility (worker finished) | `wp/TRACK-003-beatnet`, `../worktrees/TRACK-003-beatnet` | `ses_ee745589effeU0Q5VSCHfvX51T` |
 | EVAL-005 paired robustness curves | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
@@ -57,14 +62,14 @@ tree and SHA. Review/merge returned work rather than rerunning a worker's topic
 concurrently. The user asked for Flash; escalation, if genuinely necessary, is
 `openai/gpt-6.1-sol#xhigh`, not the OpenCode provider.
 
-All three initial handoffs have returned and are **not yet integrated**. The same
-sessions are now correcting integration-review findings: EVAL-005 `acc6e7f`
+All three initial handoffs have returned. TRACK-003's corrected `1ef3d5c` is now
+integrated as partial feasibility with final scorer fixes. The other sessions
+are correcting integration-review findings: EVAL-005 `acc6e7f`
 (numeric BPM-threshold bug, pairing/identity checks and current-main runner
-regeneration), TRACK-003 `6a84ae1` (licence/authenticity wording and scorer causal
-contract/coverage), and CI-002 `4dfbc96` (enabled symbols, fail-closed nm, Python/
+regeneration), and CI-002 `4dfbc96` (enabled symbols, fail-closed nm, Python/
 derived-suite requirements and empty reference gitlink guards). See the ledger's
 returned-handoff review section. Await revised clean SHAs; do not merge the
-initial handoffs as completed work. BeatNet has no inference result and remains
+initial EVAL-005/CI-002 handoffs as completed work. BeatNet has no inference result and remains
 a partial feasibility review.
 
 ### Remaining gate work
