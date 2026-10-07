@@ -258,6 +258,21 @@ target_link_libraries(GuitarCompanion
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)
 
+# --- jam-core (platform-neutral musical intelligence) -----------------------
+# The Musical Clock / Jam Director / analysis chain live in src/jam and depend on
+# nothing from JUCE (SPEC.md sections 6, 9, 10). They are compiled here as their
+# own static library so they can be built and unit-tested on any machine — a CI
+# runner with no audio libraries, no audio device and no ASIO SDK. That is what
+# makes the musical-intelligence gates (G4, G5) verifiable instead of asserted.
+#
+# It deliberately builds in EVERY configuration, including the plain default one:
+# the real-time contract is the thing most likely to rot, and a target that only
+# compiles when someone remembers an option is a target nobody compiles.
+#
+# It never pulls in juce::; see jam-core/CMakeLists.txt for the rules.
+enable_testing()
+add_subdirectory(jam-core)
+
 # --- Unit tests (opt-in) ------------------------------------------------------
 # OFF by default: the normal build is untouched and the test target never even
 # exists (so it can never end up in ALL_BUILD). To run them, use a SEPARATE
