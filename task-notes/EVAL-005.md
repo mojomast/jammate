@@ -215,7 +215,8 @@ Authoritative evidence: `docs/research/robustness/` (`degradation.{json,csv,md}`
 ## Final commit SHA
 
 - Round 1 (implementation + evidence): `a1fc75f`.
-- Round 2 (integration-review fixes + regenerated evidence): `_filled in after
-  commit_`.
+- Round 2 (integration-review fixes + regenerated evidence): `9170f15`
+  (`fix(eval-005): numeric BPM gate compare, strict pairing, main-source
+  rebuild`).
 - The note-SHA update is the subsequent commit on `wp/EVAL-005-robustness`; the
   branch head is the handoff SHA reported to the orchestrator.
