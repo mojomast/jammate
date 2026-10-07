@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "DrumMidiCapacity.h"
 
 #include <juce_audio_formats/juce_audio_formats.h>
 
@@ -1022,7 +1023,7 @@ void GuitarCompanionProcessor::prepareToPlay (double sampleRate, int samplesPerB
     drumEngine.prepare (sampleRate, samplesPerBlock);
     drumBuf.setSize (2, samplesPerBlock);
     recDrumScratch.setSize (2, samplesPerBlock);
-    drumMidi.ensureSize (256);
+    drumMidi.ensureSize (drum::midiScratchBytesForBlock (samplesPerBlock));
     for (auto* inst : { drumActive.get(), drumPending.load() })
         if (inst != nullptr)
         {
@@ -3576,7 +3577,7 @@ void GuitarCompanionProcessor::loadIrAsync (int slot, const juce::File& file)
     if (reader == nullptr || reader->lengthInSamples <= 0)
         return;
 
-    const int len = (int) juce::jmin<juce::int64> (reader->lengthInSamples,
+    const int len = (int) std::min<juce::int64> (reader->lengthInSamples,
                                                    (juce::int64) (reader->sampleRate * 4));
     juce::AudioBuffer<float> ir (1, len);
     reader->read (&ir, 0, len, 0, true, false);

@@ -12,6 +12,7 @@ target_sources(GuitarCompanionTests
         DrumLibraryTests.cpp
         DrumGeneratorTests.cpp
         DrumCodecTests.cpp
+        DrumMidiTests.cpp
         # production code under test
         ${PROJECT_SOURCE_DIR}/src/DrumEngine.cpp
         ${PROJECT_SOURCE_DIR}/src/DrumLibrary.cpp
@@ -47,3 +48,10 @@ add_test(NAME drums.parseSpec  COMMAND GuitarCompanionTests spec_)
 add_test(NAME drums.library    COMMAND GuitarCompanionTests library_)
 add_test(NAME drums.generator  COMMAND GuitarCompanionTests generator_)
 add_test(NAME drums.barCodec   COMMAND GuitarCompanionTests codec_)
+add_test(NAME drums.midiCapacity COMMAND GuitarCompanionTests midi_)
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_definitions(GuitarCompanionTests PRIVATE DRUM_MIDI_HEAP_PROBE=1)
+    target_link_options(GuitarCompanionTests PRIVATE
+        -Wl,--wrap=malloc -Wl,--wrap=realloc -Wl,--wrap=free)
+endif()

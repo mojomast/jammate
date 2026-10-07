@@ -51,13 +51,27 @@ const std::vector<Entry>& entries()
 
 juce::File systemVst3Dir()
 {
+#if JUCE_WINDOWS
     return juce::File ("C:\\Program Files\\Common Files\\VST3");
+#elif JUCE_MAC
+    return juce::File ("/Library/Audio/Plug-Ins/VST3");
+#else
+    return juce::File ("/usr/lib/vst3");
+#endif
 }
 
 juce::File userVst3Dir()
 {
+#if JUCE_WINDOWS
     return juce::File::getSpecialLocation (juce::File::windowsLocalAppData)
         .getChildFile ("Programs").getChildFile ("Common").getChildFile ("VST3");
+#elif JUCE_MAC
+    return juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+        .getChildFile ("Library/Audio/Plug-Ins/VST3");
+#else
+    return juce::File::getSpecialLocation (juce::File::userHomeDirectory)
+        .getChildFile (".vst3");
+#endif
 }
 
 static bool dirHasBundle (const juce::File& dir, const juce::String& pattern)

@@ -30,6 +30,7 @@ add_library(nam_core STATIC
 
 # O Core exige C++20 (upstream: target_compile_features cxx_std_20).
 target_compile_features(nam_core PRIVATE cxx_std_20)
+set_target_properties(nam_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # SYSTEM: suprime warnings dos headers de terceiros nos TUs do plugin
 # (os warning flags recomendados do JUCE não valem para código que não é nosso).

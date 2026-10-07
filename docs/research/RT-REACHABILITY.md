@@ -9,6 +9,25 @@ All line references are to the base commit above. Every claim in this document w
 derived by reading the code at those lines; the key greps used to spot-check it are
 reproduced at the end.
 
+## Resumption status (supersedes the historical open-finding status below)
+
+- **F1:** scene callback message posting replaced by the atomic `SignalFlag`
+  and processor-owned message-thread timer (`135b4b7`). The processor now compiles
+  against real pinned JUCE on Linux. Host/editor-closed timer delivery remains
+  unmeasured.
+- **F2:** fork-generated drum MIDI storage now reserved from a scheduling bound,
+  rather than 256 bytes. Real JUCE tests reproduce **2115 bytes** and heap growth
+  with the old reservation; the new reservation observes zero allocation/free
+  calls across 16 rate/block combinations. See `task-notes/RT-001-F2.md`.
+- The initial audit missed the callback-reachable retry in DrumEngine's cosmetic
+  meter `atomicMax`. It is now a single strong CAS attempt, without retry; a UI
+  drain may discard one cosmetic update.
+
+These are bounded repairs, not a declaration that G1 has passed. Whole-processor
+heap/locking instrumentation, NAM/hosted-plugin behavior, Windows/ASIO and device
+timing still need evidence. The audit below is retained with its original base
+line references.
+
 ---
 
 ## 0. Executive summary

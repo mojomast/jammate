@@ -88,9 +88,10 @@ void parseSpec (const Groove& g, juce::uint8 out[numVoices][maxStepsPerBar])
 static inline void publishPeak (std::atomic<float>& dest, float v) noexcept
 {
     float cur = dest.load (std::memory_order_relaxed);
-    while (v > cur && ! dest.compare_exchange_weak (cur, v, std::memory_order_relaxed))
-    {
-    }
+    // Best-effort cosmetic meter: a UI exchange may win this one attempt.
+    // Never retry on the audio callback merely to preserve a meter peak.
+    if (v > cur)
+        dest.compare_exchange_strong (cur, v, std::memory_order_relaxed);
 }
 
 //==============================================================================
