@@ -215,6 +215,52 @@ with nothing to drop and is **not** counted as an overrun.
 
 ---
 
+## Architecture decision — library identity is a positional index (ADR pending)
+
+Settled before STYLE-001 could be delegated, because a worker would otherwise
+have invented a scheme and baked it into a catalogue.
+
+**Measured facts** (`src/DrumLibrary.cpp`, parsed exhaustively):
+
+| Fact | Value |
+|---|---|
+| Library entries | 570 across 16 genres |
+| Grooves / fills | 358 / 212 |
+| String identifiers present | **0** |
+| Unique `(genre, name)` pairs | 553 of 570 — **16 collide** |
+| Collisions that are identical duplicates | **0** — every collision is a different pattern |
+| Collisions that are a groove in one place and a fill in another | **1** (`FUNK`, `Linear funk` — groove at 63, fill at 187) |
+| Entries with `bpm == 0` ("keep current tempo") | 74 |
+
+**Rejected: the derived slug.** SPEC §13.2 illustrates `"rock.basic.01"` and my
+frozen `IDrumTransport` inherited `std::string grooveId`. Building `genre` +
+slug(`name`) looks clean and is wrong: it resolves to the *wrong pattern* for all
+16 collisions, and for `FUNK/Linear funk` to the wrong *kind* as well. A musically
+incorrect result that appears correct is the worst available failure mode.
+
+**Adopted: `LibraryIndex` = position in `drum::library()`.** Unique by
+construction, and it is already what the product ships — `src/DrumOverlay.cpp`
+identifies library rows by the drag id `"f:" + index` and resolves them via
+`library()[i]`. The seam adopts the key the UI already uses instead of inventing
+a second one.
+
+`IDrumTransport.h` has been changed: `QueuedBarChange::grooveId`/`fillId` became
+`LibraryIndex groove`/`fill` with a `kNoLibraryEntry` sentinel, and
+`requestFillAtNextBar` takes a `LibraryIndex`. `JamConfig`-style tunables are
+untouched.
+
+**Carried into PERSIST-001:** an index is only stable while the library is
+unchanged. Anything persisted must also record genre, name, fill flag and a hash
+of the pattern spec, so a load against a changed library fails loudly instead of
+playing a different groove.
+
+**Second rule, for STYLE-001:** `Groove::bpm == 0` means *keep current tempo*
+(74 of 570 entries). A style catalogue must treat a groove's BPM as a
+suitability hint only. Tempo belongs to the Musical Clock (SPEC §10.3); a
+catalogue that treats groove BPM as authoritative would fight the clock.
+
+---
+
 ## Wave 1 findings that change planning
 
 ### The G0 real-time risk is real and now precisely located
