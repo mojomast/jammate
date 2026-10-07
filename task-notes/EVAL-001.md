@@ -1071,4 +1071,8 @@ measurement, and the generator was right.
 
 ### Final commit SHA
 
-Recorded after commit.
+`6c447effb8941060e9481c3eec38f724ca624f23`
+(`fix(rhythm): declare true silence separately from unplayed beats; fix core membership`)
+
+5 files changed, 4 of them modified in place, no file added or deleted, and no
+`.wav` touched. Working tree clean after commit.
