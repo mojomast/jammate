@@ -8,3 +8,4 @@ third_party/asiosdk/
 third_party/webview2/
 plugins/offline/
 packaging/output/
+__pycache__/
