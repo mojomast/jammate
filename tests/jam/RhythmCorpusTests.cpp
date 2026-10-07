@@ -728,6 +728,12 @@ struct Fixture
     std::string license;
     std::string provenance;
     std::string notes;
+
+    // `trueSilenceSpans` are the regions where the guitar is genuinely not
+    // sounding. `silenceSpans` (narrow windows around deliberately unplayed
+    // beats) is a different thing and is read separately below.
+    std::vector<std::pair<double, double>> trueSilenceSpans;
+    bool hasTrueSilenceSpans = false;
 };
 
 struct Corpus
@@ -739,9 +745,117 @@ struct Corpus
     std::vector<Fixture> fixtures;
     std::vector<std::string> scenarioVocabulary;
     std::vector<std::string> qualifierVocabulary;
+    // Explicit fixture-name membership for SPEC 19's "core fixtures"
+    // denominator. Present and reconciled against the per-fixture `core` tag by
+    // coreMembershipListAgreesWithTheCoreTag.
+    std::vector<std::string> coreFixtures;
     std::string manifestText;
     std::string dir;
 };
+
+// Reads the `data` chunk of a 16-bit mono PCM RIFF/WAVE file into normalised
+// floats in [-1, 1]. Returns false if the file is not that shape.
+//
+// This parses the chunk list rather than assuming a 44-byte header. That is not
+// pedantry: an earlier version of this test read the whole file as samples and
+// interpreted the ASCII "RIFF"/"WAVE" header as audio, which put a spurious
+// 0 dBFS transient at the start of every file and failed all 19 fixtures for a
+// reason that had nothing to do with the corpus. Real captures carry LIST or
+// fact chunks, so the offset is not a constant either.
+bool readWavSamples (const std::string& path, std::vector<double>& out,
+                     int& channels)
+{
+    out.clear();
+    channels = 0;
+    std::ifstream in (path.c_str(), std::ios::binary);
+    if (! in.good())
+        return false;
+
+    std::vector<char> raw ((std::istreambuf_iterator<char> (in)),
+                           std::istreambuf_iterator<char>());
+    in.close();
+    if (raw.size() < 12)
+        return false;
+
+    const unsigned char* p = reinterpret_cast<const unsigned char*> (&raw[0]);
+    if (std::memcmp (p, "RIFF", 4) != 0 || std::memcmp (p + 8, "WAVE", 4) != 0)
+        return false;
+
+    uint32_t fmtChannels = 0;
+    uint32_t fmtBits = 0;
+    bool haveFmt = false;
+    std::size_t dataOff = 0;
+    std::size_t dataLen = 0;
+
+    std::size_t pos = 12;
+    while (pos + 8 <= raw.size())
+    {
+        char id[5] = { 0, 0, 0, 0, 0 };
+        std::memcpy (id, p + pos, 4);
+        uint32_t size = static_cast<uint32_t> (p[pos + 4])
+                      | (static_cast<uint32_t> (p[pos + 5]) << 8)
+                      | (static_cast<uint32_t> (p[pos + 6]) << 16)
+                      | (static_cast<uint32_t> (p[pos + 7]) << 24);
+        const std::size_t body = pos + 8;
+        if (body + size > raw.size())
+            size = static_cast<uint32_t> (raw.size() - body);
+        if (std::memcmp (id, "fmt ", 4) == 0 && size >= 16)
+        {
+            fmtChannels = static_cast<uint32_t> (p[body + 2])
+                        | (static_cast<uint32_t> (p[body + 3]) << 8);
+            fmtBits = static_cast<uint32_t> (p[body + 14])
+                    | (static_cast<uint32_t> (p[body + 15]) << 8);
+            haveFmt = true;
+        }
+        else if (std::memcmp (id, "data", 4) == 0)
+        {
+            dataOff = body;
+            dataLen = size;
+        }
+        pos = body + size + (size & 1u);   // chunks are word-aligned
+    }
+
+    if (! haveFmt || dataLen == 0 || fmtBits != 16)
+        return false;
+    channels = static_cast<int> (fmtChannels);
+    const std::size_t frames = dataLen / (2u * (fmtChannels != 0 ? fmtChannels : 1u));
+    out.resize (frames);
+    for (std::size_t k = 0; k < frames; ++k)
+    {
+        // Mono only: a stereo corpus would need a downmix, and the manifest
+        // declares mono. Downmixing silently would be worse than refusing.
+        if (fmtChannels != 1)
+            return false;
+        const std::size_t off = dataOff + k * 2;
+        if (off + 1 >= raw.size())
+            return false;
+        const int16_t v = static_cast<int16_t> (
+            static_cast<uint16_t> (static_cast<unsigned char> (p[off]))
+            | (static_cast<uint16_t> (static_cast<unsigned char> (p[off + 1])) << 8));
+        out[k] = static_cast<double> (v) / 32768.0;
+    }
+    return true;
+}
+
+// Reads an array of [start, end] pairs. Returns false and leaves `out` empty
+// when the shape is wrong, so callers can report the field's absence rather than
+// silently treating it as "no silence".
+bool readSpanArray (const JsonValue& v, std::vector<std::pair<double, double>>& out)
+{
+    out.clear();
+    if (! v.isArray())
+        return false;
+    for (std::size_t i = 0; i < v.items.size(); ++i)
+    {
+        const JsonValue& pair = v.items[i];
+        if (! pair.isArray() || pair.items.size() != 2)
+            return false;
+        if (! pair.items[0].isNumber() || ! pair.items[1].isNumber())
+            return false;
+        out.push_back (std::make_pair (pair.items[0].number, pair.items[1].number));
+    }
+    return true;
+}
 
 Corpus loadCorpus()
 {
@@ -788,6 +902,7 @@ Corpus loadCorpus()
     const JsonValue& vocab = root.at ("tagVocabulary");
     c.scenarioVocabulary = vocab.at ("scenario").strings();
     c.qualifierVocabulary = vocab.at ("qualifier").strings();
+    c.coreFixtures = vocab.at ("core").strings();
 
     const JsonValue& list = root.at ("fixtures");
     CHECK (list.isArray());
@@ -825,6 +940,16 @@ Corpus loadCorpus()
         f.beats = v.at ("beats").numbers();
         f.onsets = v.at ("onsets").numbers();
         f.tags = v.at ("scenarioTags").strings();
+
+        const JsonValue* tss = v.find ("trueSilenceSpans");
+        if (tss != nullptr)
+        {
+            f.hasTrueSilenceSpans = readSpanArray (*tss, f.trueSilenceSpans);
+            if (! f.hasTrueSilenceSpans)
+                jamtest::fail (__FILE__, __LINE__,
+                               f.name + ": trueSilenceSpans is not an array of "
+                               "[startSeconds, endSeconds] pairs");
+        }
 
         c.fixtures.push_back (f);
     }
@@ -1300,6 +1425,35 @@ JAM_TEST (RhythmCorpus, tagVocabularyIsClosed)
     for (std::size_t i = 0; i < kRequiredScenarioCount; ++i)
         CHECK (scenarios.count (kRequiredScenarios[i]) == 1);
 
+    // Every tag that carries MEMBERSHIP must have a declared membership list.
+    // Vocabulary membership alone was the gap that let `core` drift: `core` is
+    // not just a label, it defines the denominator of every SPEC 19 gate, so
+    // "the tag exists" is not sufficient -- the list behind it must exist and be
+    // reconciled with the tag. Agreement itself is checked by
+    // coreMembershipListAgreesWithTheCoreTag.
+    const char* const kMembershipTags[] = { "core" };
+    for (std::size_t t = 0; t < sizeof (kMembershipTags) / sizeof (const char*); ++t)
+    {
+        const std::string tag = kMembershipTags[t];
+        // Present in the qualifier vocabulary?
+        if (qualifiers.count (tag) == 0)
+            jamtest::fail (__FILE__, __LINE__,
+                           "tag '" + tag + "' is not declared in "
+                           "tagVocabulary.qualifier");
+        // Used by at least one fixture?
+        std::size_t users = 0;
+        for (std::size_t i = 0; i < c.fixtures.size(); ++i)
+        {
+            const Fixture& f = c.fixtures[i];
+            if (std::find (f.tags.begin(), f.tags.end(), tag) != f.tags.end())
+                ++users;
+        }
+        CHECK_GE (static_cast<double> (users), 1.0);
+        // And have a non-empty membership list in the manifest?
+        if (tag == "core")
+            CHECK (! c.coreFixtures.empty());
+    }
+
     // No fixture may use a tag outside the declared vocabulary.
     for (std::size_t i = 0; i < c.fixtures.size(); ++i)
     {
@@ -1420,6 +1574,281 @@ JAM_TEST (RhythmCorpus, coreTagMarksTheFixturesSpec19ScoresAgainst)
 
     CHECK_GE (core, 8);
     CHECK_GE (steady, 15);
+}
+
+// ---------------------------------------------------------------------------
+// trueSilenceSpansAreDeclaredAndSelfConsistent
+// ---------------------------------------------------------------------------
+//
+// The `RhythmCorpus.corpusSilenceIsDeclaredEverywhere` split: this checks the
+// SHAPE and INTERNAL CONSISTENCY of the field. Whether the audio inside a span
+// really is quiet is checked against the WAVs by
+// `trueSilenceSpansMatchTheAudioOnDisk`.
+//
+// SPEC 19 requires "silence does not create false acceleration" and SPEC 12.3 a
+// "false beat rate in silence". Both need to know where the guitar stopped
+// playing, which is what this field says. The pre-existing `silenceSpans` does
+// not: it names narrow windows around beats that were deliberately not played,
+// and every beat of a maintained grid falls inside one, so scoring a tracker
+// against it counts correct behaviour as 16.7 false beats per second.
+
+JAM_TEST (RhythmCorpus, trueSilenceSpansAreDeclaredAndSelfConsistent)
+{
+    const Corpus c = loadCorpus();
+    REQUIRE (! c.fixtures.empty());
+
+    for (std::size_t i = 0; i < c.fixtures.size(); ++i)
+    {
+        const Fixture& f = c.fixtures[i];
+
+        // Present on EVERY fixture, even when empty. An absent field cannot be
+        // told apart from a bug, and this corpus is only half committed.
+        if (! f.hasTrueSilenceSpans)
+        {
+            jamtest::fail (__FILE__, __LINE__,
+                           f.name + ": trueSilenceSpans is missing or malformed");
+            continue;
+        }
+
+        double previousEnd = -1.0;
+        for (std::size_t k = 0; k < f.trueSilenceSpans.size(); ++k)
+        {
+            const double a = f.trueSilenceSpans[k].first;
+            const double b = f.trueSilenceSpans[k].second;
+            const std::string where =
+                " (span " + jamtest::describe (k) + " [" + jamtest::describe (a)
+                + ", " + jamtest::describe (b) + "])";
+
+            if (! (a >= 0.0))
+                jamtest::fail (__FILE__, __LINE__,
+                               f.name + ": span starts before the file" + where);
+            if (! (b <= f.durationSeconds))
+                jamtest::fail (__FILE__, __LINE__,
+                               f.name + ": span ends after the file" + where);
+            if (! (a < b))
+                jamtest::fail (__FILE__, __LINE__,
+                               f.name + ": span is empty or inverted" + where);
+            if (k > 0 && a < previousEnd)
+                jamtest::fail (__FILE__, __LINE__,
+                               f.name + ": spans are unsorted or overlapping" + where);
+            previousEnd = b;
+
+            // A silence span that swallows an attack is the one error that
+            // makes the field actively harmful: a tracker beating there is
+            // scored as fabricating a beat when it was playing.
+            for (std::size_t o = 0; o < f.onsets.size(); ++o)
+            {
+                const double onset = f.onsets[o];
+                if (onset > a && onset < b)
+                {
+                    jamtest::fail (__FILE__, __LINE__,
+                                   f.name + ": span swallows onset "
+                                   + jamtest::describe (onset) + where);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// trueSilenceSpansMatchTheAudioOnDisk
+// ---------------------------------------------------------------------------
+//
+// The half of the contract that needs the WAVs: a declared span is a claim about
+// the audio, so the audio gets to disagree.
+//
+// This is deliberately NOT how the field is produced. The generator derives the
+// spans from its own event list and decay model and only then compares against
+// the audio, because a field reverse-engineered from the file it describes
+// cannot catch a synthesis bug -- it would faithfully describe the bug. This test
+// is the independent second opinion on the result, not the source of it.
+
+JAM_TEST (RhythmCorpus, trueSilenceSpansMatchTheAudioOnDisk)
+{
+    const Corpus c = loadCorpus();
+    REQUIRE (! c.fixtures.empty());
+    REQUIRE (sha256SelfTest());
+
+    // 50 ms analysis window, 10 ms hop.
+    const std::size_t hop = 480;
+    const std::size_t win = 2400;
+
+    for (std::size_t i = 0; i < c.fixtures.size(); ++i)
+    {
+        const Fixture& f = c.fixtures[i];
+        if (! f.hasTrueSilenceSpans || f.trueSilenceSpans.empty())
+            continue;
+
+        const std::string path = joinPath (c.dir, f.file);
+        REQUIRE (fileExists (path));
+
+        std::vector<double> samples;
+        int channels = 0;
+        REQUIRE (readWavSamples (path, samples, channels));
+        REQUIRE (channels == 1);   // the corpus is mono by declaration
+        const std::size_t nSamples = samples.size();
+        REQUIRE (nSamples > win);
+
+        // Short-time RMS in dB, plus the file's noise floor estimated as the
+        // 5th percentile of that envelope. The floor is the right reference: in
+        // a genuine silence the guitar is gone and whatever remains IS the floor.
+        std::vector<double> envDb;
+        std::vector<double> envT;
+        for (std::size_t s = 0; s + win <= nSamples; s += hop)
+        {
+            double acc = 0.0;
+            for (std::size_t k = s; k < s + win; ++k)
+                acc += samples[k] * samples[k];
+            const double rms = std::sqrt (acc / static_cast<double> (win));
+            envDb.push_back (rms > 1e-15 ? 20.0 * std::log10 (rms) : -300.0);
+            envT.push_back (static_cast<double> (s + win / 2)
+                            / static_cast<double> (f.sampleRate));
+        }
+        REQUIRE (! envDb.empty());
+
+        std::vector<double> sorted = envDb;
+        std::sort (sorted.begin(), sorted.end());
+        const double floorDb = sorted[sorted.size() / 20];
+        const double halfWin = 0.5 * static_cast<double> (win) / f.sampleRate;
+
+        int windowsInside = 0;
+        double loudestInside = -300.0;
+        for (std::size_t k = 0; k < envT.size(); ++k)
+        {
+            const double t = envT[k];
+            bool inside = false;
+            for (std::size_t q = 0; q < f.trueSilenceSpans.size(); ++q)
+            {
+                if (f.trueSilenceSpans[q].first <= t - halfWin
+                    && t + halfWin <= f.trueSilenceSpans[q].second)
+                {
+                    inside = true;
+                    break;
+                }
+            }
+            if (! inside)
+                continue;
+            // Skip windows straddling an attack: the boundary is where the
+            // attack that ends the span lives, and scoring that as "loud inside
+            // the span" would report the span's own edge as a defect.
+            bool touchesAttack = false;
+            for (std::size_t o = 0; o < f.onsets.size(); ++o)
+            {
+                if (f.onsets[o] >= t - halfWin - 0.030
+                    && f.onsets[o] <= t + halfWin + 0.030)
+                {
+                    touchesAttack = true;
+                    break;
+                }
+            }
+            if (touchesAttack)
+                continue;
+            ++windowsInside;
+            if (envDb[k] > loudestInside)
+                loudestInside = envDb[k];
+        }
+
+        if (windowsInside == 0)
+            continue;   // spans too short to hold a whole window
+
+        // 15 dB of headroom above the floor. A decaying string 60 dB below the
+        // peak is inaudible and is not "the guitarist still playing", but it can
+        // sit a few dB above a -81 dBFS floor, and the fixtures span a 43 dB
+        // range of noise floors, so the test has to be floor-relative. A
+        // peak-relative bound would be wrong: on noisy_microphone even silence
+        // is only 35 dB below the peak because the hiss floor is -34 dBFS.
+        if (loudestInside > floorDb + 15.0)
+            jamtest::fail (__FILE__, __LINE__,
+                           f.name + ": a declared trueSilenceSpans window reaches "
+                           + jamtest::describe (loudestInside) + " dBFS, "
+                           + jamtest::describe (loudestInside - floorDb)
+                           + " dB above the measured noise floor "
+                           + jamtest::describe (floorDb));
+        CHECK (windowsInside > 0);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// coreMembershipListAgreesWithTheCoreTag
+// ---------------------------------------------------------------------------
+//
+// This is the test whose absence let the second defect through. The old
+// `tagVocabularyIsClosed` only checked that every tag in use appeared in the
+// vocabulary; it never checked that the `core` membership list agreed with the
+// `core` tag, so the two disagreed by five fixtures for a full wave. SPEC 19 is
+// phrased entirely against "core fixtures", so which fixtures those are is a
+// load-bearing definition for release gates, and an ambiguous count is not
+// acceptable.
+
+JAM_TEST (RhythmCorpus, coreMembershipListAgreesWithTheCoreTag)
+{
+    const Corpus c = loadCorpus();
+    REQUIRE (! c.fixtures.empty());
+    REQUIRE (! c.coreFixtures.empty());
+
+    std::set<std::string> listed (c.coreFixtures.begin(), c.coreFixtures.end());
+    CHECK_EQ (listed.size(), c.coreFixtures.size());   // no duplicates
+
+    std::set<std::string> tagged;
+    for (std::size_t i = 0; i < c.fixtures.size(); ++i)
+    {
+        const Fixture& f = c.fixtures[i];
+        if (std::find (f.tags.begin(), f.tags.end(), std::string ("core"))
+            != f.tags.end())
+            tagged.insert (f.name);
+    }
+
+    // Every listed name must be a fixture that exists, and vice versa.
+    std::set<std::string> names;
+    for (std::size_t i = 0; i < c.fixtures.size(); ++i)
+        names.insert (c.fixtures[i].name);
+
+    for (std::set<std::string>::const_iterator it = listed.begin();
+         it != listed.end(); ++it)
+    {
+        if (names.count (*it) == 0)
+            jamtest::fail (__FILE__, __LINE__,
+                           "tagVocabulary.core names '" + *it
+                           + "', which is not a fixture. Membership must be "
+                             "fixture names, not scenario tags: the two "
+                             "namespaces only partly overlap.");
+    }
+    for (std::set<std::string>::const_iterator it = tagged.begin();
+         it != tagged.end(); ++it)
+    {
+        if (listed.count (*it) == 0)
+            jamtest::fail (__FILE__, __LINE__,
+                           "fixture '" + *it + "' carries the `core` tag but is "
+                           "absent from tagVocabulary.core");
+    }
+    for (std::set<std::string>::const_iterator it = listed.begin();
+         it != listed.end(); ++it)
+    {
+        if (tagged.count (*it) == 0)
+            jamtest::fail (__FILE__, __LINE__,
+                           "tagVocabulary.core lists '" + *it
+                           + "' which does not carry the `core` tag");
+    }
+
+    CHECK_EQ (tagged.size(), listed.size());
+    // SPEC 19 phrases its gates against "core fixtures"; a non-trivial,
+    // unambiguous denominator is the point.
+    CHECK_GE (static_cast<double> (tagged.size()), 10.0);
+
+    // A core fixture must be steady tempo, or "locked BPM relative error <=
+    // 2%" (SPEC 19) has no defined meaning on it.
+    for (std::size_t i = 0; i < c.fixtures.size(); ++i)
+    {
+        const Fixture& f = c.fixtures[i];
+        if (tagged.count (f.name) == 0)
+            continue;
+        CHECK (std::find (f.tags.begin(), f.tags.end(),
+                          std::string ("steady_tempo")) != f.tags.end());
+        // ...and its declared BPM must actually match its declared grid, which
+        // steadyFixturesMatchTheirDeclaredNominalBpm checks for every fixture.
+        CHECK (f.tempoProfile == "constant");
+    }
 }
 
 // ---------------------------------------------------------------------------

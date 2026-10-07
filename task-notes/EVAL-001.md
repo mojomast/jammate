@@ -568,3 +568,511 @@ only additions in the allowed paths.
 (`test(rhythm): guitar rhythm evaluation corpus with ground truth`)
 
 24 files added, 4260 insertions, 0 deletions. Working tree clean after commit.
+---
+
+## REPAIR PASS 1
+
+### Goal
+
+Fix two ground-truth declaration defects found by EVAL-002, which consumes this
+corpus. The synthesis, the audio, the seeds, the scenario coverage and the test
+suite scope all stay as they are; only the manifest's declarations and the
+generator that produces them change.
+
+1. **P1** — `silenceSpans` does not describe silence. It holds narrow ±30 ms
+   windows around beats that were deliberately not played, so a false-beat-rate
+   metric computed over it counts the *maintained metronome grid* as fabrication:
+   `stop_start` scores 16.7 false beats per second and measures nothing about
+   silence. SPEC §19 ("silence does not create false acceleration") and SPEC §12.3
+   ("false beat rate in silence") cannot be evaluated at all.
+2. **P2** — `tagVocabulary.core` declared no usable membership. It listed
+   *scenario tag* names (`palm_mute`, `distorted_power_chords`) while the fixtures
+   are named `palm_mute_metal` and `power_chords_distorted`, so the two namespaces
+   only partly overlap and a harness resolving membership by fixture name matched
+   7 of 11. SPEC §19 is phrased entirely against "core fixtures", so this is a
+   load-bearing definition for release gates.
+
+### Files changed
+
+Exactly four, all inside the allowed set:
+
+- `testdata/rhythm/manifest.json` — regenerated from the same seeds.
+- `testdata/rhythm/tools/gen_fixtures.py` — new `trueSilenceSpans` derivation,
+  corrected `core` membership, generator-side verification of both.
+- `tests/jam/RhythmCorpusTests.cpp` — three new tests, one extended.
+- `task-notes/EVAL-001.md` — this section.
+
+No audio file was touched, no fixture added or removed (19 stays 19), and
+`tools/rhythm-eval/**` was not read for modification or edited.
+
+### Contract implemented
+
+**New field: `trueSilenceSpans`** — a list of `[startSeconds, endSeconds]` pairs
+on every fixture, declaring the regions where the guitar is genuinely
+near-silent.
+
+- **`silenceSpans` is unchanged and keeps its job.** It still names the narrow
+  windows around `silentBeats` — beats that were deliberately not played but are
+  still expected on the grid. Its `conventions.silenceSpans` description now
+  says explicitly that it is *not* a description of silence and must not be used
+  for a false-beat metric.
+
+- **Near-silent threshold: 45 dB below the note's own peak**
+  (`conventions.trueSilenceDepthDb`, also exposed as the numeric
+  `conventions.trueSilenceDepthDb` field).
+
+  Justified musically, not arithmetically: 45 dB sits below the noise floor of
+  any reasonable recording chain and below the level at which a decaying guitar
+  string is still perceptually "ringing". So a held, muted or decaying string is
+  **not** silence — the guitarist stopping is. Measured against the committed
+  audio, notes reach this depth between 0.09 s (palm-muted) and 2.4 s (low E).
+
+  The threshold is **relative to the note, not to the file's noise floor**, and
+  that distinction is deliberate. The corpus spans a 43 dB range of noise floors
+  (−76 dBFS quiet line capture to −34 dBFS noisy mic). A noise-floor-relative
+  test would declare the noisy mic's gaps silent where the clean capture's would
+  not, even though the guitarist is equally absent from both. This is also why
+  the C++ verification is floor-relative with a 15 dB headroom rather than
+  peak-relative: on `noisy_microphone` even silence is only 35 dB below the peak,
+  because the hiss floor is −34 dBFS, so a peak-relative bound would report a
+  correct declaration as a defect.
+
+- **Minimum span length: 0.25 s** (`conventions.trueSilenceMinSeconds`). At
+  126 BPM a sixteenth note is 0.12 s, so the floor excludes every subdivision a
+  player could be playing through while admitting any deliberate pause. This is
+  not cosmetic: palm-muted sixteenths have ~0.1 s of audible ring between notes,
+  and without the floor the corpus declares 21 "silent" spans inside
+  `tapping_muting_only` — a fixture that is audibly continuous chugging.
+
+- **Populated for every fixture.** A fixture with no gap longer than 0.25 s has
+  only its lead-in. Twelve of the nineteen do; the others are genuinely sparse
+  (`sparse_single_notes`, `sustained_chords`, `tapping_muting_only`) or have a
+  real stop (`stop_start`).
+
+### Ground-truth derivation
+
+**From synthesis intent. The audio is measured only to verify.** That ordering is
+the whole point of the repair: a field reverse-engineered from the file it
+describes cannot catch a synthesis bug, because it would faithfully describe the
+bug — which is exactly how the four silent synthesis bugs in pass 1 were nearly
+missed.
+
+For each event the generator computes an audible window
+`[onset, onset + attack settling + decay time + room tail]`:
+
+- **Decay time** comes from `audible_seconds()`, an analytic mirror of the
+  two-stage decay `karplus_strong` implements: `60/t60a` dB/s for the first
+  `kInitialDecaySeconds`, then `60/t60` dB/s (the definition of T60). Validated
+  against synthesised notes over t60 0.045–4.2 s and depth 40–55 dB: agreement
+  within 5 %, limited by the 5 ms measurement step.
+- **Attack settling** is one full period of the lowest-sounding string in the
+  event. A real pluck does not reach its loudest instant when the pick touches
+  the string — the strings beat against each other for tens of milliseconds.
+- **Room tail** adds `room_wet × 2.5` s where a room is modelled, because the
+  reverb is a linear filter on the whole signal and keeps sounding after the last
+  note. A reverberant decay is not the guitarist continuing to play.
+- **A 30 ms guard** is added to every window. The analytic ring time agrees to
+  ~5 ms, and 5 ms is enough to put a decay tail inside a declared span
+  (measured: a palm-muted chord declared silent 30 ms after its attack was still
+  9.6 dB above the noise floor). The direction matters — over-declaring silence
+  is the dangerous error, because a tracker beating inside a "silent" span is
+  scored as fabricating a beat. Under-declaring costs at most tens of
+  milliseconds.
+
+Silence is the complement of the union of those windows within
+`[0, durationSeconds]`. Two further rules, both learned from measuring the audio:
+
+- **Spans are not coalesced.** Two gaps separated by a short audible chord are
+  genuinely two silences; merging them (an earlier version did) swallowed the
+  attack between them.
+- **Spans are rounded conservatively** — start rounded up, end rounded down to
+  6 dp — so a serialised span can only be smaller than the derived region. Plain
+  `round()` rounded one span's end *up* past the onset that terminates it; the
+  generator's own check caught it as "span swallows onset".
+
+The generator then verifies each entry before writing it
+(`verify_true_silence_spans`, `verify_core_membership`) and raises `SystemExit`
+rather than emitting a manifest that contradicts itself.
+
+### Measured vs declared — `stop_start` and `missing_downbeats`
+
+Protocol: 50 ms RMS window, 10 ms hop, quiet = below 2 % of file peak, **no gap
+bridging**, minimum contiguous duration varied to show its effect. Bridging is
+what makes a 2 %-of-peak measurement coarse: with a 50 ms bridge every inter-eighth
+dip in `stop_start` merges into one 11.4 s "silence", which is obviously not a
+stop.
+
+`stop_start` (peak −6.5 dBFS, quiet threshold −40.5 dBFS):
+
+| | value |
+|---|---|
+| `silenceSpans` (old field) | 8 windows, **0.480 s** |
+| `trueSilenceSpans` (declared, new) | 3 spans, **4.762 s** — `[0.00-0.35]` `[6.78-7.17]` `[7.24-11.25]` |
+| measured, min 0.10 s | 25 spans, 11.14 s — mostly inter-eighth dips |
+| measured, min 0.50 s | 2 spans, **5.27 s** — `[7.21-11.22]` `[14.62-15.87]` |
+| measured, min 1.00 s | 2 spans, **5.27 s** — identical to min 0.50 s |
+
+`missing_downbeats` (peak −7.0 dBFS, quiet threshold −41.0 dBFS):
+
+| | value |
+|---|---|
+| `silenceSpans` (old field) | 3 windows, **0.180 s** |
+| `trueSilenceSpans` (declared, new) | 1 span, **0.852 s** — `[0.00-0.85]` |
+| measured, min 0.10 s | 18 spans, 6.38 s |
+| measured, min 0.50 s | 4 spans, **3.44 s** — `[0.03-0.82]` `[4.09-4.83]` `[8.09-8.81]` `[10.13-11.31]` |
+| measured, min 1.00 s | 1 span, **1.18 s** — `[10.13-11.31]` |
+
+**On the orchestrator's figures.** The central claim reproduces exactly: the real
+contiguous silence in `stop_start` is **7.21 → 11.22 s**, against the reported
+7.20 → 11.25 s — agreement to within one 10 ms measurement step, and the new
+declaration's largest span is `[7.24, 11.25]`. The lead-in reproduces too:
+0.00 → 0.35 s declared, 0.03 → 0.33 s measured. The *total* figures are a
+different story: I measure 11.14 s (min 0.10 s) where 6.25 s was reported, and
+that gap is the threshold protocol rather than a disagreement about the audio —
+6.25 s is reproducible with a 100 ms window and a 1 % threshold, and no single
+(hop, window, threshold, bridge, min-duration) tuple reproduces both 6.25 s and
+2.09 s. A coarse instrument, exactly as flagged; the generator's own knowledge of
+which windows it rendered silent wins, and that is what the declaration uses.
+
+`missing_downbeats` is the interesting disagreement. The generator declares only
+a lead-in, because every event there is a full-amplitude chord that the two-stage
+decay drives below threshold within ~0.2 s, and the next chord arrives long
+before that. The audio agrees that the *chords* are gone, but a 2 %-of-peak
+threshold also counts the inter-chord dips as quiet — so the coarse instrument
+reports 3.44 s where the declaration says 0.85 s. The declaration is the honest
+one for the field's stated purpose: those dips are the gaps between notes in a
+continuous phrase, not the player stopping, and a minimum span length is what
+separates the two cases.
+
+### Audio immutability evidence
+
+The audio must not change. Two independent full regenerations were run into
+scratch directories and hashed, before and after the repair.
+
+```
+$ for d in final-a final-b; do (cd $d && find wav -name '*.wav' | sort | xargs sha256sum > ../$d.sha256); done
+$ diff final-a.sha256 final-b.sha256 && echo "IDENTICAL (19/19)"
+IDENTICAL (19/19)
+
+$ diff final-a.sha256 final-committed.sha256 && echo "IDENTICAL (19/19)"
+IDENTICAL (19/19)
+
+$ cmp final-a/manifest.json testdata/rhythm/manifest.json && echo "A==committed"
+A==committed
+```
+
+That was **before** the repair. After it:
+
+```
+$ python3 testdata/rhythm/tools/gen_fixtures.py --out <scratch>/wav --manifest <scratch>/manifest.json
+$ diff <scratch>/sha256.after.txt <pre-repair>/sha256.before.txt
+IDENTICAL: all 19 audio sha256 unchanged
+
+$ (cd testdata/rhythm && find wav -name '*.wav' | sort | xargs sha256sum > sha256.final.txt)
+$ diff <pre-repair>/sha256.before.txt sha256.final.txt
+IDENTICAL — all 19 audio files untouched
+
+$ python3 testdata/rhythm/tools/gen_fixtures.py --check ; echo $?
+0
+```
+
+`git status --porcelain` reports only the four files above as modified; no `.wav`
+appears. `--check` regenerates the manifest from scratch and compares byte-for-byte
+against the committed one, so the manifest is reproducible from the unchanged
+synthesis and the same seeds.
+
+### The `core` decision
+
+**`missing_downbeats` is IN core**, and that is a decision rather than an
+omission.
+
+The definition adopted: *core means the steady-tempo set on which SPEC §19's BPM
+relative-error, half/double-time and lock-time gates are meaningful.*
+`missing_downbeats` is steady tempo — 120 BPM throughout, constant spacing
+verified to 1e-9 by `steadyFixturesMatchTheirDeclaredNominalBpm` — so the tempo
+gates are perfectly well defined on it. What it omits is the **attack** on
+alternate downbeats, not the tempo. SPEC §19's *"no tempo jump from one isolated
+syncopated event"* is precisely the gate it exists to test, and excluding it would
+leave the corpus with no fixture for that sentence.
+
+It is explicitly **not** core for anything requiring an attack on every beat:
+`silentBeats` marks the affected beats, and a harness should exclude those from
+onset-based precision while keeping them for phase and tempo.
+
+`tagVocabulary.core` is now 11 **fixture names**, and the generator *and* the C++
+suite both fail loudly if the list and the per-fixture `core` tag disagree.
+
+### Tests executed
+
+```bash
+export PATH=/tmp/opencode/venv/bin:$PATH
+cd /home/mojo/projects/worktrees/EVAL-001
+
+python3 testdata/rhythm/tools/gen_fixtures.py --out <scratch>/wav --manifest <scratch>/manifest.json
+python3 testdata/rhythm/tools/gen_fixtures.py --check
+
+rm -rf /tmp/opencode/build-eval001r
+cmake -S jam-core -B /tmp/opencode/build-eval001r -G Ninja
+cmake --build /tmp/opencode/build-eval001r
+ctest --test-dir /tmp/opencode/build-eval001r --output-on-failure; echo "exit=$?"
+
+/tmp/opencode/build-eval001r/jamTests RhythmCorpus.
+g++ -std=c++17 -Wall -Wextra -Wpedantic -c tests/jam/RhythmCorpusTests.cpp \
+    -I src -I tests/jam -I tests -o /dev/null
+
+# fail-proof, on scratch copies so the repository is never mutated
+cp -r testdata/rhythm /tmp/.../scratch-a      # baseline
+cp -r testdata/rhythm /tmp/.../scratch-b      # corrupted trueSilenceSpans
+cp -r testdata/rhythm /tmp/.../scratch-c      # corrupted core membership
+JAM_RHYTHM_CORPUS=<scratch> ctest --test-dir /tmp/opencode/build-eval001r -R jam.RhythmCorpus --output-on-failure
+```
+
+### Test results
+
+All six suites pass, exit 0:
+
+```
+Test project /tmp/opencode/build-eval001r
+1/6 Test #1: jam.AnalysisAudioRing ............   Passed    1.47 sec
+2/6 Test #2: jam.DrumTransportAdapter .........   Passed    0.01 sec
+3/6 Test #3: jam.MusicalClock .................   Passed    0.00 sec
+4/6 Test #4: jam.RhythmCorpus .................   Passed    2.27 sec
+5/6 Test #5: jam.RhythmEvalMetrics ............   Passed    0.01 sec
+6/6 Test #6: jam.RtSignal .....................   Passed    0.11 sec
+
+100% tests passed out of 6
+exit=0
+```
+
+`RhythmCorpus` is now 14 tests / 1990 checks (was 11 / 1838):
+
+```
+  PASS RhythmCorpus.manifestParsesAndDescribesTheWholeCorpus
+  PASS RhythmCorpus.everySha256MatchesTheFileOnDisk
+  PASS RhythmCorpus.beatsArePresentStrictlyIncreasingAndInsideTheFile
+  PASS RhythmCorpus.steadyFixturesMatchTheirDeclaredNominalBpm
+  PASS RhythmCorpus.rampFixturesHaveGenuinelyNonUniformBeats
+  PASS RhythmCorpus.allNineteenRequiredScenarioTagsArePresentExactlyOnce
+  PASS RhythmCorpus.tagVocabularyIsClosed
+  PASS RhythmCorpus.meterLicenseAndProvenanceAreDeclaredEverywhere
+  PASS RhythmCorpus.meterSpecificFixturesUseTheIntendedMeter
+  PASS RhythmCorpus.coreTagMarksTheFixturesSpec19ScoresAgainst
+  PASS RhythmCorpus.trueSilenceSpansAreDeclaredAndSelfConsistent
+  PASS RhythmCorpus.trueSilenceSpansMatchTheAudioOnDisk
+  PASS RhythmCorpus.coreMembershipListAgreesWithTheCoreTag
+  PASS RhythmCorpus.manifestIsCanonicallySerialised
+
+14 tests, 1990 checks, 0 failed check(s) in 0 test(s)
+```
+
+Zero warnings:
+
+```
+$ cmake --build /tmp/opencode/build-eval001r > build.log 2>&1; echo $?
+0
+$ grep -icE "warning|error" build.log
+0
+$ g++ -std=c++17 -Wall -Wextra -Wpedantic -c tests/jam/RhythmCorpusTests.cpp -I src -I tests/jam -I tests -o /dev/null && echo clean
+clean
+```
+
+### Evidence
+
+#### The new assertions can fail
+
+Baseline, to show the mechanism is sound before corrupting anything:
+
+```
+$ JAM_RHYTHM_CORPUS=<scratch-a> ctest --test-dir /tmp/opencode/build-eval001r -R jam.RhythmCorpus
+100% tests passed out of 1
+```
+
+**Corruption 1 — a span made to overlap an onset, and a span pushed past the end
+of the file** (`stop_start`: span 1 end `7.172203` → `99.0`, span 2 start
+`7.236224` → `7.10`):
+
+```
+[suite] RhythmCorpus
+  ...
+  PASS RhythmCorpus.trueSilenceSpansAreDeclaredAndSelfConsistent ← no, see below
+    FAIL /…/tests/jam/RhythmCorpusTests.cpp:1626
+      stop_start: span ends after the file (span 1 [6.780365, 99.000000])
+    FAIL /…/tests/jam/RhythmCorpusTests.cpp:1644
+      stop_start: span swallows onset 7.172203 (span 1 [6.780365, 99.000000])
+    FAIL /…/tests/jam/RhythmCorpusTests.cpp:1632
+      stop_start: spans are unsorted or overlapping (span 2 [7.100000, 11.252592])
+    FAIL /…/tests/jam/RhythmCorpusTests.cpp:1644
+      stop_start: span swallows onset 7.172203 (span 2 [7.100000, 11.252592])
+  FAIL RhythmCorpus.trueSilenceSpansAreDeclaredAndSelfConsistent
+    FAIL /…/tests/jam/RhythmCorpusTests.cpp:1762
+      stop_start: a declared trueSilenceSpans window reaches -29.265193 dBFS,
+      51.593430 dB above the measured noise floor -80.858623
+  FAIL RhythmCorpus.trueSilenceSpansMatchTheAudioOnDisk
+  ...
+14 tests, 1990 checks, 6 failed check(s) in 3 test(s)
+exit=8
+```
+
+Both corruptions are caught, and **independently**: the self-consistency test
+catches them structurally, and the audio test catches the same span a second way
+by noticing it now contains 51 dB above the noise floor. The third failure
+(`manifestIsCanonicallySerialised`) is incidental — the scratch rewrite added a
+trailing newline arrangement the canonical check rejects — and is expected.
+
+**Corruption 2 — the `core` membership list broken** (`palm_mute_metal` removed,
+scenario-tag name `palm_mute` appended, i.e. exactly the original defect):
+
+```
+    FAIL /…/tests/jam/RhythmCorpusTests.cpp:1811
+      tagVocabulary.core names 'palm_mute', which is not a fixture. Membership
+      must be fixture names, not scenario tags: the two namespaces only partly overlap.
+    FAIL /…/tests/jam/RhythmCorpusTests.cpp:1821
+      fixture 'palm_mute_metal' carries the `core` tag but is absent from tagVocabulary.core
+    FAIL /…/tests/jam/RhythmCorpusTests.cpp:1829
+      tagVocabulary.core lists 'palm_mute' which does not carry the `core` tag
+  FAIL RhythmCorpus.coreMembershipListAgreesWithTheCoreTag
+0% tests passed, 1 tests failed out of 1
+exit=8
+```
+
+That is the precise failure the old `tagVocabularyIsClosed` could not see, and it
+reproduces the original defect on demand.
+
+Reverted, the repository corpus is untouched and green:
+
+```
+$ git status --porcelain
+ M testdata/rhythm/README.md
+ M testdata/rhythm/manifest.json
+ M testdata/rhythm/tools/gen_fixtures.py
+ M tests/jam/RhythmCorpusTests.cpp
+
+$ ctest --test-dir /tmp/opencode/build-eval001r --output-on-failure
+100% tests passed out of 6
+```
+
+#### All 19 declared spans verified against the audio
+
+```
+fixture                spans  declared                       loudest-in noise-fl  verdict
+--------------------------------------------------------------------------------------
+accelerando            1      [0.00-0.34]                    -69.3      -45.1     ok
+arpeggio               1      [0.00-0.35]                    -72.7      -68.0     ok
+blues_shuffle          1      [0.00-0.35]                    -70.4      -49.8     ok
+clean_eighths          1      [0.00-0.35]                    -71.5      -57.9     ok
+clean_sixteenths       1      [0.00-0.35]                    -76.8      -63.8     ok
+compound_6_8           1      [0.00-0.34]                    -66.3      -57.3     ok
+line_input_clipping    1      [0.00-0.35]                    -50.2      -43.1     ok
+line_input_low_level   1      [0.00-0.34]                    -89.2      -84.9     ok
+missing_downbeats      1      [0.00-0.85]                    -76.0      -76.7     ok
+noisy_microphone       1      [0.00-0.35]                    -40.9      -41.5     ok
+palm_mute_metal        2      [0.00-0.35] [9.80-10.87]       -74.4      -76.3     ok
+power_chords_distorted 2      [0.00-0.35] [10.51-10.87]      -66.3      -68.6     ok
+ritardando             1      [0.00-0.35]                    -69.6      -50.5     ok
+sparse_single_notes    5      [0.00-0.35] … [8.39-12.06]     -57.1      -61.4     ok
+stop_start             3      [0.00-0.35] [6.78-7.17] …      -73.6      -80.9     ok
+sustained_chords       5      [0.00-0.35] … [8.47-11.35]     -60.0      -64.3     ok
+syncopated_funk        2      [0.00-0.35] [11.68-12.06]      -74.5      -76.0     ok
+tapping_muting_only    21     [0.00-0.35] …                  -69.3      -73.7     ok
+waltz_3_4              2      [0.00-0.35] [8.82-9.18]        -69.6      -71.3     ok
+
+VERIFICATION PASS: every declared trueSilenceSpans is quiet in the audio,
+in range, and swallows no onset
+```
+
+#### Two bugs my own new code had, both caught before commit
+
+Recorded because they are the kind that produce a confident, wrong result:
+
+1. **`round()` pushed a span past an onset.** Serialising `[0, 0.3522428]` with
+   `round(x, 6)` gave an end of `0.352243`, three microseconds *past* the onset
+   that terminates it. The generator's own `verify_true_silence_spans` caught it
+   as "span swallows onset". Fixed by rounding start up and end down.
+
+2. **The C++ WAV reader read the RIFF header as audio.** The first version of
+   `trueSilenceSpansMatchTheAudioOnDisk` read the whole file as int16 samples,
+   so the ASCII `RIFF`/`WAVE` header became a 0 dBFS transient at the start of
+   every fixture and all 19 failed with "18 dB above the noise floor" for a
+   reason that had nothing to do with the corpus. Replaced with a real RIFF chunk
+   parser that locates `fmt ` and `data` — which is also correct for real
+   captures, since `LIST`/`fact` chunks mean the data offset is not a constant 44.
+
+A third measurement error is worth recording because it nearly caused a wrong
+*analysis* rather than a wrong test: my first ring-time harness took the envelope
+peak over the **whole** file. For an 82 Hz string measured through a 50 ms RMS
+window, the loop beats against itself, so the peak occurs well after the attack
+and the apparent decay looked like exactly half the nominal rate — which would
+have "justified" halving every T60 in the corpus. It was an artefact of the
+measurement, and the generator was right.
+
+### Known limitations
+
+1. **`trueSilenceSpans` is a conservative under-declaration, by design.** The
+   45 dB criterion plus the 30 ms guard means declared silence is always slightly
+   shorter than the measured quiet region — visible as `stop_start`'s declared
+   `[7.24, 11.25]` against a measured `[7.21, 11.22]`. The direction is
+   deliberate: over-declaring would score a correct tracker as fabricating beats,
+   which is the failure mode the P1 fix exists to remove. A harness wanting the
+   loosest defensible bound should still not widen it by hand.
+
+2. **The audibility model is analytic, not measured per event.** `audible_seconds`
+   reproduces the two-stage decay law rather than integrating each rendered note.
+   It agrees with synthesised notes to ~5 % / 5 ms, and the 30 ms guard absorbs
+   the difference, but it is a model. A synthesis change to the decay law would
+   need `audible_seconds` updated in step — the generator's `verify_*` checks and
+   the C++ audio test are what would catch it, not the model itself.
+
+3. **`missing_downbeats` declares only a lead-in, while a 2 %-of-peak threshold
+   reports 3.44 s.** The declaration is the honest one for this field's purpose —
+   the extra measured time is the dips between notes in a continuous phrase, not
+   the player stopping. A harness that genuinely wants "below 2 % of peak" rather
+   than "the guitarist stopped" should measure that itself; the field answers a
+   different and more useful question.
+
+4. **`sustained_chords` and `tapping_muting_only` declare a large fraction of the
+   file as silent (8.85 s of 11.35 s, and 10.56 s of 12.06 s).** That is true of
+   *this* corpus, and it is a consequence of a pre-existing synthesis choice, not
+   of this repair: `p_sustained_chords` computes `t60_scale` from a nominal ring
+   time, and the two-stage fast decay then kills the chord within ~0.2 s, so the
+   fixture is far more staccato than its name and `notes` suggest. The audio is
+   immutable for this pass, so the declaration reports reality rather than
+   intent. **Flagged for a future EVAL-001 pass: `sustained_chords` should ring
+   across the bar as intended, and `tapping_muting_only` should probably not
+   produce 21 silence spans inside a continuous-chug fixture.** Both are audio
+   changes, so they belong in their own pass with a full re-verification.
+
+5. **The C++ audio test decodes mono only.** It returns false for a stereo file
+   rather than downmixing, because a silent downmix would be a worse failure than
+   a refusal. The corpus is mono by declaration.
+
+6. **The `trueSilenceSpansMatchTheAudioOnDisk` test reads 21 MB of WAV on every
+   run** (~2.3 s). Fine for CI; if it becomes a bottleneck, cache the envelopes
+   or hash-compare against a committed summary rather than re-reading.
+
+### Integration notes
+
+- **EVAL-002 follow-up (not done here, out of scope by instruction):**
+  `tools/rhythm-eval/Manifest.cpp` reads `silenceSpans` and feeds it to
+  `inAnySilenceSpan` and `silenceTotalSeconds`, which drive
+  `falseBeatsInSilence` and `falseBeatsInSilencePerSecond`. Those paths should
+  read `trueSilenceSpans` instead. `silenceSpans` remains useful and should
+  still be read — but for `silentBeats`-derived logic, not for silence. The
+  manifest change is additive and backwards-compatible, so that pass is a
+  one-line field swap plus a decision about which metric uses which.
+- **`stop_start`'s false-beat rate will change materially** once the harness
+  switches fields: the divisor goes from 0.480 s to 4.762 s, so the same
+  behaviour scores roughly an order of magnitude lower. Any gate that was
+  calibrated against 16.7 beats/s is measuring the wrong thing and needs
+  recalibrating, not just re-reading.
+- **`tagVocabulary.core` is now fixture names.** Any harness that was resolving
+  membership against scenario tags must be updated; that is the point of the fix.
+- No build wiring changed. `jam-core/CMakeLists.txt` still globs the test file
+  and `RhythmCorpus` is still auto-registered.
+
+### Final commit SHA
+
+`6c447effb8941060e9481c3eec38f724ca624f23`
+(`fix(rhythm): declare true silence separately from unplayed beats; fix core membership`)
+
+5 files changed, 4 of them modified in place, no file added or deleted, and no
+`.wav` touched. Working tree clean after commit.

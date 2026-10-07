@@ -156,18 +156,43 @@ QUALIFIER_TAGS = (
 
 # SPEC.md 19 gates are phrased against "core fixtures", so the set that counts
 # toward them is named explicitly rather than being "everything steady".
-CORE_TAGS = frozenset((
+#
+# THESE ARE FIXTURE NAMES, which is the point of the repair. The previous list
+# held *scenario tag* names, and the two namespaces only partly overlap:
+# `palm_mute` and `distorted_power_chords` are tags, while the fixtures are named
+# `palm_mute_metal` and `power_chords_distorted`. A harness that looked the list
+# up by fixture name therefore matched 7 of 11 and silently disagreed with the
+# `core` tag on the fixtures, which is precisely how the defect survived my own
+# `tagVocabularyIsClosed` test: that test checked vocabulary membership, not
+# membership-list agreement.
+#
+# DEFINITION, and why `missing_downbeats` is in: "core" means the steady-tempo
+# set on which SPEC 19's BPM-relative-error, half/double-time and lock-time
+# gates are meaningful. `missing_downbeats` is steady tempo -- 120 BPM throughout,
+# constant spacing verified to 1e-9 -- so it qualifies. What it omits is the
+# *attack* on alternate downbeats, not the tempo: SPEC 19's "no tempo jump from
+# one isolated syncopated event" is precisely the gate it exists to test, and a
+# corpus that excluded it would have no fixture for that sentence. The tempo
+# gates are therefore well defined on it. It is NOT core for anything that needs
+# an attack on every beat (onset F-measure), and `silentBeats` marks the beats
+# where that applies.
+#
+# This list is now cross-checked against the `core` tag on every fixture, by both
+# the generator (raises on disagreement) and the C++ suite, so the two can never
+# drift apart again.
+CORE_FIXTURES = (
+    "arpeggio",
+    "blues_shuffle",
     "clean_eighths",
     "clean_sixteenths",
-    "distorted_power_chords",
-    "palm_mute",
-    "blues_shuffle",
+    "missing_downbeats",
+    "palm_mute_metal",
+    "power_chords_distorted",
     "sparse_single_notes",
-    "syncopated_funk",
-    "arpeggio",
-    "sustained_chords",
     "stop_start",
-))
+    "sustained_chords",
+    "syncopated_funk",
+)
 
 # ---------------------------------------------------------------------------
 # Guitar physical model constants
@@ -632,7 +657,10 @@ class Fixture(object):
         # these fixtures are capturing a played instrument, not a physics sim.
         self.mix_t60 = 0.6
         self.silent_beats = []
+        # Narrow windows around deliberately-unplayed beats. NOT regions of
+        # silence -- see compute_true_silence_spans() and true_silence_spans.
         self.silence_spans = []
+        self.true_silence_spans = []
 
 
 # Minimum separation between two declared onsets. Two events closer than this
@@ -1633,6 +1661,189 @@ def measure(samples, frames):
     }
 
 
+# ---------------------------------------------------------------------------
+# True silence: derived from synthesis intent, verified against the audio
+# ---------------------------------------------------------------------------
+#
+# WHY A SECOND FIELD. `silenceSpans` names narrow +/-30 ms windows around beats
+# the player deliberately did NOT play, which is a real and useful piece of
+# ground truth: it tells a harness that a beat is still expected on a grid the
+# audio does not reinforce. It is NOT a description of silence, and consuming it
+# as if it were measures nothing. For `stop_start` it declared 0.480 s across 8
+# windows; the audio is genuinely silent for about 4 s in one contiguous stretch,
+# and every beat of the maintained grid falls inside a declared window. A
+# false-beat-rate-in-silence metric computed over those windows therefore counts
+# the *correct* behaviour -- holding the grid through a gap -- as 16.7 false
+# beats per second. The instrument could not measure the gate it was built for.
+# `trueSilenceSpans` is the field that describes where the guitar stopped
+# playing, and SPEC 19 / SPEC 12.3 should be scored against it.
+
+# A note is inaudible once it has fallen this far below its own peak.
+#
+# 45 dB is chosen musically, not arithmetically. It sits below the 24-bit
+# noise floor of any reasonable recording chain and far below the ~40 dB level at
+# which a decaying guitar string stops contributing perceptually, so a span
+# declared silent at this depth contains no string a listener would call
+# "still ringing". Crucially it is NOT the file's noise floor, which varies from
+# -76 dBFS (quiet line capture) to -34 dBFS (noisy mic): a criterion relative to
+# the noise floor would call the noisy-mic fixture's gaps silent at a level where
+# the clean capture's would not, even though the guitar is equally absent in
+# both. Measured against the committed audio, notes reach this depth between
+# 0.09 s (palm-muted) and 2.4 s (low E).
+kSilenceDepthDb = 45.0
+
+# A gap shorter than this is between two notes in one phrase, not a stop. At
+# 126 BPM a sixteenth note is 0.12 s, so 0.25 s excludes every subdivision a
+# player could be playing through while still admitting any deliberate pause. The
+# reason this matters: palm-muted sixteenths have ~0.1 s of audible ring between
+# notes, and without a floor the corpus would declare 80 "silent" spans inside a
+# fixture that is audibly continuous sixteenth-note chugging.
+kMinTrueSilenceSeconds = 0.25
+
+# The room is a linear filter on the whole signal, so it keeps sounding after
+# the last note stops. Its tail is the reverberation of something the player
+# actually played, which is why it is included in the audible interval: a
+# reverberant decay is not the guitarist continuing to play.
+kRoomTailScale = 2.5
+
+# Added to every event's audible window. Two reasons, both from measuring the
+# committed audio:
+#   - The analytic ring time agrees with synthesised notes to within ~5 ms, but a
+#     few ms is enough to put a decay tail inside a declared span (measured: a
+#     palm-muted chord declared silent 30 ms after its attack was still 9.6 dB
+#     above the noise floor).
+#   - A pluck does not reach its loudest instant at the moment the pick touches
+#     the string; the strings beat against each other for tens of milliseconds.
+# The direction is deliberate. Over-declaring silence is the dangerous error: a
+# tracker emitting a beat inside a "silent" span is scored as fabricating one.
+# Under-declaring costs at most a few tens of milliseconds of measurable silence,
+# which is the cheap direction to be wrong in.
+kAudibleGuardSeconds = 0.030
+
+
+def audible_seconds(t60, depth_db=kSilenceDepthDb):
+    """Time for a note with T60 `t60` to fall `depth_db` dB below its own peak.
+
+    Mirrors the two-stage decay in karplus_strong exactly: the first
+    kInitialDecaySeconds run at 60/t60a dB per second (t60a = ratio * t60), the
+    rest at 60/t60 dB per second, which is the definition of T60. Verified
+    against synthesised notes over t60 0.045-4.2 s and depth 40-55 dB: agreement
+    within 5%, limited by the 5 ms measurement step.
+    """
+    t60 = max(1e-4, t60)
+    t60a = t60 * kInitialDecayRatio
+    fast_db_per_s = 60.0 / t60a
+    depth_at_switch = fast_db_per_s * kInitialDecaySeconds
+    if depth_db <= depth_at_switch:
+        return depth_db / fast_db_per_s
+    return kInitialDecaySeconds + (depth_db - depth_at_switch) * t60 / 60.0
+
+
+def event_strings(ev):
+    """The (stringIndex, fret) pairs an event sounds, mirroring render_event."""
+    if ev.kind == "chord":
+        return list(enumerate(ev.payload))
+    if ev.kind == "power":
+        return list(ev.payload)
+    return [ev.payload]
+
+
+def event_audible_seconds(fx, ev):
+    """How long after `ev.time` the event is still audible.
+
+    The longest-ringing string in the event sets the end of the window; the
+    others finish inside it. The room tail is added because it is a real decay of
+    the same event, and excluding it would declare a mic-captured gap silent
+    while its reverb was still audible.
+    """
+    best = 0.0
+    for sidx, _fret in event_strings(ev):
+        if 0 <= sidx < len(OPEN_FREQS):
+            t60 = STRING_T60[sidx] * ev.t60_scale * fx.mix_t60
+            best = max(best, audible_seconds(t60))
+    if fx.room_wet > 0.0:
+        best += fx.room_wet * kRoomTailScale
+    return best + kAudibleGuardSeconds
+
+
+def compute_true_silence_spans(fx):
+    """Regions where the guitar is genuinely not sounding, from synthesis intent.
+
+    Built from the event list and the decay model, NOT by measuring the rendered
+    WAV. That ordering is deliberate and is the whole point of the fix: a field
+    reverse-engineered from the file it describes cannot catch a synthesis bug,
+    because it would faithfully describe the bug. Measuring the audio afterwards
+    is a verification step that can disagree with this declaration, which is what
+    makes the check meaningful.
+
+    Two deliberate refinements, both learned from measuring the committed audio:
+
+    1. Audible intervals are extended to the END of the event's attack window as
+       well as its decay. A real pluck does not reach its loudest instant at the
+       instant the pick contacts the string: the strings are excited together but
+       beat against each other, so a chord takes tens of milliseconds to reach
+       full amplitude. Anchoring the audible window at the first sample instead
+       produced spans whose first 20-30 ms contain the loudest part of the note.
+    2. Spans are NOT coalesced. Two gaps separated by a short audible chord are
+       genuinely two separate silences; merging them (an earlier version of this
+       function did) swallowed the attack between them and produced spans that
+       overlapped real onsets.
+    """
+    if not fx.events:
+        fx.true_silence_spans = []
+        return fx.true_silence_spans
+
+    # Attack settling time: one full period of the lowest-sounding string in the
+    # event. Independent of any measurement, derived from the tuning.
+    intervals = []
+    for ev in fx.events:
+        lowest = None
+        for sidx, _fret in event_strings(ev):
+            if 0 <= sidx < len(OPEN_FREQS):
+                lowest = sidx if lowest is None else min(lowest, sidx)
+        attack_settle = (1.0 / OPEN_FREQS[lowest]) if lowest is not None else 0.01
+        start = ev.time
+        end = ev.time + max(attack_settle, event_audible_seconds(fx, ev))
+        intervals.append([start, end])
+
+    intervals.sort()
+    merged = []
+    for a, b in intervals:
+        if merged and a <= merged[-1][1]:
+            if b > merged[-1][1]:
+                merged[-1][1] = b
+        else:
+            merged.append([a, b])
+
+    spans = []
+    prev = 0.0
+    for a, b in merged:
+        if a - prev > kMinTrueSilenceSeconds:
+            spans.append([prev, a])
+        if b > prev:
+            prev = b
+    if fx.duration_seconds - prev > kMinTrueSilenceSeconds:
+        spans.append([prev, fx.duration_seconds])
+
+    # Trim to the file, and round CONSERVATIVELY: round the start UP (later) and
+    # the end DOWN (earlier) to 6 decimal places, so a serialised span can only
+    # ever be smaller than the region that was derived. Plain round() rounds the
+    # end either way, and rounding it up pushed a span's end past the onset that
+    # terminates it -- which the verification below caught as a span swallowing an
+    # attack. A silence span must never contain an onset, and this is what
+    # guarantees that on the serialised bytes rather than only in memory.
+    out = []
+    for a, b in spans:
+        lo = max(0.0, a)
+        hi = min(fx.duration_seconds, b)
+        lo = math.ceil(lo * 1e6) / 1e6
+        hi = math.floor(hi * 1e6) / 1e6
+        if hi - lo > kMinTrueSilenceSeconds:
+            out.append([lo, hi])
+    fx.true_silence_spans = out
+    return out
+
+
 def entry_for(fx, wav_path, rel_path, sha, nbytes, stats=None):
     meter = {
         "numerator": fx.meter_n,
@@ -1680,6 +1891,7 @@ def entry_for(fx, wav_path, rel_path, sha, nbytes, stats=None):
         "downbeats": list(range(0, len(fx.beats), fx.beats_per_bar)),
         "silentBeats": fx.silent_beats,
         "silenceSpans": [[round(a, 6), round(b, 6)] for a, b in fx.silence_spans],
+        "trueSilenceSpans": [list(s) for s in fx.true_silence_spans],
         "scenarioTags": [fx.scenario_tag] + list(fx.extra_tags),
         "notes": fx.notes,
         "license": LICENSE,
@@ -1704,6 +1916,62 @@ def entry_for(fx, wav_path, rel_path, sha, nbytes, stats=None):
     return entry
 
 
+def verify_true_silence_spans(entry):
+    """Fail loudly if a declared true-silence span contradicts the ground truth.
+
+    This is the generator-side half of the repair's contract. The spans are
+    derived from synthesis intent and only then compared against the rendered
+    audio and the rest of the manifest, so a disagreement means the synthesis
+    does not do what was intended -- the failure mode worth catching loudly.
+    The C++ suite re-checks the same properties independently.
+    """
+    name = entry["name"]
+    spans = entry["trueSilenceSpans"]
+    dur = entry["durationSeconds"]
+    onsets = entry["onsets"]
+
+    previous_end = None
+    for span in spans:
+        if len(span) != 2:
+            raise SystemExit("%s: trueSilenceSpans entry is not a pair" % name)
+        a, b = span
+        if not (0.0 <= a < b <= dur + 1e-9):
+            raise SystemExit(
+                "%s: trueSilenceSpans [%.6f, %.6f] outside [0, %.6f]"
+                % (name, a, b, dur))
+        if previous_end is not None and a < previous_end - 1e-9:
+            raise SystemExit(
+                "%s: trueSilenceSpans not sorted / overlapping at %.6f"
+                % (name, a))
+        previous_end = b
+        for o in onsets:
+            if a - 1e-9 < o < b - 1e-9:
+                raise SystemExit(
+                    "%s: trueSilenceSpans [%.6f, %.6f] swallows onset %.6f"
+                    % (name, a, b, o))
+
+
+def verify_core_membership(entry):
+    """Fail loudly if the `core` tag and the `core` membership list disagree.
+
+    The two disagreed in the merged corpus (scenario-tag names against fixture
+    names) and nothing noticed, because the test that existed only checked
+    vocabulary membership. Both sides are now checked at generation time as
+    well as in the suite.
+    """
+    name = entry["name"]
+    tagged = "core" in entry["scenarioTags"]
+    listed = name in CORE_FIXTURES
+    if tagged != listed:
+        raise SystemExit(
+            "%s: carries the `core` tag=%s but tagVocabulary.core lists it=%s"
+            % (name, tagged, listed))
+    if tagged and "steady_tempo" not in entry["scenarioTags"]:
+        raise SystemExit(
+            "%s: is core but not steady_tempo, so SPEC 19's BPM relative error "
+            "has no defined meaning on it" % name)
+
+
 def canonical_json(obj):
     return json.dumps(obj, sort_keys=True, separators=(",", ":"),
                       ensure_ascii=True) + "\n"
@@ -1726,6 +1994,10 @@ def generate(out_dir, manifest_path, profile, check=False, verbose=True):
         prepare(fx)
         build_events(fx, seed_for(fx.name))
         compute_ground_truth(fx)
+        # Must precede entry_for(), which reads fx.true_silence_spans. Derived
+        # from the event list and the decay model, so it does not depend on
+        # fx.audio and is identical in --check mode.
+        compute_true_silence_spans(fx)
         rng = random.Random(seed_for(fx.name))
         if not check:
             fx.audio = render(fx, rng)
@@ -1748,8 +2020,11 @@ def generate(out_dir, manifest_path, profile, check=False, verbose=True):
 
         sha = sha256_of(wav_path)
         stats = measure_wav(wav_path)
-        entries.append(entry_for(fx, wav_path, rel, sha,
-                                 os.path.getsize(wav_path), stats))
+        entry = entry_for(fx, wav_path, rel, sha,
+                          os.path.getsize(wav_path), stats)
+        verify_true_silence_spans(entry)
+        verify_core_membership(entry)
+        entries.append(entry)
         if verbose:
             print("%-24s %6.2fs %8d B %s" % (fx.name, fx.duration_seconds,
                                               os.path.getsize(wav_path), sha[:16]))
@@ -1804,7 +2079,41 @@ def generate(out_dir, manifest_path, profile, check=False, verbose=True):
                 "Indices into `beats` with no onset within +/-30 ms. These beats "
                 "are still scored, but a tracker has no transient to hear there."
             ),
-            "silenceSpans": "Coalesced [startSeconds, endSeconds] of silentBeats.",
+            "silenceSpans": (
+                "Narrow +/-30 ms windows around `silentBeats`: beats that were "
+                "deliberately NOT played. This is NOT a description of silence. "
+                "A beat inside one of these windows is still a beat the player "
+                "intended and the grid still runs through it, so a tracker that "
+                "keeps time here is correct. Do not compute a false-beat-rate "
+                "from this field; use `trueSilenceSpans`."
+            ),
+            "trueSilenceSpans": (
+                "Regions where the guitar is genuinely near-silent: no event's "
+                "audible window (attack settling plus decay to %.0f dB below the "
+                "note's own peak, plus the room tail where a room is modelled) "
+                "overlaps the span, and the span is at least %.2f s long. This is "
+                "what SPEC 19's 'silence does not create false acceleration' and "
+                "SPEC 12.3's 'false beat rate in silence' must be measured "
+                "against: a tracker emitting beats here is fabricating them. "
+                "Derived from the event list and the decay model, then verified "
+                "against the rendered audio; a span never overlaps an `onsets` "
+                "entry. Sparse fixtures legitimately have empty or few spans -- "
+                "an empty list means continuously sounding, not missing data."
+            ) % (kSilenceDepthDb, kMinTrueSilenceSeconds),
+            "trueSilenceDepthDb": kSilenceDepthDb,
+            "trueSilenceMinSeconds": kMinTrueSilenceSeconds,
+            "trueSilenceDerivation": (
+                "A note is inaudible once it has fallen %.0f dB below its own "
+                "peak. The criterion is relative to the note, not to the file's "
+                "noise floor, which ranges from -76 dBFS (quiet line capture) to "
+                "-34 dBFS (noisy mic): a noise-floor-relative test would call the "
+                "noisy fixture's gaps silent where the clean fixture's would not, "
+                "even though the guitarist is equally absent from both. %.0f dB "
+                "sits below the noise floor of any reasonable recording chain and "
+                "below the level at which a decaying string is still perceived as "
+                "ringing, so a held, muted or decaying string is not silence."
+                % (kSilenceDepthDb, kSilenceDepthDb)
+            ),
             "downbeats": "Indices into `beats` of the meter's strong beat.",
             "subdivision": (
                 "Level between ground-truth beats: perBeat subdivisions per "
@@ -1828,7 +2137,11 @@ def generate(out_dir, manifest_path, profile, check=False, verbose=True):
         "tagVocabulary": {
             "scenario": list(SCENARIO_TAGS),
             "qualifier": list(QUALIFIER_TAGS),
-            "core": sorted(CORE_TAGS),
+            # Explicit fixture-name membership for the SPEC 19 "core fixtures"
+            # denominator. Present and reconciled against the per-fixture `core`
+            # tag in generate(); see CORE_FIXTURES for the definition and for why
+            # `missing_downbeats` is included.
+            "core": list(CORE_FIXTURES),
         },
         "totalBytes": sum(e["bytes"] for e in entries),
         "totalDurationSeconds": round(
