@@ -834,10 +834,16 @@ GuitarCompanionProcessor::GuitarCompanionProcessor()
     noiseGate.setAttack (5.0f);
 
     writeDefaultChain();
+
+    // Poll the audio thread's scene-ready flag on the message thread. Processor-
+    // owned, not editor-owned, so automatic scene changes still work while the
+    // editor window is closed. Control-thread setup: never from processBlock.
+    startTimer (sceneSignalPollIntervalMs);
 }
 
 GuitarCompanionProcessor::~GuitarCompanionProcessor()
 {
+    stopTimer();
     loaderPool.removeAllJobs (true, 5000);
     for (int r = 0; r < maxRigs; ++r)
     {
@@ -1067,7 +1073,7 @@ void GuitarCompanionProcessor::prepareToPlay (double sampleRate, int samplesPerB
     if (sceneEnvState.load() != (int) SceneEnv::idle)
     {
         if (scenePendingSection.load() >= 0)
-            triggerAsyncUpdate();
+            sceneReadyToApply.signal();
         sceneEnvState.store ((int) SceneEnv::idle);
     }
     sceneEnvGain = 1.0f;
@@ -1223,8 +1229,10 @@ void GuitarCompanionProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
                     {
                         sceneHoldLeft.store ((int) (sr * sceneHoldMaxSec));
                         sceneEnvState.store ((int) SceneEnv::hold);
-                        // silent now: safe for the message thread to swap the rig
-                        triggerAsyncUpdate();
+                        // Silent now, so the message thread may swap the rig.
+                        // One release store, no message post, no lock, no
+                        // allocation: the timer consumes this flag.
+                        sceneReadyToApply.signal();
                     }
                     break;
 
@@ -2440,8 +2448,8 @@ void GuitarCompanionProcessor::clearSceneForSection (int sec)
 void GuitarCompanionProcessor::armSceneEnvelope (int sec)
 {
     // Any thread. Queues the section and starts the fade out; the audio thread
-    // calls back (triggerAsyncUpdate) once the bus is actually silent, and
-    // handleAsyncUpdate does the real work from there.
+    // raises sceneReadyToApply once the bus is actually silent, and
+    // applyPendingScene does the real work from there.
     if (sec < 0 || sec >= drum::maxSections)
         return;
 
@@ -2475,10 +2483,20 @@ void GuitarCompanionProcessor::applySceneForSection (int sec)
         if (self->sceneEnvState.load() == (int) SceneEnv::fadeOut
             && self->scenePendingSection.load() == sec)
         {
-            self->handleAsyncUpdate();
+            self->applyPendingScene();
             self->sceneEnvState.store ((int) SceneEnv::fadeIn);
         }
     });
+}
+
+void GuitarCompanionProcessor::timerCallback()
+{
+    // Message thread. consume() atomically takes and clears the edge, so N
+    // signals between ticks coalesce into exactly one wake-up. It does NOT
+    // clear the flag itself inside applyPendingScene: clearing there could
+    // discard a signal that arrived while the swap was running.
+    if (sceneReadyToApply.consume())
+        applyPendingScene();
 }
 
 void GuitarCompanionProcessor::applySceneNow (int sec)
@@ -2535,9 +2553,13 @@ void GuitarCompanionProcessor::shiftScenesOnSectionRemove (int sec)
     refreshSceneFlags();
 }
 
-void GuitarCompanionProcessor::handleAsyncUpdate()
+void GuitarCompanionProcessor::applyPendingScene()
 {
-    // Called by the audio thread the moment the guitar bus reaches silence.
+    // Message thread only. The audio thread does NOT call this: it raises
+    // sceneReadyToApply when the guitar bus reaches silence, and the
+    // processor-owned timer calls us here. Wake-up latency is therefore one
+    // sceneSignalPollIntervalMs tick plus message-thread scheduling, and the
+    // callback never waits for any of it.
     // The generation is read FIRST: anything armed while applySceneNow runs
     // bumps it again, so publishing this value cannot release that newer hold.
     const int gen = sceneGen.load();

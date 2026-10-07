@@ -5,6 +5,7 @@
 #include <juce_dsp/juce_dsp.h>
 
 #include "DrumEngine.h"
+#include "rt/RtSignal.h"
 
 #include <atomic>
 #include <functional>
@@ -22,7 +23,7 @@ class ResamplingContainer;
 }
 
 class GuitarCompanionProcessor : public juce::AudioProcessor,
-                              private juce::AsyncUpdater
+                              private juce::Timer
 {
 public:
     GuitarCompanionProcessor();
@@ -362,11 +363,22 @@ private:
     juce::AudioBuffer<float> recDrumScratch;   // drum bus scaled by level (RT)
 
     // ---- scenes (vNext F6) --------------------------------------------------
-    void handleAsyncUpdate() override;         // applies the pending scene
+    // The audio thread never posts a message and never waits on this thread. It
+    // raises sceneReadyToApply (one release store) once the guitar bus is
+    // silent; the processor-owned timer polls that flag at 25 Hz on the message
+    // thread and runs the swap. This replaces a juce::AsyncUpdater whose
+    // triggerAsyncUpdate() was reachable from processBlock, and therefore took a
+    // blocking CriticalSection, posted a system message, and could allocate.
+    // See docs/research/RT-REACHABILITY.md finding F1.
+    void applyPendingScene();                 // the swap; message thread only
+    void timerCallback() override;            // polls sceneReadyToApply
+    static constexpr int sceneSignalPollIntervalMs = 40;   // 25 Hz
+
     juce::ValueTree captureRigScene();         // captureState minus drums/UI prefs
     juce::String sceneXml[drum::maxSections];  // "" = section without a scene
     juce::String sceneNames[drum::maxSections];
     bool applyingSceneNow = false;             // guards the scene-restore in applyState
+    jam::rt::SignalFlag sceneReadyToApply;     // audio thread sets, timer consumes
     std::atomic<int> scenePendingSection { -1 };
     int sceneLastSection = -1;                 // audio thread only
 
@@ -398,7 +410,7 @@ private:
     std::shared_ptr<int> sceneLifetime { std::make_shared<int> (0) };  // late-callback guard
 
     void armSceneEnvelope (int sec);   // any thread: queue sec and start the fade out
-    void applySceneNow (int sec);      // the real swap; only from handleAsyncUpdate
+    void applySceneNow (int sec);      // the real swap; only from applyPendingScene
     void refreshSceneFlags();          // message thread: sceneXml[] -> sceneArmed[]
 
     juce::ValueTree abSlots[2];
