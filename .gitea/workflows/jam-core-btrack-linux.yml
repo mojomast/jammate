@@ -1,0 +1,247 @@
+# jam-core + the vendored GPL BTrack backend (ADR-0003 lane "core", GPL lane).
+#
+# READ THIS BEFORE ASSUMING IT BUILDS BTrack TODAY. IT DOES NOT.
+#
+# Measured on the base commit of CI-001 (2026-10-07), in this repository:
+#
+#   $ cmake -S jam-core -B build -G Ninja -DJAM_ENABLE_BTRACK=ON
+#   CMake Error at third_party/BTrack/CMakeLists.txt:74 (message):
+#     JAM_ENABLE_BTRACK is ON but no sources exist in src/btrack/.  The adapter
+#     has not been written yet.
+#   -- Configuring incomplete, errors occurred!   (exit 1)
+#
+# `src/btrack/` does not exist, so the TRACK-001 adapter and
+# `tests/jam/BTrackBackendTests.cpp` (which would register the
+# `jam.BTrackBackend` ctest suite, jam-core/CMakeLists.txt lines 74-85) are
+# both unwritten. A workflow that ran the BTrack build and reported green would
+# be a lie, and one that ran it unconditionally would be permanently red for a
+# reason that has nothing to do with a regression.
+#
+# So this job does the only honest thing available before TRACK-001 lands:
+#
+#   1. Builds and runs the whole core test suite for real (JAM_ENABLE_BTRACK=OFF).
+#   2. Asserts the GPL licence boundary: the default build contains no BTrack
+#      or kiss_fft objects. This is what keeps "src/jam/ is third-party-free"
+#      true over time rather than just today.
+#   3. Asserts that `-DJAM_ENABLE_BTRACK=ON` still fails with the specific
+#      "the adapter has not been written yet" message.
+#
+# Step 3 is a real, falsifiable assertion, not a suppression. The moment
+# TRACK-001 lands and the BTrack build works, step 3 goes RED and says so.
+# That is the intended behaviour: it is the signal to replace step 3 with the
+# real configure/build/ctest, whose exact commands are printed in the failure
+# message and in docs/research/CI-SETUP.md.
+#
+# NO SUBMODULES. BTrack is vendored in-tree at third_party/BTrack/, not a
+# submodule (third_party/BTrack/CMakeLists.txt lines 3-14 explains why), so this
+# lane needs no network fetch of any kind. Do not add one.
+
+name: jam-core + btrack (linux, GPL lane)
+
+on:
+  # No branch filter on purpose: `push:` with no filter means every branch and
+  # tag, and needs no glob support from the server. DEVPLAN CI-001's goal is
+  # "make every branch prove it builds and tests".
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jam-core-btrack-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jam-core-btrack-linux:
+    name: jam-core / +BTrack / ctest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      CI_REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
+      CI_COMMIT_SHA: ${{ github.sha }}
+
+    steps:
+      - name: Check out the commit under test (NO submodules — BTrack is vendored)
+        run: |
+          set -eu
+          if [ -n "${GITHUB_WORKSPACE:-}" ]; then
+            CI_WORKDIR="$GITHUB_WORKSPACE/guitar-companion-ci"
+          else
+            CI_WORKDIR="${HOME}/guitar-companion-ci"
+          fi
+          echo "CI_WORKDIR=$CI_WORKDIR" >> "${GITHUB_ENV}"
+          mkdir -p "$CI_WORKDIR"
+          cd "$CI_WORKDIR"
+
+          git init -q .
+          git remote add origin "${CI_REPO_URL}"
+          if ! git -c protocol.version=2 fetch -q --no-tags --depth 1 origin "${CI_COMMIT_SHA}"; then
+            echo "Direct fetch by SHA refused; retrying via ref tips."
+            git -c protocol.version=2 fetch -q --no-tags --depth 1 origin \
+              '+refs/heads/*:refs/remotes/origin/*' \
+              '+refs/pull/*/head:refs/remotes/pull/*'
+          fi
+          git checkout -q --detach "${CI_COMMIT_SHA}"
+          got="$(git rev-parse HEAD)"
+          echo "checked out ${got}"
+          test "${got}" = "${CI_COMMIT_SHA}"
+
+          # BTrack is vendored, so it must be present from the checkout alone.
+          if [ ! -f third_party/BTrack/CMakeLists.txt ]; then
+            echo "::error::third_party/BTrack is not in the tree; this lane assumes it is vendored"
+            exit 1
+          fi
+          if [ -e third_party/JUCE/CMakeLists.txt ]; then
+            echo "::error::third_party/JUCE was materialised in the core lane; it must not be"
+            exit 1
+          fi
+
+      - name: Toolchain — cmake + ninja
+        run: |
+          set -eu
+          # `command -v sudo` is not a sufficient test — sudo can exist and
+          # still demand a password. `sudo -n true` is the one that means
+          # something.
+          if [ "$(id -u)" -eq 0 ]; then
+            APT="apt-get"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+            APT="sudo -n apt-get"
+          else
+            echo "::error::cannot install cmake/ninja: this runner is neither root nor"
+            echo "::error::passwordless-sudo. Install cmake, ninja-build and binutils on the"
+            echo "::error::runner image, or grant NOPASSWD in its sudoers."
+            exit 1
+          fi
+          $APT update -qq
+          $APT install -y -qq --no-install-recommends cmake ninja-build binutils
+          command -v ninja
+          cmake --version | head -1
+          ninja --version
+
+      - name: Build and test the default configuration (JAM_ENABLE_BTRACK=OFF)
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          cmake -S jam-core -B build -G Ninja
+          cmake --build build --parallel
+
+      - name: Licence boundary — the default build must contain no GPL objects
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          # third_party/BTrack is GPLv3. jam-core/CMakeLists.txt rule 2 and
+          # third_party/BTrack/CMakeLists.txt lines 15-30 make "src/jam/ never
+          # references third-party code" a review-time rule. This turns it into
+          # a machine-checked one, so the boundary cannot rot unnoticed.
+          if grep -q 'third_party/BTrack' build/build.ninja; then
+            echo "::error::default jam-core build references third_party/BTrack — GPL code leaked in"
+            exit 1
+          fi
+          command -v nm >/dev/null 2>&1 || { echo "::error::nm missing"; exit 1; }
+          hits="$(nm -C build/libjam-core.a build/jamTests 2>/dev/null \
+                  | grep -c 'BTrack\|btrack::\|kiss_fft' || true)"
+          if [ "${hits}" != "0" ]; then
+            echo "::error::${hits} GPL BTrack/kiss_fft symbol(s) in the default build"
+            exit 1
+          fi
+          echo "licence boundary OK: default build has no GPL BTrack objects"
+
+      - name: Run every ctest suite (default configuration)
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          total="$(ctest --test-dir build -N 2>/dev/null \
+                    | sed -n 's/^Total Tests: \([0-9][0-9]*\)$/\1/p' | head -1 || true)"
+          if [ -z "${total}" ] || [ "${total}" -lt 1 ]; then
+            echo "::error::ctest found no tests in build/ — refusing to report a green run"
+            exit 1
+          fi
+          echo "ctest reports ${total} suite(s)"
+          for suite in jam.AnalysisAudioRing jam.DrumTransportAdapter \
+                       jam.MusicalClock jam.RhythmCorpus jam.RtSignal; do
+            if ! ctest --test-dir build -N | grep -q " ${suite}$"; then
+              echo "::error::expected suite ${suite} is not registered with ctest"
+              exit 1
+            fi
+          done
+          status=0
+          ctest --test-dir build --output-on-failure > ctest.log 2>&1 || status=$?
+          cat ctest.log
+          if [ "${status}" -ne 0 ]; then
+            echo "::error::ctest exited ${status}"
+            exit "${status}"
+          fi
+          echo "all ${total} suite(s) passed"
+
+      - name: Assert the BTrack lane's current state (fails when TRACK-001 lands)
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+
+          # Why this step exists instead of a real BTrack build: see the header
+          # comment. Both messages below are FATAL_ERRORs in
+          # third_party/BTrack/CMakeLists.txt, so "configure failed" alone
+          # would not distinguish "adapter not written yet" from "BTrack was
+          # de-vendored", which would be a real regression.
+          status=0
+          cmake -S jam-core -B build-btrack -G Ninja -DJAM_ENABLE_BTRACK=ON \
+                > btrack-configure.log 2>&1 || status=$?
+          cat btrack-configure.log
+
+          if [ "${status}" -eq 0 ]; then
+            echo "::error::-DJAM_ENABLE_BTRACK=ON now CONFIGURES SUCCESSFULLY."
+            echo "::error::TRACK-001 has landed. This job must be rewritten to really build"
+            echo "::error::and test the BTrack backend; leaving it as-is would leave the GPL"
+            echo "::error::backend permanently uncompiled and falsely reported as covered."
+            echo "::error::Replace this step with:"
+            echo "::error::  cmake -S jam-core -B build-btrack -G Ninja -DJAM_ENABLE_BTRACK=ON"
+            echo "::error::  cmake --build build-btrack --parallel"
+            echo "::error::  ctest --test-dir build-btrack --output-on-failure"
+            echo "::error::and assert the jam.BTrackBackend suite is registered."
+            exit 1
+          fi
+
+          if ! grep -q 'JAM_ENABLE_BTRACK is ON but' btrack-configure.log; then
+            echo "::error::-DJAM_ENABLE_BTRACK=ON failed for an UNEXPECTED reason"
+            echo "::error::(exit ${status}). Expected the 'adapter has not been written yet'"
+            echo "::error::message. See btrack-configure.log above. This is a real failure."
+            exit 1
+          fi
+
+          echo
+          echo "BTrack lane state: as expected, not yet buildable (TRACK-001 outstanding)."
+          echo "This is a recorded gap, not a pass. See docs/research/CI-SETUP.md."
+          # Cross-check the same conclusion from the source tree, so the two
+          # cannot disagree silently.
+          if [ -d src/btrack ]; then
+            echo "::error::src/btrack/ now exists but the BTrack configure still failed"
+            exit 1
+          fi
+          if [ -f tests/jam/BTrackBackendTests.cpp ]; then
+            echo "::error::tests/jam/BTrackBackendTests.cpp exists but no jam.BTrackBackend suite was built"
+            exit 1
+          fi
+
+      - name: Show the logs if this job failed (and only if they are small)
+        if: failure()
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          # 2 MiB cap per log; the tail of a ctest log is the useful part.
+          for log in ctest.log btrack-configure.log; do
+            [ -f "$log" ] || continue
+            size="$(wc -c < "$log")"
+            echo "----- $log ($size bytes) -----"
+            if [ "${size}" -gt 2097152 ]; then
+              echo "(over 2 MiB; showing the last 2 MiB)"
+              tail -c 2097152 "$log"
+            else
+              cat "$log"
+            fi
+          done
+          echo
+          echo "NOTE: no actions/upload-artifact here — whether that action exists on this"
+          echo "Gitea server is unverified. docs/research/CI-SETUP.md has the step to add."

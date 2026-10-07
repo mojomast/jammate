@@ -1,0 +1,311 @@
+# ============================================================================
+# NOT PROVEN. THIS JOB HAS NEVER RUN.
+#
+# The plugin lane has NEVER been compiled anywhere in this project's history.
+# Not here — ADR-0003 measured the ALSA and freetype headers absent and sudo
+# unavailable, so JUCE cannot configure on the development machine. Not on
+# Windows either — there is no Windows machine or runner that has built this
+# repository at any point.
+#
+# EXPECT THE FIRST RUN TO NEED FIXES. Treat a first-run failure as
+# INFORMATION, not as a broken pipeline: it is the first measurement this lane
+# has ever produced. The plausible causes, in the order you should expect them:
+#
+#   1. `runs-on: windows-latest` is not a label this Gitea server publishes.
+#      Check the server's runner configuration before anything else; see
+#      docs/research/CI-SETUP.md "Assumed, not verified".
+#   2. `shell: bash` is unavailable on the Windows runner image.
+#   3. The submodule recipe below is wrong for NAM's nested submodules (it was
+#      verified from the pinned SHAs' .gitmodules over the network, but never
+#      executed).
+#   4. The JUCE plugin genuinely does not compile — which is the finding that
+#      matters most and is the reason FND-002 and the G1 plugin-lane items are
+#      still open.
+#
+# Nothing in this file may be edited to make it "pass" without a measurement
+# backing the change. In particular: no `--warn-as-error`, no
+# `|| exit 0`, no removing a failing target, no `continue-on-error` on the
+# build. A CI job that cannot fail is worse than no CI job, because it
+# manufactures confidence that does not exist.
+#
+# WHAT THIS JOB DELIBERATELY DOES NOT DO:
+#   - no ASIO SDK. It is licensed by Steinberg and cannot be redistributed or
+#     fetched. CMake prints message(WARNING) at CMakeLists.txt:233 and the build
+#     proceeds with WASAPI/DirectSound only. That warning is EXPECTED and is
+#     asserted to be present below, so "no ASIO" is proven rather than assumed.
+#   - no WebView2 SDK download. CMakeLists.txt:71-108 would fetch a ~100 MB
+#     NuGet package on every cold configure. `-DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF`
+#     skips that whole block — this is exactly what CONTRIBUTING.md:19-21
+#     prescribes for an offline build. Consequence worth being precise about:
+#     with the option OFF the WebView2 warning is never printed at all (it lives
+#     inside the skipped block), so only the ASIO warning appears. The embedded
+#     TONE3000 picker is not built; the store falls back to the system browser.
+#   - no TONE3000 API key, no store account, no credentials of any kind.
+#   - no cache. Correctness never depends on a cache (see below), so the cache
+#     step is left out rather than written against an action I cannot verify
+#     exists on this server. See docs/research/CI-SETUP.md.
+# ============================================================================
+
+name: plugin (windows, plugin lane — UNVERIFIED)
+
+on:
+  # No branch filter on purpose: `push:` with no filter means every branch and
+  # tag, and needs no glob support from the server. DEVPLAN CI-001's goal is
+  # "make every branch prove it builds and tests".
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plugin-windows:
+    name: GuitarCompanion Standalone+VST3 / Release / ctest
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    # ASSUMED: this runner image has a bash (Git for Windows ships one, and you
+    # cannot use submodules on Windows without Git for Windows, so a runner that
+    # can do step 2 has a bash). If it does not, change every `shell: bash` to
+    # `shell: pwsh` and rewrite the `if` guards — the commands themselves are
+    # the same.
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      CI_REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
+      CI_COMMIT_SHA: ${{ github.sha }}
+
+    steps:
+      - name: Check out the commit under test
+        run: |
+          set -eu
+          if [ -n "${GITHUB_WORKSPACE:-}" ]; then
+            CI_WORKDIR="$GITHUB_WORKSPACE/guitar-companion-ci"
+          else
+            CI_WORKDIR="${HOME}/guitar-companion-ci"
+          fi
+          echo "CI_WORKDIR=$CI_WORKDIR" >> "${GITHUB_ENV}"
+          mkdir -p "$CI_WORKDIR"
+          cd "$CI_WORKDIR"
+
+          git init -q .
+          git remote add origin "${CI_REPO_URL}"
+          if ! git -c protocol.version=2 fetch -q --no-tags --depth 1 origin "${CI_COMMIT_SHA}"; then
+            echo "Direct fetch by SHA refused; retrying via ref tips."
+            git -c protocol.version=2 fetch -q --no-tags --depth 1 origin \
+              '+refs/heads/*:refs/remotes/origin/*' \
+              '+refs/pull/*/head:refs/remotes/pull/*'
+          fi
+          git checkout -q --detach "${CI_COMMIT_SHA}"
+          got="$(git rev-parse HEAD)"
+          echo "checked out ${got}"
+          test "${got}" = "${CI_COMMIT_SHA}"
+
+      - name: Submodules — exactly the two the plugin build needs, and nothing else
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+
+          # NOT `git submodule update --init --recursive` with no path. That
+          # would also clone references/airwindows, references/lsp-plugins,
+          # references/GxPlugins.lv2 and five more — hundreds of megabytes of
+          # reference DSP that no target in this repository compiles.
+          #
+          # Verified from the .gitmodules of the pinned SHAs over the network
+          # on 2026-10-07 (see docs/research/CI-SETUP.md for the exact commands):
+          #   - JUCE 91ad83ae… has NO .gitmodules, so a plain --init is enough.
+          #   - NAM  1f42f885… declares Dependencies/eigen and
+          #     Dependencies/AudioDSPTools as ITS OWN submodules, and
+          #     root CMakeLists.txt:36-40 puts Dependencies/eigen on the
+          #     include path. So NAM alone needs --recursive. Dependencies/
+          #     nlohmann is vendored in-tree (a tree, not a gitlink) and needs
+          #     nothing.
+          git submodule update --init third_party/JUCE
+          git submodule update --init --recursive third_party/NeuralAmpModelerCore
+
+          # Assert what we got rather than trusting the command's exit code.
+          for p in third_party/JUCE/CMakeLists.txt \
+                   third_party/NeuralAmpModelerCore/NAM/dsp.cpp \
+                   third_party/NeuralAmpModelerCore/Dependencies/eigen/Eigen/Core; do
+            if [ ! -e "$p" ]; then
+              echo "::error::expected ${p} after submodule init — the NAM nested-submodule"
+              echo "::error::recipe above is incomplete; NAM needs Dependencies/eigen"
+              exit 1
+            fi
+          done
+          if [ -d references/airwindows ]; then
+            echo "::error::references/* was cloned; this job must not fetch it"
+            exit 1
+          fi
+          git submodule status
+
+      - name: Toolchain — cmake >= 3.22 and a Visual Studio generator
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          # ASSUMED: the runner image ships a CMake new enough for
+          # cmake_minimum_required(VERSION 3.22) (root CMakeLists.txt:1) and a
+          # Visual Studio toolset. Both are asserted below so the failure says
+          # what is missing instead of dying inside CMake.
+          cmake --version
+          have="$(cmake --version | head -1 | sed -n 's/^cmake version \([0-9]*\)\.\([0-9]*\)\..*/\1 \2/p')"
+          set -- ${have}
+          if [ -z "${1:-}" ] || [ "$1" -lt 3 ] || { [ "$1" -eq 3 ] && [ "${2:-0}" -lt 22 ]; }; then
+            echo "::error::cmake ${have} is older than the required 3.22 (CMakeLists.txt:1)"
+            exit 1
+          fi
+          # Report what the runner actually offers rather than guessing.
+          cmake --help | sed -n '/Generators/,$p' | grep -E 'Visual Studio|Ninja' || true
+          if ! cmake --help | grep -q 'Visual Studio 17 2022'; then
+            echo "::error::no 'Visual Studio 17 2022' generator on this runner — the Visual"
+            echo "::error::Studio Build Tools with 'Desktop development with C++' are required"
+            echo "::error::(README.md:241, CONTRIBUTING.md:7). Install them on the runner."
+            exit 1
+          fi
+
+      - name: Configure — Release, tests ON, no ASIO, no WebView2
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          # -DGUITAR_COMPANION_BUILD_TESTS=ON  -> tests/CMakeLists.txt is added
+          #   (root CMakeLists.txt:284-289), which creates the
+          #   GuitarCompanionTests console target and the four drums.* ctest suites.
+          # -DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF
+          #   -> skips the WebView2 NuGet download entirely (root
+          #      CMakeLists.txt:71). No network fetch, no ~100 MB per cold run.
+          # -DASIOSDK_DIR=  -> empty, so the ASIO branch at root
+          #      CMakeLists.txt:228 is not taken and message(WARNING) is printed.
+          #      Explicitly empty rather than unset, so a stale cache value can
+          #      never turn ASIO on by accident.
+          # -DCMAKE_BUILD_TYPE=Release is inert for a multi-config generator but
+          #   is set so the command is also correct for a Ninja/Ninja Makefiles
+          #   generator, which a future runner-image change might use.
+          #
+          # NOTE: CMake 4's `--warn-as-error` is deliberately NOT used. It would
+          # turn the expected message(WARNING) for the missing ASIO SDK into a
+          # configure failure.
+          status=0
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DGUITAR_COMPANION_BUILD_TESTS=ON \
+                -DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF \
+                -DASIOSDK_DIR= \
+                > configure.log 2>&1 || status=$?
+          cat configure.log
+          if [ "${status}" -ne 0 ]; then
+            echo "::error::cmake configure exited ${status}. NEVER compiled before; this is a"
+            echo "::error::real measurement. Read the log above before changing anything."
+            exit "${status}"
+          fi
+
+      - name: Assert the expected ASIO warning is present (and that nothing failed)
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          # Proves the build really was configured without the Steinberg ASIO
+          # SDK rather than silently having found one, and that we did not
+          # suppress the warning. This is an assertion, not a suppression: a
+          # warning is not a failure, and this job does not convert it into one.
+          if ! grep -q 'ASIO SDK not found' configure.log; then
+            echo "::error::expected the 'ASIO SDK not found' warning in configure.log"
+            exit 1
+          fi
+          # Belt and braces: configure must not have errored either.
+          if grep -q '^CMake Error' configure.log; then
+            echo "::error::configure.log contains a CMake Error"
+            exit 1
+          fi
+          echo "configure is clean apart from the expected ASIO warning"
+
+      - name: Build — Standalone + VST3 + the test binary (Release)
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          # No --target on purpose. The JUCE target names
+          # (GuitarCompanion_VST3 / GuitarCompanion_Standalone) are the
+          # conventional JUCE 8 names but I cannot verify them from here — the
+          # JUCE submodule is not checked out — and naming a target that does not
+          # exist is a hard failure. ALL_BUILD compiles the plugin's Standalone
+          # and VST3 formats, the shared-code target, GuitarCompanionTests
+          # (it is not EXCLUDE_FROM_ALL) and jam-core/jamTests, which is a
+          # bonus: the core lane's suites run here too. Once a Windows run has
+          # succeeded, the log will show the real target names and this can be
+          # narrowed with --target.
+          status=0
+          cmake --build build --config Release --parallel > build.log 2>&1 || status=$?
+          tail -n 200 build.log
+          if [ "${status}" -ne 0 ]; then
+            echo "::error::build exited ${status}."
+            echo "::error::The GuitarCompanion target has never been compiled in this project's"
+            echo "::error::history. Do not work around this: it is FND-002 / G0 evidence."
+            exit "${status}"
+          fi
+          # Prove the artefacts exist rather than trusting exit 0 alone.
+          ls -l build/GuitarCompanion_artefacts/Release/Standalone/
+          ls -l build/GuitarCompanion_artefacts/Release/VST3/
+
+      - name: Run ctest (Release)
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          # -C Release is REQUIRED with a Visual Studio generator; without it
+          # ctest looks in build/Debug and finds nothing.
+          #
+          # ctest exits 0 with "No tests were found!!!" on an empty build dir,
+          # so the suite count is asserted rather than trusted.
+          total="$(ctest --test-dir build -C Release -N 2>/dev/null \
+                    | sed -n 's/^Total Tests: \([0-9][0-9]*\)$/\1/p' | head -1 || true)"
+          if [ -z "${total}" ] || [ "${total}" -lt 1 ]; then
+            echo "::error::ctest found no tests in build/ — refusing to report a green run"
+            exit 1
+          fi
+          echo "ctest reports ${total} suite(s)"
+          ctest --test-dir build -C Release -N
+
+          # Both lanes' suites must be here: the four drums.* entries from
+          # tests/CMakeLists.txt:46-49 and the jam.* entries generated by
+          # jam-core/CMakeLists.txt:148-150.
+          for suite in drums.parseSpec drums.library drums.generator drums.barCodec; do
+            if ! ctest --test-dir build -C Release -N | grep -q " ${suite}$"; then
+              echo "::error::expected suite ${suite} is not registered with ctest"
+              exit 1
+            fi
+          done
+
+          status=0
+          ctest --test-dir build -C Release --output-on-failure > ctest.log 2>&1 || status=$?
+          cat ctest.log
+          if [ "${status}" -ne 0 ]; then
+            echo "::error::ctest exited ${status}"
+            exit "${status}"
+          fi
+          echo "all ${total} suite(s) passed"
+
+      - name: Show the logs if this job failed (and only if they are small)
+        if: failure()
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          for log in configure.log build.log ctest.log; do
+            [ -f "$log" ] || continue
+            size="$(wc -c < "$log")"
+            echo "----- $log ($size bytes) -----"
+            # JUCE build logs are large; 2 MiB cap, tail kept because that is
+            # where the error is.
+            if [ "${size}" -gt 2097152 ]; then
+              echo "(over 2 MiB; showing the last 2 MiB)"
+              tail -c 2097152 "$log"
+            else
+              cat "$log"
+            fi
+          done
+          echo
+          echo "NOTE: no actions/upload-artifact here — whether that action exists on this"
+          echo "Gitea server is unverified. docs/research/CI-SETUP.md has the step to add."
