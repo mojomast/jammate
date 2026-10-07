@@ -49,6 +49,7 @@ list(REMOVE_ITEM JAM_TEST_SOURCES "${JAM_ROOT}/tests/jam/JamTestMain.cpp")
 # must never enter jamTests. Kept next to the glob so the exclusion is visible
 # where the glob is, not buried in a conditional further down.
 list(REMOVE_ITEM JAM_TEST_SOURCES "${JAM_ROOT}/tests/jam/BTrackBackendTests.cpp")
+list(REMOVE_ITEM JAM_TEST_SOURCES "${JAM_ROOT}/tests/jam/AubioBackendTests.cpp")
 
 if (NOT JAM_CORE_SOURCES)
     message(FATAL_ERROR
@@ -90,6 +91,22 @@ if (JAM_ENABLE_BTRACK)
     else()
         message(STATUS "jam-core: JAM_ENABLE_BTRACK=ON but no BTrackBackendTests.cpp yet")
     endif()
+endif()
+
+option(JAM_ENABLE_AUBIO "Build the GPL aubio backend behind IRhythmTracker" OFF)
+if (JAM_ENABLE_AUBIO)
+    add_subdirectory(${JAM_ROOT}/third_party/aubio ${CMAKE_CURRENT_BINARY_DIR}/aubio)
+    enable_testing()
+    add_executable(jamAubioTests
+        ${JAM_ROOT}/tests/jam/JamTestMain.cpp
+        ${JAM_ROOT}/tests/jam/AubioBackendTests.cpp)
+    target_include_directories(jamAubioTests PRIVATE
+        ${JAM_ROOT}/tests/jam ${JAM_ROOT}/tests)
+    target_link_libraries(jamAubioTests PRIVATE jam-aubio)
+    if (NOT MSVC)
+        target_compile_options(jamAubioTests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME jam.AubioBackend COMMAND jamAubioTests AubioBackend.)
 endif()
 
 add_library(jam-core STATIC ${JAM_CORE_SOURCES})
