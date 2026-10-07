@@ -255,21 +255,62 @@ exit=8
 After reverting the assertion, ctest is green again (exit 0), as reproduced
 above. The suite can fail.
 
+## Orchestrator decisions on the flagged points
+
+The worker was instructed to flag policy gaps rather than silently resolve them.
+Both are resolved here, in the orchestrator's voice, because they are product
+decisions rather than implementation details.
+
+### Decision 1 — `SetMode`'s missing argument carrier: ACCEPTED, the comment is the defect
+
+`RhythmTypes.h` documents `ClockCommandType::SetMode` as `// arg0 =
+int(TempoMode)`, but `ClockCommand` has no `arg0` field. The worker read
+`tapSampleTime` as the mode index and marked the spot in code.
+
+The comment is the defect, not the carrier. Reusing `tapSampleTime` — a
+`uint64_t` sample clock — to carry a mode is a type confusion that will bite
+silently: a caller who follows the comment later and adds a real `arg0` field
+breaks this code with no compiler help, because nothing in the signature changes.
+The clean path, `setMode()`, is the documented one.
+
+The compatibility branch stays. It range-checks against `kTempoModeCount`, so a
+bogus value is ignored rather than corrupting state. No code change required.
+The misleading comment in `RhythmTypes.h` is to be corrected in the next pass
+that owns that file, alongside any additive field additions.
+
+### Decision 2 — explicit commands may override a freeze: ACCEPTED, deliberately
+
+SPEC 10.2 says a freeze pins tempo against *evidence*. It is silent on whether a
+human pressing Half/Double/Tap/Resync may override that freeze.
+
+Accepted, and it is the correct reading of the product. SPEC 5.6 states outright
+that these controls "are not failure modes; they are intentional
+human-in-the-loop features". Consider the real failure this decision prevents: a
+guitarist who engaged Freeze during a low-confidence moment, then misreads the
+groove as half-time and reaches for Half. If the freeze blocked explicit
+commands, the user would be unable to correct a misread tempo at all — which is
+exactly the failure SPEC 5.6 exists to prevent. The freeze governs the
+*automatic* evidence path; it is not a lock on the user's hands.
+
+The implementation preserves this as two conditions that must not be collapsed
+later: `! tempoFrozen_` guards the evidence path in
+`handleUsableObservation()`, while `command()` deliberately never consults the
+flag. Any refactor that "simplifies" this by honouring the freeze in both places
+would be a behavioural regression, not a cleanup.
+
 ## Known limitations
 
 Judgement calls rather than derivations from SPEC, and SPEC-underspecified
-points:
+points. Items 1 and 2 above are now resolved by the orchestrator and remain here
+only for traceability.
 
-1. **`SetMode` command carrier.** `RhythmTypes::ClockCommand` has no `arg0`
-   field although the enum comment names one for `SetMode`. The comment says
-   `arg0 = int(TempoMode)`. I read `tapSampleTime` as the mode index in
-   `command()`, and marked this `// SPEC-UNDERSPECIFIED:` in code. The clean
-   path for the orchestrator is the `setMode()` method. If this is wrong, the
-   frozen type needs a change and CLOCK-001 should not be the place.
-2. **Freeze vs explicit command.** SPEC 10.2 freezes tempo against *evidence*
-   but does not say whether Half/Double/Tap/Resync may override a freeze. I let
-   explicit human commands win and marked it `// SPEC-UNDERSPECIFIED:` in code.
-   Only FreezeTempo/ResumeFollow change the freeze flag.
+1. **`SetMode` command carrier.** RESOLVED — see Decision 1. The
+   `tapSampleTime` shim is accepted as a bounds-checked compatibility path and
+   the misleading enum comment is to be corrected when `RhythmTypes.h` is next
+   edited.
+2. **Freeze vs explicit command.** RESOLVED — see Decision 2. Explicit human
+   commands override a freeze, deliberately, and only FreezeTempo/ResumeFollow
+   change the flag.
 3. **Lost exit policy.** Stay Lost until fresh evidence, then Acquiring (see
    above). Not specified beyond "Return to Acquiring".
 4. **Reinforced jump while Locked slews rather than snaps.** A defensible
@@ -321,6 +362,31 @@ What the director still needs that this component does not provide:
 Hard invariants preserved: there is exactly one tempo belief; no public method
 writes `RhythmObservation::bpmCandidate` through; the class is deterministic,
 header-clean, and contains no unbounded containers.
+
+### Verified by the orchestrator at merge
+
+Beyond the worker's own evidence, the merge check was repeated independently:
+
+- `MusicalClock.cpp` was inspected for the real-time and single-clock rules:
+  zero `new`, `malloc`, containers, `printf`/`cout`, sleeps or I/O. The only
+  `bpm_` writes are inside `slewToward`, `applyMetricCorrection`, the tap path,
+  and `reset`/construction — no observation value is written through directly.
+- Both test suites were built **together** in one binary, which is the real
+  cross-file risk flagged by MOD-001 (that file replaces global `operator new`).
+  There is no duplicate-symbol clash, because `MusicalClockTests.cpp` defines no
+  replacement operators. Result: `35 tests, 95330 checks, 0 failed`.
+- The suite was independently proven able to fail by zeroing
+  `isolatedJumpRejectRatio` inside the implementation (ctest → red), then
+  reverted (ctest → green, worktree clean).
+
+### Constraint carried into ANALYSIS-001
+
+Limitation 9 above is the sharpest integration requirement: `advance()` and
+`RhythmObservation::inputSampleTime` must share **one** sample clock. If the
+analyzer resamples for a tracker, it must convert observation sample times back
+to the device timeline before handing them to the clock, or every phase
+comparison will be silently wrong. This is called out explicitly in the
+ANALYSIS-001 brief rather than left as a note.
 
 ## Final commit SHA
 

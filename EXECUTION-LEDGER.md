@@ -89,8 +89,8 @@ and reports instead.
 | FND-002 baseline build record | BLOCKED:plugin lane | — | — | G0 | D2 |
 | FND-003 RT reachability map | **DONE** | `wp/FND-003-rt-reach` → merged `931be23` | A — real-time | G0 | P0 `triggerAsyncUpdate` CONFIRMED reachable |
 | — ADR-0003 build environment | **DONE** | `48f301c` | orchestrator | G0 | two-lane verification split |
-| MOD-001 analysis ring tests | RUNNING | `wp/MOD-001-ring` | B — intelligence | G2 | D1 |
-| CLOCK-001 musical clock | RUNNING | `wp/CLOCK-001-clock` | B — intelligence | G4 | D1 |
+| MOD-001 analysis ring tests | **DONE** | `wp/MOD-001-ring` → merged `89db28d` | B — intelligence | G2 | 19 tests / 95 236 checks; 2 header defects fixed in `efb820b` |
+| CLOCK-001 musical clock | **DONE** | `wp/CLOCK-001-clock` → merged `b78c43c` | B — intelligence | G4 | 16 scenarios green; 2 policy gaps decided |
 | RT-001 callback-safe control plane | **READY** | | A | G1 | unblocked by FND-003; ⛔ unverifiable here |
 | CI-001 CI baseline | TODO | | C | G1 | Gitea; needs plugin lane to be green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
@@ -159,6 +159,59 @@ Recorded so a later reader can tell worker claim from verified fact.
 | "25 commits past v0.1" | `BASELINE.md` V19 | **wrong** — `git rev-list --count v0.1..88f7e7c` = **7** | corrected in `BASELINE.md` §1.1 and V19 |
 | `references/*` submodules have no gitlink | declared in `.gitmodules`, absent from the tree | **true, and upstream's own defect** — `git ls-tree 88f7e7c:references/` returns only `README.md` | left open; no history operation can fix it. Closes only on a release decision. |
 | AudioDSPTools licence | THIRD_PARTY says MIT, README says Apache-2.0/MIT | unverifiable (submodule not checked out) | stays `UNKNOWN` with the exact file to read |
+
+---
+
+## Wave 1 decisions taken
+
+### The Musical Clock is in, and it is the only clock
+
+`CLOCK-001` merged as the single tempo authority. Verified independently at
+merge, not just accepted:
+
+- `MusicalClock.cpp` contains no `new`, `malloc`, container, `printf`, sleep or
+  I/O. Every `bpm_` write goes through `slewToward`, `applyMetricCorrection`, the
+  tap path, or `reset`. **No observation value is ever written through to tempo.**
+- Suite proven able to fail: zeroing `isolatedJumpRejectRatio` in the
+  implementation turns ctest red; reverting turns it green.
+- Both suites now build in one binary — `35 tests, 95 330 checks, 0 failed`.
+
+Two policy gaps the worker flagged rather than resolved, both decided centrally:
+
+1. **`SetMode`'s missing argument carrier — accepted, the comment is the defect.**
+   `RhythmTypes.h` documents `// arg0 = int(TempoMode)` but `ClockCommand` has no
+   `arg0`. The worker reads `tapSampleTime` as the carrier. Accepted as a
+   bounds-checked shim, because the alternative is worse: `tapSampleTime` is a
+   `uint64_t` sample clock, so a future caller who follows the comment and adds a
+   real field breaks this code with no compiler help. The misleading comment is
+   to be corrected in the pass that owns `RhythmTypes.h`.
+2. **Explicit commands override a freeze — accepted deliberately.** SPEC 10.2 is
+   silent on whether Half/Double/Tap/Resync may override a freeze. They may.
+   SPEC 5.6 calls these controls "intentional human-in-the-loop features", and a
+   guitarist who engaged Freeze during a low-confidence moment must still be able
+   to correct a misread tempo. The freeze governs the *evidence* path only. This
+   is recorded as a refactor hazard: collapsing `! tempoFrozen_` into `command()`
+   would be a behavioural regression, not a cleanup.
+
+### Two header defects fixed rather than documented
+
+MOD-001 reported two mismatches between `AnalysisAudioRing.h` and its own
+behaviour and correctly refused to edit the frozen seam. Both were fixed here
+because both were diagnostics blind spots, and SPEC §22 exists so a starved
+analysis path cannot hide:
+
+- A capacity-0 ring reported `overrunCount() == 0` forever while dropping every
+  block. A counter that reads a confident zero while data is discarded is worse
+  than no counter. Now counted.
+- `reset()`'s comment claimed it stops accepting data; it does not, and that is
+  *correct* for the device lifecycle (`prepareToPlay` reruns after every device
+  change). The code was right and the comment was wrong, so the comment was
+  corrected and now records why there is deliberately no `disable()`: a stale
+  flag survives a device change and starves analysis forever.
+
+The two `push()` guards are now deliberately distinct: a *disabled* ring drops
+real audio and is counted; a null pointer or zero-length block is a caller error
+with nothing to drop and is **not** counted as an overrun.
 
 ---
 
