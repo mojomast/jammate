@@ -156,4 +156,7 @@ Authoritative evidence: `docs/research/robustness/` (`degradation.{json,csv,md}`
 
 ## Final commit SHA
 
-- Implementation + evidence + note commit: _filled in after commit_.
+- Implementation + evidence commit: `a1fc75f` (`feat(eval-005): paired
+  robustness degradation curves over the EVAL-003 corpus`).
+- This note's SHA update is the subsequent commit on `wp/EVAL-005-robustness`;
+  the branch head is the handoff SHA reported to the orchestrator.
