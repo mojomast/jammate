@@ -95,7 +95,7 @@ and reports instead.
 | RT-SIGNAL-001 RT-safe signal primitive | **DONE** | `wp/RT-SIGNAL-001` → merged `63259a3` | A — real-time | G1 | 14 tests / 110 090 checks |
 | MOD-002 drum transport adapter | **DONE** | `wp/MOD-002` → merged `86544f1` | B — intelligence | G2 | 13 tests / 129 checks; 3 extra probes |
 | **RT-001 remove callback-unsafe control plane** | **CODE DONE — UNVERIFIED** | orchestrator, `135b4b7` | A + orchestrator | G1 | F1 fixed; ⛔ cannot be compiled here |
-| EVAL-001 guitar rhythm corpus | RUNNING | `wp/EVAL-001` | C — evidence | G3 | |
+| EVAL-001 guitar rhythm corpus | **DONE** | `wp/EVAL-001` → merged `f5f5a11` | C — evidence | G3 | 19 fixtures, 21 MB; hashes independently verified |
 | RT-001 remaining (F2 MidiBuffer) | BLOCKED:plugin lane | | A | G1 | needs a measured bound |
 | CI-001 CI baseline | TODO | | C | G1 | Gitea; needs plugin lane to be green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
@@ -168,6 +168,47 @@ Recorded so a later reader can tell worker claim from verified fact.
 ---
 
 ## Wave 2 outcomes
+
+### EVAL-001 accepted, including its size
+
+19 fixtures, one per SPEC §12.2 bullet, all synthesised (Karplus-Strong plucked
+strings through a simulated mic/line capture chain). Licensing is satisfied **by
+construction** rather than by provenance review, which is the only way SPEC
+§12.2 gets met without a rights question.
+
+Verified independently at merge: all 19 on-disk SHA-256 match their manifest
+entries; all declare beats, onsets and CC0; all are 48 kHz/16-bit/mono; and the
+ramp beat spacing is genuinely non-uniform (1.333× and 0.671×), consistent with
+the declared 108→146 and 152→100 BPM.
+
+The worker's most valuable output was not the corpus but the **audit of it**. It
+ran an independent STFT onset detector over the synthesised audio and found four
+synthesis bugs that were entirely silent: the audio rendered fine, the manifest
+looked correct, and the declared ground truth was simply unfindable in the file.
+The worst was a damping term missing a factor of `freq`, which made every string
+drone on at roughly 2 dB/s. A corpus whose ground truth cannot be recovered from
+its own audio would have produced a confident, entirely wrong tracker comparison
+at G3 — exactly the failure the gate exists to prevent.
+
+**On the 21 MB: my 4 MB budget was arithmetic, not judgment, and I was wrong.**
+At the mandated 48 kHz / 16-bit / mono, 96 000 B/s × 19 fixtures × the minimum
+length that supports SPEC §19's "acquire within 2 bars" is arithmetically
+unreachable. The worker flagged it and enumerated options instead of quietly
+picking one, which is the behaviour I asked for.
+
+Accepted at 21 MB (`.git` 42 → 58 MB). The mitigation that already exists is
+better than trimming: the generator is byte-reproducible and `gen_fixtures.py
+--check` proves it, so the corpus can be dropped from version control and
+regenerated on demand if size ever becomes a real constraint. Trimming to hit a
+number I invented would have weakened the benchmark to satisfy an arbitrary
+target.
+
+**Consequence for later waves:** these fixtures isolate *algorithmic* behaviour.
+They do not prove anything about real strings, pickups, room noise, or a real
+player's microtiming. SPEC §20's musical-quality gate still requires real-guitar
+play tests, and this corpus must never be cited as evidence for it.
+
+---
 
 ### RT-001 F1 is fixed in code — and is explicitly NOT verified
 
