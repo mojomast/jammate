@@ -45,6 +45,10 @@ file(GLOB JAM_CORE_SOURCES CONFIGURE_DEPENDS "${JAM_ROOT}/src/jam/*.cpp")
 file(GLOB JAM_TEST_SOURCES CONFIGURE_DEPENDS "${JAM_ROOT}/tests/jam/*.cpp")
 
 list(REMOVE_ITEM JAM_TEST_SOURCES "${JAM_ROOT}/tests/jam/JamTestMain.cpp")
+# Suites that need a third-party backend are built by their own target below and
+# must never enter jamTests. Kept next to the glob so the exclusion is visible
+# where the glob is, not buried in a conditional further down.
+list(REMOVE_ITEM JAM_TEST_SOURCES "${JAM_ROOT}/tests/jam/BTrackBackendTests.cpp")
 
 if (NOT JAM_CORE_SOURCES)
     message(FATAL_ERROR
