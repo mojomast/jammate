@@ -18,6 +18,7 @@ Run:  python3 tools/rhythm-eval/tools/test_run_robustness.py
 """
 
 import csv
+import hashlib
 import importlib.util
 import json
 import os
@@ -90,15 +91,21 @@ def metric(name, **over):
     return m
 
 
-def fixture(name, parent, pair, kind, transformation, frames, spans=None, tags=None):
+def fixture(name, parent, pair, kind, transformation, out_frames=240000,
+            spans=None, tags=None, source=None):
+    src = {"frames": 240000, "sourceStartFrame": 0, "sourceEndFrame": 240000,
+           "sourceStartSeconds": 0.0, "sourceEndSeconds": 5.0}
+    if source:
+        src.update(source)
     return {
         "name": name,
         "parentFixture": parent,
         "pairedBaseline": pair,
         "transformation": transformation,
         "scenarioTags": tags or ["derived", "core_parent"],
-        "durationSeconds": 5.0,
-        "truncation": {"frames": frames},
+        "durationSeconds": out_frames / 48000.0,
+        "signal": {"frames": out_frames},
+        "truncation": src,
         "trueSilenceSpans": spans if spans is not None else [[0.0, 0.35]],
     }
 
@@ -108,17 +115,18 @@ def synthetic_manifest():
     with baseline + level. Enough to exercise every status path."""
     fixtures = [
         fixture("clean__baseline", "clean", "clean__baseline", "baseline",
-                {"kind": "baseline"}, 240000),
+                {"kind": "baseline"}),
         fixture("clean__noise_snr10", "clean", "clean__baseline", "noise",
-                {"kind": "noise", "snrDb": 10.0}, 240000),
+                {"kind": "noise", "snrDb": 10.0}),
         fixture("clean__noise_snr0", "clean", "clean__baseline", "noise",
-                {"kind": "noise", "snrDb": 0.0}, 240000),
+                {"kind": "noise", "snrDb": 0.0}),
         fixture("clean__tempo_step_1.25", "clean", "clean__baseline", "tempo_step",
-                {"kind": "tempo_step", "ratio": 1.25, "outputSeconds": 4.45}, 213645),
+                {"kind": "tempo_step", "ratio": 1.25, "outputSeconds": 4.45},
+                out_frames=213645),
         fixture("funk__baseline", "funk", "funk__baseline", "baseline",
-                {"kind": "baseline"}, 240000),
+                {"kind": "baseline"}),
         fixture("funk__level_-20db", "funk", "funk__baseline", "level",
-                {"kind": "level", "gainDb": -20.0}, 240000),
+                {"kind": "level", "gainDb": -20.0}),
     ]
     return {
         "schemaVersion": 1,
@@ -180,6 +188,129 @@ class MetadataPairingTest(unittest.TestCase):
                "param": "snrDb=0", "metric": "detection.fMeasure"}
         dupes = RR.deduplicate_check([row, dict(row)])
         self.assertEqual(len(dupes), 1)
+
+    def test_detects_duplicate_fixture_names(self):
+        m = synthetic_manifest()
+        m["fixtures"].append(dict(m["fixtures"][1]))  # same name again
+        _by, _meta, errors = RR.build_metadata(m)
+        self.assertTrue(any("duplicate fixture name" in e for e in errors), errors)
+
+    def test_detects_source_truncation_mismatch(self):
+        # Same parent, different SOURCE window: must be rejected even though the
+        # parent and declared baseline match.
+        m = synthetic_manifest()
+        m["fixtures"][1]["truncation"]["sourceStartFrame"] = 48000
+        m["fixtures"][1]["truncation"]["sourceStartSeconds"] = 1.0
+        _by, _meta, errors = RR.build_metadata(m)
+        self.assertTrue(any("SOURCE TRUNCATION MISMATCH" in e for e in errors), errors)
+
+    def test_accepts_output_length_difference(self):
+        # A warp changes the output length but not the source window: valid pair.
+        _by, meta, errors = RR.build_metadata(synthetic_manifest())
+        self.assertEqual(errors, [])
+        self.assertNotEqual(meta["clean__tempo_step_1.25"]["outputFrames"],
+                            meta["clean__baseline"]["outputFrames"])
+        self.assertEqual(meta["clean__tempo_step_1.25"]["sourceTruncation"],
+                         meta["clean__baseline"]["sourceTruncation"])
+
+    def test_rejects_missing_source_window(self):
+        m = synthetic_manifest()
+        del m["fixtures"][1]["truncation"]["sourceEndFrame"]
+        _by, _meta, errors = RR.build_metadata(m)
+        self.assertTrue(any("lacks source truncation fields" in e for e in errors), errors)
+
+
+class Spec2PctRegressionTest(unittest.TestCase):
+    """BPM 2 % boolean must compare the numeric relative error, not a bool cast.
+
+    Regression values requested by the integration review: 0, 0.0004, 0.0133,
+    0.02, 0.0234, plus missing / non-steady."""
+
+    def _rows(self, rel_err, steady=True, has_lock=True, nominal=True):
+        m = synthetic_manifest()
+        _by, meta, errors = RR.build_metadata(m)
+        self.assertEqual(errors, [])
+        base = metric("clean__baseline", bpmRelativeError=0.0)
+        clip = metric("clean__noise_snr10", bpmRelativeError=rel_err,
+                      steady=steady, hasBpmLock=has_lock, hasNominalBpm=nominal)
+        backend = {"backend": "btrack",
+                   "fixturesByName": {"clean__baseline": base,
+                                      "clean__noise_snr10": clip}}
+        return RR.build_rows(meta, [backend])
+
+    def _row(self, rows, metric_name):
+        return [r for r in rows if r["fixture"] == "clean__noise_snr10"
+                and r["metric"] == metric_name][0]
+
+    def test_threshold_comparison(self):
+        cases = [
+            (0.0, 1, 0.0),
+            (0.0004, 1, 0.02),
+            (0.0133, 1, 0.665),
+            (0.02, 1, 1.0),
+            (0.0234, 0, 1.17),
+        ]
+        for rel, within, normalized in cases:
+            with self.subTest(rel=rel):
+                rows = self._rows(rel)
+                w = self._row(rows, "bpm.spec2pctWithin")
+                n = self._row(rows, "bpm.spec2pctNormalized")
+                self.assertEqual(w["value"], within, (rel, w))
+                self.assertAlmostEqual(n["value"], normalized, places=6, msg=(rel, n))
+
+    def test_missing_lock_is_missing(self):
+        rows = self._rows(0.01, has_lock=False)
+        for name in ("bpm.spec2pctWithin", "bpm.spec2pctNormalized"):
+            r = self._row(rows, name)
+            self.assertIsNone(r["value"])
+            self.assertEqual(r["status"], "missing")
+
+    def test_nonsteady_is_missing(self):
+        rows = self._rows(0.01, steady=False)
+        for name in ("bpm.spec2pctWithin", "bpm.spec2pctNormalized"):
+            r = self._row(rows, name)
+            self.assertIsNone(r["value"])
+            self.assertEqual(r["status"], "missing")
+
+    def test_baseline_side_uses_numeric_too(self):
+        rows = self._rows(0.0234)  # baseline rel error is 0.0 -> within
+        w = self._row(rows, "bpm.spec2pctWithin")
+        self.assertEqual(w["baselineValue"], 1)
+        self.assertEqual(w["difference"], 0 - 1)
+
+
+class BackendResultsValidationTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="eval005-res-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _write(self, payload):
+        p = self.tmp / "results.json"
+        p.write_text(json.dumps(payload), encoding="utf-8")
+        return p
+
+    def test_duplicate_results_fixture_names_rejected(self):
+        payload = results("btrack", {})
+        payload["variants"][0]["fixtures"] = [
+            metric("dup"), metric("dup"),
+        ]
+        info = RR.read_backend_results(self._write(payload))
+        self.assertTrue(any("duplicate fixture name" in e for e in info["errors"]),
+                        info["errors"])
+
+    def test_legacy_stamped_results_rejected(self):
+        payload = results("btrack", {"x": metric("x")})
+        payload["legacyBlockStampedBeats"] = True
+        info = RR.read_backend_results(self._write(payload))
+        self.assertTrue(any("legacy-block-stamped" in e for e in info["errors"]))
+
+    def test_wrong_block_frames_rejected(self):
+        payload = results("btrack", {"x": metric("x")})
+        payload["blockFrames"] = 512
+        info = RR.read_backend_results(self._write(payload))
+        self.assertTrue(any("blockFrames" in e for e in info["errors"]))
 
 
 class MissingSemanticsTest(unittest.TestCase):
@@ -346,6 +477,20 @@ class ScriptEndToEndTest(unittest.TestCase):
         doc = json.loads((out / "degradation.json").read_text())
         self.assertTrue(any("MISMATCHED BASELINE" in e for e in doc["validation"]["errors"]))
 
+    def test_backend_label_mismatch_is_a_hard_error(self):
+        b = self._write_results("btrack")
+        payload = json.loads(b.read_text())
+        payload["backend"] = "aubio"          # lie about which backend produced it
+        b.write_text(json.dumps(payload), encoding="utf-8")
+        a = self._write_results("aubio")
+        out = self.tmp / "out-label"
+        completed = self._run(b, a, out)
+        self.assertNotEqual(completed.returncode, 0)
+        doc = json.loads((out / "degradation.json").read_text())
+        self.assertTrue(any("backend label mismatch" in e
+                            for e in doc["validation"]["errors"]),
+                        doc["validation"]["errors"])
+
 
 # ---------------------------------------------------------------------------
 # Optional: the real CLI + real derived corpus
@@ -353,15 +498,34 @@ class ScriptEndToEndTest(unittest.TestCase):
 
 def _find_real_env():
     cli = Path(os.environ.get("EVAL005_CLI",
-                              "/home/mojo/projects/build-EVAL-005/cli/rhythm-eval"))
+                              "/home/mojo/projects/build-EVAL-005/main-cli/rhythm-eval"))
     core = Path(os.environ.get("EVAL005_CORE",
-                               "/home/mojo/projects/build-EVAL-005/core"))
+                               "/home/mojo/projects/build-EVAL-005/main-core"))
     derived = REPO / "testdata" / "rhythm" / "derived" / "manifest.json"
     btrack = core / "librhythm-eval-btrack.so"
     aubio = core / "librhythm-eval-aubio.so"
     if all(p.exists() for p in (cli, btrack, aubio, derived)):
         return cli, btrack, aubio, derived
     return None
+
+
+class DerivedCorpusHashTest(unittest.TestCase):
+    """The runner must consume exactly the committed derived corpus."""
+
+    def test_every_derived_wav_matches_manifest_sha256_and_size(self):
+        manifest_path = REPO / "testdata" / "rhythm" / "derived" / "manifest.json"
+        if not manifest_path.is_file():
+            self.skipTest("derived corpus manifest not present")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        fixtures = manifest.get("fixtures", [])
+        self.assertEqual(len(fixtures), 24)
+        for f in fixtures:
+            p = manifest_path.parent / f["file"]
+            with self.subTest(fixture=f["name"]):
+                self.assertTrue(p.is_file(), f["file"])
+                h = hashlib.sha256(p.read_bytes()).hexdigest()
+                self.assertEqual(h, f["sha256"], f["file"])
+                self.assertEqual(p.stat().st_size, f["bytes"], f["file"])
 
 
 @unittest.skipUnless(_find_real_env(), "real EVAL-005 CLI + plugins not built")

@@ -31,13 +31,14 @@ Design rules that are enforced here (not merely documented):
     core fixtures acquire within 2 bars" release gate, and they are not in any
     core denominator. Acquisition is therefore reported per clip only.
 
-Run `--help` for the CLI/plugin options. Typical reproduction:
+Run `--help` for the CLI/plugin options. Typical reproduction (the corrected
+main-source build roots; see README for pins):
 
     python3 tools/rhythm-eval/tools/run_robustness.py \
-        --cli /home/mojo/projects/build-EVAL-005/cli/rhythm-eval \
-        --backend btrack \
-        --backend-lib btrack=/home/mojo/projects/build-EVAL-005/core/librhythm-eval-btrack.so \
-        --backend-lib aubio=/home/mojo/projects/build-EVAL-005/core/librhythm-eval-aubio.so \
+        --cli /home/mojo/projects/build-EVAL-005/main-cli/rhythm-eval \
+        --backend btrack --backend aubio \
+        --backend-lib btrack=/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so \
+        --backend-lib aubio=/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so \
         --out docs/research/robustness
 
 or, consuming already-produced CLI runs:
@@ -78,12 +79,17 @@ PRIMARY_VARIANT_LABEL = "uncompensated"
 # silence metrics that must not be assessed on a noise clip.
 
 class Metric:
-    __slots__ = ("name", "key", "kind", "requires", "category")
+    __slots__ = ("name", "key", "kind", "raw_kind", "requires", "category")
 
-    def __init__(self, name, key, kind, requires=(), category=None):
+    def __init__(self, name, key, kind, requires=(), category=None, raw_kind=None):
         self.name = name
         self.key = key
         self.kind = kind          # "float" | "int" | "bool" | "str"
+        # How to read the source field. Usually the same as `kind`, but
+        # `bpm.spec2pctWithin` is a boolean OUTPUT derived from a numeric input:
+        # the raw relative error must be preserved until the 2 % comparison, so
+        # a value of 0.0004 is not collapsed to 1 by a bool cast first.
+        self.raw_kind = raw_kind or kind
         self.requires = tuple(requires)
         self.category = category  # None | "silence" | "syncopation" | "ramp"
 
@@ -108,7 +114,8 @@ METRICS = [
     Metric("bpm.hasBpmLock", "hasBpmLock", "bool"),
     Metric("bpm.lockedBpm", "lockedBpm", "float", ["hasBpmLock"]),
     Metric("bpm.bpmRelativeError", "bpmRelativeError", "float", ["hasBpmLock", "hasNominalBpm"]),
-    Metric("bpm.spec2pctWithin", "bpmRelativeError", "bool", ["hasBpmLock", "hasNominalBpm", "steady"]),
+    Metric("bpm.spec2pctWithin", "bpmRelativeError", "bool",
+           ["hasBpmLock", "hasNominalBpm", "steady"], raw_kind="float"),
     Metric("bpm.spec2pctNormalized", "bpmRelativeError", "float", ["hasBpmLock", "hasNominalBpm", "steady"]),
 
     # half/double-time
@@ -307,17 +314,36 @@ def parameter_token(transformation: dict) -> str:
     return "%s=%s" % (key, num_token(value))
 
 
+# Source-window fields that define "the same truncation". The OUTPUT length
+# (`signal.frames` / `durationSeconds`) may legitimately differ for a warp or a
+# silence pad; the SOURCE window a clip was cut from must not.
+SOURCE_TRUNCATION_FIELDS = ("sourceStartFrame", "sourceEndFrame",
+                            "sourceStartSeconds", "sourceEndSeconds")
+
+
 def build_metadata(manifest: dict):
     fixtures = manifest.get("fixtures", [])
-    by_name = {f["name"]: f for f in fixtures}
+    errors = []
+
+    by_name = {}
+    for f in fixtures:
+        name = f.get("name")
+        if not name:
+            errors.append("fixture without a name")
+            continue
+        if name in by_name:
+            errors.append("duplicate fixture name in manifest: %s" % name)
+            continue
+        by_name[name] = f
 
     parent_of = {}
     baseline_of = {}
     meta = {}
-    errors = []
 
     for f in fixtures:
-        name = f["name"]
+        name = f.get("name")
+        if not name or name not in by_name:
+            continue
         parent = f.get("parentFixture")
         pair = f.get("pairedBaseline")
         if not parent:
@@ -346,7 +372,11 @@ def build_metadata(manifest: dict):
             "param": parameter_token(f.get("transformation", {})),
             "tags": f.get("scenarioTags", []),
             "durationSeconds": f.get("durationSeconds"),
-            "frames": (f.get("truncation") or {}).get("frames"),
+            "outputFrames": (f.get("signal") or {}).get("frames"),
+            "sourceTruncation": {
+                key: (f.get("truncation") or {}).get(key)
+                for key in SOURCE_TRUNCATION_FIELDS
+            },
             "trueSilenceSpans": f.get("trueSilenceSpans", []),
         }
 
@@ -366,6 +396,29 @@ def build_metadata(manifest: dict):
                           % (name, m["pairedBaseline"]))
         if m["kind"] != "baseline" and m["pairedBaseline"] == name:
             errors.append("non-baseline %s pairs with itself" % name)
+
+    # SAME SOURCE TRUNCATION: a clip may only be paired against a baseline cut
+    # from exactly the same source window. Output length may differ (warp/pad),
+    # but the source window must not.
+    for name, m in meta.items():
+        if m["kind"] == "baseline":
+            continue
+        base = meta.get(m["pairedBaseline"])
+        if base is None:
+            continue
+        src = m["sourceTruncation"]
+        bsrc = base["sourceTruncation"]
+        missing = [k for k in SOURCE_TRUNCATION_FIELDS
+                   if src.get(k) is None or bsrc.get(k) is None]
+        if missing:
+            errors.append(
+                "fixture %s lacks source truncation fields %s (cannot prove the "
+                "paired baseline is the same window)" % (name, missing))
+            continue
+        if src != bsrc:
+            errors.append(
+                "SOURCE TRUNCATION MISMATCH: %s window %s != paired baseline %s "
+                "window %s" % (name, src, m["pairedBaseline"], bsrc))
 
     return by_name, meta, errors
 
@@ -396,8 +449,17 @@ def read_backend_results(path: Path):
 
     by_name = {}
     for m in fixtures or []:
-        by_name[m.get("name")] = m
+        name = m.get("name")
+        if name is None:
+            errors.append("results %s has a fixture with no name" % path)
+            continue
+        if name in by_name:
+            errors.append("results %s has a duplicate fixture name %s "
+                          "(silently collapsing would hide a repeated clip)" % (path, name))
+            continue
+        by_name[name] = m
 
+    declared_backend = data.get("backend")
     if data.get("legacyBlockStampedBeats"):
         errors.append("results %s were produced with --legacy-block-stamped-beats "
                       "(diagnostic defect mode); not valid evidence" % path)
@@ -408,7 +470,8 @@ def read_backend_results(path: Path):
     return {
         "path": str(path),
         "sha256": sha256_file(path),
-        "backend": data.get("backend"),
+        "declaredBackend": declared_backend,
+        "backend": declared_backend,
         "blockFrames": data.get("blockFrames"),
         "variant": variant_label,
         "fixturesByName": by_name,
@@ -421,16 +484,20 @@ def read_backend_results(path: Path):
 # ---------------------------------------------------------------------------
 
 def extract_metric(spec: Metric, m: dict):
-    """Returns (value, status, reason). `value` is None when missing."""
+    """Returns (value, status, reason). `value` is None when missing.
+
+    The source is read according to `spec.raw_kind`, not `spec.kind`, so a
+    numeric input to a derived boolean metric keeps its value until the caller
+    compares it (see the `bpm.spec2pctWithin` handling in `build_rows`)."""
     for flag in spec.requires:
         if not m.get(flag, False):
             return None, "missing", "requires " + flag
     raw = m.get(spec.key)
     if raw is None:
         return None, "missing", "field absent"
-    if spec.kind == "bool":
+    if spec.raw_kind == "bool":
         return (1 if raw else 0), "measured", ""
-    if spec.kind in ("int", "float"):
+    if spec.raw_kind in ("int", "float"):
         if isinstance(raw, bool):
             raw = 1.0 if raw else 0.0
         return round9(raw), "measured", ""
@@ -855,6 +922,11 @@ def main(argv=None):
         if not path.is_file():
             die("results file not found: %s" % path)
         backend = read_backend_results(path)
+        declared = backend.get("declaredBackend")
+        if declared and declared != name:
+            backend["errors"].append(
+                "backend label mismatch: requested --backend %s but results declare "
+                "'%s'" % (name, declared))
         backend["backend"] = name
         backends.append(backend)
 
@@ -893,16 +965,19 @@ def main(argv=None):
         "are excluded from any SPEC 19 core denominator and cannot establish the "
         "absolute acquisition release gate.")
 
-    # Baseline length-commensurability report.
+    # Baseline output-length-commensurability report. Source truncation equality
+    # is already enforced as a hard error in build_metadata; a differing OUTPUT
+    # length is a legitimate warp/pad and is only warned about.
     for name, m in sorted(meta.items()):
         base = meta.get(m["pairedBaseline"])
         if base is None or m["kind"] == "baseline":
             continue
-        bf, pf = base.get("frames"), m.get("frames")
+        bf, pf = base.get("outputFrames"), m.get("outputFrames")
         if bf is not None and pf is not None and bf != pf:
             warnings.append(
-                "length differs from paired baseline: %s %d frames vs baseline %d "
-                "(caveat: not length-commensurable)" % (name, pf, bf))
+                "output length differs from paired baseline: %s %d frames vs "
+                "baseline %d (caveat: not length-commensurable)"
+                % (name, pf, bf))
 
     document = {
         "schemaVersion": SCHEMA_VERSION,

@@ -52,7 +52,7 @@
 - ramp local-tempo relative error (raw, not a gate): mean 0.0000, worst 0.0000 over 0 measured ramp fixture(s)
 - syncopation max deviation 0.0000, max step 0.0000 (raw, not a gate; 0 fixture(s) measured)
 - backend beat-timestamp mapping: 108 reported, 0 at block start, 0 non-causal fallbacks, 0 rate-mismatch blocks; causal availability delay mean 3.93 ms, worst 10.52 ms
-- CPU 0.2422 s total, 96 C++ new/delete allocations total
+- CPU 0.2455 s total, 96 C++ new/delete allocations total
 
 ## Latency compensation effect
 

@@ -8,8 +8,8 @@ This is a **diagnostic** document: no tracker is selected, no gate is tuned, and
 
 - Derived manifest: `testdata/rhythm/derived/manifest.json` (sha256 `3bb6d350f534b6d6f3208ca1ef5c0f29cf7c7069b3a9771c13f191385c5cc3cd`)
 - Derived corpus id: `eval003-derived-perturbations`; base manifest sha256 `06fe2c4356dd411a90b5e4948ebeb00eeb68d82f42d26b5ad25f4797c530fab1`
-- `btrack`: results `docs/research/robustness/raw/btrack/block128/results.json` (sha256 `ffc227187f206883f17b45a941f6e8ea7a43aff676c10369965505fa540873cb`); blockFrames 128; variant `uncompensated`
-- `aubio`: results `docs/research/robustness/raw/aubio/block128/results.json` (sha256 `dd37918020e24249ab5f9a2fec82a1cfb33601aaae01ecf5270c6e226c775eeb`); blockFrames 128; variant `uncompensated`
+- `btrack`: results `docs/research/robustness/raw/btrack/block128/results.json` (sha256 `07a82506e2fa748b05a6fffffad58f1690e1906113b95d94f1cb5d13d372979c`); blockFrames 128; variant `uncompensated`
+- `aubio`: results `docs/research/robustness/raw/aubio/block128/results.json` (sha256 `c772690539f3ec019fcd92c0f86f772f784a85e7246138de8df2624d86a18bd3`); blockFrames 128; variant `uncompensated`
 
 ## Reproduction
 
@@ -17,6 +17,8 @@ This is a **diagnostic** document: no tracker is selected, no gate is tuned, and
 # EVAL-005 primary run: uncompensated, 128-frame analysis block
 export PATH=/tmp/opencode/venv/bin:$PATH
 export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
+/home/mojo/projects/build-EVAL-005/main-cli/rhythm-eval --corpus testdata/rhythm/derived --out docs/research/robustness/raw/btrack/block128 --backend btrack --backend-lib /home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so --block 128
+/home/mojo/projects/build-EVAL-005/main-cli/rhythm-eval --corpus testdata/rhythm/derived --out docs/research/robustness/raw/aubio/block128 --backend aubio --backend-lib /home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so --block 128
 ```
 
 ## Global caveats
@@ -33,6 +35,10 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 ## Validation
 
 - pairs checked: 24; baselines: 2; hard errors: 0; duplicate rows: 0
+  - warning: output length differs from paired baseline: clean_eighths__lead_silence_0.5s 264000 frames vs baseline 240000 (caveat: not length-commensurable)
+  - warning: output length differs from paired baseline: clean_eighths__tempo_step_0.85 263254 frames vs baseline 240000 (caveat: not length-commensurable)
+  - warning: output length differs from paired baseline: clean_eighths__tempo_step_1.25 213646 frames vs baseline 240000 (caveat: not length-commensurable)
+  - warning: output length differs from paired baseline: clean_eighths__trail_silence_0.5s 264000 frames vs baseline 240000 (caveat: not length-commensurable)
 
 ## Coverage
 
@@ -49,15 +55,15 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| window=5.0s | 0.6667 | 1 | 0.5 | 5 | yes | 1.2491 | 0.0145 | yes | 15.425 | 0 | 0.0102 | 4 |
+| window=5.0s | 0.6667 | 1 | 0.5 | 5 | yes | 1.2491 | 0.0145 | yes | 15.425 | 0 | 0.011 | 4 |
 
 ### aubio — clean_eighths — noise
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| snrDb=0 | 0.2353 | 0.2857 | 0.2 | 7 | no | NA | 0.3678 | yes | 17.9732 | 0 | 0.0102 | 4 |
-| snrDb=10 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2496 | 0.0145 | yes | 14.2583 | 0 | 0.01 | 4 |
-| snrDb=20 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2492 | 0.0146 | yes | 15.1583 | 0 | 0.01 | 4 |
+| snrDb=0 | 0.2353 | 0.2857 | 0.2 | 7 | no | NA | 0.3678 | yes | 17.9732 | 0 | 0.0103 | 4 |
+| snrDb=10 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2496 | 0.0145 | yes | 14.2583 | 0 | 0.0104 | 4 |
+| snrDb=20 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2492 | 0.0146 | yes | 15.1583 | 0 | 0.0111 | 4 |
 
 > caveat: trueSilenceSpans is STRUCTURAL only: an added noise floor fills what was near-silent. Silence metrics are NOT assessed from this clip; raw counts are shown uncaveated only as counts.
 
@@ -65,24 +71,24 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| gainDb=-60 | 0 | 1 | 0 | 0 | no | NA | NA | no | NA | 0 | 0.0098 | 4 |
-| gainDb=-40 | 0.1818 | 1 | 0.1 | 1 | no | NA | 0.0145 | yes | 1.7649 | 0 | 0.0097 | 4 |
-| gainDb=-20 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2491 | 0.0145 | yes | 15.425 | 0 | 0.01 | 4 |
+| gainDb=-60 | 0 | 1 | 0 | 0 | no | NA | NA | no | NA | 0 | 0.0099 | 4 |
+| gainDb=-40 | 0.1818 | 1 | 0.1 | 1 | no | NA | 0.0145 | yes | 1.7649 | 0 | 0.0099 | 4 |
+| gainDb=-20 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2491 | 0.0145 | yes | 15.425 | 0 | 0.0103 | 4 |
 
 ### aubio — clean_eighths — clipping
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| thresholdFraction=0.125 | 0.6667 | 1 | 0.5 | 5 | yes | 1.4967 | 0.0135 | yes | 12.6774 | 0 | 0.01 | 4 |
-| thresholdFraction=0.25 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2497 | 0.0134 | yes | 13.2292 | 0 | 0.01 | 4 |
+| thresholdFraction=0.125 | 0.6667 | 1 | 0.5 | 5 | yes | 1.4967 | 0.0135 | yes | 12.6774 | 0 | 0.0101 | 4 |
+| thresholdFraction=0.25 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2497 | 0.0134 | yes | 13.2292 | 0 | 0.0101 | 4 |
 | thresholdFraction=0.5 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2492 | 0.0141 | yes | 14.7125 | 0 | 0.01 | 4 |
 
 ### aubio — clean_eighths — onset_offset
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| offsetMs=40 | 0.6667 | 1 | 0.5 | 5 | yes | 1.25 | 0.0139 | yes | 13.0024 | 0 | 0.0103 | 4 |
-| offsetMs=80 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2511 | 0.0131 | yes | 11.0607 | 0 | 0.0101 | 4 |
+| offsetMs=40 | 0.6667 | 1 | 0.5 | 5 | yes | 1.25 | 0.0139 | yes | 13.0024 | 0 | 0.0101 | 4 |
+| offsetMs=80 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2511 | 0.0131 | yes | 11.0607 | 0 | 0.0102 | 4 |
 
 > caveat: Content window is shifted by a real sample delay (length preserved). Absolute detection counts are not commensurable in the same sample window.
 
@@ -98,7 +104,7 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| silenceSeconds=0.5 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2491 | 0.0145 | yes | 15.425 | 0 | 0.011 | 4 |
+| silenceSeconds=0.5 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2491 | 0.0145 | yes | 15.425 | 0 | 0.0111 | 4 |
 
 > caveat: Duration is +0.5 s longer (silence appended). Absolute counts are not length-commensurable; detection is over a longer window.
 
@@ -114,8 +120,8 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| everyKth=2 | 0.6667 | 1 | 0.5 | 5 | yes | 1.4965 | 0.0153 | yes | 14.069 | 0 | 0.0099 | 4 |
-| everyKth=4 | 0.6667 | 1 | 0.5 | 5 | yes | 1.498 | 0.0115 | yes | 9.8315 | 0 | 0.0099 | 4 |
+| everyKth=2 | 0.6667 | 1 | 0.5 | 5 | yes | 1.4965 | 0.0153 | yes | 14.069 | 0 | 0.01 | 4 |
+| everyKth=4 | 0.6667 | 1 | 0.5 | 5 | yes | 1.498 | 0.0115 | yes | 9.8315 | 0 | 0.0102 | 4 |
 
 > caveat: Edit-onsets perturbation: the metric grid is unchanged but as-played onsets are removed, so recall/F degrade against an unchanged beat truth.
 
@@ -124,7 +130,7 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | burstCount=1 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2491 | 0.0145 | yes | 15.425 | 0 | 0.01 | 4 |
-| burstCount=4 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2492 | 0.014 | yes | 14.675 | 0 | 0.01 | 4 |
+| burstCount=4 | 0.6667 | 1 | 0.5 | 5 | yes | 1.2492 | 0.014 | yes | 14.675 | 0 | 0.0101 | 4 |
 
 > caveat: Edit-onsets perturbation. SPEC 19 'no tempo jump from one isolated syncopated event' is NOT-MEASURED offline; the step proxy is raw only, not a clock gate.
 
@@ -132,7 +138,7 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| ratio=0.85 | 0.125 | 0.1667 | 0.1 | 6 | no | NA | NA | yes | 20.6176 | 0 | 0.0118 | 4 |
+| ratio=0.85 | 0.125 | 0.1667 | 0.1 | 6 | no | NA | NA | yes | 20.6176 | 0 | 0.0115 | 4 |
 | ratio=1.25 | 0 | 0 | 0 | 3 | no | NA | NA | yes | NA | 0 | 0.009 | 4 |
 
 > caveat: Duration differs from the paired baseline (tape-speed warp). Detection counts, acquisition and silence occupancy are NOT length-commensurable; compare tempo/phase within the clip.
@@ -141,13 +147,13 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| window=5.0s | 0.6154 | 1 | 0.4444 | 4 | no | NA | 0.008 | yes | 4.2664 | 0 | 0.0099 | 4 |
+| window=5.0s | 0.6154 | 1 | 0.4444 | 4 | no | NA | 0.008 | yes | 4.2664 | 0 | 0.01 | 4 |
 
 ### aubio — syncopated_funk — noise
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| snrDb=0 | 0.6154 | 1 | 0.4444 | 4 | no | NA | 0.0127 | yes | 7.3363 | 0 | 0.01 | 4 |
+| snrDb=0 | 0.6154 | 1 | 0.4444 | 4 | no | NA | 0.0127 | yes | 7.3363 | 0 | 0.0101 | 4 |
 | snrDb=10 | 0.6154 | 1 | 0.4444 | 4 | no | NA | 0.0078 | yes | 4.1726 | 0 | 0.01 | 4 |
 
 > caveat: trueSilenceSpans is STRUCTURAL only: an added noise floor fills what was near-silent. Silence metrics are NOT assessed from this clip; raw counts are shown uncaveated only as counts.
@@ -156,13 +162,13 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| window=5.0s | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 13.3933 | 0 | 0.0364 | 1481 |
+| window=5.0s | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 13.3933 | 0 | 0.0365 | 1481 |
 
 ### btrack — clean_eighths — noise
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| snrDb=0 | 0.4211 | 0.4444 | 0.4 | 9 | yes | 1.4863 | 0.0004 | yes | 14.6734 | 0 | 0.0377 | 1481 |
+| snrDb=0 | 0.4211 | 0.4444 | 0.4 | 9 | yes | 1.4863 | 0.0004 | yes | 14.6734 | 0 | 0.0385 | 1481 |
 | snrDb=10 | 0.6316 | 0.6667 | 0.6 | 9 | no | NA | 0.0234 | yes | 11.4444 | 0 | 0.037 | 1481 |
 | snrDb=20 | 0.6316 | 0.6667 | 0.6 | 9 | no | NA | 0.0234 | yes | 9.5104 | 0 | 0.0368 | 1481 |
 
@@ -172,24 +178,24 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| gainDb=-60 | 0 | 1 | 0 | 0 | no | NA | NA | no | NA | 0 | 0.042 | 1481 |
-| gainDb=-40 | 0.8421 | 0.8889 | 0.8 | 9 | no | NA | 0.0234 | yes | 10.9487 | 0 | 0.0349 | 1481 |
-| gainDb=-20 | 0.8 | 0.8 | 0.8 | 10 | no | NA | 0.0234 | yes | 15.7961 | 0 | 0.0364 | 1481 |
+| gainDb=-60 | 0 | 1 | 0 | 0 | no | NA | NA | no | NA | 0 | 0.0369 | 1481 |
+| gainDb=-40 | 0.8421 | 0.8889 | 0.8 | 9 | no | NA | 0.0234 | yes | 10.9487 | 0 | 0.0361 | 1481 |
+| gainDb=-20 | 0.8 | 0.8 | 0.8 | 10 | no | NA | 0.0234 | yes | 15.7961 | 0 | 0.0371 | 1481 |
 
 ### btrack — clean_eighths — clipping
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| thresholdFraction=0.125 | 0.7368 | 0.7778 | 0.7 | 9 | yes | 1.2486 | 0.0004 | yes | 7.7649 | 0 | 0.0364 | 1481 |
-| thresholdFraction=0.25 | 0.7368 | 0.7778 | 0.7 | 9 | yes | 1.2486 | 0.0004 | yes | 10.1293 | 0 | 0.0361 | 1481 |
-| thresholdFraction=0.5 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 16.7088 | 0 | 0.036 | 1481 |
+| thresholdFraction=0.125 | 0.7368 | 0.7778 | 0.7 | 9 | yes | 1.2486 | 0.0004 | yes | 7.7649 | 0 | 0.0372 | 1481 |
+| thresholdFraction=0.25 | 0.7368 | 0.7778 | 0.7 | 9 | yes | 1.2486 | 0.0004 | yes | 10.1293 | 0 | 0.0373 | 1481 |
+| thresholdFraction=0.5 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 16.7088 | 0 | 0.037 | 1481 |
 
 ### btrack — clean_eighths — onset_offset
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| offsetMs=40 | 0.9 | 0.9 | 0.9 | 10 | no | NA | 0.0234 | yes | 20.8816 | 0 | 0.0362 | 1481 |
-| offsetMs=80 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 7.5638 | 0 | 0.0355 | 1481 |
+| offsetMs=40 | 0.9 | 0.9 | 0.9 | 10 | no | NA | 0.0234 | yes | 20.8816 | 0 | 0.037 | 1481 |
+| offsetMs=80 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 7.5638 | 0 | 0.0368 | 1481 |
 
 > caveat: Content window is shifted by a real sample delay (length preserved). Absolute detection counts are not commensurable in the same sample window.
 
@@ -197,7 +203,7 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| silenceSeconds=0.5 | 0.9 | 0.9 | 0.9 | 10 | no | NA | 0.0234 | yes | 14.7688 | 0 | 0.0377 | 1524 |
+| silenceSeconds=0.5 | 0.9 | 0.9 | 0.9 | 10 | no | NA | 0.0234 | yes | 14.7688 | 0 | 0.0387 | 1524 |
 
 > caveat: Content window is prepended with silence (length +0.5 s). Absolute detection counts and acquisition time are not commensurable with the baseline.
 
@@ -205,7 +211,7 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| silenceSeconds=0.5 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 13.3933 | 0 | 0.0376 | 1524 |
+| silenceSeconds=0.5 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 13.3933 | 0 | 0.0391 | 1524 |
 
 > caveat: Duration is +0.5 s longer (silence appended). Absolute counts are not length-commensurable; detection is over a longer window.
 
@@ -213,7 +219,7 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| gapSeconds=1 | 0.5882 | 0.7143 | 0.5 | 7 | no | NA | 0.0234 | yes | 31.4762 | 0 | 0.0324 | 1481 |
+| gapSeconds=1 | 0.5882 | 0.7143 | 0.5 | 7 | no | NA | 0.0234 | yes | 31.4762 | 0 | 0.033 | 1481 |
 
 > caveat: Edit-onsets perturbation. SPEC 19 'silence does not create false acceleration' is NOT-MEASURED offline; the tempo proxy is raw only, not a clock gate.
 
@@ -221,8 +227,8 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| everyKth=2 | 0.4211 | 0.4444 | 0.4 | 9 | no | NA | 0.0004 | yes | 59.1935 | 0 | 0.0358 | 1481 |
-| everyKth=4 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 18.4366 | 0 | 0.0357 | 1481 |
+| everyKth=2 | 0.4211 | 0.4444 | 0.4 | 9 | no | NA | 0.0004 | yes | 59.1935 | 0 | 0.0364 | 1481 |
+| everyKth=4 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 18.4366 | 0 | 0.0366 | 1481 |
 
 > caveat: Edit-onsets perturbation: the metric grid is unchanged but as-played onsets are removed, so recall/F degrade against an unchanged beat truth.
 
@@ -230,8 +236,8 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| burstCount=1 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 13.3933 | 0 | 0.0363 | 1481 |
-| burstCount=4 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 13.3933 | 0 | 0.0358 | 1481 |
+| burstCount=1 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 13.3933 | 0 | 0.0366 | 1481 |
+| burstCount=4 | 0.7368 | 0.7778 | 0.7 | 9 | no | NA | 0.0234 | yes | 13.3933 | 0 | 0.0364 | 1481 |
 
 > caveat: Edit-onsets perturbation. SPEC 19 'no tempo jump from one isolated syncopated event' is NOT-MEASURED offline; the step proxy is raw only, not a clock gate.
 
@@ -239,8 +245,8 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| ratio=0.85 | 0.3 | 0.3 | 0.3 | 10 | no | NA | NA | yes | 30.5442 | 0 | 0.0402 | 1523 |
-| ratio=1.25 | 0.2222 | 0.25 | 0.2 | 8 | no | NA | NA | yes | 36.9762 | 0 | 0.0319 | 1434 |
+| ratio=0.85 | 0.3 | 0.3 | 0.3 | 10 | no | NA | NA | yes | 30.5442 | 0 | 0.0403 | 1523 |
+| ratio=1.25 | 0.2222 | 0.25 | 0.2 | 8 | no | NA | NA | yes | 36.9762 | 0 | 0.0322 | 1434 |
 
 > caveat: Duration differs from the paired baseline (tape-speed warp). Detection counts, acquisition and silence occupancy are NOT length-commensurable; compare tempo/phase within the clip.
 
@@ -248,14 +254,14 @@ export TMPDIR=/home/mojo/projects/build-EVAL-005/tmp
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| window=5.0s | 0.7778 | 0.7778 | 0.7778 | 9 | yes | 1.0015 | 0.0182 | yes | 14.2024 | 0 | 0.035 | 1481 |
+| window=5.0s | 0.7778 | 0.7778 | 0.7778 | 9 | yes | 1.0015 | 0.0182 | yes | 14.2024 | 0 | 0.0354 | 1481 |
 
 ### btrack — syncopated_funk — noise
 
 | param | F | P | R | pred | acq? | acqBars | BPMerr | bpmLock | phaseAbsMs | sil/s | CPU s | allocs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| snrDb=0 | 0.4706 | 0.5 | 0.4444 | 8 | yes | 1.2453 | 0.0182 | yes | 5.8147 | 0 | 0.0369 | 1481 |
-| snrDb=10 | 0.4706 | 0.5 | 0.4444 | 8 | yes | 1.2453 | 0.0182 | yes | 5.8147 | 0 | 0.0363 | 1481 |
+| snrDb=0 | 0.4706 | 0.5 | 0.4444 | 8 | yes | 1.2453 | 0.0182 | yes | 5.8147 | 0 | 0.0378 | 1481 |
+| snrDb=10 | 0.4706 | 0.5 | 0.4444 | 8 | yes | 1.2453 | 0.0182 | yes | 5.8147 | 0 | 0.0369 | 1481 |
 
 > caveat: trueSilenceSpans is STRUCTURAL only: an added noise floor fills what was near-silent. Silence metrics are NOT assessed from this clip; raw counts are shown uncaveated only as counts.
 
