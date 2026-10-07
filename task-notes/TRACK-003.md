@@ -97,7 +97,10 @@ beyond the stated CC-BY-4.0; any offline DBN test; any G3/CMake/corpus change.
 
 ## Handoff
 
-- Feasibility review complete at commit: **`<filled by the commit below>`**.
+- Deliverables commit: **`f2cdf90`** — *docs(track-003): BeatNet feasibility
+  review — measured blockers, no fabricated benchmark*.
+- SHA-reporting commit: the commit that fills in the line above; this file is the
+  only change.
 - Authoritative artifacts: `docs/research/BEATNET-FEASIBILITY.md` and
   `tools/beatnet-eval/provenance.json`.
 - Recommended follow-up (separate task, own budget/licence decision): provision a
