@@ -1,0 +1,54 @@
+{
+  "beatnet_importable": false,
+  "blockers": [
+    "The pinned causal BeatNet path imports madmom, which does not import on Python 3.13 unmodified (collections.MutableSequence, numpy.float); see provenance.json dependency_blockers.",
+    "Only a supported interpreter (or a patched dependency stack) can run the real benchmark; this probe does not fabricate observations."
+  ],
+  "imports": [
+    {
+      "detail": "ModuleNotFoundError: No module named 'BeatNet'",
+      "importable": false,
+      "module": "BeatNet"
+    },
+    {
+      "detail": "ModuleNotFoundError: No module named 'madmom'",
+      "importable": false,
+      "module": "madmom"
+    },
+    {
+      "detail": "ModuleNotFoundError: No module named 'madmom'",
+      "importable": false,
+      "module": "madmom.features"
+    },
+    {
+      "detail": "ModuleNotFoundError: No module named 'madmom'",
+      "importable": false,
+      "module": "madmom.ml.hmm"
+    },
+    {
+      "detail": "ModuleNotFoundError: No module named 'torch'",
+      "importable": false,
+      "module": "torch"
+    }
+  ],
+  "pinned": {
+    "license_spdx": "CC-BY-4.0",
+    "spec_cited_commit": "be864a4b0f126aa90aeabdeedf23f48865e09512",
+    "spec_cited_repo": "https://github.com/hashimkarim/beatnet",
+    "upstream_commit": "81cedd4beeb7235262db80969a0c9ce9a48a0ed4",
+    "upstream_repo": "https://github.com/mjhydri/BeatNet"
+  },
+  "platform": {
+    "machine": "x86_64",
+    "release": "6.12.105+deb13-cloud-amd64",
+    "system": "Linux"
+  },
+  "python": {
+    "executable": "/usr/bin/python3",
+    "implementation": "CPython",
+    "version": "3.13.5"
+  },
+  "ran_benchmark": false,
+  "schema": "beatnet-eval/probe/v1",
+  "weights": null
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/beatnet-eval/observations.schema.json",
+  "title": "beatnet-eval observations v1 (declared real BeatNet run)",
+  "description": "Schema for the output a real BeatNet driver must produce before score.py will score it. The committed corpus manifest supplies the ground truth; this file is an ILLUSTRATIVE SCHEMA only and contains no BeatNet observation or score.",
+  "type": "object",
+  "required": ["schema", "provenance", "availability_semantics", "fixtures"],
+  "properties": {
+    "schema": { "const": "beatnet-eval/observations/v1" },
+    "provenance": {
+      "type": "object",
+      "required": ["source", "repo_commit", "mode", "inference_model", "device", "raw_output_sha256", "driver_sha256", "created_utc"],
+      "properties": {
+        "source": { "const": "BeatNet" },
+        "repo_url": { "type": "string" },
+        "repo_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "package_version": { "type": "string" },
+        "model": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "mode": { "enum": ["stream", "realtime", "online", "offline"] },
+        "inference_model": { "enum": ["PF", "DBN"] },
+        "device": { "enum": ["cpu", "cuda"] },
+        "raw_output_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "driver": { "type": "string" },
+        "driver_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "created_utc": { "type": "string" }
+      }
+    },
+    "availability_semantics": {
+      "enum": ["per_chunk", "online_batch"],
+      "description": "per_chunk: each observation has a real available time (realtime/stream). online_batch: the whole file was processed at once, so available must be null."
+    },
+    "fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "input_wav_sha256", "beats"],
+        "properties": {
+          "name": { "type": "string" },
+          "input_wav_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "sample_rate_hz": { "type": "number" },
+          "beats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["time"],
+              "properties": {
+                "time": { "type": "number" },
+                "available": { "type": ["number", "null"] }
+              }
+            }
+          },
+          "downbeats": { "type": "array", "items": { "type": "number" } },
+          "resource": {
+            "type": "object",
+            "properties": {
+              "startup_seconds": { "type": "number" },
+              "cpu_seconds": { "type": "number" },
+              "peak_rss_bytes": { "type": "integer" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
