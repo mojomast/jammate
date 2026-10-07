@@ -564,4 +564,7 @@ only additions in the allowed paths.
 
 ## Final commit SHA
 
-To be filled in after commit; reported below.
+`675b583dd25d7297980c4bf0d2a3a204cdb2f8d4`
+(`test(rhythm): guitar rhythm evaluation corpus with ground truth`)
+
+24 files added, 4260 insertions, 0 deletions. Working tree clean after commit.
