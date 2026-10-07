@@ -97,8 +97,8 @@ and reports instead.
 | **RT-001 remove callback-unsafe control plane** | **CODE DONE — UNVERIFIED** | orchestrator, `135b4b7` | A + orchestrator | G1 | F1 fixed; ⛔ cannot be compiled here |
 | EVAL-001 guitar rhythm corpus | **DONE** | `wp/EVAL-001` → merged `f5f5a11` | C — evidence | G3 | 19 fixtures, 21 MB; hashes independently verified |
 | — BTrack vendored + licence seam | **DONE** | `a8da4f2` | orchestrator | G3 | 2 vendor defects found by smoke-build before delegating |
-| TRACK-001 BTrack backend | RUNNING | `wp/TRACK-001` | B — intelligence | G3 | |
-| EVAL-002 evaluation harness + metrics | RUNNING | `wp/EVAL-002` | B — evidence | G3 | |
+| TRACK-001 BTrack backend | **DONE** | `wp/TRACK-001` → merged `c3dad10` | B — intelligence | G3 | 10 tests / 38 940 checks; required an orchestrator vendor fix |
+| EVAL-002 evaluation harness + metrics | **DONE** | `wp/EVAL-002` → merged `3e5bb7b` | B — evidence | G3 | 11 metrics; exposed 2 corpus defects |
 | CI-001 continuous integration | **DONE** | `wp/CI-001` → merged `4376672` | C — evidence | G1 | 3 Gitea workflows; Windows job never run |
 | RT-001 remaining (F2 MidiBuffer) | BLOCKED:plugin lane | | A | G1 | needs a measured bound |
 | CI-001 CI baseline | TODO | | C | G1 | Gitea; needs plugin lane to be green |
