@@ -21,8 +21,8 @@ task note + commit SHA + successful integration.
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: 8/8 suites | deterministic seams and offline tracker diagnostics; not all SPEC acceptance conditions |
-| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | retry underway with local development headers; Windows/ASIO and hardware unverified | real JUCE compilation, upstream drum tests; callback and device measurements still required |
+| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **11/11 suites** | deterministic seams, derived generator and offline tracker diagnostics; not all SPEC acceptance conditions |
+| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **5/5 passed**; **Standalone and VST3 built** | Windows/ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
 PARTIAL, never PASSED.
@@ -33,8 +33,8 @@ PARTIAL, never PASSED.
 
 | Gate | State | Blocking items |
 |---|---|---|
-| **G0** fork/license/baseline | **PARTIAL** | baseline application build/audio evidence incomplete |
-| **G1** real-time foundation | **PARTIAL** | scene signal code integrated; real callback verification, MIDI bound and actual CI runs incomplete |
+| **G0** fork/license/baseline | **PARTIAL** | current fork builds/tests on Linux; baseline audio/device and Windows evidence incomplete |
+| **G1** real-time foundation | **PARTIAL** | scene code compiled against JUCE; engine-generated MIDI bound measured; full callback, scene delivery and actual CI runs incomplete |
 | **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam tested; live analyzer, real DrumEngine integration and Jam UI incomplete |
 | **G3** tracker selected | **IN PROGRESS (advanced early)** | both candidate adapters integrated; timestamp/gate audit, corpus repairs, robustness and selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
@@ -65,6 +65,19 @@ PARTIAL, never PASSED.
 
 ---
 
+## Latest executed integration checks
+
+- `677ce9f`: real pinned-JUCE Linux Standalone and VST3 built; all five drum
+  suites passed. Artifacts/commands in `docs/research/LOCAL-LINUX-BUILD.md`.
+- Enabled BTrack + aubio core: **11/11 ctest suites passed** after EVAL-004 and
+  EVAL-003 integration, including generator acoustic checks.
+- Default-OFF core: **9/9 passed**; no foreign tracker archives or symbols.
+- Both adapters with `JAM_CORE_BUILD_TESTS=OFF` built with no test binaries or
+  test registrations. The option now actually controls all test targets.
+- Corrected corpus comparison: BTrack F=0.7099, acquisition 4/11, worst core BPM
+  error 2.34%; aubio F=0.5357, acquisition 7/11, worst core BPM error 1.33%.
+  Acquisition fails for both. No tracker selected and no G0/G1/G3 pass claimed.
+
 ## Model routing for delegated work
 
 | Work class | Model |
@@ -93,7 +106,7 @@ and reports instead.
 | Task | State | Branch | Owner lane | Gate | Notes |
 |---|---|---|---|---|---|
 | FND-001 provenance/dependency inventory | **DONE** | `wp/FND-001-deps` → merged `724e6d9` | C — evidence | G0 | verified; 2 corrections applied by orchestrator |
-| FND-002 baseline build record | IN PROGRESS:local retry | main | orchestrator | G0 | local headers and nested submodules available; device/Windows evidence outstanding |
+| FND-002 baseline build record | PARTIAL:local build/tests verified | main, `677ce9f` | orchestrator | G0 | both Linux formats + 5 JUCE suites; device/Windows evidence outstanding |
 | FND-003 RT reachability map | **DONE** | `wp/FND-003-rt-reach` → merged `931be23` | A — real-time | G0 | P0 `triggerAsyncUpdate` CONFIRMED reachable |
 | — ADR-0003 build environment | **DONE** | `48f301c` | orchestrator | G0 | two-lane verification split |
 | MOD-001 analysis ring tests | **DONE** | `wp/MOD-001-ring` → merged `89db28d` | B — intelligence | G2 | 19 tests / 95 236 checks; 2 header defects fixed in `efb820b` |
@@ -101,19 +114,21 @@ and reports instead.
 | — library-identity decision | **DONE** | `f04c055` | orchestrator | G5 | `LibraryIndex` positional, not string id |
 | RT-SIGNAL-001 RT-safe signal primitive | **DONE** | `wp/RT-SIGNAL-001` → merged `63259a3` | A — real-time | G1 | 14 tests / 110 090 checks |
 | MOD-002 drum transport adapter | **DONE** | `wp/MOD-002` → merged `86544f1` | B — intelligence | G2 | 13 tests / 129 checks; 3 extra probes |
-| **RT-001 remove callback-unsafe control plane** | **CODE DONE — UNVERIFIED** | orchestrator, `135b4b7` | A + orchestrator | G1 | F1 fixed; ⛔ cannot be compiled here |
+| **RT-001 scene signal (F1)** | COMPILED; runtime delivery open | orchestrator, `135b4b7` | A + orchestrator | G1 | real JUCE processor compilation succeeded; host/editor-closed delivery still unmeasured |
 | EVAL-001 guitar rhythm corpus | **DONE** | `wp/EVAL-001` → merged `f5f5a11` | C — evidence | G3 | 19 fixtures, 21 MB; hashes independently verified |
 | — BTrack vendored + licence seam | **DONE** | `a8da4f2` | orchestrator | G3 | 2 vendor defects found by smoke-build before delegating |
 | TRACK-001 BTrack backend | **DONE** | `wp/TRACK-001` → merged `c3dad10` | B — intelligence | G3 | 10 tests / 38 940 checks; required an orchestrator vendor fix |
 | EVAL-002 evaluation harness + metrics | **DONE** | `wp/EVAL-002` → merged `3e5bb7b` | B — evidence | G3 | 11 metrics; exposed 2 corpus defects |
 | CI-001 continuous integration | **DONE** | `wp/CI-001` → merged `4376672` | C — evidence | G1 | 3 Gitea workflows; Windows job never run |
 | EVAL-001 repair: true silence + core | **DONE** | `wp/EVAL-001` → merged `c68df60` | C — evidence | G3 | audio provably unchanged |
-| EVAL-002R first real shootout | INTEGRATED:diagnostics under review | `wp/EVAL-002R` → main | B — evidence | G3 | event timestamps overwritten; silence/ramp gate claims need correction in EVAL-004 |
+| EVAL-002R first real shootout | HISTORICAL: superseded by EVAL-004 | `wp/EVAL-002R` → `4bb5f97` | B — evidence | G3 | old artifacts retained; timestamp/gate claims corrected in EVAL-004 |
 | TRACK-002 aubio backend | **DONE** | `wp/TRACK-002` → main; build wiring `eac59ba` | B — intelligence | G3 | 11 adapter tests; combined 8/8 ctest suites pass |
-| EVAL-003 robustness fixtures | RUNNING | `wp/EVAL-003` | C — evidence, Flash | G3 | narrowed to new generator/derived corpus/tests; no shared scoring edits |
-| EVAL-004 timing/gate audit + comparison | RUNNING | `wp/EVAL-004-timing` | B — evidence, Flash | G3 | preserve backend event time, record causal availability, compare both real trackers |
+| EVAL-003 robustness fixtures | **DONE: scoped corpus** | `wp/EVAL-003` → `0a15eef` | C — evidence, Flash | G3 | 24 derived clips, 11.12 MiB; C++/Python checks integrated; comparison follows in EVAL-005 |
+| EVAL-004 timing/gate audit + comparison | **DONE** | `wp/EVAL-004-timing` → `64b39ee` | B — evidence, Flash | G3 | combined 9/9 suites; both acquisition gates fail; aubio BPM passes, BTrack BPM fails |
+| TRACK-003 BeatNet feasibility | RUNNING | `wp/TRACK-003-beatnet` | C — research, Flash | G3 | pinned code/model terms and bounded dependency feasibility; no production import |
 | CI-002 tracker CI repair | RUNNING | `wp/CI-002-trackers` | C — evidence, Flash | G1/G3 | replace expected-failure tripwire; Windows/remote execution unverified |
-| RT-001 remaining (F2 MidiBuffer) | BLOCKED:plugin lane | | A | G1 | needs a measured bound |
+| EVAL-005 paired robustness curves | RUNNING | `wp/EVAL-005-robustness` | B — evidence, Flash | G3 | both real candidates over derived pairs; missing data and 5 s window limits explicit |
+| RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
 | MOD-003 Jam UI shell | BLOCKED:G2 | | C | G2 | **not verifiable here** — needs JUCE |

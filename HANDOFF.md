@@ -8,6 +8,69 @@ blocked, and what to delegate next — without re-deriving any of it.
 **Governing documents:** `SPEC.md` (v0.1), `DEVPLAN.md` (v0.1). Treat both as
 source of truth. Do not rewrite them to match the code.
 
+## Current resumption state — read before the historical handoff below
+
+`main` is the integration branch. `EXECUTION-LEDGER.md` holds current task/gate
+status; the rest of this older handoff describes the original checkout setup.
+The original uncommitted seams are long since integrated. All newly delegated
+work uses `deepseek/deepseek-flash` per the user's resumption instruction.
+
+### Integrated since the original handoff
+
+- Standalone JUCE-free core: ring, deterministic MusicalClock, transport seam,
+  bounded RT signalling; optional isolated BTrack and aubio adapters.
+- 19 synthetic base fixtures with hashes and distinct true-silence metadata;
+  24 deterministic paired derived perturbations. Base audio remains unchanged.
+- Corrected evaluation runner preserves backend event timestamps, records causal
+  availability separately, and does not equate holdover beats with acceleration.
+  Current comparison: `docs/research/tracker-comparison/comparison.md`.
+- BTrack core acquisition 4/11 and worst BPM error 2.34%; aubio 7/11 and 1.33%.
+  Both acquisition gates fail. No production tracker selected; G3 remains open.
+- Real Linux JUCE drum tests now build and pass **5/5** with local development
+  headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
+  timer patch compiles against real JUCE. Combined enabled-tracker core tests
+  pass **11/11**, including the derived generator's Python acoustic checks.
+- Drum MIDI prepare-time reservation now uses a scheduling bound. Old 256-byte
+  storage grows to **2115 bytes** in the test; bounded storage shows zero observed
+  allocations/frees across 16 rate/block combinations. Cosmetic meter CAS no
+  longer retries. This is engine-path evidence, not the full G1 callback gate.
+
+### Environment correction
+
+Root access is unnecessary for extracted development headers plus existing
+runtime libraries. NAM's pinned Eigen/AudioDSPTools submodules are initialized.
+See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
+`/tmp` is a separate full tmpfs; use disk-backed build roots and `TMPDIR` under
+`/home/mojo/projects/guitars-build-resume/`. CMake/Ninja still live in
+`/tmp/opencode/venv/bin` and must be added to PATH.
+
+### Active independent Flash lanes
+
+| Task | Branch / worktree | Session |
+|---|---|---|
+| CI-002 tracker workflows | `wp/CI-002-trackers`, `../worktrees/CI-002-trackers` | `ses_ee75a1084ffep3AxLvnl0Kqa3d` |
+| TRACK-003 BeatNet feasibility | `wp/TRACK-003-beatnet`, `../worktrees/TRACK-003-beatnet` | `ses_ee745589effeU0Q5VSCHfvX51T` |
+| EVAL-005 paired robustness curves | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
+
+Each owns new isolated files or workflows, commits task notes, returns a clean
+tree and SHA. Review/merge returned work rather than rerunning a worker's topic
+concurrently. The user asked for Flash; escalation, if genuinely necessary, is
+`openai/gpt-6.1-sol#xhigh`, not the OpenCode provider.
+
+### Remaining gate work
+
+G0/G1 remain partial: Windows/ASIO, hardware timing, full callback heap/locking
+and scene delivery need evidence. G2 lacks live analyzer/UI and real DrumEngine
+transport wiring. G3 still needs corpus-duration repair/robustness review and an
+evidence-backed selection ADR. `sustained_chords` collapses to the noise floor
+within about 0.5 s; sparse tapping alone is not proof of a defect. See the
+independent `CORPUS-ACOUSTIC-REVIEW.md`. G4's deterministic implementation does
+not establish live musical behavior. Keep the earliest join/follow slice small.
+
+---
+
+## Historical initial handoff (superseded where noted above)
+
 ---
 
 ## 1. Read this first: the premise of DEVPLAN did not hold

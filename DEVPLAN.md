@@ -1449,9 +1449,9 @@ Keep this near the top of the live devplan during implementation.
 | Task | State | Branch | SHA | Gate |
 |---|---|---|---|---|
 | FND-001 | DONE | main | 724e6d9 + corrections | G0 |
-| FND-002 | local build retry; hardware/Windows open | main | | G0 |
+| FND-002 | Linux formats/tests verified; hardware/Windows open | main | 677ce9f | G0 |
 | FND-003 | DONE | main | 931be23 | G0 |
-| RT-001 | F1 code integrated; F2/runtime evidence open | main | 135b4b7 | G1 |
+| RT-001 | F1 JUCE-compiled; F2 engine heap bound verified; full runtime open | main | 135b4b7 + resumption fixes | G1 |
 | CI-001 | definitions integrated; actual runner execution open | main | 4376672 | G1 |
 | TEST-001 | BLOCKED:G0 | | | G1 |
 | MOD-001 | DONE (offline seam) | main | 89db28d + efb820b | G2 |
@@ -1461,9 +1461,10 @@ Keep this near the top of the live devplan during implementation.
 | EVAL-002 | integrated; timestamp/gate follow-up underway | main | 3e5bb7b + wp/EVAL-002R | G3 |
 | TRACK-001 | DONE (offline candidate) | main | c3dad10 | G3 |
 | TRACK-002 | DONE (offline candidate) | main | wp/TRACK-002 + eac59ba | G3 |
-| TRACK-003 | BLOCKED:Wave3 | | | G3 |
-| EVAL-003 | RUNNING (scoped derived corpus) | wp/EVAL-003 | | G3 |
-| EVAL-004 | RUNNING (timing/gate audit + real comparison) | wp/EVAL-004-timing | | G3 |
+| TRACK-003 | RUNNING (bounded feasibility review) | wp/TRACK-003-beatnet | | G3 |
+| EVAL-003 | DONE (scoped derived corpus) | main | 0a15eef | G3 |
+| EVAL-004 | DONE (timing/gate audit + real comparison) | main | 64b39ee | G3 |
+| EVAL-005 | RUNNING (paired robustness curves) | wp/EVAL-005-robustness | | G3 |
 | CI-002 | RUNNING (tracker jobs) | wp/CI-002-trackers | | G1/G3 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
 | ANALYSIS-001 | BLOCKED:G3 | | | G4 |
