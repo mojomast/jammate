@@ -1,53 +1,91 @@
 # VENDORED-PATCHES.md — BTrack 1.0.7
 
 **Upstream:** https://github.com/adamstark/BTrack at
-`9d6127618a5679e9caa74c594b88f1d74f0e035f` (tagged `v1.0.7` by upstream's
-`CMakeLists.txt` `project(BTrack VERSION 1.0.7)`).
+`9d6127618a5679e9caa74c594b88f1d74f0e035f` (upstream's own `CMakeLists.txt`
+declares `project(BTrack VERSION 1.0.7)`).
 
 **Licence:** GNU GPL v3 (`LICENSE.txt`, © 2008-2014 Queen Mary University of
 London). Compatible with this project's AGPLv3 only inside the already-open path
 (SPEC.md §25.6). `libs/kiss_fft130` is BSD; its `COPYING` ships here.
 
-This directory is a **verbatim copy** of upstream except for the changes listed
-below. Every deviation is deliberate, minimal, and load-bearing; none of them
-alters the beat-tracking algorithm itself.
+**Current state: every file under `src/` and `libs/` is byte-identical to
+upstream.** There are no source patches. This was not always true, and the reason
+is the most important thing in this file.
 
 ---
 
-## Patch 1 — make libsamplerate optional (`src/BTrack.cpp`)
+## RETRACTED — a patch that broke the tracker
 
-**Problem.** `src/BTrack.cpp` includes `"samplerate.h"` unconditionally and uses
-`SRC_DATA` / `src_simple` in `resampleOnsetDetectionFunction()`. libsamplerate is
-not vendored, is not a dependency of this project, and cannot be installed here.
+**An earlier revision of this directory contained a Patch 1 that guarded out
+libsamplerate. It was wrong, and it silently disabled the beat tracker.**
 
-**Why it is safe to remove.** `resampleOnsetDetectionFunction()` is used only by
-the *non-causal, offline* beat-time helpers (`getBeatTimes`, and friends). This
-product is a causal real-time tracker: it consumes audio as it arrives and never
-looks ahead. Nothing in the causal path calls it.
+The reasoning was: `resampleOnsetDetectionFunction()` uses libsamplerate's
+`src_simple()`, libsamplerate is not vendored, so guard the function out as
+"unreachable". The supporting claim written into that revision was that the
+function is *"used only by the NON-CAUSAL offline beat-time helpers"* and that
+*"`grep -rn resampleOnsetDetectionFunction src/` — callers are confined to the
+offline helpers."*
 
-**Change.** The include and the whole function body are wrapped in
-`#ifdef BTRACK_WITH_LIBSAMPLERATE`. With the macro undefined the function still
-exists as a documented no-op so the declaration in `BTrack.h` still links. If
-anyone later needs the offline helpers, define the macro and provide
-libsamplerate — that is the correct way to reintroduce the dependency, not to
-silently restore the include.
+**Both halves of that claim were false.** There is exactly one caller, and it is
+in the causal beat-detection loop:
 
-**Audit:** `grep -rn resampleOnsetDetectionFunction src/` — callers are confined
-to the offline helpers.
+```cpp
+// src/BTrack.cpp:255-261
+// if we are at a beat
+if (timeToNextBeat == 0)
+{
+    beatDueInFrame = true;         // indicate a beat should be output
+    // recalculate the tempo
+    resampleOnsetDetectionFunction();   // <-- EVERY BEAT
+    calculateTempo();
+}
+```
 
-## Patch 2 — select the kiss_fft backend (`CMakeLists.txt`, ours)
+The function writes `resampledOnsetDF`, and `calculateTempo()` immediately
+consumes it for both `adaptiveThreshold()` and `calculateBalancedACF()`. With the
+function stubbed out, `resampledOnsetDF` stayed all zeros, the autocorrelation ran
+on silence, and **BTrack reported a fixed 79.5 BPM for every input, at every
+sample rate, at every hop size** — a value that is superficially plausible and
+therefore the most dangerous kind of wrong.
 
-Upstream's own `src/CMakeLists.txt` selects a backend with `USE_KISS_FFT` or
-`USE_FFTW`. `OnsetDetectionFunction.h` includes `kiss_fft.h` only under
-`#ifdef USE_KISS_FFT`, so building it without that define fails with
-`complexOut was not declared`. We compile kiss_fft (already vendored under
-`libs/`) and define `USE_KISS_FFT`.
+Two lessons, recorded because both are generalisable:
 
-## Patch 3 — build configuration only
+1. **An audit claim written into a document gets trusted.** This file asserted a
+   reachability result with a `grep` quoted as evidence, and a downstream worker
+   (TRACK-001) correctly relied on it. My verification was `grep` for the *call
+   sites*; I never traced whether the *containing function* was on the causal
+   path. The grep was real and the conclusion was wrong.
+2. **A guard that silently produces a plausible wrong answer is worse than a
+   build error.** Had the stub also asserted at runtime, this would have been
+   caught in minutes. TRACK-001 caught it by testing tempo against a known
+   synthetic signal — which is the argument for the "prove it unbiased by test"
+   requirement in its brief, vindicated.
 
-Upstream `CMakeLists.txt` is replaced by ours. Upstream's is written for its own
-tests and plugins and would drag in a test binary this project does not want.
-Sources, include paths and the kiss_fft dependency are unchanged.
+**The fix was to stop patching.** libsamplerate is vendored (BSD-2-Clause, pinned
+`0844c208f683527c08ea8a80acc13b398aa9c8bf` at `third_party/libsamplerate/`) and
+BTrack's sources are now byte-identical to upstream. The reimplementation
+alternative — inlining the resample — was rejected because at `hop == 512` the
+ratio is exactly 1.0 but a SINC converter still filters, so an inline version
+would *not* be bit-identical. For an instrument that decides the production
+tracker, exact fidelity is worth 9.6 MB.
+
+Verify the claim above rather than trusting it:
+
+```bash
+diff -r third_party/BTrack/src <(git -C <upstream-clone> show 9d61276:src)
+```
+
+## Build configuration (not source patches)
+
+1. **`USE_KISS_FFT=1`** is defined. `OnsetDetectionFunction.h` includes
+   `kiss_fft.h` only under that macro; upstream's own `src/CMakeLists.txt` sets
+   it. Without it the build fails with `complexOut was not declared`.
+2. **`CMakeLists.txt` is ours**, because upstream's is written for its own tests
+   and plugins. Sources, include paths and dependencies are unchanged.
+3. **libsamplerate and kiss_fft are built as separate static libraries.** The
+   9.2 MB `high_qual_coeffs.h` is the `SRC_SINC_BEST_QUALITY` filter bank, which
+   BTrack selects explicitly. There is no table-generation build step in this
+   version, so vendoring is a plain compile.
 
 ---
 
@@ -59,22 +97,27 @@ Sources, include paths and the kiss_fft dependency are unchanged.
 double tempoToLagFactor = 60. * 44100. / 512.;
 ```
 
-This is combined with the default hop size of 512. The upstream defaults
-(`hopSize = 512`, `frameSize = 1024`) therefore assume **44.1 kHz**. This product
-runs at 48 kHz (SPEC.md §17 reference configuration).
+Upstream's defaults (`hopSize = 512`, `frameSize = 1024`) therefore assume
+**44.1 kHz**. This product runs at 48 kHz (SPEC.md §17).
 
-Consequences the adapter author must handle, not silently ignore:
+**Correction to an earlier claim in this file:** it previously suggested that
+scaling the hop (`hop = round(512 * rate / 44100)`) would fix the bias. TRACK-001
+measured that it does not, and is right not to — upstream normalises the onset
+detection function to a fixed 512 points whose spacing is `512 / sampleRate`,
+**independent of the hop**. Measured on `clean_eighths` (126 BPM):
 
-- Feeding BTrack 48 kHz audio with a 512-sample hop yields a tempo estimate in
-  "48 kHz beats per second", i.e. **~8.8 % fast** relative to true BPM, unless the
-  hop is scaled (`hop = 512 * 48000/44100 ≈ 557`) or the onset detection function
-  is resampled to 44.1 kHz first.
-- Both are legitimate; they are not equivalent in cost or latency. **Whichever is
-  chosen must be documented, and the corpus ground truth is at real seconds**, so
-  a silent 8.8 % bias would be scored as a real BPM error.
-- Resampling happens on the analysis worker thread, never on the audio callback.
+| configuration | tempo error |
+|---|---|
+| 44.1 kHz, hop 512 | −2.34 % |
+| 48 kHz, hop 512 | −8.85 % |
+| 48 kHz, hop 557 | **−10.23 %** (worse) |
+| 48 kHz, hop 559 | −10.55 % |
 
-This is the single most likely source of a wrong tracker-selection decision, and
-it is why `RhythmObservation::phaseValid` exists: BTrack exposes
-`beatDueInCurrentFrame()` but **no beat phase at all**, so an adapter must derive
-phase from the timing of beat events relative to the beat period.
+Resampling the audio to 44.1 kHz before handing it to BTrack is the approach that
+works, because it changes `sampleRate` — the only term the bug actually depends
+on.
+
+BTrack also exposes `beatDueInCurrentFrame()` and **no beat phase at all**, which
+is why `RhythmObservation::phaseValid` exists. An adapter must derive phase or
+report `phaseValid = false` honestly; fabricating one would corrupt both the
+scoring and the Musical Clock's lock behaviour.

@@ -46,6 +46,30 @@ if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/BTrack.cpp")
         "see the header comment in this file.")
 endif()
 
+# --- libsamplerate (vendored, BSD-2-Clause) ----------------------------------
+# BTrack's calculateTempo() path calls resampleOnsetDetectionFunction() on EVERY
+# beat (src/BTrack.cpp:259), and that function uses libsamplerate's src_simple().
+# An earlier version of this file disabled it as "offline-only"; that was WRONG
+# and it made BTrack report a fixed 79.5 BPM for every input at every rate. See
+# VENDORED-PATCHES.md. The function is load-bearing, so libsamplerate is vendored
+# rather than removed and BTrack stays byte-identical to upstream.
+#
+# 9.2 MB of it is src/high_qual_coeffs.h, the SRC_SINC_BEST_QUALITY filter bank,
+# which BTrack selects explicitly. Accepted: exact fidelity is worth the bytes
+# when this benchmark decides the production beat tracker.
+set(LSR_DIR ${JAM_ROOT}/third_party/libsamplerate)
+add_library(samplerate STATIC
+    ${LSR_DIR}/src/samplerate.c
+    ${LSR_DIR}/src/src_linear.c
+    ${LSR_DIR}/src/src_sinc.c
+    ${LSR_DIR}/src/src_zoh.c)
+target_include_directories(samplerate PUBLIC ${LSR_DIR}/src)
+set_target_properties(samplerate PROPERTIES
+    C_STANDARD 99 POSITION_INDEPENDENT_CODE ON)
+if (NOT MSVC)
+    target_compile_options(samplerate PRIVATE -w)   # upstream quality, not ours
+endif()
+
 # --- kiss_fft (vendored inside BTrack) ---------------------------------------
 add_library(kiss_fft STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/kiss_fft130/kiss_fft.c)
@@ -58,10 +82,10 @@ add_library(btrack STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/BTrack.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/OnsetDetectionFunction.cpp)
 target_include_directories(btrack PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(btrack PUBLIC kiss_fft)
-# VENDOR PATCH 2 of 3. OnsetDetectionFunction.h includes kiss_fft.h only under
-# this define; upstream's own src/CMakeLists.txt sets it. Without it the build
-# fails with 'complexOut was not declared'.
+target_link_libraries(btrack PUBLIC kiss_fft samplerate)
+# VENDOR BUILD CONFIG, not a source patch. OnsetDetectionFunction.h includes
+# kiss_fft.h only under this define; upstream's own src/CMakeLists.txt sets it.
+# Without it the build fails with 'complexOut was not declared'.
 target_compile_definitions(btrack PUBLIC USE_KISS_FFT=1)
 set_target_properties(btrack PROPERTIES POSITION_INDEPENDENT_CODE ON)
 

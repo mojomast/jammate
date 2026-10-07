@@ -96,6 +96,10 @@ and reports instead.
 | MOD-002 drum transport adapter | **DONE** | `wp/MOD-002` → merged `86544f1` | B — intelligence | G2 | 13 tests / 129 checks; 3 extra probes |
 | **RT-001 remove callback-unsafe control plane** | **CODE DONE — UNVERIFIED** | orchestrator, `135b4b7` | A + orchestrator | G1 | F1 fixed; ⛔ cannot be compiled here |
 | EVAL-001 guitar rhythm corpus | **DONE** | `wp/EVAL-001` → merged `f5f5a11` | C — evidence | G3 | 19 fixtures, 21 MB; hashes independently verified |
+| — BTrack vendored + licence seam | **DONE** | `a8da4f2` | orchestrator | G3 | 2 vendor defects found by smoke-build before delegating |
+| TRACK-001 BTrack backend | RUNNING | `wp/TRACK-001` | B — intelligence | G3 | |
+| EVAL-002 evaluation harness + metrics | RUNNING | `wp/EVAL-002` | B — evidence | G3 | |
+| CI-001 continuous integration | **DONE** | `wp/CI-001` → merged `4376672` | C — evidence | G1 | 3 Gitea workflows; Windows job never run |
 | RT-001 remaining (F2 MidiBuffer) | BLOCKED:plugin lane | | A | G1 | needs a measured bound |
 | CI-001 CI baseline | TODO | | C | G1 | Gitea; needs plugin lane to be green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
@@ -164,6 +168,66 @@ Recorded so a later reader can tell worker claim from verified fact.
 | "25 commits past v0.1" | `BASELINE.md` V19 | **wrong** — `git rev-list --count v0.1..88f7e7c` = **7** | corrected in `BASELINE.md` §1.1 and V19 |
 | `references/*` submodules have no gitlink | declared in `.gitmodules`, absent from the tree | **true, and upstream's own defect** — `git ls-tree 88f7e7c:references/` returns only `README.md` | left open; no history operation can fix it. Closes only on a release decision. |
 | AudioDSPTools licence | THIRD_PARTY says MIT, README says Apache-2.0/MIT | unverifiable (submodule not checked out) | stays `UNKNOWN` with the exact file to read |
+
+---
+
+## Wave 3 — running, three non-overlapping lanes
+
+| Lane | Task | Model | Owns | Gate |
+|---|---|---|---|---|
+| B intelligence | TRACK-001 | `deepseek/deepseek-flash` | `src/btrack/BTrackBackend.*`, `tests/jam/BTrackBackendTests.cpp` | G3 |
+| B evidence | EVAL-002 | `deepseek/deepseek-flash` | `tools/rhythm-eval/**`, `tests/jam/RhythmEvalMetricsTests.cpp` | G3 |
+| C evidence | CI-001 | `opencode/space-bunny-free` | `.gitea/workflows/**`, `docs/research/CI-SETUP.md` | G1 |
+
+TRACK-001 and EVAL-002 are deliberately written against `IRhythmTracker` rather
+than against each other: each is written before the other exists, so the seam is
+being tested as a seam rather than as a convenient internal API. The integration
+point is owned by the orchestrator.
+
+### Vendoring decision, and two defects found before delegating
+
+BTrack 1.0.7 is **vendored**, not a submodule. The evaluation corpus and harness
+must run on a machine where `git submodule update --init` has never been executed,
+and physical presence is what makes the GPL boundary auditable rather than merely
+declared. Recorded in `third_party/BTrack/VENDORED-PATCHES.md`; updating BTrack
+now means re-vendoring and re-reviewing by hand.
+
+Smoke-building the vendor before writing the task brief found two defects a worker
+would otherwise have inherited:
+
+1. `BTrack.cpp` includes **libsamplerate unconditionally** for its *non-causal
+   offline* beat-time helpers. This product is causal and never calls them.
+   Guarded behind `BTRACK_WITH_LIBSAMPLERATE`.
+2. `OnsetDetectionFunction.h` includes `kiss_fft.h` only under `USE_KISS_FFT`, so
+   building it without that define fails with `complexOut was not declared`.
+
+Neither was visible from the source alone; both would have consumed a worker's
+time as a mysterious build failure.
+
+### The trap handed to TRACK-001 in writing
+
+`BTrack::calculateTempo()` hard-codes `44100.0` with a default 512-sample hop, so
+its defaults assume **44.1 kHz**. This product runs at **48 kHz** (SPEC §17).
+Feeding 48 kHz audio at that hop yields a tempo ~8.8 % fast — and because corpus
+ground truth is in real seconds, a silent bias would be scored as a genuine BPM
+error and could decide G3 wrongly. The brief requires the worker to choose
+between hop scaling and resampling, document the numbers, and **prove unbiasedness
+with a test**. This is the single most likely source of a wrong tracker decision.
+
+Second, related: BTrack exposes `beatDueInCurrentFrame()` and **no beat phase at
+all**. That is why `RhythmObservation::phaseValid` exists. The brief explicitly
+forbids fabricating a phase — an honest `phaseValid = false` is a legitimate and
+useful finding for the ADR, whereas an invented phase would corrupt both the
+scoring and the Musical Clock's lock behaviour.
+
+### CI-001 is scoped to be honest about what it cannot prove
+
+No CI exists today, which is why two central-file edits are unverified. But the
+Windows plugin job **cannot be validated from here at all** — the plugin target
+has never been compiled anywhere in this project's history. The brief requires
+that job to state in bold that its first run is expected to need fixes, and
+forbids inventing runner labels and presenting them as known-good. A pipeline that
+silently skips the build it exists to verify is worse than no pipeline.
 
 ---
 

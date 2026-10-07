@@ -23,16 +23,7 @@
 #include <algorithm>
 #include <numeric>
 #include "BTrack.h"
-// VENDOR PATCH 1 of 3 - see VENDORED-PATCHES.md. libsamplerate is not vendored
-// and is not a dependency of this project; it is used only by the NON-CAUSAL
-// offline beat-time helpers, which this causal real-time product never calls.
-// Define BTRACK_WITH_LIBSAMPLERATE and provide libsamplerate to restore it.
-#ifndef BTRACK_WITH_LIBSAMPLERATE
-#define BTRACK_WITH_LIBSAMPLERATE 0
-#endif
-#if BTRACK_WITH_LIBSAMPLERATE
 #include "samplerate.h"
-#endif
 #include <iostream>
 
 //=======================================================================
@@ -355,13 +346,6 @@ void BTrack::doNotFixTempo()
 //=======================================================================
 void BTrack::resampleOnsetDetectionFunction()
 {
-    // VENDOR PATCH 1 of 3 - see VENDORED-PATCHES.md. Upstream resamples the
-    // onset detection function to 512 points via libsamplerate, for its
-    // NON-CAUSAL offline beat-time helpers. This product is causal: it never
-    // looks ahead, so that path is unreachable. Guarded rather than deleted so
-    // the declaration in BTrack.h still links and the offline path can be
-    // restored deliberately by defining BTRACK_WITH_LIBSAMPLERATE.
-#if BTRACK_WITH_LIBSAMPLERATE
 	float output[512];
     float input[onsetDFBufferSize];
     
@@ -383,9 +367,6 @@ void BTrack::resampleOnsetDetectionFunction()
             
     for (int i = 0; i < outputLength; i++)
         resampledOnsetDF[i] = (double) src_data.data_out[i];
-#else
-    (void) this;   // causal build: unreachable by construction
-#endif
 }
 
 //=======================================================================
