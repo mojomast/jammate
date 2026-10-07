@@ -53,7 +53,20 @@ public:
         full or disabled. Never blocks, never allocates. */
     bool push (const float* samples, uint32_t numSamples, uint64_t sampleTime, double sampleRate) noexcept
     {
-        if (slots_ == nullptr || samples == nullptr || numSamples == 0)
+        // A disabled ring (capacity 0) has room for nothing, so every block is a
+        // dropped block and MUST be counted: otherwise analysisOverrunCount reads
+        // a permanent 0 for a device with no analysis buffer, which is exactly
+        // the diagnostic blind spot SPEC 22 exists to prevent. The counters are
+        // cache-line-aligned atomics, so this stays allocation- and block-free.
+        if (slots_ == nullptr)
+        {
+            overrunCount_.fetch_add (1, std::memory_order_relaxed);
+            return false;
+        }
+
+        // An empty block or a null pointer is a caller error, not an overrun:
+        // there is no data to drop, so it is not counted as one.
+        if (samples == nullptr || numSamples == 0)
             return false;
 
         if (numSamples > kMaxAnalysisBlock)
@@ -119,8 +132,17 @@ public:
 
     bool valid() const noexcept { return slots_ != nullptr; }
 
-    /** Stops accepting data. Used at device shutdown. Any in-flight blocks are
-        abandoned, which is safe: analysis data is disposable. */
+    /** Drops any queued blocks and restarts both indices at zero. Used at device
+        shutdown. Any in-flight blocks are abandoned, which is safe: analysis data
+        is disposable.
+
+        This is a *positions* reset, not a disable. The ring keeps accepting
+        pushes afterwards — which is what the audio thread needs, because
+        prepareToPlay runs again after every device change and the callback must
+        not have to be told to resume. To stop accepting data, destroy the ring or
+        let it go out of scope in prepareToPlay/releaseResources; there is no
+        separate disable() because a stale flag is the kind of thing that stays
+        set after a device change and silently starves analysis forever. */
     void reset() noexcept
     {
         writePos_.store (0, std::memory_order_relaxed);

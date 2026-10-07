@@ -325,6 +325,11 @@ JAM_TEST (AnalysisAudioRing, zeroCapacityIsALegalPermanentSink)
     for (int i = 0; i < 64; ++i)
         CHECK (! ring.push (block.data(), 16, static_cast<uint64_t> (i), 48000.0));
 
+    // Every one of those was a dropped block, so all 64 are counted. Asserted
+    // here as well as in the dedicated test below so the "legal sink" property
+    // and the "drops are visible" property cannot drift apart.
+    CHECK_EQ (ring.overrunCount(), uint64_t { 64 });
+
     // Nothing was ever stored, so nothing can ever be read back.
     CHECK_EQ (ring.pushedBlocks(), uint64_t { 0 });
 
@@ -336,18 +341,20 @@ JAM_TEST (AnalysisAudioRing, zeroCapacityIsALegalPermanentSink)
     CHECK (! ring.valid());
 }
 
-// DEVIATION from the frozen header, recorded in task-notes/MOD-001.md under
-// "Known limitations" and reported to the orchestrator. AnalysisAudioRing.h
-// lines 52-53 document push() as "Returns false (and increments the overrun
-// counter) when the ring is full or disabled", and lines 10-11 describe a
-// capacity-0 ring as a "permanent-overrun sink". The implementation returns at
-// AnalysisAudioRing.h line 57 — before the counter is touched — so a disabled
-// ring reports overrunCount() == 0 forever and never reports a drop. The safe
-// direction (never blocks, never stores, never corrupts) IS proved by the test
-// above; only the counter semantics differ from the comment. This case pins
-// the observed behaviour so the discrepancy cannot drift unnoticed — it is a
-// characterisation, not an endorsement.
-JAM_TEST (AnalysisAudioRing, zeroCapacityPushIsNotCountedAsOverrun)
+// A capacity-0 ring is a "permanent-overrun sink": every block is dropped, so
+// every block is counted.
+//
+// This was originally a characterisation test pinning a real defect — push()
+// returned at the `slots_ == nullptr` guard before the counter was touched, so a
+// device with no analysis buffer reported analysisOverrunCount() == 0 forever.
+// A counter that reads a confident zero while data is being thrown away is worse
+// than no counter: SPEC 22 requires overruns to be visible precisely so a
+// starved analysis path cannot hide. The orchestrator fixed the header; this test
+// now asserts the documented and correct behaviour.
+//
+// The safe-direction properties (never blocks, never stores, never corrupts) are
+// proved by the test above and are unaffected by the counting change.
+JAM_TEST (AnalysisAudioRing, zeroCapacityPushIsCountedAsOverrun)
 {
     jam::AnalysisAudioRing ring (0);
     const std::vector<float> block (8, 0.5f);
@@ -355,8 +362,8 @@ JAM_TEST (AnalysisAudioRing, zeroCapacityPushIsNotCountedAsOverrun)
     for (int i = 0; i < 5; ++i)
         CHECK (! ring.push (block.data(), 8, 0, 48000.0));
 
-    // Documented behaviour would be 5.
-    CHECK_EQ (ring.overrunCount(), uint64_t { 0 });
+    // Five dropped blocks, five counted drops.
+    CHECK_EQ (ring.overrunCount(), uint64_t { 5 });
 
     // droppedBlocks() is documented as an alias of the overrun counter, so the
     // two must agree even where the counter is (wrongly) not bumped.
