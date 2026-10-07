@@ -528,6 +528,7 @@ symbols (above).
 
 ## Final commit SHA
 
-- Deliverables commit: `COMMIT_SHA_PLACEHOLDER`
+- Deliverables commit: `fef77ec8f63454ebb703d3fb9529d57d45f13bce` —
+  *feat(track-002): vendored aubio 0.4.9 backend behind IRhythmTracker*
 - SHA-reporting commit: the commit that fills in the line above (this file is
   the only change).
