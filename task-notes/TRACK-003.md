@@ -112,7 +112,7 @@ CC-BY-4.0 is or is not AGPLv3-compatible; any DBN run; any G3/CMake/corpus chang
 ## Handoff
 
 - Feasibility-review commit: `f2cdf90`.
-- Integration-review corrections commit: `<CORR>` — scoped fixes to licence
+- Integration-review corrections commit: `7bac829` — scoped fixes to licence
   wording, provenance-is-metadata, IO mode semantics and coverage reporting; no
   inference, dependency provisioning, benchmark or gate change.
 - SHA-reporting commit: the commit that fills in the line above; this file is the
