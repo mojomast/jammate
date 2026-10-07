@@ -175,6 +175,9 @@ non-recursive form is not enough for NAM.** Verified over the network against
 the pinned SHAs:
 
 ```console
+# NOTE: the leading tabs are verbatim from .gitmodules, which uses tabs. They sit
+# inside a quoted transcript; converting them to spaces would falsify the output.
+# The only deliberate .editorconfig deviation in this branch.
 $ curl -sS https://raw.githubusercontent.com/sdatkinson/NeuralAmpModelerCore/1f42f88535884450104b8711d7595019afa0495b/.gitmodules
 [submodule "Dependencies/eigen"]
 	path = Dependencies/eigen

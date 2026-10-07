@@ -66,6 +66,14 @@ for n in $nums; do
   bash --noprofile --norc -eo pipefail "$file"
   rc=$?
   echo "---- STEP $n EXIT=$rc ----"
+  # A real runner applies $GITHUB_ENV to the ENVIRONMENT OF THE NEXT STEP.
+  # Reproduce that, otherwise the checkout step's CI_WORKDIR export is lost and
+  # the later steps test the wrong tree — a harness bug that would look like a
+  # workflow bug.
+  if [ -s "$GITHUB_ENV" ]; then
+    echo "---- applying \$GITHUB_ENV: $(tr '\n' ' ' < "$GITHUB_ENV")"
+    set -a; . "$GITHUB_ENV"; set +a
+  fi
   if [ "$rc" -ne 0 ]; then rc_total=$rc; fi
 done
 echo
