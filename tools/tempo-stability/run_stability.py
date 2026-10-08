@@ -410,9 +410,16 @@ def pair(base, other):
 
 
 def interval_summary(events, control, bpm, long_gap=False):
+    rows = []
+    if not bpm or bpm <= 0.0:
+        for a, b in zip(events, events[1:]):
+            rows.append({'start': a, 'end': b, 'gapSpanning': False, 'outlier': None})
+        return {'expectedSeconds': None, 'intervals': len(rows), 'outliers': None,
+                'longestOutlierRun': None, 'gapSpanningCount': 0,
+                'maxIntervalSeconds': max((r['end'] - r['start'] for r in rows), default=None),
+                'firstOutlierStart': None}
     period = 60.0 / bpm
     expected = (2 if control == 'sparse' else 1) * period
-    rows = []
     for a, b in zip(events, events[1:]):
         spanning = long_gap and control == 'gap' and a < GAP_START and b >= GAP_END
         outlier = (not spanning) and abs((b - a) / expected - 1.0) > INTERVAL_BAND
@@ -568,18 +575,16 @@ def main():
     for label in CORPORA:
         for fixture in corpora[label]['fixtures']:
             name = fixture['name']
-            digests = {}
+            family = {}
             for backend in BTACK_FAMILY:
                 path = out / 'diagnostic' / label / backend / 'beats' / (name + '.csv')
-                digests[backend] = sha(path)
-            require(len(set(digests.values())) == 1,
+                family[backend] = sha(path)
+            require(len(set(family.values())) == 1,
                     'BTrack-family beat series not byte-identical: %s/%s' % (label, name))
+            aubio_path = out / 'diagnostic' / label / 'aubio' / 'beats' / (name + '.csv')
             equality.append({'corpus': label, 'fixture': name,
-                             'exactBTrackFamilyEquality': True, 'sha256': digests})
-            for backend in ('aubio',):
-                path = out / 'diagnostic' / label / backend / 'beats' / (name + '.csv')
-                digests[backend] = sha(path)
-            equality[-1]['aubioSha256'] = digests['aubio']
+                             'exactBTrackFamilyEquality': True, 'sha256': family,
+                             'aubioSha256': sha(aubio_path)})
 
     # --- outcomes, coverage, comparisons -----------------------------------
     outcomes = []
@@ -644,11 +649,19 @@ def main():
                 if label == 'long':
                     control = control_of_long(name)
                     bpm = tempo_of_long(name)
+                    ref = 'fixture-nominal'
                 else:
                     control = fixture['transformation']['kind']
-                    bpm = fixture.get('nominalBpm') or 0.0
-                intervals[label][backend][name] = interval_summary(
-                    events, control, bpm, long_gap=(label == 'long'))
+                    bpm = fixture.get('nominalBpm')
+                    ref = 'fixture-nominal'
+                    if not bpm:
+                        base_name = fixture.get('pairedBaseline')
+                        bpm = (all_fixtures[label][base_name].get('nominalBpm')
+                               if base_name else None)
+                        ref = 'paired-baseline-nominal'
+                summary = interval_summary(events, control, bpm, long_gap=(label == 'long'))
+                summary['referenceNominalSource'] = ref
+                intervals[label][backend][name] = summary
 
     # --- validation summary -------------------------------------------------
     validation = {

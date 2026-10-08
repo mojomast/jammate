@@ -261,13 +261,19 @@ class TestEvidence(unittest.TestCase):
             fixtures = self.manifests[label]['fixtures']
             expected = sum(ceil_blocks(f['signal']['frames']) for f in fixtures)
             self.assertEqual(len(rows), expected, 'method log block count: ' + key)
-            for i, row in enumerate(rows):
-                self.assertEqual(int(row['blockIndex']), i)
-                if backend == 'btrack-tempo-stable':
-                    self.assertEqual((row['intervalMeasured'] == '0'),
-                                     (row['intervalSeconds'] == ''))
-                    if row['confirmed'] == '0':
-                        self.assertEqual(row['emittedBpm'], row['baseBpm'])
+            offset = 0
+            for fixture in fixtures:
+                count = ceil_blocks(fixture['signal']['frames'])
+                window = rows[offset:offset + count]
+                for i, row in enumerate(window):
+                    self.assertEqual(int(row['blockIndex']), i)
+                    if backend == 'btrack-tempo-stable':
+                        self.assertEqual((row['intervalMeasured'] == '0'),
+                                         (row['intervalSeconds'] == ''))
+                        if row['confirmed'] == '0':
+                            self.assertEqual(row['emittedBpm'], row['baseBpm'])
+                offset += count
+            self.assertEqual(offset, len(rows))
 
 
 if __name__ == '__main__':

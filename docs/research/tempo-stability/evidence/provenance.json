@@ -1,0 +1,509 @@
+{
+  "blockFrames": 128,
+  "commands": [
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/worktrees/TRACK-008-tempo-stability/testdata/rhythm/derived",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/raw/short/btrack",
+        "--backend",
+        "btrack",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+        "--block",
+        "128"
+      ],
+      "backend": "btrack",
+      "corpus": "short",
+      "methodLogDir": null
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/worktrees/TRACK-008-tempo-stability/testdata/rhythm/derived",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/raw/short/btrack-tempo-variant",
+        "--backend",
+        "btrack-tempo-variant",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+        "--block",
+        "128"
+      ],
+      "backend": "btrack-tempo-variant",
+      "corpus": "short",
+      "methodLogDir": "/home/mojo/projects/build-TRACK-008-worker/run/method/short/btrack-tempo-variant"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/worktrees/TRACK-008-tempo-stability/testdata/rhythm/derived",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/raw/short/btrack-tempo-stable",
+        "--backend",
+        "btrack-tempo-stable",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-008-worker/libtempo-stable-btrack.so",
+        "--block",
+        "128"
+      ],
+      "backend": "btrack-tempo-stable",
+      "corpus": "short",
+      "methodLogDir": "/home/mojo/projects/build-TRACK-008-worker/run/method/short/btrack-tempo-stable"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/worktrees/TRACK-008-tempo-stability/testdata/rhythm/derived",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/raw/short/aubio",
+        "--backend",
+        "aubio",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+        "--block",
+        "128"
+      ],
+      "backend": "aubio",
+      "corpus": "short",
+      "methodLogDir": null
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/worktrees/TRACK-008-tempo-stability/testdata/rhythm/derived",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/diagnostic/short/btrack",
+        "--backend",
+        "btrack",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "btrack"
+      ],
+      "backend": "btrack",
+      "corpus": "short",
+      "mode": "diagnostic"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/worktrees/TRACK-008-tempo-stability/testdata/rhythm/derived",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/diagnostic/short/btrack-tempo-variant",
+        "--backend",
+        "btrack-tempo-variant",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "btrack-tempo-variant",
+        "--variant-not-default"
+      ],
+      "backend": "btrack-tempo-variant",
+      "corpus": "short",
+      "mode": "diagnostic"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/worktrees/TRACK-008-tempo-stability/testdata/rhythm/derived",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/diagnostic/short/btrack-tempo-stable",
+        "--backend",
+        "btrack-tempo-stable",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-008-worker/libtempo-stable-btrack.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "btrack-tempo-stable",
+        "--variant-not-default"
+      ],
+      "backend": "btrack-tempo-stable",
+      "corpus": "short",
+      "mode": "diagnostic"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/worktrees/TRACK-008-tempo-stability/testdata/rhythm/derived",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/diagnostic/short/aubio",
+        "--backend",
+        "aubio",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "aubio"
+      ],
+      "backend": "aubio",
+      "corpus": "short",
+      "mode": "diagnostic"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/build-TRACK-007-integration/corpus",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/raw/long/btrack",
+        "--backend",
+        "btrack",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+        "--block",
+        "128"
+      ],
+      "backend": "btrack",
+      "corpus": "long",
+      "methodLogDir": null
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/build-TRACK-007-integration/corpus",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/raw/long/btrack-tempo-variant",
+        "--backend",
+        "btrack-tempo-variant",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+        "--block",
+        "128"
+      ],
+      "backend": "btrack-tempo-variant",
+      "corpus": "long",
+      "methodLogDir": "/home/mojo/projects/build-TRACK-008-worker/run/method/long/btrack-tempo-variant"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/build-TRACK-007-integration/corpus",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/raw/long/btrack-tempo-stable",
+        "--backend",
+        "btrack-tempo-stable",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-008-worker/libtempo-stable-btrack.so",
+        "--block",
+        "128"
+      ],
+      "backend": "btrack-tempo-stable",
+      "corpus": "long",
+      "methodLogDir": "/home/mojo/projects/build-TRACK-008-worker/run/method/long/btrack-tempo-stable"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/build-TRACK-007-integration/corpus",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/raw/long/aubio",
+        "--backend",
+        "aubio",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+        "--block",
+        "128"
+      ],
+      "backend": "aubio",
+      "corpus": "long",
+      "methodLogDir": null
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/build-TRACK-007-integration/corpus",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/diagnostic/long/btrack",
+        "--backend",
+        "btrack",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "btrack"
+      ],
+      "backend": "btrack",
+      "corpus": "long",
+      "mode": "diagnostic"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/build-TRACK-007-integration/corpus",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/diagnostic/long/btrack-tempo-variant",
+        "--backend",
+        "btrack-tempo-variant",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "btrack-tempo-variant",
+        "--variant-not-default"
+      ],
+      "backend": "btrack-tempo-variant",
+      "corpus": "long",
+      "mode": "diagnostic"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/build-TRACK-007-integration/corpus",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/diagnostic/long/btrack-tempo-stable",
+        "--backend",
+        "btrack-tempo-stable",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-008-worker/libtempo-stable-btrack.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "btrack-tempo-stable",
+        "--variant-not-default"
+      ],
+      "backend": "btrack-tempo-stable",
+      "corpus": "long",
+      "mode": "diagnostic"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/build-TRACK-007-integration/corpus",
+        "--out",
+        "/home/mojo/projects/build-TRACK-008-worker/run/diagnostic/long/aubio",
+        "--backend",
+        "aubio",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "aubio"
+      ],
+      "backend": "aubio",
+      "corpus": "long",
+      "mode": "diagnostic"
+    }
+  ],
+  "diagnosticOnly": true,
+  "freeze": {
+    "binary": {
+      "buildCommand": "tools/tempo-stability/build.sh /home/mojo/projects/build-EVAL-005/main-core /home/mojo/projects/build-TRACK-008-worker",
+      "builtFrom": [
+        "tools/tempo-stability/TempoStable.h",
+        "tools/tempo-stability/TempoStable.cpp",
+        "tools/tempo-stability/MethodLog.h",
+        "tools/tempo-stability/MethodLog.cpp",
+        "tools/tempo-stability/TempoStablePlugin.cpp",
+        "tools/tempo-stability/build.sh"
+      ],
+      "embeddedDependencies": [
+        {
+          "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libjam-btrack.a",
+          "sha256": "92659b889ec7beb9e0e6d0ab0df59acd8c0b14eeff6de9b4ff5ca23561833255"
+        },
+        {
+          "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libbtrack.a",
+          "sha256": "6993f8224ea626802a28475cce3c1bcf209336919746ac41d7e99b6cae39f1f8"
+        },
+        {
+          "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libsamplerate.a",
+          "sha256": "55c591cff00889a7207a14eac442a36c1d7348f3cf003ef14fbf1718f97be072"
+        },
+        {
+          "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libkiss_fft.a",
+          "sha256": "fa209a29eed3ebbcb6bfb72471a48bd0b2bfa4c7b9fd33da6537ed161a932250"
+        }
+      ],
+      "path": "/home/mojo/projects/build-TRACK-008-worker/libtempo-stable-btrack.so",
+      "sha256": "791d36ecb4f2e9a7c8a4f045d13763d177d71c32257c174fb8f06fddffcff183"
+    },
+    "candidateId": "btrack-tempo-stable",
+    "combinedSha256": "8034e2d1fd8b6dc268084e24a75878fdfeda7888809e4386fbd18174660cbed3",
+    "evaluation": [
+      {
+        "path": "tools/tempo-stability/run_stability.py",
+        "sha256": "23d1cba06510fb434c704a3e8ec882c7e7f731a8fa8e08ce5f0ce186ced9c3c7"
+      },
+      {
+        "path": "tools/tempo-stability/tests/TempoStableTests.cpp",
+        "sha256": "d02226ed00d5f6fa3d5ed836d0f11e0036e6ab6defff0cab31ec7ba2cc4fcb4c"
+      },
+      {
+        "path": "tools/tempo-stability/tests/test_stability_method.py",
+        "sha256": "90f01daa5b02fa0717e69345c415e2abe403acaa2c91afe68a9899ccc5723fe4"
+      },
+      {
+        "path": "tools/tempo-stability/tests/test_stability_evidence.py",
+        "sha256": "0fe9d196a26ae82cb46453abdc8539178c6eaabe332b8fcbe39c1860d1fc33a0"
+      }
+    ],
+    "evaluationCombinedSha256": "608a2177b1faeb1214661a9c857542130ff035fd9d58298dc2928aa14a12c337",
+    "method": "confirmation-gated median (median-of-4, 3 agreeing updates within 2%)",
+    "note": "The behaviour freeze is sources + binary + embeddedDependencies. Evaluation tooling is recorded separately and is not part of the candidate behaviour. Any source/binary change needs a new freeze committed before any new scoring.",
+    "protocol": "docs/research/tempo-stability/PROTOCOL.md",
+    "sources": [
+      {
+        "path": "tools/tempo-stability/TempoStable.h",
+        "sha256": "239b65c597a322fdb7d81578538fc4bf51ba3ca926d81b6610fbe5f1be38efe4"
+      },
+      {
+        "path": "tools/tempo-stability/TempoStable.cpp",
+        "sha256": "ebd58e1bb36a23abfa264261214fea8142a1c690ea11c0695db7a6dfc73c1c6c"
+      },
+      {
+        "path": "tools/tempo-stability/MethodLog.h",
+        "sha256": "70dd621e06607081487c60d384b8d96c61813eaf9e53d10b6cb79218ae847b6e"
+      },
+      {
+        "path": "tools/tempo-stability/MethodLog.cpp",
+        "sha256": "7b9eebe7e6eb05c284cc212aee595405dbf0b39514f1c062bf7281761cfed2f6"
+      },
+      {
+        "path": "tools/tempo-stability/TempoStablePlugin.cpp",
+        "sha256": "87f36e02377ece2f022921cae446842bce13fb3f41700977ff73a4d88c0dfe3d"
+      },
+      {
+        "path": "tools/tempo-stability/build.sh",
+        "sha256": "e56cef8b543343f6b3697c5119aff968bd306d23d7eaca09dfd1d67afd73ad45"
+      }
+    ],
+    "task": "TRACK-008"
+  },
+  "g3": "OPEN",
+  "matrix": {
+    "long": "docs/research/tempo-long-windows (TRACK-007 16)",
+    "short": "testdata/rhythm/derived (TRACK-006 derived-24)"
+  },
+  "methodRawLogs": {
+    "long/btrack-tempo-stable": {
+      "rawBytes": 19962892,
+      "retainedAs": "docs/research/tempo-stability/evidence/method-raw/long-btrack-tempo-stable.csv.gz",
+      "sha256": "d181b38972c2bb39b8f99a90d632ee209b3b17258d28b1f98ab6a31849c7db41"
+    },
+    "long/btrack-tempo-variant": {
+      "rawBytes": 16245502,
+      "retainedAs": "docs/research/tempo-stability/evidence/method-raw/long-btrack-tempo-variant.csv.gz",
+      "sha256": "d33c75199463cec0f47076fe34465fde2b0b570c2a416631d3ff305132bcd03f"
+    },
+    "short/btrack-tempo-stable": {
+      "rawBytes": 4278412,
+      "retainedAs": "docs/research/tempo-stability/evidence/method-raw/short-btrack-tempo-stable.csv.gz",
+      "sha256": "81680a5bb1269a07823fb674d95fd9a07d929ed10d626c4dd2ceab5d8c2ff6fd"
+    },
+    "short/btrack-tempo-variant": {
+      "rawBytes": 3704792,
+      "retainedAs": "docs/research/tempo-stability/evidence/method-raw/short-btrack-tempo-variant.csv.gz",
+      "sha256": "83fa16e04288fb6fd67dbd8235c9d3af36a664583cc2cd37b75267150744fc03"
+    }
+  },
+  "pins": [
+    {
+      "path": "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+      "role": "cli",
+      "sha256": "caba565f6c6d8482443edf8d2a0a7ec40b6327ba99ccb2898f7213f8c28de552"
+    },
+    {
+      "path": "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+      "role": "diagnostic",
+      "sha256": "75b0d73bdfedb5028b65a0e171d371c7ea3bc97ed6cb0b5ed60c84b30f3edee2"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+      "role": "btrack",
+      "sha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+      "role": "aubio",
+      "sha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41"
+    },
+    {
+      "path": "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+      "role": "btrack-tempo-variant",
+      "sha256": "920a30f9bb2c81b8ed743f817beb5dc51e9f90070de5ca0788a46ff1223a6717"
+    },
+    {
+      "path": "/home/mojo/projects/worktrees/TRACK-008-tempo-stability/testdata/rhythm/derived/manifest.json",
+      "role": "short-manifest",
+      "sha256": "3bb6d350f534b6d6f3208ca1ef5c0f29cf7c7069b3a9771c13f191385c5cc3cd"
+    },
+    {
+      "path": "/home/mojo/projects/worktrees/TRACK-008-tempo-stability/docs/research/tempo-long-windows/fixtures/manifest.json",
+      "role": "long-manifest",
+      "sha256": "dd3d196fde5d1b7967ef25494be9c3350398c87995d21f476ebf4871561b9236"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libjam-btrack.a",
+      "role": "embedded:libjam-btrack.a",
+      "sha256": "92659b889ec7beb9e0e6d0ab0df59acd8c0b14eeff6de9b4ff5ca23561833255"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libbtrack.a",
+      "role": "embedded:libbtrack.a",
+      "sha256": "6993f8224ea626802a28475cce3c1bcf209336919746ac41d7e99b6cae39f1f8"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libsamplerate.a",
+      "role": "embedded:libsamplerate.a",
+      "sha256": "55c591cff00889a7207a14eac442a36c1d7348f3cf003ef14fbf1718f97be072"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libkiss_fft.a",
+      "role": "embedded:libkiss_fft.a",
+      "sha256": "fa209a29eed3ebbcb6bfb72471a48bd0b2bfa4c7b9fd33da6537ed161a932250"
+    },
+    {
+      "path": "/home/mojo/projects/build-TRACK-008-worker/libtempo-stable-btrack.so",
+      "role": "btrack-tempo-stable",
+      "sha256": "791d36ecb4f2e9a7c8a4f045d13763d177d71c32257c174fb8f06fddffcff183"
+    }
+  ],
+  "protocol": "docs/research/tempo-stability/PROTOCOL.md",
+  "protocolCommit": "docs(TRACK-008): predeclare post-readiness tempo-stability protocol",
+  "retentionRange": "scorer range only; no absolute acquisition/silence claim",
+  "scoring": "current EVAL-007, uncompensated",
+  "selection": null,
+  "task": "TRACK-008"
+}

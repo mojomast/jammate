@@ -1,0 +1,1520 @@
+{
+  "btrack-tempo-stable": [
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__baseline",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__noise_snr20db",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__noise_snr10db",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__noise_snr0db",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 10,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 10,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__level_-20db",
+      "intervalStatesAtBeats": {
+        "accepted": 9,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 2,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 313,
+      "confirmedBpmMax": 126.044906616,
+      "confirmedBpmMedian": 125.28733825649999,
+      "confirmedBpmMin": 124.529769897,
+      "fallbackBeats": 7,
+      "fallbackBlocks": 1562,
+      "firstConfirmedAvailabilitySeconds": 4.168,
+      "firstConfirmedEventSeconds": 4.156375,
+      "fixture": "clean_eighths__level_-40db",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 0,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 0,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__level_-60db",
+      "intervalStatesAtBeats": {},
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__clip_0.5",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 1,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 130,
+      "confirmedBpmMax": 126.047660828,
+      "confirmedBpmMedian": 126.047660828,
+      "confirmedBpmMin": 126.047660828,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 1745,
+      "firstConfirmedAvailabilitySeconds": 4.656,
+      "firstConfirmedEventSeconds": 4.644,
+      "fixture": "clean_eighths__clip_0.25",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 1,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 134,
+      "confirmedBpmMax": 126.047660828,
+      "confirmedBpmMedian": 126.047660828,
+      "confirmedBpmMin": 126.047660828,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 1741,
+      "firstConfirmedAvailabilitySeconds": 4.645333333,
+      "firstConfirmedEventSeconds": 4.632375,
+      "fixture": "clean_eighths__clip_0.125",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 10,
+      "blocks": 1875,
+      "confirmedBeats": 2,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 295,
+      "confirmedBpmMax": 126.047660828,
+      "confirmedBpmMedian": 126.047660828,
+      "confirmedBpmMin": 126.047660828,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 1580,
+      "firstConfirmedAvailabilitySeconds": 4.216,
+      "firstConfirmedEventSeconds": 4.2028125,
+      "fixture": "clean_eighths__offset_40ms",
+      "intervalStatesAtBeats": {
+        "accepted": 9,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 1,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 99,
+      "confirmedBpmMax": 124.529769897,
+      "confirmedBpmMedian": 124.529769897,
+      "confirmedBpmMin": 124.529769897,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 1776,
+      "firstConfirmedAvailabilitySeconds": 4.738666667,
+      "firstConfirmedEventSeconds": 4.725270833,
+      "fixture": "clean_eighths__offset_80ms",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 10,
+      "blocks": 2063,
+      "confirmedBeats": 1,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 130,
+      "confirmedBpmMax": 124.529769897,
+      "confirmedBpmMedian": 124.529769897,
+      "confirmedBpmMin": 124.529769897,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1933,
+      "firstConfirmedAvailabilitySeconds": 5.157333333,
+      "firstConfirmedEventSeconds": 5.143229167,
+      "fixture": "clean_eighths__lead_silence_0.5s",
+      "intervalStatesAtBeats": {
+        "accepted": 9,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 2063,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 2063,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__trail_silence_0.5s",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 7,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 7,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__silence_gap_1s",
+      "intervalStatesAtBeats": {
+        "accepted": 6,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__drop_every2",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__drop_every4",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__syncop_burst1",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__syncop_burst4",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 8,
+      "blocks": 1670,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 1670,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "clean_eighths__tempo_step_1.25",
+      "intervalStatesAtBeats": {
+        "accepted": 7,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 10,
+      "blocks": 2057,
+      "confirmedBeats": 1,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 151,
+      "confirmedBpmMax": 126.044906616,
+      "confirmedBpmMedian": 126.044906616,
+      "confirmedBpmMin": 126.044906616,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1906,
+      "firstConfirmedAvailabilitySeconds": 5.085333333,
+      "firstConfirmedEventSeconds": 5.0735625,
+      "fixture": "clean_eighths__tempo_step_0.85",
+      "intervalStatesAtBeats": {
+        "accepted": 9,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "syncopated_funk__baseline",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 8,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "syncopated_funk__noise_snr10db",
+      "intervalStatesAtBeats": {
+        "accepted": 7,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 8,
+      "blocks": 1875,
+      "confirmedBeats": 0,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 0,
+      "confirmedBpmMax": null,
+      "confirmedBpmMedian": null,
+      "confirmedBpmMin": null,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 1875,
+      "firstConfirmedAvailabilitySeconds": null,
+      "firstConfirmedEventSeconds": null,
+      "fixture": "syncopated_funk__noise_snr0db",
+      "intervalStatesAtBeats": {
+        "accepted": 7,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 54,
+      "blocks": 12694,
+      "confirmedBeats": 45,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 10448,
+      "confirmedBpmMax": 97.508125305,
+      "confirmedBpmMedian": 95.703323364,
+      "confirmedBpmMin": 94.825744629,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 2246,
+      "firstConfirmedAvailabilitySeconds": 5.992,
+      "firstConfirmedEventSeconds": 5.979145833,
+      "fixture": "regular_96bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 53,
+      "blocks": 12694,
+      "confirmedBeats": 45,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 10683,
+      "confirmedBpmMax": 96.597290039,
+      "confirmedBpmMedian": 95.703323364,
+      "confirmedBpmMin": 95.703323364,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 2011,
+      "firstConfirmedAvailabilitySeconds": 5.365333333,
+      "firstConfirmedEventSeconds": 5.352208333,
+      "fixture": "sparse_96bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 52,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 54,
+      "blocks": 12694,
+      "confirmedBeats": 47,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 10918,
+      "confirmedBpmMax": 97.508125305,
+      "confirmedBpmMedian": 95.703323364,
+      "confirmedBpmMin": 94.825744629,
+      "fallbackBeats": 7,
+      "fallbackBlocks": 1776,
+      "firstConfirmedAvailabilitySeconds": 4.738666667,
+      "firstConfirmedEventSeconds": 4.725270833,
+      "fixture": "gap_96bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 54,
+      "blocks": 12694,
+      "confirmedBeats": 44,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 10217,
+      "confirmedBpmMax": 97.509773254,
+      "confirmedBpmMedian": 95.703323364,
+      "confirmedBpmMin": 94.825744629,
+      "fallbackBeats": 10,
+      "fallbackBlocks": 2477,
+      "firstConfirmedAvailabilitySeconds": 6.608,
+      "firstConfirmedEventSeconds": 6.594458333,
+      "fixture": "noise_96bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 71,
+      "blocks": 12650,
+      "confirmedBeats": 64,
+      "confirmedBeatsOutOfBand": 1,
+      "confirmedBlocks": 11262,
+      "confirmedBpmMax": 127.60584259,
+      "confirmedBpmMedian": 126.047660828,
+      "confirmedBpmMin": 123.045372009,
+      "fallbackBeats": 7,
+      "fallbackBlocks": 1388,
+      "firstConfirmedAvailabilitySeconds": 3.704,
+      "firstConfirmedEventSeconds": 3.691979167,
+      "fixture": "regular_126bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 70,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 1
+    },
+    {
+      "beats": 69,
+      "blocks": 12650,
+      "confirmedBeats": 61,
+      "confirmedBeatsOutOfBand": 2,
+      "confirmedBlocks": 11088,
+      "confirmedBpmMax": 126.050422668,
+      "confirmedBpmMedian": 126.047660828,
+      "confirmedBpmMin": 121.598510742,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 1562,
+      "firstConfirmedAvailabilitySeconds": 4.168,
+      "firstConfirmedEventSeconds": 4.156375,
+      "fixture": "sparse_126bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 68,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 2
+    },
+    {
+      "beats": 70,
+      "blocks": 12650,
+      "confirmedBeats": 63,
+      "confirmedBeatsOutOfBand": 1,
+      "confirmedBlocks": 11262,
+      "confirmedBpmMax": 127.60584259,
+      "confirmedBpmMedian": 126.047660828,
+      "confirmedBpmMin": 123.045372009,
+      "fallbackBeats": 7,
+      "fallbackBlocks": 1388,
+      "firstConfirmedAvailabilitySeconds": 3.704,
+      "firstConfirmedEventSeconds": 3.691979167,
+      "fixture": "gap_126bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 69,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 1
+    },
+    {
+      "beats": 71,
+      "blocks": 12650,
+      "confirmedBeats": 60,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 10548,
+      "confirmedBpmMax": 127.60584259,
+      "confirmedBpmMedian": 126.047660828,
+      "confirmedBpmMin": 124.527076721,
+      "fallbackBeats": 11,
+      "fallbackBlocks": 2102,
+      "firstConfirmedAvailabilitySeconds": 5.608,
+      "firstConfirmedEventSeconds": 5.596,
+      "fixture": "noise_126bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 70,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 54,
+      "blocks": 11663,
+      "confirmedBeats": 46,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 9811,
+      "confirmedBpmMax": 97.508842468,
+      "confirmedBpmMedian": 95.703125,
+      "confirmedBpmMin": 94.825111389,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 1852,
+      "firstConfirmedAvailabilitySeconds": 5.378321995,
+      "firstConfirmedEventSeconds": 5.363809524,
+      "fixture": "regular_96bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 53,
+      "blocks": 11663,
+      "confirmedBeats": 46,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 10031,
+      "confirmedBpmMax": 97.508842468,
+      "confirmedBpmMedian": 95.703125,
+      "confirmedBpmMin": 95.703125,
+      "fallbackBeats": 7,
+      "fallbackBlocks": 1632,
+      "firstConfirmedAvailabilitySeconds": 4.739773243,
+      "firstConfirmedEventSeconds": 4.725260771,
+      "fixture": "sparse_96bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 52,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 54,
+      "blocks": 11663,
+      "confirmedBeats": 46,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 9811,
+      "confirmedBpmMax": 97.508842468,
+      "confirmedBpmMedian": 95.703125,
+      "confirmedBpmMin": 94.825111389,
+      "fallbackBeats": 8,
+      "fallbackBlocks": 1852,
+      "firstConfirmedAvailabilitySeconds": 5.378321995,
+      "firstConfirmedEventSeconds": 5.363809524,
+      "fixture": "gap_96bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 54,
+      "blocks": 11663,
+      "confirmedBeats": 45,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 9599,
+      "confirmedBpmMax": 96.597549438,
+      "confirmedBpmMedian": 95.703125,
+      "confirmedBpmMin": 94.825111389,
+      "fallbackBeats": 9,
+      "fallbackBlocks": 2064,
+      "firstConfirmedAvailabilitySeconds": 5.993650794,
+      "firstConfirmedEventSeconds": 5.979138322,
+      "fixture": "noise_96bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 70,
+      "blocks": 11622,
+      "confirmedBeats": 60,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 9854,
+      "confirmedBpmMax": 127.604164124,
+      "confirmedBpmMedian": 126.048019409,
+      "confirmedBpmMin": 124.52936554,
+      "fallbackBeats": 10,
+      "fallbackBlocks": 1768,
+      "firstConfirmedAvailabilitySeconds": 5.134512472,
+      "firstConfirmedEventSeconds": 5.12,
+      "fixture": "regular_126bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 69,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 69,
+      "blocks": 11622,
+      "confirmedBeats": 55,
+      "confirmedBeatsOutOfBand": 2,
+      "confirmedBlocks": 9206,
+      "confirmedBpmMax": 126.048019409,
+      "confirmedBpmMedian": 126.048019409,
+      "confirmedBpmMin": 121.599266052,
+      "fallbackBeats": 14,
+      "fallbackBlocks": 2416,
+      "firstConfirmedAvailabilitySeconds": 7.015328798,
+      "firstConfirmedEventSeconds": 7.000816327,
+      "fixture": "sparse_126bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 68,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 2
+    },
+    {
+      "beats": 70,
+      "blocks": 11622,
+      "confirmedBeats": 63,
+      "confirmedBeatsOutOfBand": 0,
+      "confirmedBlocks": 10346,
+      "confirmedBpmMax": 127.604164124,
+      "confirmedBpmMedian": 126.048019409,
+      "confirmedBpmMin": 124.52936554,
+      "fallbackBeats": 7,
+      "fallbackBlocks": 1276,
+      "firstConfirmedAvailabilitySeconds": 3.706485261,
+      "firstConfirmedEventSeconds": 3.691972789,
+      "fixture": "gap_126bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 69,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 0
+    },
+    {
+      "beats": 68,
+      "blocks": 11622,
+      "confirmedBeats": 56,
+      "confirmedBeatsOutOfBand": 2,
+      "confirmedBlocks": 9034,
+      "confirmedBpmMax": 127.604164124,
+      "confirmedBpmMedian": 126.048019409,
+      "confirmedBpmMin": 123.046875,
+      "fallbackBeats": 12,
+      "fallbackBlocks": 2588,
+      "firstConfirmedAvailabilitySeconds": 7.514557823,
+      "firstConfirmedEventSeconds": 7.500045351,
+      "fixture": "noise_126bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 67,
+        "first_beat": 1
+      },
+      "longestOutOfBandConfirmedRun": 1
+    }
+  ],
+  "btrack-tempo-variant": [
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.741333333,
+      "firstReadyEventSeconds": 2.728354167,
+      "fixture": "clean_eighths__baseline",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 126.047660828,
+      "readyBpmMedian": 123.04800415,
+      "readyBpmMin": 101.333518982
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.730666667,
+      "firstReadyEventSeconds": 2.716729167,
+      "fixture": "clean_eighths__noise_snr20db",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 2,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 2,
+      "readyBpmMax": 126.044906616,
+      "readyBpmMedian": 124.529769897,
+      "readyBpmMin": 105.467460632
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.730666667,
+      "firstReadyEventSeconds": 2.716729167,
+      "fixture": "clean_eighths__noise_snr10db",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 2,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 2,
+      "readyBpmMax": 126.047660828,
+      "readyBpmMedian": 124.527076721,
+      "readyBpmMin": 111.13898468
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.602666667,
+      "firstReadyEventSeconds": 2.589020833,
+      "fixture": "clean_eighths__noise_snr0db",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 5,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 5,
+      "readyBpmMax": 123.04800415,
+      "readyBpmMedian": 111.13898468,
+      "readyBpmMin": 108.800361633
+    },
+    {
+      "beats": 10,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.264,
+      "firstReadyEventSeconds": 2.252333333,
+      "fixture": "clean_eighths__level_-20db",
+      "intervalStatesAtBeats": {
+        "accepted": 9,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 6,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 147.658233643,
+      "readyBpmMedian": 130.058670044,
+      "readyBpmMin": 124.529769897
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.730666667,
+      "firstReadyEventSeconds": 2.716729167,
+      "fixture": "clean_eighths__level_-40db",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 0,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 0,
+      "readyBpmMax": 127.60584259,
+      "readyBpmMedian": 126.047660828,
+      "readyBpmMin": 124.529769897
+    },
+    {
+      "beats": 0,
+      "blocks": 1875,
+      "fallbackBeats": 0,
+      "firstReadyAvailabilitySeconds": null,
+      "firstReadyEventSeconds": null,
+      "fixture": "clean_eighths__level_-60db",
+      "intervalStatesAtBeats": {},
+      "longestOutOfBandReadyRun": 0,
+      "readyBeats": 0,
+      "readyBeatsOutOfBand": 0,
+      "readyBpmMax": null,
+      "readyBpmMedian": null,
+      "readyBpmMin": null
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.741333333,
+      "firstReadyEventSeconds": 2.728354167,
+      "fixture": "clean_eighths__clip_0.5",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 124.529769897,
+      "readyBpmMedian": 123.04800415,
+      "readyBpmMin": 101.333518982
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.741333333,
+      "firstReadyEventSeconds": 2.728354167,
+      "fixture": "clean_eighths__clip_0.25",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 1,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 1,
+      "readyBpmMax": 126.047660828,
+      "readyBpmMedian": 126.047660828,
+      "readyBpmMin": 111.13684082
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.741333333,
+      "firstReadyEventSeconds": 2.728354167,
+      "fixture": "clean_eighths__clip_0.125",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 1,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 1,
+      "readyBpmMax": 126.047660828,
+      "readyBpmMedian": 126.047660828,
+      "readyBpmMin": 111.13684082
+    },
+    {
+      "beats": 10,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.312,
+      "firstReadyEventSeconds": 2.298770833,
+      "fixture": "clean_eighths__offset_40ms",
+      "intervalStatesAtBeats": {
+        "accepted": 9,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 1,
+      "readyBeats": 6,
+      "readyBeatsOutOfBand": 1,
+      "readyBpmMax": 134.234451294,
+      "readyBpmMedian": 126.047660828,
+      "readyBpmMin": 126.047660828
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.810666667,
+      "firstReadyEventSeconds": 2.798,
+      "fixture": "clean_eighths__offset_80ms",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 1,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 1,
+      "readyBpmMax": 126.047660828,
+      "readyBpmMedian": 126.044906616,
+      "readyBpmMin": 111.13898468
+    },
+    {
+      "beats": 10,
+      "blocks": 2063,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.752,
+      "firstReadyEventSeconds": 2.739958333,
+      "fixture": "clean_eighths__lead_silence_0.5s",
+      "intervalStatesAtBeats": {
+        "accepted": 9,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 2,
+      "readyBeats": 6,
+      "readyBeatsOutOfBand": 2,
+      "readyBpmMax": 132.511276245,
+      "readyBpmMedian": 126.826751709,
+      "readyBpmMin": 124.529769897
+    },
+    {
+      "beats": 9,
+      "blocks": 2063,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.741333333,
+      "firstReadyEventSeconds": 2.728354167,
+      "fixture": "clean_eighths__trail_silence_0.5s",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 126.047660828,
+      "readyBpmMedian": 123.04800415,
+      "readyBpmMin": 101.333518982
+    },
+    {
+      "beats": 7,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 3.728,
+      "firstReadyEventSeconds": 3.7151875,
+      "fixture": "clean_eighths__silence_gap_1s",
+      "intervalStatesAtBeats": {
+        "accepted": 6,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 3,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 95.701728821,
+      "readyBpmMedian": 82.687339783,
+      "readyBpmMin": 82.687339783
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.821333333,
+      "firstReadyEventSeconds": 2.809604167,
+      "fixture": "clean_eighths__drop_every2",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 2,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 129.197235107,
+      "readyBpmMedian": 127.603012085,
+      "readyBpmMin": 104.402671814
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.741333333,
+      "firstReadyEventSeconds": 2.728354167,
+      "fixture": "clean_eighths__drop_every4",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 2,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 2,
+      "readyBpmMax": 126.050422668,
+      "readyBpmMedian": 126.050422668,
+      "readyBpmMin": 103.361030579
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.741333333,
+      "firstReadyEventSeconds": 2.728354167,
+      "fixture": "clean_eighths__syncop_burst1",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 126.047660828,
+      "readyBpmMedian": 123.04800415,
+      "readyBpmMin": 101.333518982
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.741333333,
+      "firstReadyEventSeconds": 2.728354167,
+      "fixture": "clean_eighths__syncop_burst4",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 126.047660828,
+      "readyBpmMedian": 123.04800415,
+      "readyBpmMin": 101.333518982
+    },
+    {
+      "beats": 8,
+      "blocks": 1670,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.741333333,
+      "firstReadyEventSeconds": 2.728354167,
+      "fixture": "clean_eighths__tempo_step_1.25",
+      "intervalStatesAtBeats": {
+        "accepted": 7,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 0,
+      "readyBeats": 4,
+      "readyBeatsOutOfBand": 0,
+      "readyBpmMax": 121.598510742,
+      "readyBpmMedian": 111.46601486200001,
+      "readyBpmMin": 101.333518982
+    },
+    {
+      "beats": 10,
+      "blocks": 2057,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.741333333,
+      "firstReadyEventSeconds": 2.728354167,
+      "fixture": "clean_eighths__tempo_step_0.85",
+      "intervalStatesAtBeats": {
+        "accepted": 9,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 0,
+      "readyBeats": 6,
+      "readyBeatsOutOfBand": 0,
+      "readyBpmMax": 126.044906616,
+      "readyBpmMedian": 122.325855255,
+      "readyBpmMin": 101.333518982
+    },
+    {
+      "beats": 9,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.509333333,
+      "firstReadyEventSeconds": 2.496145833,
+      "fixture": "syncopated_funk__baseline",
+      "intervalStatesAtBeats": {
+        "accepted": 8,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 2,
+      "readyBeats": 5,
+      "readyBeatsOutOfBand": 2,
+      "readyBpmMax": 116.133712769,
+      "readyBpmMedian": 112.346405029,
+      "readyBpmMin": 112.346405029
+    },
+    {
+      "beats": 8,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 3.032,
+      "firstReadyEventSeconds": 3.018604167,
+      "fixture": "syncopated_funk__noise_snr10db",
+      "intervalStatesAtBeats": {
+        "accepted": 7,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 4,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 109.957237244,
+      "readyBpmMedian": 104.0921936035,
+      "readyBpmMin": 97.508125305
+    },
+    {
+      "beats": 8,
+      "blocks": 1875,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 3.032,
+      "firstReadyEventSeconds": 3.018604167,
+      "fixture": "syncopated_funk__noise_snr0db",
+      "intervalStatesAtBeats": {
+        "accepted": 7,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 4,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 109.957237244,
+      "readyBpmMedian": 104.0921936035,
+      "readyBpmMin": 97.508125305
+    },
+    {
+      "beats": 54,
+      "blocks": 12694,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.858666667,
+      "firstReadyEventSeconds": 2.8444375,
+      "fixture": "regular_96bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 2,
+      "readyBeats": 50,
+      "readyBeatsOutOfBand": 2,
+      "readyBpmMax": 101.333518982,
+      "readyBpmMedian": 95.703323364,
+      "readyBpmMin": 94.825744629
+    },
+    {
+      "beats": 53,
+      "blocks": 12694,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.869333333,
+      "firstReadyEventSeconds": 2.8560625,
+      "fixture": "sparse_96bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 52,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 49,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 103.359176636,
+      "readyBpmMedian": 95.703323364,
+      "readyBpmMin": 95.703323364
+    },
+    {
+      "beats": 54,
+      "blocks": 12694,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.858666667,
+      "firstReadyEventSeconds": 2.8444375,
+      "fixture": "gap_96bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 1,
+      "readyBeats": 50,
+      "readyBeatsOutOfBand": 1,
+      "readyBpmMax": 99.384025574,
+      "readyBpmMedian": 95.703323364,
+      "readyBpmMin": 94.825744629
+    },
+    {
+      "beats": 54,
+      "blocks": 12694,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.928,
+      "firstReadyEventSeconds": 2.914104167,
+      "fixture": "noise_96bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 50,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 99.385742188,
+      "readyBpmMedian": 95.703323364,
+      "readyBpmMin": 94.825744629
+    },
+    {
+      "beats": 71,
+      "blocks": 12650,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.253333333,
+      "firstReadyEventSeconds": 2.240729167,
+      "fixture": "regular_126bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 70,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 1,
+      "readyBeats": 67,
+      "readyBeatsOutOfBand": 1,
+      "readyBpmMax": 127.60584259,
+      "readyBpmMedian": 126.047660828,
+      "readyBpmMin": 123.045372009
+    },
+    {
+      "beats": 69,
+      "blocks": 12650,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.277333333,
+      "firstReadyEventSeconds": 2.2639375,
+      "fixture": "sparse_126bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 68,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 2,
+      "readyBeats": 65,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 132.514328003,
+      "readyBpmMedian": 126.047660828,
+      "readyBpmMin": 121.598510742
+    },
+    {
+      "beats": 70,
+      "blocks": 12650,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.253333333,
+      "firstReadyEventSeconds": 2.240729167,
+      "fixture": "gap_126bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 69,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 1,
+      "readyBeats": 66,
+      "readyBeatsOutOfBand": 1,
+      "readyBpmMax": 127.60584259,
+      "readyBpmMedian": 126.047660828,
+      "readyBpmMin": 123.045372009
+    },
+    {
+      "beats": 71,
+      "blocks": 12650,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.405333333,
+      "firstReadyEventSeconds": 2.391645833,
+      "fixture": "noise_126bpm_48000hz",
+      "intervalStatesAtBeats": {
+        "accepted": 70,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 5,
+      "readyBeats": 67,
+      "readyBeatsOutOfBand": 5,
+      "readyBpmMax": 137.81552124,
+      "readyBpmMedian": 126.047660828,
+      "readyBpmMin": 124.527076721
+    },
+    {
+      "beats": 54,
+      "blocks": 11663,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.858956916,
+      "firstReadyEventSeconds": 2.844444444,
+      "fixture": "regular_96bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 1,
+      "readyBeats": 50,
+      "readyBeatsOutOfBand": 1,
+      "readyBpmMax": 100.348907471,
+      "readyBpmMedian": 95.703125,
+      "readyBpmMin": 94.825111389
+    },
+    {
+      "beats": 53,
+      "blocks": 11663,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.940226757,
+      "firstReadyEventSeconds": 2.925714286,
+      "fixture": "sparse_96bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 52,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 3,
+      "readyBeats": 49,
+      "readyBeatsOutOfBand": 3,
+      "readyBpmMax": 99.384017944,
+      "readyBpmMedian": 95.703125,
+      "readyBpmMin": 95.703125
+    },
+    {
+      "beats": 54,
+      "blocks": 11663,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.858956916,
+      "firstReadyEventSeconds": 2.844444444,
+      "fixture": "gap_96bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 1,
+      "readyBeats": 50,
+      "readyBeatsOutOfBand": 1,
+      "readyBpmMax": 100.348907471,
+      "readyBpmMedian": 95.703125,
+      "readyBpmMin": 94.825111389
+    },
+    {
+      "beats": 54,
+      "blocks": 11663,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.882176871,
+      "firstReadyEventSeconds": 2.867664399,
+      "fixture": "noise_96bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 53,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 2,
+      "readyBeats": 50,
+      "readyBeatsOutOfBand": 2,
+      "readyBpmMax": 100.348907471,
+      "readyBpmMedian": 95.703125,
+      "readyBpmMin": 94.825111389
+    },
+    {
+      "beats": 70,
+      "blocks": 11622,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.255238095,
+      "firstReadyEventSeconds": 2.240725624,
+      "fixture": "regular_126bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 69,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 2,
+      "readyBeats": 66,
+      "readyBeatsOutOfBand": 2,
+      "readyBpmMax": 127.604164124,
+      "readyBpmMedian": 126.048019409,
+      "readyBpmMin": 121.599266052
+    },
+    {
+      "beats": 69,
+      "blocks": 11622,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.464217687,
+      "firstReadyEventSeconds": 2.449705215,
+      "fixture": "sparse_126bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 68,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 7,
+      "readyBeats": 65,
+      "readyBeatsOutOfBand": 9,
+      "readyBpmMax": 135.999176025,
+      "readyBpmMedian": 126.048019409,
+      "readyBpmMin": 108.799339294
+    },
+    {
+      "beats": 70,
+      "blocks": 11622,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 2.255238095,
+      "firstReadyEventSeconds": 2.240725624,
+      "fixture": "gap_126bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 69,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 0,
+      "readyBeats": 66,
+      "readyBeatsOutOfBand": 0,
+      "readyBpmMax": 127.604164124,
+      "readyBpmMedian": 126.048019409,
+      "readyBpmMin": 124.52936554
+    },
+    {
+      "beats": 68,
+      "blocks": 11622,
+      "fallbackBeats": 4,
+      "firstReadyAvailabilitySeconds": 3.207256236,
+      "firstReadyEventSeconds": 3.192743764,
+      "fixture": "noise_126bpm_44100hz",
+      "intervalStatesAtBeats": {
+        "accepted": 67,
+        "first_beat": 1
+      },
+      "longestOutOfBandReadyRun": 5,
+      "readyBeats": 64,
+      "readyBeatsOutOfBand": 7,
+      "readyBpmMax": 127.604164124,
+      "readyBpmMedian": 126.048019409,
+      "readyBpmMin": 84.032012939
+    }
+  ]
+}

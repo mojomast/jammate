@@ -1,0 +1,15 @@
+{
+  "backends": 4,
+  "beatEqualityAll": true,
+  "candidateSources": 6,
+  "comparisons": 120,
+  "controlPairs": 136,
+  "exactBTrackFamilyBeatSeries": 40,
+  "hardErrors": 0,
+  "longFixtures": 16,
+  "missingSemantics": "null = not measured; raw sentinels preserved in *Raw fields",
+  "outcomes": 160,
+  "pins": 12,
+  "scorerResultsValidated": 8,
+  "shortFixtures": 24
+}
