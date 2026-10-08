@@ -39,7 +39,9 @@ def main():
     if dirty:
         raise SystemExit('Commit the source before measurement; dirty source is rejected')
     cache = (product / 'CMakeCache.txt').read_text()
-    if 'CMAKE_SUPPRESS_REGENERATION:BOOL=ON' not in cache:
+    suppress = next((line.split('=', 1)[1].strip().upper() for line in cache.splitlines()
+                     if line.startswith('CMAKE_SUPPRESS_REGENERATION:')), '')
+    if suppress not in ('ON', 'TRUE', 'YES', '1'):
         raise SystemExit('Configure the product with -DCMAKE_SUPPRESS_REGENERATION=ON and build it; '
                          'Ninja dry-run otherwise stops at the always-dirty CMake glob check')
     pending = subprocess.check_output(['ninja', '-n', 'GuitarCompanion_Standalone',
