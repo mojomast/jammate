@@ -21,18 +21,23 @@ source tree with all product targets up-to-date; mixed-tree archives are refused
 
 Required outcomes:
 
+- All106 unique catalogue patterns prepared before processing callbacks.
 - Actual join within the declared 1400-block (~14.93 s audio-time) wiring window.
   This is not a two-bar guitar-acquisition test.
 - Each style reflected by the worker, continuing actual playback, and actual
   groove changes across styles after a 400-block settling window per style. Every
   settled audio-owner groove must belong to that style's actual catalogue tiers;
-  the recorded six-style table must contain at least two distinct grooves.
+  the recorded six-style table must contain at least two distinct grooves. Each
+  style must produce more than10 nonzero blocks during its settling window.
 - Worker confirms intensity/complexity settings and automatic fills disabled.
   Actual-engine unit cases separately verify the rendered dynamic controls.
+  The actual audio owner must also report adaptive rendering and intensity more
+  than0.05 away from its neutral0.5, proving the setting reaches rendering.
 - Explicit fill observed in audio-owner echo and subsequent reversion within
   600 blocks, with `fillAmount=0` to remove automatic-fill ambiguity. Audio-owner
   engine fill start/end observations must span 96,000 samples within the
   512-sample callback observation resolution (one 120 BPM 4/4 bar).
+- No additional engine command rejection during the style/fill transitions.
 - Immediate Stop releases injected ownership within 30 servicing blocks.
 - Every processed callback advances exactly 512 audio-owner samples.
 - Audible actual internal-kit output with zero guitar: more than 100 nonzero

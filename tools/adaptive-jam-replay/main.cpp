@@ -64,6 +64,7 @@ int main (int argc, char** argv)
         if (auto* p = proc->apvts.getParameter (id)) p->setValueNotifyingHost (0.0f);
     check (proc->setJamTrackerForTesting (std::make_unique<Tracker>()), "tracker injection accepted before prepare");
     proc->prepareToPlay (48000.0, 512);
+    check (proc->drumEngine.injectedBankSize() == 106, "all 106 unique catalogue patterns prepared before callbacks");
     juce::AudioBuffer<float> buffer (2, 512);
     juce::MidiBuffer midi;
     midi.ensureSize (65536);
@@ -107,6 +108,7 @@ int main (int argc, char** argv)
     check (proc->drumEngine.injectedPlaying(), "actual initial join");
     send (jam::JamLiveCommandType::SetFillAmount, 0.0); // explicit fills only
     bool styleChanged = false;
+    const auto adaptationRejectBase = proc->drumEngine.injectedRejectedCount();
     jam::LibraryIndex settledGrooves[jam::kStyleCount] {};
     for (int style = 0; style < 6; ++style)
     {
@@ -114,12 +116,17 @@ int main (int argc, char** argv)
         send (jam::JamLiveCommandType::SetStyle, style);
         send (jam::JamLiveCommandType::SetIntensity, 0.75);
         send (jam::JamLiveCommandType::SetComplexity, 0.65);
+        const auto audibleBefore = nonzero;
         for (int i = 0; i < 400; ++i) block();
         check (state.styleIndex == style, "worker applied selected style");
         check (std::abs (state.intensity01 - 0.75f) < 0.0001f
                && std::abs (state.complexity01 - 0.65f) < 0.0001f
                && state.fillAmount01 == 0.0f, "worker applied intensity/complexity and disabled automatic fills");
         check (proc->drumEngine.injectedPlaying(), "style transition retains actual playback");
+        check (nonzero > audibleBefore + 10, "selected style produces actual internal-kit audio");
+        check (proc->drumEngine.injectedAdaptiveActive()
+               && std::abs (proc->drumEngine.injectedIntensity01() - 0.5f) > 0.05f,
+               "director intensity reaches the audio-owner render parameters");
         settledGrooves[style] = proc->drumEngine.injectedGroove();
         check (belongsToStyle (style, settledGrooves[style]),
                "actual settled groove belongs to the selected style catalogue");
@@ -153,6 +160,8 @@ int main (int argc, char** argv)
            "actual engine fill, audio-owner echo and reversion");
     check (fillEnd > fillStart && std::abs (static_cast<double> (fillEnd - fillStart) - 96000.0) <= 512.0,
            "fill duration is one 120 BPM bar within callback observation resolution");
+    check (proc->drumEngine.injectedRejectedCount() == adaptationRejectBase,
+           "no engine command rejection during style/fill transitions");
     send (jam::JamLiveCommandType::Stop);
     for (int i = 0; i < 30 && proc->drumEngine.injectedActive(); ++i) block();
     check (! proc->drumEngine.injectedActive(), "Stop releases injected ownership");
