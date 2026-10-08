@@ -208,7 +208,8 @@ void DrumEngine::trigger (int synthType, float vel, int delaySamples)
             slot->layer = &layer;
             slot->vel = vel > 0.5f ? 1.0f : 0.75f;
             // round-robin: micro-variação de afinação p/ não soar "metralhadora"
-            slot->rrPitch = 1.0f + nextRnd() * humanRR.load() * 0.03f;
+            const float rr = injAdaptive_ ? injHumanRR_ : humanRR.load();
+            slot->rrPitch = 1.0f + nextRnd() * rr * 0.03f;
         }
     }
     anyVoiceActive.store (true);
@@ -223,8 +224,16 @@ void DrumEngine::fireHit (int v, int val, int sampleOffset,
     // KIT MIXER per-voice level (clamped: MIDI velocity is 7-bit)
     vel = juce::jlimit (0.0f, 1.0f, vel * voiceGain[v].load());
 
+    // DRUM-ADAPT-002 intensity: only when the injected transport was handed an
+    // intensity (injAdaptive_). Neutral 0.5 is exactly the legacy velocity, so a
+    // join without an adaptation is byte-identical to the pre-adaptive slice.
+    // The existing [0,1] clamp still bounds the result.
+    if (injAdaptive_)
+        vel = juce::jlimit (0.05f, 1.0f, vel * (0.5f + injIntensity01_));
+
     // humanização: velocity e micro-timing (offset só p/ frente, RT-safe)
-    const float hv = humanVel.load(), ht = humanTime.load();
+    const float hv = injAdaptive_ ? injHumanVel_ : humanVel.load();
+    const float ht = injAdaptive_ ? injHumanTime_ : humanTime.load();
     if (hv > 0.0f) vel = juce::jlimit (0.05f, 1.0f, vel * (1.0f + nextRnd() * hv * 0.35f));
     int off = sampleOffset;
     if (ht > 0.0f) off = juce::jmax (0, off + (int) (nextRnd() * ht * 0.018f * (float) sr));
@@ -529,31 +538,127 @@ void DrumEngine::detachClockBridge() noexcept
 
 bool DrumEngine::prepareInjectedGroove (jam::LibraryIndex index)
 {
-    if (index < 0)
+    // Single-groove compatibility path. Any 4/4 entry is accepted here (the
+    // pre-adaptive engine rendered whatever 4/4 entry it was given, grooves and
+    // fills alike); the entry's fill flag is recorded so a later BarChange can
+    // only use it in the matching role.
+    const int slot = prepareInjectedBankEntry (index, /*requireFill=*/-1);
+    if (slot < 0)
         return false;
+
+    injSelGrooveSlot_ = slot;
+    injCurrentSlot_ = slot;
+    injRevertSlot_ = slot;
+    injFillActive_ = false;
+    injGroove_ = index;
+    injPatternReady_ = true;
+    return true;
+}
+
+int DrumEngine::prepareInjectedBank (const jam::LibraryIndex* grooves, int numGrooves,
+                                    const jam::LibraryIndex* fills, int numFills)
+{
+    // A bank prepare is a full re-selection: clear the audio-owned state and
+    // resolve every entry off the callback. All roles must be quiescent.
+    injBankCount_ = 0;
+    injSelGrooveSlot_ = -1;
+    injCurrentSlot_ = -1;
+    injRevertSlot_ = -1;
+    injFillActive_ = false;
+    injPatternReady_ = false;
+
+    for (int i = 0; i < numGrooves; ++i)
+        if (grooves != nullptr)
+            (void) prepareInjectedBankEntry (grooves[i], /*requireFill=*/0);
+
+    for (int i = 0; i < numFills; ++i)
+        if (fills != nullptr)
+            (void) prepareInjectedBankEntry (fills[i], /*requireFill=*/1);
+
+    // Select the first accepted groove so a bank prepared once renders exactly
+    // like prepareInjectedGroove(). A bank with no groove cannot render.
+    for (int i = 0; i < injBankCount_; ++i)
+        if (injBank_[i].valid && ! injBank_[i].isFill)
+        {
+            injSelGrooveSlot_ = i;
+            injGroove_ = injBank_[i].index;
+            injCurrentSlot_ = i;
+            injRevertSlot_ = i;
+            injPatternReady_ = true;
+            break;
+        }
+
+    if (! injPatternReady_)
+        injGroove_ = jam::kNoLibraryEntry;
+
+    return injBankCount_;
+}
+
+int DrumEngine::prepareInjectedBankEntry (jam::LibraryIndex index, int requireFill)
+{
+    if (index < 0)
+        return -1;
 
     const auto& lib = drum::library();
     if (index >= static_cast<jam::LibraryIndex> (lib.size()))
-        return false;
+        return -1;
 
     const auto& g = lib[static_cast<std::size_t> (index)];
-    // This task renders exactly one 4/4 Rock groove. A different meter would
-    // reinterpret the grid the bridge assumes, so it is refused rather than
-    // silently mistimed.
+    // This task renders exactly the 4/4 grid the bridge assumes; a different
+    // meter would reinterpret the phase and is refused rather than mistimed.
     if (g.num != 4 || g.den != 4)
-        return false;
+        return -1;
 
+    const bool isFill = g.fill;
+    if (requireFill == 0 && isFill)
+        return -1;  // a fill was listed as a groove
+    if (requireFill == 1 && ! isFill)
+        return -1;  // a groove was listed as a fill
+
+    // Reuse an already-resolved identical entry (duplicates collapse).
+    for (int i = 0; i < injBankCount_; ++i)
+        if (injBank_[i].valid && injBank_[i].index == index && injBank_[i].isFill == isFill)
+            return i;
+
+    if (injBankCount_ >= kMaxInjectedBankPatterns)
+        return -1; // bounded bank is full: the extra entry is skipped, not guessed
+
+    const int slot = injBankCount_++;
+    auto& entry = injBank_[slot];
     juce::uint8 parsed[drum::numVoices][drum::maxStepsPerBar];
     drum::parseSpec (g, parsed);
     for (int v = 0; v < drum::numVoices; ++v)
         for (int s = 0; s < drum::maxStepsPerBar; ++s)
-            injPattern_[v][s] = parsed[v][s];
+            entry.pattern[v][s] = parsed[v][s];
+    entry.index = index;
+    entry.isFill = isFill;
+    entry.barSteps = drum::stepsPerBar;
+    entry.valid = true;
+    return slot;
+}
 
-    injBarSteps_ = drum::stepsPerBar;   // 16 for 4/4
-    injPatternBars_ = 1;                // one-bar groove, looped every bar
-    injGroove_ = index;
-    injPatternReady_ = true;
-    return true;
+int DrumEngine::findInjectedSlot (jam::LibraryIndex index, bool wantFill) const noexcept
+{
+    if (index < 0)
+        return -1;
+    for (int i = 0; i < injBankCount_; ++i)
+        if (injBank_[i].valid && injBank_[i].index == index && injBank_[i].isFill == wantFill)
+            return i;
+    return -1;
+}
+
+jam::LibraryIndex DrumEngine::injectedSelectedGroove() const noexcept
+{
+    if (injSelGrooveSlot_ >= 0 && injSelGrooveSlot_ < injBankCount_)
+        return injBank_[injSelGrooveSlot_].index;
+    return jam::kNoLibraryEntry;
+}
+
+jam::LibraryIndex DrumEngine::injectedActiveFill() const noexcept
+{
+    if (injFillActive_ && injCurrentSlot_ >= 0 && injCurrentSlot_ < injBankCount_)
+        return injBank_[injCurrentSlot_].index;
+    return jam::kNoLibraryEntry;
 }
 
 std::uint64_t DrumEngine::injectedDropCount() const noexcept
@@ -578,7 +683,17 @@ void DrumEngine::resetInjectedTransport() noexcept
     injCommands_ = 0;
     injRejected_ = 0;
     injLateCommandCount_ = 0;
+    injBarChangeCount_ = 0;
+    injStaleCommandCount_ = 0;
     injEventCount_ = 0;
+    // Adaptive state is per-engagement: a fresh injected transport renders the
+    // selected groove with the exact pre-adaptive slice until a BarChange says
+    // otherwise. The prepared bank and selected groove survive (a re-prepare
+    // must not forget the prepared groove).
+    injFillActive_ = false;
+    injCurrentSlot_ = injSelGrooveSlot_;
+    injRevertSlot_ = injSelGrooveSlot_;
+    resetInjectedAdaptive();
     injDropBaseline_ = clockQueue_ != nullptr ? clockQueue_->droppedCount() : 0;
 }
 
@@ -588,12 +703,43 @@ void DrumEngine::resetInjectedState() noexcept
 
     injPatternReady_ = false;
     injGroove_ = jam::kNoLibraryEntry;
-    for (int v = 0; v < drum::numVoices; ++v)
-        for (int s = 0; s < drum::maxStepsPerBar; ++s)
-            injPattern_[v][s] = 0;
+    injBankCount_ = 0;
+    injSelGrooveSlot_ = -1;
+    injCurrentSlot_ = -1;
+    injRevertSlot_ = -1;
+    for (auto& entry : injBank_)
+    {
+        entry.valid = false;
+        entry.index = jam::kNoLibraryEntry;
+        entry.isFill = false;
+        for (int v = 0; v < drum::numVoices; ++v)
+            for (int s = 0; s < drum::maxStepsPerBar; ++s)
+                entry.pattern[v][s] = 0;
+    }
 
     injBarSteps_ = drum::stepsPerBar;
     injPatternBars_ = 1;
+}
+
+void DrumEngine::resetInjectedAdaptive() noexcept
+{
+    injAdaptive_ = false;
+    injIntensity01_ = 0.5f;
+    injSwing01_ = 0.0f;
+    injHumanVel_ = 0.0f;
+    injHumanTime_ = 0.0f;
+    injHumanRR_ = 0.0f;
+}
+
+void DrumEngine::endInjectedFillIfDue() noexcept
+{
+    if (! injFillActive_)
+        return;
+    // The fill has played its one bar: return to the selected groove for the
+    // next downbeat. The switch happens when the bar wraps, i.e. exactly at the
+    // bar boundary, so the change is never mid-bar.
+    injFillActive_ = false;
+    injCurrentSlot_ = injRevertSlot_ >= 0 ? injRevertSlot_ : injSelGrooveSlot_;
 }
 
 void DrumEngine::flushInjectedNotes (juce::AudioPluginInstance* vst,
@@ -614,8 +760,17 @@ void DrumEngine::dropInjectedEventsUpTo (std::uint64_t sample) noexcept
 {
     int out = 0;
     for (int i = 0; i < injEventCount_; ++i)
-        if (injEvents_[i].target > sample)
+    {
+        const bool isBarChange =
+            injEvents_[i].type == jam::DrumClockCommandType::BarChange;
+        // A BarChange aimed exactly at the join boundary is the pattern for the
+        // bar being joined, not a stale event, so it survives the join. Anything
+        // strictly older is superseded.
+        const bool keep = injEvents_[i].target > sample
+                       || (isBarChange && injEvents_[i].target == sample);
+        if (keep)
             injEvents_[out++] = injEvents_[i];
+    }
     injEventCount_ = out;
 }
 
@@ -655,8 +810,20 @@ bool DrumEngine::applyInjectedCommand (const jam::DrumClockCommand& command,
         {
             if (! injPatternReady_)
                 return false;
-            if (command.groove >= 0 && command.groove != injGroove_)
-                return false; // a different groove was never prepared
+            // A join may name any groove that is in the prepared bank (not only
+            // the current selection): the orchestrator prepares a bank of
+            // grooves and joins with the one it wants. An index not in the bank
+            // is refused whole, exactly as before the adaptive bank existed.
+            if (command.groove >= 0)
+            {
+                int slot = findInjectedSlot (command.groove, /*wantFill=*/false);
+                if (slot < 0)
+                    slot = findInjectedSlot (command.groove, /*wantFill=*/true);
+                if (slot < 0)
+                    return false; // a different groove was never prepared
+                injSelGrooveSlot_ = slot;
+                injGroove_ = command.groove;
+            }
             if (! (command.bpm > 0.0) || ! std::isfinite (command.bpm))
                 return false;
 
@@ -671,10 +838,57 @@ bool DrumEngine::applyInjectedCommand (const jam::DrumClockCommand& command,
             injBpm_ = command.bpm;
             injNextStep_ = 0;
             injPlayBar_ = 0;
+            injFillActive_ = false;
+            injCurrentSlot_ = injSelGrooveSlot_;
+            injRevertSlot_ = injSelGrooveSlot_;
+            // A join starts the exact pre-adaptive slice; the director must
+            // command intensity/swing again if it wants them.
+            resetInjectedAdaptive();
             injSamplesToNext_ = command.sampleTime > injSample_
                 ? static_cast<double> (command.sampleTime - injSample_)
                 : 0.0;          // late join: start at the block origin
             return true;
+        }
+
+        case jam::DrumClockCommandType::BarChange:
+        {
+            if (! injPatternReady_)
+                return false;
+            if (command.sampleTime < injSample_)
+            {
+                // A bar boundary already passed: applying it now would change
+                // the pattern mid-bar, which the contract forbids. Count it late
+                // and reject it whole.
+                ++injLateCommandCount_;
+                return false;
+            }
+            // Numeric domain (defence in depth; the bridge already screened it).
+            if (! std::isfinite (command.intensity01)
+                || ! std::isfinite (command.swing01)
+                || ! std::isfinite (command.humanizeVelocity)
+                || ! std::isfinite (command.humanizeTiming)
+                || ! std::isfinite (command.humanizeRoundRobin))
+                return false;
+
+            // A named groove must be a prepared groove, a named fill a prepared
+            // fill. Anything not in the immutable bank is rejected whole so the
+            // engine can never render an unprepared (unvalidated) pattern.
+            if (jam::hasField (command.changeFields, jam::DrumChangeField::Groove)
+                && command.groove != jam::kNoLibraryEntry
+                && findInjectedSlot (command.groove, /*wantFill=*/false) < 0)
+            {
+                ++injStaleCommandCount_;
+                return false;
+            }
+            if (jam::hasField (command.changeFields, jam::DrumChangeField::Fill)
+                && command.fill != jam::kNoLibraryEntry
+                && findInjectedSlot (command.fill, /*wantFill=*/true) < 0)
+            {
+                ++injStaleCommandCount_;
+                return false;
+            }
+
+            return insertInjectedEvent (command);
         }
 
         case jam::DrumClockCommandType::SetTempo:
@@ -697,11 +911,16 @@ bool DrumEngine::applyInjectedCommand (const jam::DrumClockCommand& command,
             // message thread round-trip, and LEAVE INJECTED MODE so the legacy
             // manual sequencer/song controls are usable again without a device
             // prepare. Release notes immediately so a Clear+Join in the same
-            // callback is ordered correctly.
+            // callback is ordered correctly. Future adaptive events and any
+            // one-bar fill are cancelled and the adaptive overrides are dropped.
             injActive_ = false;
             injPlaying_ = false;
             injEventCount_ = 0;
             injSamplesToNext_ = 0.0;
+            injFillActive_ = false;
+            injCurrentSlot_ = injSelGrooveSlot_;
+            injRevertSlot_ = injSelGrooveSlot_;
+            resetInjectedAdaptive();
             flushInjectedNotes (vst, midi, 0);
             return true;
 
@@ -729,6 +948,14 @@ bool DrumEngine::insertInjectedEvent (const jam::DrumClockCommand& command) noex
         {
             injEvents_[i].bpm = command.bpm;
             injEvents_[i].phaseStep = command.phaseStep;
+            injEvents_[i].groove = command.groove;
+            injEvents_[i].fill = command.fill;
+            injEvents_[i].changeFields = command.changeFields;
+            injEvents_[i].intensity01 = command.intensity01;
+            injEvents_[i].swing01 = command.swing01;
+            injEvents_[i].humanizeVelocity = command.humanizeVelocity;
+            injEvents_[i].humanizeTiming = command.humanizeTiming;
+            injEvents_[i].humanizeRoundRobin = command.humanizeRoundRobin;
             return true;
         }
     }
@@ -748,6 +975,14 @@ bool DrumEngine::insertInjectedEvent (const jam::DrumClockCommand& command) noex
     injEvents_[pos].target = target;
     injEvents_[pos].bpm = command.bpm;
     injEvents_[pos].phaseStep = command.phaseStep;
+    injEvents_[pos].groove = command.groove;
+    injEvents_[pos].fill = command.fill;
+    injEvents_[pos].changeFields = command.changeFields;
+    injEvents_[pos].intensity01 = command.intensity01;
+    injEvents_[pos].swing01 = command.swing01;
+    injEvents_[pos].humanizeVelocity = command.humanizeVelocity;
+    injEvents_[pos].humanizeTiming = command.humanizeTiming;
+    injEvents_[pos].humanizeRoundRobin = command.humanizeRoundRobin;
     ++injEventCount_;
     return true;
 }
@@ -772,12 +1007,23 @@ void DrumEngine::applyInjectedEvent (std::uint64_t nowSample, int offset,
             injBpm_ = ev.bpm;
             break;
 
+        case jam::DrumClockCommandType::BarChange:
+            applyInjectedBarChange (ev);
+            break;
+
         case jam::DrumClockCommandType::StopAtBar:
             // Bounded musical stop at the bar boundary. Leave injected mode so
             // the legacy manual transport is available again without a device
-            // prepare; a later JoinAtBar re-engages it.
+            // prepare; a later JoinAtBar re-engages it. Future adaptive events
+            // (including a queued BarChange/Fill) are cancelled and the adaptive
+            // overrides are dropped so a later join starts from the default slice.
             injActive_ = false;
             injPlaying_ = false;
+            injEventCount_ = 0;
+            injFillActive_ = false;
+            injCurrentSlot_ = injSelGrooveSlot_;
+            injRevertSlot_ = injSelGrooveSlot_;
+            resetInjectedAdaptive();
             flushInjectedNotes (vst, midi, offset); // exact ordered release
             break;
 
@@ -794,6 +1040,62 @@ void DrumEngine::applyInjectedEvent (std::uint64_t nowSample, int offset,
         default:
             break;
     }
+}
+
+void DrumEngine::applyInjectedBarChange (const InjectedEvent& ev) noexcept
+{
+    const bool grooveSet = jam::hasField (ev.changeFields, jam::DrumChangeField::Groove);
+    const bool fillSet = jam::hasField (ev.changeFields, jam::DrumChangeField::Fill);
+    const bool paramsSet = jam::hasField (ev.changeFields, jam::DrumChangeField::Params);
+
+    // Groove first: a fill reverts to whatever groove this bar selects.
+    if (grooveSet && ev.groove != jam::kNoLibraryEntry)
+    {
+        const int slot = findInjectedSlot (ev.groove, /*wantFill=*/false);
+        if (slot >= 0)
+        {
+            injSelGrooveSlot_ = slot;
+            injGroove_ = ev.groove;
+        }
+    }
+
+    if (fillSet)
+    {
+        int fillSlot = -1;
+        if (ev.fill != jam::kNoLibraryEntry)
+            fillSlot = findInjectedSlot (ev.fill, /*wantFill=*/true);
+
+        if (fillSlot >= 0)
+        {
+            // One-bar fill, then back to the selected groove at the next bar.
+            injCurrentSlot_ = fillSlot;
+            injRevertSlot_ = injSelGrooveSlot_;
+            injFillActive_ = true;
+        }
+        else
+        {
+            // Explicit "no fill".
+            injCurrentSlot_ = injSelGrooveSlot_;
+            injFillActive_ = false;
+        }
+    }
+    else if (grooveSet)
+    {
+        injCurrentSlot_ = injSelGrooveSlot_;
+        injFillActive_ = false;
+    }
+
+    if (paramsSet)
+    {
+        injAdaptive_ = true;
+        injIntensity01_ = juce::jlimit (0.0f, 1.0f, ev.intensity01);
+        injSwing01_ = juce::jlimit (0.0f, 1.0f, ev.swing01);
+        injHumanVel_ = juce::jlimit (0.0f, 1.0f, ev.humanizeVelocity);
+        injHumanTime_ = juce::jlimit (0.0f, 1.0f, ev.humanizeTiming);
+        injHumanRR_ = juce::jlimit (0.0f, 1.0f, ev.humanizeRoundRobin);
+    }
+
+    ++injBarChangeCount_;
 }
 
 void DrumEngine::runInjectedLoop (int n, juce::AudioPluginInstance* vst,
@@ -840,6 +1142,9 @@ void DrumEngine::runInjectedLoop (int n, juce::AudioPluginInstance* vst,
             if (++injNextStep_ >= injBarSteps_)
             {
                 injNextStep_ = 0;
+                // A one-bar fill ends exactly on the bar boundary: the next step
+                // 0 is rendered from the selected groove again.
+                endInjectedFillIfDue();
                 injPlayBar_ = (injPlayBar_ + 1) % injPatternBars_;
             }
             continue;
@@ -873,17 +1178,31 @@ void DrumEngine::fireInjectedStep (int step, int sampleOffset,
                                    juce::AudioPluginInstance* vst,
                                    juce::MidiBuffer& midi) noexcept
 {
+    if (injCurrentSlot_ < 0 || injCurrentSlot_ >= injBankCount_)
+        return;
+    const auto& pattern = injBank_[injCurrentSlot_].pattern;
+    if (step < 0 || step >= injBank_[injCurrentSlot_].barSteps)
+        return;
     for (int v = 0; v < drum::numVoices; ++v)
-        fireHit (v, injPattern_[v][step], sampleOffset, vst, midi);
+        fireHit (v, pattern[v][step], sampleOffset, vst, midi);
 }
 
 double DrumEngine::injectedStepLen (int stepIdx) const noexcept
 {
-    (void) stepIdx;
-    // Injected grid: no swing authority here (the bridge carries tempo only), so
-    // every sixteenth is the same length. The clamp matches the manual engine.
+    // Injected grid: the bridge carries tempo only, so without an adaptive
+    // swing command every sixteenth is the same length. When a swing amount was
+    // commanded, even sixteenths lengthen and odd ones shorten by the SAME sw
+    // fraction, so the eight pairs in a 4/4 bar sum to exactly 16 base steps and
+    // the next downbeat is unmoved: swing never undermines the clock phase.
     const double b = juce::jlimit (40.0f, 260.0f, static_cast<float> (injBpm_));
-    return 60.0 / b / 4.0 * sr;
+    const double base = 60.0 / b / 4.0 * sr;
+    if (injAdaptive_ && injSwing01_ > 0.0f)
+    {
+        const double sw = juce::jlimit (0.0, 1.0, static_cast<double> (injSwing01_))
+                          * 60.0 * 0.009;
+        return (stepIdx % 2 == 0) ? base * (1.0 + sw) : base * (1.0 - sw);
+    }
+    return base;
 }
 
 //==============================================================================

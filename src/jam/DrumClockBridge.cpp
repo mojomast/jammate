@@ -23,6 +23,19 @@ double wrap01 (double value)
         value += 1.0;
     return value;
 }
+
+// Clamp a finite musical parameter into the documented 0..1 domain. Out-of-range
+// finite values are bounded rather than rejected so a director that overshoots by
+// a rounding error still produces a valid command; NaN/inf are rejected by the
+// caller before this is reached.
+float clamp01 (float value) noexcept
+{
+    if (value < 0.0f)
+        return 0.0f;
+    if (value > 1.0f)
+        return 1.0f;
+    return value;
+}
 } // namespace
 
 DrumClockBridge::DrumClockBridge (const DrumClockBridgeConfig& config) noexcept
@@ -66,11 +79,15 @@ void DrumClockBridge::prepare (double sampleRate, int maximumBlockSize) noexcept
     bpm_ = clampBpm (config_.initialBpm);
     haveStagedTempo_ = false;
     haveStagedResync_ = false;
+    clearStagedBarChange();
+    haveBarChangeGeneration_ = false;
+    lastBarChangeGeneration_ = 0;
     haveSnapshot_ = false;
     lastSnapshotGeneration_ = 0;
     commandSeq_ = 0;
     publishedCount_ = 0;
     staleSnapshotCount_ = 0;
+    staleBarChangeCount_ = 0;
     discontinuityCount_ = 0;
     invalidRequestCount_ = 0;
 
@@ -300,6 +317,7 @@ bool DrumClockBridge::setClockSample (std::uint64_t explicitSample) noexcept
         stopPending_ = false;
         haveStagedTempo_ = false;
         haveStagedResync_ = false;
+        clearStagedBarChange();
         anchorSample_ = explicitSample;
         anchorBeat_ = 0.0;
 
@@ -331,6 +349,11 @@ bool DrumClockBridge::setClockSample (std::uint64_t explicitSample) noexcept
         applyStagedState (explicitSample);  // B first (or equal T/B)
         applyStagedResync (explicitSample);
     }
+
+    // A staged BarChange is only a worker-side latch: the engine owns the
+    // pattern application through its own event. Forget the latch once its bar
+    // boundary is reached so the next request stages for the following bar.
+    applyStagedBarChange (explicitSample);
 
     // The stop only becomes real when its boundary is reached: until then the
     // engine is still rendering and the worker position must say so.
@@ -417,6 +440,174 @@ bool DrumClockBridge::requestJoinAtNextBar (LibraryIndex groove) noexcept
     return true;
 }
 
+bool DrumClockBridge::validBarChangePayload (const QueuedBarChange& change) const noexcept
+{
+    // Index domain: kNoLibraryEntry (-1) is the "no change" sentinel; anything
+    // below it is a corrupt/overflowed index and is refused whole.
+    if (change.groove < kNoLibraryEntry || change.fill < kNoLibraryEntry)
+        return false;
+
+    // Numeric domain: NaN/inf would poison the clamps and the engine gains.
+    if (! std::isfinite (change.intensity01)
+        || ! std::isfinite (change.swing01)
+        || ! std::isfinite (change.humanizeVelocity)
+        || ! std::isfinite (change.humanizeTiming)
+        || ! std::isfinite (change.humanizeRoundRobin))
+        return false;
+
+    return true;
+}
+
+void DrumClockBridge::clearStagedBarChange() noexcept
+{
+    haveStagedChange_ = false;
+    stagedChangeBoundary_ = 0;
+    stagedChangeFields_ = 0;
+    stagedChangeGroove_ = kNoLibraryEntry;
+    stagedChangeFill_ = kNoLibraryEntry;
+    stagedIntensity_ = 0.5f;
+    stagedSwing_ = 0.0f;
+    stagedHumanVel_ = 0.25f;
+    stagedHumanTime_ = 0.15f;
+    stagedHumanRR_ = 0.40f;
+}
+
+void DrumClockBridge::applyStagedBarChange (std::uint64_t atSample) noexcept
+{
+    if (! haveStagedChange_ || atSample < stagedChangeBoundary_)
+        return;
+
+    // No worker grid change is needed: a BarChange is purely musical. The latch
+    // is dropped so the next request stages for the following bar boundary.
+    haveStagedChange_ = false;
+}
+
+bool DrumClockBridge::stageBarChange (std::uint8_t fields,
+                                      const QueuedBarChange& change) noexcept
+{
+    if (! prepared_)
+    {
+        ++invalidRequestCount_;
+        return false;
+    }
+
+    if (! validBarChangePayload (change))
+    {
+        ++invalidRequestCount_;
+        return false;
+    }
+
+    // Stale-decision guard: an older generation must never overrule a newer
+    // committed decision. Generation 0 is the "unknown" spelling and is always
+    // accepted; the same generation may refine the staged value.
+    if (change.generation != 0 && haveBarChangeGeneration_
+        && change.generation < lastBarChangeGeneration_)
+    {
+        ++staleBarChangeCount_;
+        return false;
+    }
+
+    const float intensity = clamp01 (change.intensity01);
+    const float swing = clamp01 (change.swing01);
+    const float humanVel = clamp01 (change.humanizeVelocity);
+    const float humanTime = clamp01 (change.humanizeTiming);
+    const float humanRR = clamp01 (change.humanizeRoundRobin);
+
+    // Coalesce an identical re-publication. The director may call this every
+    // tick; without the dedupe a staged command would be republished until its
+    // boundary and could exhaust the bounded queue (mirrors stageTempo()).
+    if (haveStagedChange_
+        && fields == stagedChangeFields_
+        && change.groove == stagedChangeGroove_
+        && change.fill == stagedChangeFill_
+        && intensity == stagedIntensity_
+        && swing == stagedSwing_
+        && humanVel == stagedHumanVel_
+        && humanTime == stagedHumanTime_
+        && humanRR == stagedHumanRR_)
+    {
+        if (change.generation != 0)
+        {
+            haveBarChangeGeneration_ = true;
+            lastBarChangeGeneration_ = change.generation;
+        }
+        return true;
+    }
+
+    // Strictly the next future bar: reuse the already-staged horizon while one
+    // exists so repeated (even differing) updates for the same bar land on the
+    // SAME boundary instead of drifting to the bar after it.
+    const std::uint64_t boundary =
+        haveStagedChange_ ? stagedChangeBoundary_ : nextBarBoundarySample();
+
+    DrumClockCommand command;
+    command.type = DrumClockCommandType::BarChange;
+    command.sampleTime = boundary;
+    command.generation = change.generation;
+    command.groove = change.groove;
+    command.fill = change.fill;
+    command.changeFields = fields;
+    command.intensity01 = intensity;
+    command.swing01 = swing;
+    command.humanizeVelocity = humanVel;
+    command.humanizeTiming = humanTime;
+    command.humanizeRoundRobin = humanRR;
+
+    // Latch ONLY after the bounded publish is accepted. On a drop the previous
+    // staging is left exactly as it was, the caller gets false and can retry;
+    // nothing has been committed to the audio side.
+    const std::uint64_t dropsBefore = queue_.droppedCount();
+    publish (command);
+    if (queue_.droppedCount() != dropsBefore)
+    {
+        ++invalidRequestCount_;
+        return false;
+    }
+
+    haveStagedChange_ = true;
+    stagedChangeBoundary_ = boundary;
+    stagedChangeFields_ = fields;
+    stagedChangeGroove_ = command.groove;
+    stagedChangeFill_ = command.fill;
+    stagedIntensity_ = intensity;
+    stagedSwing_ = swing;
+    stagedHumanVel_ = humanVel;
+    stagedHumanTime_ = humanTime;
+    stagedHumanRR_ = humanRR;
+
+    if (change.generation != 0)
+    {
+        haveBarChangeGeneration_ = true;
+        lastBarChangeGeneration_ = change.generation;
+    }
+    return true;
+}
+
+bool DrumClockBridge::requestBarChange (const QueuedBarChange& change) noexcept
+{
+    // A full bar change is authoritative for every field, including an explicit
+    // "no fill" (fill stays kNoLibraryEntry): requesting a groove change must
+    // not leave a previous fill hanging over the new groove.
+    const std::uint8_t fields =
+        DrumChangeField::Groove | DrumChangeField::Fill | DrumChangeField::Params;
+    return stageBarChange (fields, change);
+}
+
+bool DrumClockBridge::requestFillAtNextBar (LibraryIndex fill) noexcept
+{
+    if (fill < 0)
+    {
+        ++invalidRequestCount_;
+        return false;
+    }
+
+    // Fill-only: the selected groove and the director's intensity/swing/
+    // humanization are left untouched (this is the user Fill button path).
+    QueuedBarChange change;
+    change.fill = fill;
+    return stageBarChange (static_cast<std::uint8_t> (DrumChangeField::Fill), change);
+}
+
 bool DrumClockBridge::requestStopAtNextBar() noexcept
 {
     if (! prepared_)
@@ -442,6 +633,10 @@ bool DrumClockBridge::requestStopAtNextBar() noexcept
     // rendering until the boundary, so playing() must stay true until then.
     stopPending_ = true;
     stopBoundary_ = command.sampleTime;
+
+    // DRUM-ADAPT-002: a stop at the next bar supersedes any adaptive change
+    // staged for that same bar, so no pattern switch survives the stop.
+    clearStagedBarChange();
     return true;
 }
 
@@ -477,6 +672,7 @@ bool DrumClockBridge::requestStopNow() noexcept
     stopBoundary_ = 0;
     haveStagedTempo_ = false;
     haveStagedResync_ = false;
+    clearStagedBarChange();
     return true;
 }
 
@@ -564,6 +760,9 @@ void DrumClockBridge::resetForNewSession (double bpm) noexcept
     haveClockSample_ = false;
     haveStagedTempo_ = false;
     haveStagedResync_ = false;
+    clearStagedBarChange();
+    haveBarChangeGeneration_ = false;
+    lastBarChangeGeneration_ = 0;
     haveSnapshot_ = false;
     lastSnapshotGeneration_ = 0;
 
@@ -581,6 +780,7 @@ void DrumClockBridge::resetForNewSession (double bpm) noexcept
     commandSeq_ = 0;
     publishedCount_ = 0;
     staleSnapshotCount_ = 0;
+    staleBarChangeCount_ = 0;
     discontinuityCount_ = 0;
     invalidRequestCount_ = 0;
 }

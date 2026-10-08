@@ -62,7 +62,12 @@ enum class DrumClockCommandType : std::uint8_t
     StopAtBar,    // stop the injected transport exactly at `sampleTime`
     ResyncBeat,   // a beat onset lands exactly on `sampleTime`
     ResyncBar,    // a downbeat lands exactly on `sampleTime`
-    Clear         // discontinuity / lifecycle: stop now and forget the grid
+    Clear,        // discontinuity / lifecycle: stop now and forget the grid
+    // DRUM-ADAPT-002: adaptive musical change (groove and/or one-bar fill plus
+    // intensity/swing/humanization) applied exactly at a bar boundary. Appended
+    // after Clear deliberately so the numeric values of every pre-existing verb
+    // are unchanged for any caller that ever compared raw bytes.
+    BarChange
 };
 
 inline const char* toString (DrumClockCommandType type) noexcept
@@ -76,8 +81,47 @@ inline const char* toString (DrumClockCommandType type) noexcept
         case DrumClockCommandType::ResyncBeat: return "ResyncBeat";
         case DrumClockCommandType::ResyncBar:  return "ResyncBar";
         case DrumClockCommandType::Clear:      return "Clear";
+        case DrumClockCommandType::BarChange:  return "BarChange";
     }
     return "Unknown";
+}
+
+/** Which musical fields of a `BarChange` command are authoritative.
+ *
+ *  The payload is deliberately granular: a convenience fill request must not
+ *  silently reset the director's intensity/swing/humanization, and a groove-only
+ *  change must not cancel a fill that the director did not mention. Each bit is
+ *  an "authoritative" flag, not a "changed" flag; an unset bit means the engine
+ *  keeps its current value. Smooth built-in defaults therefore survive across
+ *  unrelated changes. */
+enum class DrumChangeField : std::uint8_t
+{
+    None   = 0,
+    Groove = 1u << 0,  // `groove` is authoritative (kNoLibraryEntry = keep)
+    Fill   = 1u << 1,  // `fill` is authoritative (kNoLibraryEntry = no fill)
+    Params = 1u << 2   // intensity01/swing01/humanize* are authoritative
+};
+
+inline std::uint8_t operator| (DrumChangeField a, DrumChangeField b) noexcept
+{
+    return static_cast<std::uint8_t> (
+        static_cast<std::uint8_t> (a) | static_cast<std::uint8_t> (b));
+}
+
+inline std::uint8_t operator| (std::uint8_t a, DrumChangeField b) noexcept
+{
+    return static_cast<std::uint8_t> (a | static_cast<std::uint8_t> (b));
+}
+
+inline std::uint8_t operator| (DrumChangeField a, std::uint8_t b) noexcept
+{
+    return static_cast<std::uint8_t> (static_cast<std::uint8_t> (a) | b);
+}
+
+/** Low bits of `value` set in `fields`. */
+inline bool hasField (std::uint8_t fields, DrumChangeField field) noexcept
+{
+    return (fields & static_cast<std::uint8_t> (field)) != 0;
 }
 
 /** One bounded, coherent clock command.
@@ -103,6 +147,20 @@ struct DrumClockCommand
     // both roles apply, so the worker grid and the rendered grid cannot drift
     // into a permanent beat/bar offset.
     std::int32_t phaseStep = -1;
+
+    // --- DRUM-ADAPT-002 BarChange payload ------------------------------------
+    // `groove` (above), `fill`, the parameter fields and `changeFields` together
+    // are one bounded, trivially-copyable musical instruction. `changeFields`
+    // says which of them are authoritative (see DrumChangeField). The engine
+    // validates `groove`/`fill` against its prepared bank; the bridge cannot,
+    // because the pattern library is not JUCE-free.
+    std::int32_t fill = kNoLibraryEntry;      // BarChange: one-bar fill, or no fill
+    std::uint8_t changeFields = 0;            // BarChange: DrumChangeField mask
+    float intensity01 = 0.5f;                 // BarChange: 0..1 (0.5 = neutral)
+    float swing01 = 0.0f;                     // BarChange: 0..1 sixteenth swing
+    float humanizeVelocity = 0.25f;           // BarChange: 0..1
+    float humanizeTiming = 0.15f;             // BarChange: 0..1
+    float humanizeRoundRobin = 0.40f;         // BarChange: 0..1
 };
 
 /** Compile-time capacity of the worker -> audio command queue. Structural, not
@@ -192,6 +250,36 @@ public:
     /** [worker] Queue the prepared groove to begin at the next bar boundary. */
     bool requestJoinAtNextBar (LibraryIndex groove = kNoLibraryEntry) noexcept;
 
+    /** [worker] DRUM-ADAPT-002: publish a bounded adaptive musical change for
+     *  the next STRICTLY FUTURE bar boundary and return whether it was accepted.
+     *
+     *  `change.groove` / `change.fill` are library indices (kNoLibraryEntry =
+     *  "no change" / "no fill"), and they are matched by the engine against the
+     *  immutable bank prepared off the audio callback. The call rejects, and
+     *  publishes nothing, when:
+     *    - the bridge is unprepared;
+     *    - any parameter is NaN / infinite;
+     *    - an index is below kNoLibraryEntry;
+     *    - the generation is older than the newest accepted bar-change
+     *      generation (stale decision); or
+     *    - the bounded command queue is full.
+     *  A rejection returns false and leaves the previous staged change exactly
+     *  as it was, so a later tick can retry; acceptance is the only thing that
+     *  commits the director's decision. Repeated identical calls coalesce into
+     *  the one staged command and do not flood the queue.
+     *
+     *  Groove/fill KIND and METER are validated by the engine at bank-prepare
+     *  time (only existing 4/4 library entries are admitted), which is the only
+     *  place the JUCE library is available; the engine rejects a command that
+     *  names an entry it was not given and counts it. */
+    bool requestBarChange (const QueuedBarChange& change) noexcept;
+
+    /** [worker] DRUM-ADAPT-002 convenience wrapper: play `fill` for exactly one
+     *  bar at the next strictly future bar, then return to the currently
+     *  selected groove, WITHOUT disturbing the director's intensity, swing or
+     *  humanization. Rejects a negative index and an unprepared bridge. */
+    bool requestFillAtNextBar (LibraryIndex fill) noexcept;
+
     /** [worker] Stop the injected transport at the next bar boundary. */
     bool requestStopAtNextBar() noexcept;
 
@@ -257,8 +345,15 @@ public:
 
     std::uint64_t publishedCount() const noexcept { return publishedCount_; }
     std::uint64_t staleSnapshotCount() const noexcept { return staleSnapshotCount_; }
+    std::uint64_t staleBarChangeCount() const noexcept { return staleBarChangeCount_; }
     std::uint64_t discontinuityCount() const noexcept { return discontinuityCount_; }
     std::uint64_t invalidRequestCount() const noexcept { return invalidRequestCount_; }
+    /** True while a BarChange/Fill is staged for a future bar boundary. */
+    bool barChangePending() const noexcept { return haveStagedChange_; }
+    std::uint64_t barChangeBoundarySample() const noexcept
+    {
+        return haveStagedChange_ ? stagedChangeBoundary_ : 0;
+    }
     /** Drops since the current session began (prepare() rebaselines it). The
      *  underlying queue is never reset, which is only safe while quiescent. */
     std::uint64_t queueDropCount() const noexcept
@@ -271,6 +366,13 @@ private:
     void stageTempo (double bpm) noexcept;
     void applyStagedState (std::uint64_t atSample) noexcept;
     void applyStagedResync (std::uint64_t atSample) noexcept;
+
+    /** Shared BarChange staging used by requestBarChange()/requestFillAtNextBar().
+     *  `fields` is a DrumChangeField mask; `change` carries the payload. */
+    bool stageBarChange (std::uint8_t fields, const QueuedBarChange& change) noexcept;
+    bool validBarChangePayload (const QueuedBarChange& change) const noexcept;
+    void applyStagedBarChange (std::uint64_t atSample) noexcept;
+    void clearStagedBarChange() noexcept;
 
     double clampBpm (double bpm) const noexcept;
     double samplesPerBeat() const noexcept;
@@ -320,6 +422,25 @@ private:
     bool          stagedResyncBar_ = false;
     std::uint64_t stagedResyncTarget_ = 0;
 
+    // BarChange staged for a future bar boundary (DRUM-ADAPT-002). Coalesced
+    // exactly like tempo so a director polling every tick cannot flood the
+    // bounded command queue. The payload is latched only after the bounded
+    // publish is accepted; on a drop the previous staging is untouched.
+    bool          haveStagedChange_ = false;
+    std::uint64_t stagedChangeBoundary_ = 0;
+    std::uint8_t  stagedChangeFields_ = 0;
+    std::int32_t  stagedChangeGroove_ = kNoLibraryEntry;
+    std::int32_t  stagedChangeFill_ = kNoLibraryEntry;
+    float         stagedIntensity_ = 0.5f;
+    float         stagedSwing_ = 0.0f;
+    float         stagedHumanVel_ = 0.25f;
+    float         stagedHumanTime_ = 0.15f;
+    float         stagedHumanRR_ = 0.40f;
+
+    // Stale bar-change generation guard (mirrors the snapshot generation guard).
+    bool          haveBarChangeGeneration_ = false;
+    std::uint64_t lastBarChangeGeneration_ = 0;
+
     // Clock observation bookkeeping (stale detection).
     bool          haveSnapshot_ = false;
     std::uint64_t lastSnapshotGeneration_ = 0;
@@ -328,6 +449,7 @@ private:
     std::uint64_t commandSeq_ = 0;
     std::uint64_t publishedCount_ = 0;
     std::uint64_t staleSnapshotCount_ = 0;
+    std::uint64_t staleBarChangeCount_ = 0;
     std::uint64_t discontinuityCount_ = 0;
     std::uint64_t invalidRequestCount_ = 0;
     // Queue drop count is cumulative in the shared primitive; this records the
