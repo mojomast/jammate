@@ -470,6 +470,15 @@ class TestEvidence(unittest.TestCase):
         self.assertFalse({e['path'] for e in payload['evaluation']}
                          == {e['path'] for e in freeze['evaluation']})
 
+    def test_corrected_derived_hashes_authenticated(self):
+        derived = load_json(CORRECTED / 'derived-hashes.txt')
+        self.assertEqual(derived['corrected']['method-summary.json'],
+                         sha(CORRECTED / 'method-summary.json'))
+        for rel, digest in derived['inputs'].items():
+            self.assertEqual(sha(ROOT / rel), digest, 'raw input changed: ' + rel)
+        self.assertEqual(derived['semantics'],
+                         'null + ...Measured=false when the fixture declares no nominalBpm')
+
     def test_errata_contract_present(self):
         text = ERRATA.read_text()
         for marker in ('E1', 'E2', 'E3', 'E4', 'E5', 'immutable', 'not rewritten'):
