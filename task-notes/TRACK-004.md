@@ -184,7 +184,7 @@ in §9 of the analysis; they are proposals, not changes.
 
 - Initial implementation + evidence: `e7b1037`
   (`diag-track-004: causal acquisition diagnosis for BTrack and aubio`).
-- Review corrections (this revision): `__CORRECTION_SHA__`
+- Review corrections (this revision): `ca47376`
   (`diag-track-004: address review — missing-value semantics, clause-level tempo
   evidence, scoped claims, validation`).
 - The SHA update for this line is the subsequent commit on
