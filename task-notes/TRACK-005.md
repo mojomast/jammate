@@ -208,5 +208,7 @@ Analysis: `docs/research/TEMPO-REPORT-VARIANT.md`. Evidence:
 ## Final commit SHA
 
 - First implementation + evidence: `bb30496`.
-- Review corrections: this correction commit; the branch head SHA line is updated
-  by the subsequent commit on `wp/TRACK-005-tempo-variant`.
+- Review corrections: `3656c75` (`diag-track-005: address review — causal lag
+  clock, strict CLI, missing-vs-measured intervals`).
+- This note's SHA line is updated by the subsequent commit on
+  `wp/TRACK-005-tempo-variant` (the branch head).
