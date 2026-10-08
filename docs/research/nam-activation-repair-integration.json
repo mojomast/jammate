@@ -1,0 +1,44 @@
+{
+  "task": "RT-005",
+  "workerHead": "e83d619a0facae060229a7cb18327409c6c4cc70",
+  "independentReviewSession": "ses_ee654175cffeeE6xwpEvfsDP2H",
+  "scratch": "/home/mojo/projects/build-RT-005-integration",
+  "validation": {
+    "freshNamArchiveSha256": "ad0ffbb37434a860a5084831ef7514f7e0146318cf98a743c14e2d24b68b5579",
+    "freshProcessorProbeSha256": "faa79a4feee138836b9fce8d77cfbbce6557603ccce7090a195cfc0cb5c7e379",
+    "freshArchiveAndProbeMatchWorkerPins": true,
+    "independentProcessorRuns": 15,
+    "processorCases": 390,
+    "namCases": 120,
+    "exactStableCsvFields": 16770,
+    "runStatuses": {"measuredClean": 12, "measuredFindings": 3},
+    "repairedModelStatuses": {"measuredClean": 5, "measuredFindings": 0},
+    "repairedWarmAllocationFreeLockTotals": 0,
+    "repairedMeasuredColdAllocationFreeLockTotals": 0,
+    "activationDifferential": "all four raw sections byte-identical, zero repaired allocator calls",
+    "requiredNamSuites": 9,
+    "probeValidatorUnitTests": 31,
+    "activationComparatorUnitTests": 17,
+    "patchChecks": 9,
+    "bashWorkflowBodiesParsed": 33,
+    "historicalRawAndRepairBehavior": "unchanged by validator corrections"
+  },
+  "limits": [
+    "Five pinned example models, not arbitrary NAM models or whole callback coverage",
+    "Cold CSV has no authoritative aligned/nothrow allocation total; the differential allocator probe covers those forms separately",
+    "Original control uses a historical shared archive; LSTM-only and repaired probes share the same processor/assets archives",
+    "Capture overflow limits call-site enumeration in positive controls while aggregate counters remain exact",
+    "Exact replay excludes process and total wall time; no device, ASIO, hosted-plugin or callback deadline evidence",
+    "Production overlay is CMake-native and accepts pinned LF inputs; GNU patch is a Linux test dependency",
+    "G1 remains partial"
+  ],
+  "logHashes": {
+    "ctest.log": "0f83fffaa3fb63ade9b1a27ac5b40287a3f62da62bf6f5f89fbe580f8b9aeae1",
+    "fresh-probe-build.log": "cafa29285d030aa1c4d2cff3c67481736a8d91afbbdfb5685c47ea068ffcbbda",
+    "15-processor-runs.log": "bedcb68de969cbac5cd4733fe4a795e02c1fd5b62245e46160d5669f74730ac5",
+    "hardened-replay-validation.log": "9db932beb46534af7d4dc17c112cb3900da9e127b4b06e21f18f751e5ca18786",
+    "merged-ctest.log": "88dfb83680ff1656bbc709db45d22c0f21a7296c3dcce8f1f003dd70754fcc24",
+    "merged-registration.log": "f92fc9ecea2d080d0879750fe15ce92531352827ed00cc4d2c974cbe9890a41f",
+    "guard-tests.log": "670a39115e7523a8984e4842e16547cb2094b03fad392b037b4b9dc8b2656e62"
+  }
+}

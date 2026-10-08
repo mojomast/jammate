@@ -126,9 +126,11 @@ Latest local verification, **8 October 2026**:
   lock/wait operations after the scoped LSTM repair, including eight NAM cases.
   These probes cover a bounded matrix, not every model, effect, host or device.
 - [Broader NAM architecture probes](docs/research/NAM-ARCHITECTURE-PROBE.md)
-  independently reproduce five model types. Four are clean within the repaired
-  archive's measured cases; `wavenet_a2_max.nam` still allocates in its activation
-  paths. This finding remains open.
+  independently reproduce five model types. Their A2 PReLU allocation finding is
+  repaired by the [activation overlay](docs/research/NAM-ACTIVATION-REPAIR.md):
+  numerical output is preserved, and all five models are measured-clean in the
+  repaired archive's cases. The nine required NAM repair/evidence suites pass;
+  full callback/device coverage remains open.
 - **29 analyzer tests / 1,210 checks** pass, including a limited synthetic
   ThreadSanitizer run with no reported races.
 - **34 diagnostics cases** pass, covering ordered traces, drop accounting,

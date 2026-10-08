@@ -22,8 +22,8 @@ documented in EXECUTION-LEDGER's completed-wave history.
 TRACK-008 builds and freezes a new tempo-stability diagnostic candidate;
 INT-DRUM-001 builds the bounded bridge to the actual DrumEngine with injected
 clock input. Three isolated worker sessions and ownership are in the ledger's
-Active build wave table. TRACK-008 is integrated; RT-005 and INT-DRUM-001
-corrections remain pending. Orchestrator owns
+Active build wave table. TRACK-008 and RT-005 are integrated; INT-DRUM-001's
+corrected handoff is in final review. Orchestrator owns
 shared build/CI registration, processor/editor wiring and integration.
 
 Review update: TRACK-008 final `f621ee2` is accepted and integrated (fresh plugin
@@ -32,12 +32,14 @@ files exact). Corrected summaries reproduce independently; the historical raw,
 protocol and behavior freeze remain unchanged. Core24/24 both-enabled and22/22
 OFF pass; required C++ and26-test Python suites are registered in both forge
 guards. Receipt: `docs/research/tempo-stability-integration.json`. G3 stays open.
-INT-DRUM-001 `724d75f` passes the independent10/11/50 driver but is blocked by
-join/tempo ordering and beat-resync phase bugs; the worker is correcting them
-and the combined-test heap-probe collision. RT-005 `51e4356` passes independent
-source review, fresh7/7 NAM suites, fresh processor linking and15-process replay
-(390 cases/120 NAM,16770 stable fields exact). Stronger validator checks are
-pending before integration.
+INT-DRUM-001 correction `8146b15` passes the fresh combined JUCE link and72 cases,
+plus16 portable tests/140 checks; source/reused-input/binary hashes and zero
+warnings are independently verified. Its timing/lifecycle re-review is pending.
+RT-005 final `e83d619` is accepted and integrated: independent source review,
+fresh9/9 required NAM suites, fresh processor linking and15-process replay
+(390 cases/120 NAM,16770 stable fields exact). Hardened allocator-total and cold
+counter validation passes; all five repaired model runs are measured-clean.
+Receipt: `docs/research/nam-activation-repair-integration.json`. G1 stays partial.
 
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
@@ -55,7 +57,8 @@ The earlier queued model switch is superseded by the user's immediate switch.
 TRACK-007 has protocol `492c5a8`; RT-004 `95e5eac` and DIAG-001 `2a9a929`
 were submitted for review corrections. RT-004 correction `337f4f3` is accepted:
 81 tests and an independent260-case replay (80 NAM) reproduced6610 stable fields.
-The A2/WaveNet PReLU/blending allocation finding remains open; G1 stays partial.
+The historical A2/WaveNet PReLU allocation finding is retained; RT-005 above
+repairs it within the five-model measured scope. G1 stays partial.
 Receipt: `docs/research/nam-architecture-probe-integration.json`.
 DIAG-001 final correction `b5852a0` is accepted: the portable diagnostics suite
 has34 cases; fresh integrated core21/21 both-enabled and19/19 OFF pass, with

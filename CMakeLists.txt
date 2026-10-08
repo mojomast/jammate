@@ -13,8 +13,8 @@ add_subdirectory(third_party/JUCE)
 # como faz o NeuralAmpModelerPlugin oficial. Lista de fontes pinada ao v0.5.4.
 set(NAM_CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/NeuralAmpModelerCore")
 
-# RT-003: o NAM é compilado a partir de uma cópia gerada em configure time, com
-# o patch de tempo real do LSTM aplicado (ver cmake/nam-rt/NamRtPatch.cmake).
+# RT-003/RT-005: o NAM é compilado a partir de uma cópia gerada em configure time,
+# com os patches de tempo real do LSTM e ativações (cmake/nam-rt/NamRtPatch.cmake).
 # O gitlink em third_party/ nunca é modificado; Eigen/nlohmann continuam vindo
 # das localizações originais pinadas. O overlay verifica SHA256 e falha fechado.
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/nam-rt/NamRtPatch.cmake")

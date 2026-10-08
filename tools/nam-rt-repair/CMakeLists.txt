@@ -15,7 +15,7 @@
 #   cmake --build <scratch> -j
 #   ctest --test-dir <scratch> --output-on-failure
 
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.24)
 project(NamRtRepair LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -119,12 +119,47 @@ add_test(NAME nam_rt_probe_repair COMMAND "${RT003_PYTHON3}"
 add_test(NAME nam_rt_compare_unit COMMAND "${RT003_PYTHON3}"
   "${CMAKE_CURRENT_SOURCE_DIR}/test_compare_diff.py")
 
+# --- RT-005 activation differential test (one process per library) -----------
+# Same source compiled twice: pinned upstream vs generated patched overlay.
+add_executable(nam_activation_diff_original src/NamActivationDiffTest.cpp)
+target_link_libraries(nam_activation_diff_original PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,nam_core_original>")
+target_compile_options(nam_activation_diff_original PRIVATE -fvisibility=default -Wno-frame-address)
+
+add_executable(nam_activation_diff_patched src/NamActivationDiffTest.cpp)
+target_link_libraries(nam_activation_diff_patched PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,nam_core>")
+target_compile_options(nam_activation_diff_patched PRIVATE -fvisibility=default -Wno-frame-address)
+
+add_test(NAME nam_rt_activation_diff COMMAND
+  "${CMAKE_CURRENT_SOURCE_DIR}/run_activation_diff_test.sh"
+  --original "$<TARGET_FILE:nam_activation_diff_original>"
+  --patched  "$<TARGET_FILE:nam_activation_diff_patched>"
+  --model    "${NAM_CORE_DIR}/example_models/wavenet_a2_max.nam"
+  --out      "${CMAKE_BINARY_DIR}/activation-diff-artifacts")
+
+# --- RT-005 activation comparator acceptance unit tests ----------------------
+add_test(NAME nam_rt_activation_compare_unit COMMAND "${RT003_PYTHON3}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/test_compare_activation_diff.py")
+
+# The processor replay is kept as pinned evidence; CI authenticates that matrix
+# and exercises its fail-closed validator without running local probe binaries.
+set(_activation_tools "${CMAKE_CURRENT_SOURCE_DIR}/../nam-activation-repair")
+set(_activation_evidence "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/nam-activation-repair")
+add_test(NAME nam_rt_activation_probe_verifier_unit COMMAND "${RT003_PYTHON3}" -B
+  "${_activation_tools}/test_check_activation_probe.py")
+add_test(NAME nam_rt_activation_probe_repair COMMAND "${RT003_PYTHON3}" -B
+  "${_activation_tools}/check_activation_probe.py"
+  --runs "${_activation_evidence}/runs"
+  --predeclared "${_activation_tools}/predeclared.json"
+  --models-dir "${NAM_CORE_DIR}/example_models"
+  --out-json "${CMAKE_BINARY_DIR}/activation-probe-verification.json")
+
 # --- patch idempotence / stale-hash checks -----------------------------------
 add_test(NAME nam_rt_patch_checks COMMAND
   "${CMAKE_CURRENT_SOURCE_DIR}/check_patch.sh"
   --nam-core-dir "${NAM_CORE_DIR}"
   --overlay-dir  "${NAM_RT_INCLUDE_ROOT}/NAM"
   --patch        "${CMAKE_CURRENT_SOURCE_DIR}/../../patches/nam/lstm-rt-alloc.patch"
+  --activation-patch "${CMAKE_CURRENT_SOURCE_DIR}/../../patches/nam/activation-rt-alloc.patch"
   --cmake        "${CMAKE_COMMAND}"
   --source-dir   "${CMAKE_CURRENT_SOURCE_DIR}"
   --workdir      "${CMAKE_BINARY_DIR}/patch-checks")

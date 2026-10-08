@@ -1,0 +1,11 @@
+variant=lstm_only
+architecture_id=slimmable_wavenet
+model_file=slimmable_wavenet.nam
+warm_blocks=128
+timeout_s=600
+binary=/home/mojo/projects/build-RT-003-integration/product-probe/build/processor_probe
+binary_sha256=f950d6d95ff2f02d3deaab25e807b15c8fe0ac208a59f07f0e961729e3761715
+nam_archive=/home/mojo/projects/build-RT-003-integration/product/libnam_core.a
+nam_archive_sha256=dbd11fb2c63b69e00b78a559cff0cb1fbe14ece214dba73326b4232014498507
+model_sha256=735c1a86e18140b7cfe90c08427ca6a85f62c32d34cc4048997933652aa774b4
+exit=0

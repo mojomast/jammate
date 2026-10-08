@@ -53,7 +53,7 @@ jobs:
           path: build/core/Testing/Temporary/
 
   nam:
-    name: NAM / LSTM repair
+    name: NAM / allocation repairs
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -83,6 +83,7 @@ jobs:
           path: |
             build/nam/Testing/Temporary/
             build/nam/diff-artifacts/
+            build/nam/activation-diff-artifacts/
 
   windows:
     name: Windows / Standalone + VST3 + drums

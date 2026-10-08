@@ -14,11 +14,12 @@ constitute remote execution evidence.
   each enabled tracker binary must contain its own real symbols, and the fully
   disabled Ninja graph cannot compile tracker sources.
 - **NAM repair:** fetch only the pinned NAM dependency tree, compile original
-  and overlay implementations, and require all five differential/verifier suites.
+  and overlay implementations, and require all nine differential/verifier suites
+  for the LSTM and activation repairs.
   This rechecks numerical evidence and committed callback artifacts; it does
   not rerun the actual processor callback probe.
 - **Windows:** fetch only JUCE and NAM product dependencies, configure MSVC,
-  build Standalone, VST3 and the actual drum test executable, require all five
+  build Standalone, VST3 and the actual drum test executable, require all six
   existing drum suites, and execute them. This uses WASAPI/DirectSound, with the
   embedded browser disabled. ASIO/device/latency execution is separate.
 
@@ -39,11 +40,19 @@ actionlint -shellcheck= -pyflakes= .github/workflows/verify.yml
 
 Seven guard acceptance tests pass, including every required suite's removal,
 enabled/disabled tracker contradictions, duplicate registration, failed/empty
-`nm`, and directory-name false positives. Actual current-main OFF/ON artifacts
-pass registration/symbol checks at 18/20 suites; the NAM and Linux drum build
+`nm`, and directory-name false positives. Initial CI-003 OFF/ON artifacts
+passed registration/symbol checks at 18/20 suites; the NAM and Linux drum build
 artifacts pass at five suites each. All 33 Bash bodies across both forge
 definitions parse. SHA-verified actionlint **1.7.12** accepts the GitHub workflow;
 its optional external shellcheck/pyflakes integration was disabled.
+
+TRACK-008 / RT-005 integration passes current core **22/22 OFF, 24/24 both**
+and **9/9 NAM suites** with the required-suite guards. The independent local
+processor replay covers15 processes/390 cases, preserving16770 stable CSV fields.
+The activation validator is exercised on the preserved evidence in CI; local
+probe binaries are not invoked by the remote job. Receipts:
+[`tempo-stability-integration.json`](tempo-stability-integration.json) and
+[`nam-activation-repair-integration.json`](nam-activation-repair-integration.json).
 
 Fresh BTrack-only and aubio-only Release builds also each pass **19/19 suites**
 and their real linkage/registration guards. Logs are retained locally under

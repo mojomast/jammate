@@ -1,0 +1,11 @@
+variant=lstm_only
+architecture_id=a2_slimmable_container
+model_file=A2.nam
+warm_blocks=128
+timeout_s=600
+binary=/home/mojo/projects/build-RT-003-integration/product-probe/build/processor_probe
+binary_sha256=f950d6d95ff2f02d3deaab25e807b15c8fe0ac208a59f07f0e961729e3761715
+nam_archive=/home/mojo/projects/build-RT-003-integration/product/libnam_core.a
+nam_archive_sha256=dbd11fb2c63b69e00b78a559cff0cb1fbe14ece214dba73326b4232014498507
+model_sha256=2d2d744516dc0197737a2c5001010429692d4cb20d72b08264781de626fcf4ca
+exit=0

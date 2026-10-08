@@ -1,0 +1,70 @@
+RT-002 processor runtime probe
+==============================
+mode=full warm blocks per case=128
+
+[instrument self-check]
+  armed exact: new=2 new[]=2 del=1 del[]=2 del(sized)=1 malloc=1 calloc=1 realloc=1 free=2 lock=2 unlock=2 trylock=1 cond=1
+  self-check PASS (gate + exact new/delete/malloc/lock detection)
+
+[scene flag -> processor Timer via genuine JUCE message loop]
+  scene[audio]: saved=0.000000 changed=-16.799999 before=-16.799999 after=0.000000 restored=1 restore@27.6 ms (loop@27.4 ms) dispatch=100.0 ms
+  scene[audio]: blocks=11 signal(alloc=0 free=0 lock=0 trylock=0 cond=0 unlock=0) stopBefore=0 stopAfter=1 dispatchInBound=1 editorNull=1
+
+[nam] requesting async load: /home/mojo/projects/guitars/third_party/NeuralAmpModelerCore/example_models/A2.nam
+[dry/built-in chain: rates x block sizes x drums]
+  [dry      ] rate=  44100 block=  64 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.186 s  pb-wall 1.283 ms (9.9 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.14093
+  [dry+drums] rate=  44100 block=  64 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.186 s  pb-wall 1.438 ms (11.1 us/blk, instrumented)  drums[active=128 voices=0] outRms=0.24163
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [dry      ] rate=  44100 block= 128 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.372 s  pb-wall 2.431 ms (18.8 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.14167
+  [dry+drums] rate=  44100 block= 128 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.372 s  pb-wall 2.749 ms (21.3 us/blk, instrumented)  drums[active=128 voices=2] outRms=0.20636
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [dry      ] rate=  44100 block= 512 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 1.486 s  pb-wall 9.643 ms (74.8 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.14181
+  [dry+drums] rate=  44100 block= 512 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 1.486 s  pb-wall 11.041 ms (85.6 us/blk, instrumented)  drums[active=128 voices=10] outRms=0.19194
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [nam] model became active during the dry run (activation swap occurred inside a dry warm block; not separately isolated)
+  [dry      ] rate=  48000 block=  64 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.171 s  pb-wall 1.240 ms (9.6 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.13979
+  [dry+drums] rate=  48000 block=  64 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.171 s  pb-wall 1.392 ms (10.8 us/blk, instrumented)  drums[active=128 voices=0] outRms=0.25066
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [dry      ] rate=  48000 block= 128 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.341 s  pb-wall 2.438 ms (18.9 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.14266
+  [dry+drums] rate=  48000 block= 128 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.341 s  pb-wall 2.738 ms (21.2 us/blk, instrumented)  drums[active=128 voices=2] outRms=0.21158
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [dry      ] rate=  48000 block= 512 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 1.365 s  pb-wall 9.438 ms (73.2 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.14232
+  [dry+drums] rate=  48000 block= 512 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 1.365 s  pb-wall 10.958 ms (84.9 us/blk, instrumented)  drums[active=128 voices=10] outRms=0.19767
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [dry      ] rate=  96000 block=  64 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.085 s  pb-wall 1.268 ms (9.8 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.14086
+  [dry+drums] rate=  96000 block=  64 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.085 s  pb-wall 1.440 ms (11.2 us/blk, instrumented)  drums[active=128 voices=0] outRms=0.30935
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [dry      ] rate=  96000 block= 128 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.171 s  pb-wall 2.473 ms (19.2 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.14278
+  [dry+drums] rate=  96000 block= 128 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.171 s  pb-wall 2.714 ms (21.0 us/blk, instrumented)  drums[active=128 voices=0] outRms=0.25050
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [dry      ] rate=  96000 block= 512 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.683 s  pb-wall 9.426 ms (73.1 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.14189
+  [dry+drums] rate=  96000 block= 512 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.683 s  pb-wall 10.663 ms (82.7 us/blk, instrumented)  drums[active=128 voices=4] outRms=0.20719
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+
+[nam] post-dry state: loaded=1 resampling=1 error=""
+  [nam      ] rate=  48000 block= 128 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.341 s  pb-wall 33.812 ms (262.1 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.02071
+  [nam+drums] rate=  48000 block= 128 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.341 s  pb-wall 37.381 ms (289.8 us/blk, instrumented)  drums[active=128 voices=2] outRms=0.14047
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [nam      ] rate=  48000 block= 512 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 1.365 s  pb-wall 129.721 ms (1005.6 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.02085
+  [nam+drums] rate=  48000 block= 512 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 1.365 s  pb-wall 130.387 ms (1010.7 us/blk, instrumented)  drums[active=128 voices=10] outRms=0.11988
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [nam      ] rate=  96000 block= 128 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.171 s  pb-wall 20.171 ms (156.4 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.02118
+  [nam+drums] rate=  96000 block= 128 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.171 s  pb-wall 20.464 ms (158.6 us/blk, instrumented)  drums[active=128 voices=0] outRms=0.19153
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+  [nam      ] rate=  96000 block= 512 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.683 s  pb-wall 75.186 ms (582.8 us/blk, instrumented)  drums[active=0 voices=0] outRms=0.02078
+  [nam+drums] rate=  96000 block= 512 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) 128 blocks 0.683 s  pb-wall 76.777 ms (595.2 us/blk, instrumented)  drums[active=128 voices=4] outRms=0.13217
+      no-op frees=128 sites(offset): 0x14b34d (free(NULL) no-ops, not heap frees)
+
+CSV written: /home/mojo/projects/worktrees/RT-005-nam-activations/docs/research/nam-activation-repair/runs/original/a2_slimmable_container/cases.csv
+
+[totals across 26 measured cases]
+  dry cases (of 18) nonzero : 0 (all zero)
+  cold allocator calls      : 0
+  warm allocator calls      : 0
+  warm free calls           : 0
+  warm no-op frees (nullptr): 1664
+  warm lock/cond operations : 0
+  cases with warm alloc/free: 0
+  NAM measured              : yes
+  scene restored via dispatch: yes (27.6 ms, bound 262 ms)
+  editor created            : no

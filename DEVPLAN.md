@@ -20,8 +20,10 @@ The user has now authorised a new three-worker Flash build wave at that base:
 RT-005 activation allocation repair, TRACK-008 frozen tempo-stability candidate,
 and INT-DRUM-001 actual clock-to-drum bridge. Ownership and sessions are in the
 ledger's Active build wave table. TRACK-008 is accepted and integrated with
-core24/22 suites; RT-005 validator and INT-DRUM-001 timing corrections remain
-pending. Production tracker selection and live processor wiring stay open.
+core24/22 suites; RT-005 is accepted with9/9 required NAM suites and independently
+reproduced zero allocations across its five repaired model runs. INT-DRUM-001's
+corrected timing handoff is in final review. Production tracker selection and
+live processor wiring stay open.
 
 ---
 

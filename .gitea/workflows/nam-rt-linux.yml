@@ -1,6 +1,6 @@
 # Standalone NAM repair checks; no JUCE or audio device required.
 # Remote runner/toolchain installation remains unverified locally.
-name: NAM LSTM repair (linux)
+name: NAM allocation repairs (linux)
 
 on:
   push:
@@ -63,7 +63,10 @@ jobs:
           python3 - <<'PY'
           import json
           expected = {'nam_rt_diff', 'nam_rt_compare_unit', 'nam_rt_patch_checks',
-                      'nam_rt_probe_repair', 'nam_rt_probe_verifier_unit'}
+                      'nam_rt_probe_repair', 'nam_rt_probe_verifier_unit',
+                      'nam_rt_activation_diff', 'nam_rt_activation_compare_unit',
+                      'nam_rt_activation_probe_repair',
+                      'nam_rt_activation_probe_verifier_unit'}
           registered = {test['name'] for test in json.load(open('build-nam-rt/tests.json'))['tests']}
           assert registered == expected, (registered, expected)
           PY

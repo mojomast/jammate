@@ -21,6 +21,8 @@ CORE = {
 NAM = {
     'nam_rt_diff', 'nam_rt_compare_unit', 'nam_rt_patch_checks',
     'nam_rt_probe_repair', 'nam_rt_probe_verifier_unit',
+    'nam_rt_activation_diff', 'nam_rt_activation_compare_unit',
+    'nam_rt_activation_probe_repair', 'nam_rt_activation_probe_verifier_unit',
 }
 DRUMS = {
     'drums.parseSpec', 'drums.library', 'drums.generator', 'drums.barCodec',

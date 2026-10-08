@@ -113,10 +113,12 @@ INT-DRUM-001 `724d75f` passes the fresh driver (10 engine cases,
 11 portable tests, 50 legacy cases), but review blocks merge on coincident
 join/tempo ordering, beat-resync phase divergence and duplicate heap-probe
 symbols. Its worker is correcting these and adding internal-renderer coverage.
-RT-005 `51e4356` passes independent source review, fresh7/7 NAM suites and
-15-process replay (390 cases/120 NAM,16770 stable fields exact). Its worker is
-strengthening authoritative allocator-total and cold-counter validation before
-integration. No new gate pass is inferred from these scoped checks.
+RT-005 final `e83d619` is accepted and integrated after independent source review,
+fresh9/9 required NAM suites and15-process replay (390 cases/120 NAM,16770 stable
+fields exact). The hardened validator also passes on that independent replay.
+All five models are measured-clean with the repair; three original/LSTM-only
+positive controls retain their allocation findings. Receipt:
+`docs/research/nam-activation-repair-integration.json`. G1 remains partial.
 
 ### Completed development wave (base `bcf540a`, 2026-10-08)
 
@@ -368,9 +370,9 @@ and reports instead.
 | MOD-003 Jam UI shell | **DONE: isolated simulation shell (D7)** | `wp/MOD-003-jam-ui`, `34ab2cb3` → main | C — UI, Sol | G2 | fresh actual JUCE preview build and Xvfb verification pass; seven screenshots; live editor wiring pending |
 | CI-003 GitHub verification | **DONE: final previous-wave remote green** | main, `677727c` | orchestrator | G1 | run37721981804 core20/21/21/22, NAM5/5, Windows Standalone/VST3 +6/6 drums; receipt and downloaded-log hashes retained |
 | TRACK-007 longer-window acquisition characterization | **DONE: corrected scoped evidence; G3 open** | `wp/TRACK-007-long-windows`, `65cd77d` → main | B — evidence, Haiku/Space Bunny/DeepSeek Go | G3 |48 research tests; independent16-fixture render/48 scores,7503 non-CPU fields exact; raw and corrected evidence preserved; core22/20 suites pass |
-| RT-004 NAM architecture callback coverage | **DONE: bounded evidence; A2 repair open** | `wp/RT-004-nam-architectures`, `337f4f3` → main | A — runtime evidence, Haiku + Space Bunny/Go | G1 |81 tests; independent260-case replay (80 NAM),6610 stable fields equal; A2 PReLU/blending allocations retained |
+| RT-004 NAM architecture callback coverage | **DONE: bounded historical evidence; A2 repair follows in RT-005** | `wp/RT-004-nam-architectures`, `337f4f3` → main | A — runtime evidence, Haiku + Space Bunny/Go | G1 |81 tests; independent260-case replay (80 NAM),6610 stable fields equal; original A2 PReLU allocation evidence retained |
 | DIAG-001 portable diagnostics foundation | **FOUNDATION DONE (D10); full task PARTIAL** | `wp/DIAG-001-core`, `b5852a0` → main | C — core, Haiku + Space Bunny/Go | G4 | independent21/19 core suites,34 diagnostics cases,strict/TSan/ASan checks pass within receipt scope; live wiring/overhead pending |
-| RT-005 NAM activation allocation repair | FINAL VALIDATOR CORRECTIONS | `wp/RT-005-nam-activations`, `51e4356` | A — repair, DeepSeek Go | G1 | independent source review accepts; fresh7/7 suites,390 processor cases/16770 stable fields exact; stronger evidence checks pending |
+| RT-005 NAM activation allocation repair | **DONE: measured activation repair; G1 partial** | `wp/RT-005-nam-activations`, `e83d619` → main | A — repair, DeepSeek Go | G1 | independent source review, fresh archive/probe +390 cases/16770 stable fields;9/9 required suites;5 repaired model runs measured-clean |
 | TRACK-008 frozen tempo-stability candidate | **DONE: scoped diagnostic; G3 open** | `wp/TRACK-008-tempo-stability`, `f621ee2` → main | B — diagnostic candidate, DeepSeek Go | G3 | independent review/rebuild/replay accepted;160 scores/24744 fields; frozen behavior + historical raw retained; core24/22 suites pass |
 | INT-DRUM-001 actual clock-to-drum bridge | REVIEW BLOCKED / CORRECTIONS | `wp/INT-DRUM-001-clock-bridge`, `724d75f` | C — injected bridge, DeepSeek Go | G2/G4 | independent10/11/50 driver passes; join/tempo collision and beat-resync phase defects require correction before merge |
 

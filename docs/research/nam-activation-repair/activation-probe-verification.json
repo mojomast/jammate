@@ -1,0 +1,321 @@
+{
+  "checks_errors": [],
+  "runs": [
+    {
+      "variant": "original",
+      "architecture_id": "lstm_control",
+      "file": "lstm.nam",
+      "status": "measured-findings",
+      "nam_warm_alloc_total": 491520,
+      "nam_warm_free_total": 491520,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 3840,
+      "capture_overflow": 524288,
+      "out_rms": {
+        "nam|48000|128": 0.00862,
+        "nam+drums|48000|128": 0.13791,
+        "nam|48000|512": 0.008606,
+        "nam+drums|48000|512": 0.11609,
+        "nam|96000|128": 0.008614,
+        "nam+drums|96000|128": 0.189238,
+        "nam|96000|512": 0.00848,
+        "nam+drums|96000|512": 0.128504
+      }
+    },
+    {
+      "variant": "original",
+      "architecture_id": "a1_wavenet_standard",
+      "file": "wavenet_a1_standard.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 0.190939,
+        "nam+drums|48000|128": 0.249578,
+        "nam|48000|512": 0.192648,
+        "nam+drums|48000|512": 0.238568,
+        "nam|96000|128": 0.191161,
+        "nam+drums|96000|128": 0.286584,
+        "nam|96000|512": 0.192099,
+        "nam+drums|96000|512": 0.248754
+      }
+    },
+    {
+      "variant": "original",
+      "architecture_id": "a2_wavenet_max",
+      "file": "wavenet_a2_max.nam",
+      "status": "measured-findings",
+      "nam_warm_alloc_total": 491520,
+      "nam_warm_free_total": 491520,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 3840,
+      "capture_overflow": 524288,
+      "out_rms": {
+        "nam|48000|128": 9.175836,
+        "nam+drums|48000|128": 9.175084,
+        "nam|48000|512": 9.179952,
+        "nam+drums|48000|512": 9.181342,
+        "nam|96000|128": 9.177808,
+        "nam+drums|96000|128": 9.17599,
+        "nam|96000|512": 9.177193,
+        "nam+drums|96000|512": 9.177444
+      }
+    },
+    {
+      "variant": "original",
+      "architecture_id": "slimmable_wavenet",
+      "file": "slimmable_wavenet.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 8.942344,
+        "nam+drums|48000|128": 8.943761,
+        "nam|48000|512": 9.022621,
+        "nam+drums|48000|512": 9.022832,
+        "nam|96000|128": 8.699016,
+        "nam+drums|96000|128": 8.700976,
+        "nam|96000|512": 8.932488,
+        "nam+drums|96000|512": 8.933782
+      }
+    },
+    {
+      "variant": "original",
+      "architecture_id": "a2_slimmable_container",
+      "file": "A2.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 0.02071,
+        "nam+drums|48000|128": 0.140465,
+        "nam|48000|512": 0.020852,
+        "nam+drums|48000|512": 0.119877,
+        "nam|96000|128": 0.021182,
+        "nam+drums|96000|128": 0.191532,
+        "nam|96000|512": 0.020776,
+        "nam+drums|96000|512": 0.132174
+      }
+    },
+    {
+      "variant": "lstm_only",
+      "architecture_id": "lstm_control",
+      "file": "lstm.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 0.00862,
+        "nam+drums|48000|128": 0.13791,
+        "nam|48000|512": 0.008606,
+        "nam+drums|48000|512": 0.11609,
+        "nam|96000|128": 0.008614,
+        "nam+drums|96000|128": 0.189238,
+        "nam|96000|512": 0.00848,
+        "nam+drums|96000|512": 0.128504
+      }
+    },
+    {
+      "variant": "lstm_only",
+      "architecture_id": "a1_wavenet_standard",
+      "file": "wavenet_a1_standard.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 0.190939,
+        "nam+drums|48000|128": 0.249578,
+        "nam|48000|512": 0.192648,
+        "nam+drums|48000|512": 0.238568,
+        "nam|96000|128": 0.191161,
+        "nam+drums|96000|128": 0.286584,
+        "nam|96000|512": 0.192099,
+        "nam+drums|96000|512": 0.248754
+      }
+    },
+    {
+      "variant": "lstm_only",
+      "architecture_id": "a2_wavenet_max",
+      "file": "wavenet_a2_max.nam",
+      "status": "measured-findings",
+      "nam_warm_alloc_total": 491520,
+      "nam_warm_free_total": 491520,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 3840,
+      "capture_overflow": 524288,
+      "out_rms": {
+        "nam|48000|128": 9.175836,
+        "nam+drums|48000|128": 9.175084,
+        "nam|48000|512": 9.179952,
+        "nam+drums|48000|512": 9.181342,
+        "nam|96000|128": 9.177808,
+        "nam+drums|96000|128": 9.17599,
+        "nam|96000|512": 9.177193,
+        "nam+drums|96000|512": 9.177444
+      }
+    },
+    {
+      "variant": "lstm_only",
+      "architecture_id": "slimmable_wavenet",
+      "file": "slimmable_wavenet.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 8.942344,
+        "nam+drums|48000|128": 8.943761,
+        "nam|48000|512": 9.022621,
+        "nam+drums|48000|512": 9.022832,
+        "nam|96000|128": 8.699016,
+        "nam+drums|96000|128": 8.700976,
+        "nam|96000|512": 8.932488,
+        "nam+drums|96000|512": 8.933782
+      }
+    },
+    {
+      "variant": "lstm_only",
+      "architecture_id": "a2_slimmable_container",
+      "file": "A2.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 0.02071,
+        "nam+drums|48000|128": 0.140465,
+        "nam|48000|512": 0.020852,
+        "nam+drums|48000|512": 0.119877,
+        "nam|96000|128": 0.021182,
+        "nam+drums|96000|128": 0.191532,
+        "nam|96000|512": 0.020776,
+        "nam+drums|96000|512": 0.132174
+      }
+    },
+    {
+      "variant": "new",
+      "architecture_id": "lstm_control",
+      "file": "lstm.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 0.00862,
+        "nam+drums|48000|128": 0.13791,
+        "nam|48000|512": 0.008606,
+        "nam+drums|48000|512": 0.11609,
+        "nam|96000|128": 0.008614,
+        "nam+drums|96000|128": 0.189238,
+        "nam|96000|512": 0.00848,
+        "nam+drums|96000|512": 0.128504
+      }
+    },
+    {
+      "variant": "new",
+      "architecture_id": "a1_wavenet_standard",
+      "file": "wavenet_a1_standard.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 0.190939,
+        "nam+drums|48000|128": 0.249578,
+        "nam|48000|512": 0.192648,
+        "nam+drums|48000|512": 0.238568,
+        "nam|96000|128": 0.191161,
+        "nam+drums|96000|128": 0.286584,
+        "nam|96000|512": 0.192099,
+        "nam+drums|96000|512": 0.248754
+      }
+    },
+    {
+      "variant": "new",
+      "architecture_id": "a2_wavenet_max",
+      "file": "wavenet_a2_max.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 9.175836,
+        "nam+drums|48000|128": 9.175084,
+        "nam|48000|512": 9.179952,
+        "nam+drums|48000|512": 9.181342,
+        "nam|96000|128": 9.177808,
+        "nam+drums|96000|128": 9.17599,
+        "nam|96000|512": 9.177193,
+        "nam+drums|96000|512": 9.177444
+      }
+    },
+    {
+      "variant": "new",
+      "architecture_id": "slimmable_wavenet",
+      "file": "slimmable_wavenet.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 8.942344,
+        "nam+drums|48000|128": 8.943761,
+        "nam|48000|512": 9.022621,
+        "nam+drums|48000|512": 9.022832,
+        "nam|96000|128": 8.699016,
+        "nam+drums|96000|128": 8.700976,
+        "nam|96000|512": 8.932488,
+        "nam+drums|96000|512": 8.933782
+      }
+    },
+    {
+      "variant": "new",
+      "architecture_id": "a2_slimmable_container",
+      "file": "A2.nam",
+      "status": "measured-clean",
+      "nam_warm_alloc_total": 0,
+      "nam_warm_free_total": 0,
+      "nam_warm_lock_total": 0,
+      "nam_cold_alloc_total": 0,
+      "capture_overflow": 0,
+      "out_rms": {
+        "nam|48000|128": 0.02071,
+        "nam+drums|48000|128": 0.140465,
+        "nam|48000|512": 0.020852,
+        "nam+drums|48000|512": 0.119877,
+        "nam|96000|128": 0.021182,
+        "nam+drums|96000|128": 0.191532,
+        "nam|96000|512": 0.020776,
+        "nam+drums|96000|512": 0.132174
+      }
+    }
+  ],
+  "all_pass": true
+}
