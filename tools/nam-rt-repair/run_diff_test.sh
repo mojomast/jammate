@@ -66,17 +66,21 @@ parts = [json.load(open(p)) for p in sys.argv[2:]]
 combined = {
     "blocks": [p.get("block") for p in parts],
     "all_pass": all(p["all_pass"] for p in parts),
+    "bit_exact": all(p.get("bit_exact", False) for p in parts),
+    "raw_bytes_identical": all(p.get("raw_bytes_identical", False) for p in parts),
     "max_abs_diff": max(p["max_abs_diff"] for p in parts),
     "max_rel_diff": max(p["max_rel_diff"] for p in parts),
     "per_block": parts,
 }
 json.dump(combined, open(out, "w"), indent=2)
 print("combined:", out, "all_pass =", combined["all_pass"],
+      "bit_exact =", combined["bit_exact"],
       "max_abs =", combined["max_abs_diff"], "max_rel =", combined["max_rel_diff"])
 PY
 
 if [ "$overall" -eq 0 ]; then
-    echo "RT-003 differential test PASS (all block sizes)"
+    echo "RT-003 differential test PASS (all block sizes; within-budget accepted,"
+    echo "                                   bit_exact is a raw-byte property)"
 else
     echo "RT-003 differential test FAIL"
 fi

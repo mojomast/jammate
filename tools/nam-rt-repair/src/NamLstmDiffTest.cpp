@@ -14,19 +14,29 @@
 // Signal coverage per block cycles ramp / sine / uniform noise / impulses /
 // silence; every block is freshly seeded from (seed, block, config), so the two
 // processes are reproducible and independent.
+//
+// Fail-closed: malformed/out-of-range arguments and non-finite outputs are
+// reported and exit non-zero after the artifacts are written.
 
 #include <NAM/dsp.h>
 #include <NAM/lstm.h>
 
+#include <cerrno>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
 
 namespace
 {
+
+// Hard bounds so a bad CLI cannot request an unbounded allocation.
+constexpr long kMaxBlock = 65536;
+constexpr long kMaxWarm = 1000000;
+constexpr long long kMaxFrames = 2000000;   // block * (warm+1) ceiling
 
 struct Config
 {
@@ -39,12 +49,12 @@ struct Config
 };
 
 const Config kConfigs[] = {
-  { "mono_1x3",     1, 1, 1,  1,  3 },
-  { "mono_2x5",     1, 1, 2,  1,  5 },
-  { "mono_4x16",    1, 1, 4,  1, 16 },
-  { "stereo_3x7",   2, 2, 3,  2,  7 },
-  { "multi_io_2x11",3, 2, 2,  3, 11 },
-  { "zero_layer",   2, 3, 0,  2,  4 },
+  { "mono_1x3",      1, 1, 1,  1,  3 },
+  { "mono_2x5",      1, 1, 2,  1,  5 },
+  { "mono_4x16",     1, 1, 4,  1, 16 },
+  { "stereo_3x7",    2, 2, 3,  2,  7 },
+  { "multi_io_2x11", 3, 2, 2,  3, 11 },
+  { "zero_layer",    2, 3, 0,  2,  4 },
 };
 constexpr int kNumConfigs = (int) (sizeof(kConfigs) / sizeof(kConfigs[0]));
 
@@ -116,6 +126,28 @@ std::uint32_t fnv1a (std::uint32_t h, float f)
   return h;
 }
 
+bool parseInt (const char* s, long lo, long hi, long& out)
+{
+  errno = 0;
+  char* end = nullptr;
+  const long v = std::strtol (s, &end, 10);
+  if (errno != 0 || end == s || end == nullptr || *end != '\0' || v < lo || v > hi)
+    return false;
+  out = v;
+  return true;
+}
+
+bool parseU32 (const char* s, std::uint32_t& out)
+{
+  errno = 0;
+  char* end = nullptr;
+  const unsigned long v = std::strtoul (s, &end, 0);
+  if (errno != 0 || end == s || end == nullptr || *end != '\0' || v > 0xFFFFFFFFul)
+    return false;
+  out = (std::uint32_t) v;
+  return true;
+}
+
 } // namespace
 
 int main (int argc, char** argv)
@@ -123,21 +155,36 @@ int main (int argc, char** argv)
   const char* binPath = nullptr;
   const char* jsonPath = nullptr;
   std::uint32_t seed = 0x5eed1234u;
-  int warmBlocks = 64;
-  int block = 128;
+  long warmBlocks = 64;
+  long block = 128;
 
   for (int i = 1; i < argc; ++i)
   {
     if (std::strcmp (argv[i], "--out") == 0 && i + 1 < argc) binPath = argv[++i];
     else if (std::strcmp (argv[i], "--json") == 0 && i + 1 < argc) jsonPath = argv[++i];
-    else if (std::strcmp (argv[i], "--seed") == 0 && i + 1 < argc) seed = (std::uint32_t) std::strtoul (argv[++i], nullptr, 0);
-    else if (std::strcmp (argv[i], "--warm-blocks") == 0 && i + 1 < argc) warmBlocks = std::atoi (argv[++i]);
-    else if (std::strcmp (argv[i], "--block") == 0 && i + 1 < argc) block = std::atoi (argv[++i]);
+    else if (std::strcmp (argv[i], "--seed") == 0 && i + 1 < argc)
+    {
+      if (! parseU32 (argv[++i], seed))
+      { std::fprintf (stderr, "error: invalid --seed\n"); return 64; }
+    }
+    else if (std::strcmp (argv[i], "--warm-blocks") == 0 && i + 1 < argc)
+    {
+      if (! parseInt (argv[++i], 1, kMaxWarm, warmBlocks))
+      { std::fprintf (stderr, "error: --warm-blocks must be 1..%ld\n", kMaxWarm); return 64; }
+    }
+    else if (std::strcmp (argv[i], "--block") == 0 && i + 1 < argc)
+    {
+      if (! parseInt (argv[++i], 1, kMaxBlock, block))
+      { std::fprintf (stderr, "error: --block must be 1..%ld\n", kMaxBlock); return 64; }
+    }
     else { std::fprintf (stderr, "unknown option %s\n", argv[i]); return 64; }
   }
-  if (binPath == nullptr || jsonPath == nullptr || warmBlocks < 1 || block < 1)
+  if (binPath == nullptr || jsonPath == nullptr
+      || (long long) block * (warmBlocks + 1) > kMaxFrames)
   {
-    std::fprintf (stderr, "usage: %s --out f.bin --json f.json [--seed N] [--warm-blocks N] [--block N]\n", argv[0]);
+    std::fprintf (stderr, "usage: %s --out f.bin --json f.json [--seed N] "
+                         "[--warm-blocks N] [--block N]; block*(warm+1) <= %lld\n",
+                  argv[0], kMaxFrames);
     return 64;
   }
 
@@ -159,26 +206,32 @@ int main (int argc, char** argv)
                            c.input_size, c.hidden_size, weights, 48000.0);
 
     const std::size_t off = output.size();
-    std::vector<float> inbuf ((std::size_t) c.in_channels * block);
-    std::vector<float> outbuf ((std::size_t) c.out_channels * block);
+    std::vector<float> inbuf ((std::size_t) c.in_channels * (std::size_t) block);
+    std::vector<float> outbuf ((std::size_t) c.out_channels * (std::size_t) block);
     std::vector<NAM_SAMPLE*> inPtr ((std::size_t) c.in_channels);
     std::vector<NAM_SAMPLE*> outPtr ((std::size_t) c.out_channels);
-    for (int ch = 0; ch < c.in_channels; ++ch) inPtr[ch] = inbuf.data() + (std::size_t) ch * block;
-    for (int ch = 0; ch < c.out_channels; ++ch) outPtr[ch] = outbuf.data() + (std::size_t) ch * block;
+    for (int ch = 0; ch < c.in_channels; ++ch)
+      inPtr[(std::size_t) ch] = inbuf.data() + (std::size_t) ch * (std::size_t) block;
+    for (int ch = 0; ch < c.out_channels; ++ch)
+      outPtr[(std::size_t) ch] = outbuf.data() + (std::size_t) ch * (std::size_t) block;
 
     // cold block (0) then warm blocks 1..warmBlocks; all recorded.
-    for (int b = 0; b <= warmBlocks; ++b)
+    for (long b = 0; b <= warmBlocks; ++b)
     {
-      fillBlock (inbuf, c.in_channels, b, block, seed, ci);
-      model.process (inPtr.data(), outPtr.data(), block);
+      fillBlock (inbuf, c.in_channels, (int) b, (int) block, seed, ci);
+      model.process (inPtr.data(), outPtr.data(), (int) block);
       for (int ch = 0; ch < c.out_channels; ++ch)
-        for (int i = 0; i < block; ++i)
-          output.push_back (outbuf[(std::size_t) ch * block + i]);
+        for (long i = 0; i < block; ++i)
+          output.push_back (outbuf[(std::size_t) ch * (std::size_t) block + (std::size_t) i]);
     }
     names.push_back (c.name);
     offsets.push_back (off);
     counts.push_back (output.size() - off);
   }
+
+  bool allFinite = true;
+  for (float v : output)
+    if (! std::isfinite (v)) { allFinite = false; break; }
 
   std::FILE* bf = std::fopen (binPath, "wb");
   if (bf == nullptr) { std::fprintf (stderr, "cannot write %s\n", binPath); return 5; }
@@ -188,10 +241,12 @@ int main (int argc, char** argv)
 
   std::FILE* jf = std::fopen (jsonPath, "w");
   if (jf == nullptr) { std::fprintf (stderr, "cannot write %s\n", jsonPath); return 5; }
-  std::fprintf (jf, "{\n  \"seed\": %u,\n  \"warm_blocks\": %d,\n  \"block\": %d,\n  \"configs\": [\n",
-                seed, warmBlocks, block);
+  std::fprintf (jf, "{\n  \"seed\": %u,\n  \"warm_blocks\": %ld,\n  \"block\": %ld,\n"
+                    "  \"all_finite\": %s,\n  \"configs\": [\n",
+                seed, warmBlocks, block, allFinite ? "true" : "false");
   for (int ci = 0; ci < kNumConfigs; ++ci)
   {
+    const Config& c = kConfigs[ci];
     const auto o = offsets[(std::size_t) ci];
     const auto n = counts[(std::size_t) ci];
     double sum = 0.0, sumsq = 0.0;
@@ -206,9 +261,12 @@ int main (int argc, char** argv)
       h = fnv1a (h, v);
     }
     std::fprintf (jf,
-      "    {\"name\": \"%s\", \"offset\": %zu, \"count\": %zu, \"sum\": %.9g, "
+      "    {\"name\": \"%s\", \"in_channels\": %d, \"out_channels\": %d, "
+      "\"num_layers\": %d, \"input_size\": %d, \"hidden_size\": %d, "
+      "\"offset\": %zu, \"count\": %zu, \"sum\": %.9g, "
       "\"sumsq\": %.9g, \"min\": %.9g, \"max\": %.9g, \"fnv1a\": %u}%s\n",
-      names[(std::size_t) ci].c_str(), o, n, sum, sumsq, (double) mn, (double) mx, h,
+      c.name, c.in_channels, c.out_channels, c.num_layers, c.input_size, c.hidden_size,
+      o, n, sum, sumsq, (double) mn, (double) mx, h,
       (ci + 1 < kNumConfigs) ? "," : "");
   }
   std::fprintf (jf, "  ]\n}\n");
@@ -216,7 +274,12 @@ int main (int argc, char** argv)
   const bool jc = std::fclose (jf) == 0;
   if (! jw || ! jc) { std::fprintf (stderr, "json write/close failure %s\n", jsonPath); return 5; }
 
-  std::printf ("nam_lstm_diff: %d configs, %zu floats -> %s\n",
-               kNumConfigs, output.size(), binPath);
+  std::printf ("nam_lstm_diff: %d configs, %zu floats (block=%ld warm=%ld finite=%d) -> %s\n",
+               kNumConfigs, output.size(), block, warmBlocks, (int) allFinite, binPath);
+  if (! allFinite)
+  {
+    std::fprintf (stderr, "error: non-finite output detected\n");
+    return 6;
+  }
   return 0;
 }

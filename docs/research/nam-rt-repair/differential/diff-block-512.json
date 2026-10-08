@@ -1,6 +1,9 @@
 {
   "abs_tol": 1e-05,
   "rel_tol": 1e-05,
+  "block": 512,
+  "warm_blocks": 64,
+  "seed": 1592594996,
   "configs": [
     {
       "name": "mono_1x3",
@@ -8,11 +11,7 @@
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
       "pass": true,
-      "first_failing_index": -1,
-      "original_fnv1a": 91629889,
-      "patched_fnv1a": 91629889,
-      "original_sum": -5489.43342,
-      "patched_sum": -5489.43342
+      "first_failing_index": -1
     },
     {
       "name": "mono_2x5",
@@ -20,11 +19,7 @@
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
       "pass": true,
-      "first_failing_index": -1,
-      "original_fnv1a": 148957545,
-      "patched_fnv1a": 148957545,
-      "original_sum": -6055.4878,
-      "patched_sum": -6055.4878
+      "first_failing_index": -1
     },
     {
       "name": "mono_4x16",
@@ -32,11 +27,7 @@
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
       "pass": true,
-      "first_failing_index": -1,
-      "original_fnv1a": 267791576,
-      "patched_fnv1a": 267791576,
-      "original_sum": -15399.3331,
-      "patched_sum": -15399.3331
+      "first_failing_index": -1
     },
     {
       "name": "stereo_3x7",
@@ -44,11 +35,7 @@
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
       "pass": true,
-      "first_failing_index": -1,
-      "original_fnv1a": 3088813435,
-      "patched_fnv1a": 3088813435,
-      "original_sum": -4455.26072,
-      "patched_sum": -4455.26072
+      "first_failing_index": -1
     },
     {
       "name": "multi_io_2x11",
@@ -56,11 +43,7 @@
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
       "pass": true,
-      "first_failing_index": -1,
-      "original_fnv1a": 3993998882,
-      "patched_fnv1a": 3993998882,
-      "original_sum": -14710.7437,
-      "patched_sum": -14710.7437
+      "first_failing_index": -1
     },
     {
       "name": "zero_layer",
@@ -68,15 +51,14 @@
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
       "pass": true,
-      "first_failing_index": -1,
-      "original_fnv1a": 2210698964,
-      "patched_fnv1a": 2210698964,
-      "original_sum": 173.006695,
-      "patched_sum": 173.006695
+      "first_failing_index": -1
     }
   ],
   "max_abs_diff": 0.0,
   "max_rel_diff": 0.0,
-  "all_pass": true,
-  "block": 512
+  "raw_bytes_identical": true,
+  "errors": [],
+  "budget_pass": true,
+  "bit_exact": true,
+  "all_pass": true
 }

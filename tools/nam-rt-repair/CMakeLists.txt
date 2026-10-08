@@ -26,14 +26,15 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # --- locate the pinned NAM checkout ------------------------------------------
-set(_nam_default "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/NeuralAmpModelerCore")
-if(NOT EXISTS "${_nam_default}/NAM/lstm.cpp")
-  set(_nam_default "/home/mojo/projects/guitars/third_party/NeuralAmpModelerCore")
-endif()
-set(NAM_CORE_DIR "${_nam_default}" CACHE PATH "Pinned NeuralAmpModelerCore checkout")
-
+# Explicit, portable: default to this worktree's submodule; if it is not
+# populated, fail loudly and ask for -DNAM_CORE_DIR rather than guessing a
+# host-specific path.
+set(NAM_CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/NeuralAmpModelerCore"
+    CACHE PATH "Pinned NeuralAmpModelerCore checkout")
 if(NOT EXISTS "${NAM_CORE_DIR}/NAM/lstm.cpp")
-  message(FATAL_ERROR "RT-003: NAM_CORE_DIR does not look like a NAM checkout: ${NAM_CORE_DIR}")
+  message(FATAL_ERROR
+    "RT-003: NAM_CORE_DIR does not look like a NAM checkout: ${NAM_CORE_DIR}\n"
+    "Pass -DNAM_CORE_DIR=<pinned NeuralAmpModelerCore checkout> explicitly.")
 endif()
 
 # --- shared NAM source list (13 files, as the product builds them) -----------
@@ -66,7 +67,6 @@ function(nam_rt_configure_target target include_root)
   target_compile_definitions(${target}
     PUBLIC NAM_SAMPLE_FLOAT NAM_ENABLE_A2_FAST
     PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-  target_compile_options(${target} PRIVATE -fPIC)
 endfunction()
 
 set(_orig_abs "")
@@ -101,17 +101,20 @@ add_test(NAME nam_rt_diff COMMAND
 # --- real-processor probe evidence assertion --------------------------------
 # Validates the committed patched-vs-control probe artifacts (see
 # docs/research/NAM-LSTM-RT-REPAIR.md for how they are produced).
-find_program(RT003_PYTHON3 NAMES python3)
-if(RT003_PYTHON3)
-  set(_ev "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/nam-rt-repair")
-  add_test(NAME nam_rt_probe_repair COMMAND "${RT003_PYTHON3}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/check_probe_repair.py"
-    --patched-csv "${_ev}/probe/processor-probe-combos.csv"
-    --baseline-csv "${_ev}/probe-baseline/processor-probe-combos.csv"
-    --patched-findings "${_ev}/probe/findings.json"
-    --baseline-findings "${_ev}/probe-baseline/findings.json"
-    --out-json "${CMAKE_BINARY_DIR}/probe-repair-verification.json")
-endif()
+# python3 is required: the differential comparator and this check are Python.
+find_program(RT003_PYTHON3 NAMES python3 REQUIRED)
+set(_ev "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/nam-rt-repair")
+add_test(NAME nam_rt_probe_repair COMMAND "${RT003_PYTHON3}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/check_probe_repair.py"
+  --patched-csv "${_ev}/probe/processor-probe-combos.csv"
+  --baseline-csv "${_ev}/probe-baseline/processor-probe-combos.csv"
+  --patched-findings "${_ev}/probe/findings.json"
+  --baseline-findings "${_ev}/probe-baseline/findings.json"
+  --out-json "${CMAKE_BINARY_DIR}/probe-repair-verification.json")
+
+# --- differential comparator acceptance unit tests ---------------------------
+add_test(NAME nam_rt_compare_unit COMMAND "${RT003_PYTHON3}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/test_compare_diff.py")
 
 # --- patch idempotence / stale-hash checks -----------------------------------
 add_test(NAME nam_rt_patch_checks COMMAND

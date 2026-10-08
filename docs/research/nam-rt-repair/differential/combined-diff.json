@@ -5,12 +5,17 @@
     512
   ],
   "all_pass": true,
+  "bit_exact": true,
+  "raw_bytes_identical": true,
   "max_abs_diff": 0.0,
   "max_rel_diff": 0.0,
   "per_block": [
     {
       "abs_tol": 1e-05,
       "rel_tol": 1e-05,
+      "block": 64,
+      "warm_blocks": 64,
+      "seed": 1592594996,
       "configs": [
         {
           "name": "mono_1x3",
@@ -18,11 +23,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 981552877,
-          "patched_fnv1a": 981552877,
-          "original_sum": -688.053331,
-          "patched_sum": -688.053331
+          "first_failing_index": -1
         },
         {
           "name": "mono_2x5",
@@ -30,11 +31,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 1537948025,
-          "patched_fnv1a": 1537948025,
-          "original_sum": -757.360827,
-          "patched_sum": -757.360827
+          "first_failing_index": -1
         },
         {
           "name": "mono_4x16",
@@ -42,11 +39,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 1846689366,
-          "patched_fnv1a": 1846689366,
-          "original_sum": -1926.59366,
-          "patched_sum": -1926.59366
+          "first_failing_index": -1
         },
         {
           "name": "stereo_3x7",
@@ -54,11 +47,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 92493291,
-          "patched_fnv1a": 92493291,
-          "original_sum": -557.105815,
-          "patched_sum": -557.105815
+          "first_failing_index": -1
         },
         {
           "name": "multi_io_2x11",
@@ -66,11 +55,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 3423856567,
-          "patched_fnv1a": 3423856567,
-          "original_sum": -1842.08453,
-          "patched_sum": -1842.08453
+          "first_failing_index": -1
         },
         {
           "name": "zero_layer",
@@ -78,21 +63,23 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 1479935849,
-          "patched_fnv1a": 1479935849,
-          "original_sum": 42.0090678,
-          "patched_sum": 42.0090678
+          "first_failing_index": -1
         }
       ],
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "all_pass": true,
-      "block": 64
+      "raw_bytes_identical": true,
+      "errors": [],
+      "budget_pass": true,
+      "bit_exact": true,
+      "all_pass": true
     },
     {
       "abs_tol": 1e-05,
       "rel_tol": 1e-05,
+      "block": 128,
+      "warm_blocks": 64,
+      "seed": 1592594996,
       "configs": [
         {
           "name": "mono_1x3",
@@ -100,11 +87,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 155138074,
-          "patched_fnv1a": 155138074,
-          "original_sum": -1381.67334,
-          "patched_sum": -1381.67334
+          "first_failing_index": -1
         },
         {
           "name": "mono_2x5",
@@ -112,11 +95,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 75945126,
-          "patched_fnv1a": 75945126,
-          "original_sum": -1515.32566,
-          "patched_sum": -1515.32566
+          "first_failing_index": -1
         },
         {
           "name": "mono_4x16",
@@ -124,11 +103,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 4097322715,
-          "patched_fnv1a": 4097322715,
-          "original_sum": -3856.52909,
-          "patched_sum": -3856.52909
+          "first_failing_index": -1
         },
         {
           "name": "stereo_3x7",
@@ -136,11 +111,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 1352914581,
-          "patched_fnv1a": 1352914581,
-          "original_sum": -1113.91847,
-          "patched_sum": -1113.91847
+          "first_failing_index": -1
         },
         {
           "name": "multi_io_2x11",
@@ -148,11 +119,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 3471458264,
-          "patched_fnv1a": 3471458264,
-          "original_sum": -3679.94807,
-          "patched_sum": -3679.94807
+          "first_failing_index": -1
         },
         {
           "name": "zero_layer",
@@ -160,21 +127,23 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 2638410497,
-          "patched_fnv1a": 2638410497,
-          "original_sum": 123.882826,
-          "patched_sum": 123.882826
+          "first_failing_index": -1
         }
       ],
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "all_pass": true,
-      "block": 128
+      "raw_bytes_identical": true,
+      "errors": [],
+      "budget_pass": true,
+      "bit_exact": true,
+      "all_pass": true
     },
     {
       "abs_tol": 1e-05,
       "rel_tol": 1e-05,
+      "block": 512,
+      "warm_blocks": 64,
+      "seed": 1592594996,
       "configs": [
         {
           "name": "mono_1x3",
@@ -182,11 +151,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 91629889,
-          "patched_fnv1a": 91629889,
-          "original_sum": -5489.43342,
-          "patched_sum": -5489.43342
+          "first_failing_index": -1
         },
         {
           "name": "mono_2x5",
@@ -194,11 +159,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 148957545,
-          "patched_fnv1a": 148957545,
-          "original_sum": -6055.4878,
-          "patched_sum": -6055.4878
+          "first_failing_index": -1
         },
         {
           "name": "mono_4x16",
@@ -206,11 +167,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 267791576,
-          "patched_fnv1a": 267791576,
-          "original_sum": -15399.3331,
-          "patched_sum": -15399.3331
+          "first_failing_index": -1
         },
         {
           "name": "stereo_3x7",
@@ -218,11 +175,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 3088813435,
-          "patched_fnv1a": 3088813435,
-          "original_sum": -4455.26072,
-          "patched_sum": -4455.26072
+          "first_failing_index": -1
         },
         {
           "name": "multi_io_2x11",
@@ -230,11 +183,7 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 3993998882,
-          "patched_fnv1a": 3993998882,
-          "original_sum": -14710.7437,
-          "patched_sum": -14710.7437
+          "first_failing_index": -1
         },
         {
           "name": "zero_layer",
@@ -242,17 +191,16 @@
           "max_abs_diff": 0.0,
           "max_rel_diff": 0.0,
           "pass": true,
-          "first_failing_index": -1,
-          "original_fnv1a": 2210698964,
-          "patched_fnv1a": 2210698964,
-          "original_sum": 173.006695,
-          "patched_sum": 173.006695
+          "first_failing_index": -1
         }
       ],
       "max_abs_diff": 0.0,
       "max_rel_diff": 0.0,
-      "all_pass": true,
-      "block": 512
+      "raw_bytes_identical": true,
+      "errors": [],
+      "budget_pass": true,
+      "bit_exact": true,
+      "all_pass": true
     }
   ]
 }

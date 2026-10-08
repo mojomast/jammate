@@ -45,45 +45,61 @@ Both are real C-allocator calls, not C++ `new`; both occur inside the armed
 
 ## 3. The repair
 
-`patches/nam/lstm-rt-alloc.patch` (three edits, both files):
+`patches/nam/lstm-rt-alloc.patch` makes **five logical edits across two files**
+(three in `lstm.cpp`, two in `lstm.h`); together they remove the **two**
+per-sample allocations:
 
 - `_ifgo.noalias() = _w * _xh; _ifgo += _b;` — writes the product directly into
   the preallocated gate vector and adds the bias in place. The operation order
-  (per-element dot product, then bias) is unchanged, so the floating-point
-  result is unchanged.
-- `get_hidden_state()` returns `Eigen::Ref<const Eigen::VectorXf>`, a
-  non-owning view of the existing `_xh` block. No copy.
-- `LSTMCell::process_` takes `const Eigen::Ref<const Eigen::VectorXf>&`, so the
-  layer-hop call and the `_input` call bind without a copy. The head line uses
-  `Eigen::Ref<const Eigen::VectorXf>` instead of a `VectorXf` temporary.
+  (per-element dot product, then bias) is unchanged.
+- `LSTMCell::process_` declaration and definition take
+  `const Eigen::Ref<const Eigen::VectorXf>&`, so the layer-hop call and the
+  `_input` call bind without a copy.
+- `get_hidden_state()` returns `Eigen::Ref<const Eigen::VectorXf>`, a non-owning
+  view of the existing `_xh` block. No copy.
+- The head line uses `Eigen::Ref<const Eigen::VectorXf>` instead of a `VectorXf`
+  temporary.
 
-### Why this is ABI-safe for the prebuilt product
+### Prebuilt SharedCode compatibility
 
-The repair lives entirely inside `nam::lstm::{LSTMCell,LSTM}` translation
-units. The processor-visible interface is `NAM/dsp.h` (unchanged); `nm` on the
+The processor-visible NAM interface is `NAM/dsp.h`, which is **unchanged**; the
+`DSP` base layout and virtual interface are therefore unchanged. `nm` on the
 read-only `libGuitar Companion_SharedCode.a` shows **no** LSTM or
-`get_hidden_state` symbols, so the prebuilt archive and the rebuilt `nam_core`
-cannot disagree. `get_hidden_state` is header-inline and is included only by
-`NAM/lstm.cpp` (verified: the only other reference in the whole NAM checkout is
-its own `tools/test/test_lstm.cpp`). Because the changed header is internal and
-the only consumer is rebuilt from the same generated copy, no whole-product
-rebuild is required to trust the link; the probe below confirms it.
+`get_hidden_state` symbols, so that archive does not consume the changed
+internal API. That is evidence for **this specific read-only archive**, not a
+general ABI guarantee: the repair does change the public signature of
+`LSTMCell::process_`/`get_hidden_state`, so any *other* external NAM consumer of
+`NAM/lstm.h` would need rebuilding. In this tree the only consumers of
+`lstm.h` are `NAM/lstm.cpp` itself and upstream's own `tools/test/test_lstm.cpp`,
+and every NAM translation unit for the patched target is compiled from the same
+generated copy.
+
+Only the `nam_core` target was built from the overlay here (see §4.4); the full
+product (JUCE/Standalone/VST3) was **not** rebuilt in this task.
 
 ### Why a generated overlay, not an edit
 
 `third_party/NeuralAmpModelerCore` is a tracked gitlink/submodule and must stay
-byte-identical. `cmake/nam-rt/NamRtPatch.cmake` is applied at configure time:
+byte-identical. `cmake/nam-rt/NamRtPatch.cmake` runs at configure time:
 
-1. SHA256-verify the pinned `NAM/lstm.cpp`/`lstm.h`; mismatch aborts configure.
-2. `file(COPY)` the entire pinned `NAM/` tree to
-   `<build>/nam-rt/generated/NAM` (~430 KiB of sources).
-3. Apply the exact literal replacements (each old string must be present).
-4. SHA256-verify the generated files against the declared patched bytes.
+1. SHA256-verify the tracked patch file itself (resolved from the module's own
+   directory); editing the patch without re-pinning aborts configure even when
+   the pinned inputs are clean.
+2. SHA256-verify the pinned `NAM/lstm.cpp`/`lstm.h`; mismatch aborts configure.
+3. Remove and re-`file(COPY)` the entire pinned `NAM/` tree to
+   `<build>/nam-rt/generated/NAM` (~430 KiB of sources), so deleted upstream
+   files do not linger as stale copies.
+4. Apply the exact literal replacements (each old string must be present).
+5. SHA256-verify the generated files against the declared patched bytes.
+6. Register every file in the copied tree as `CMAKE_CONFIGURE_DEPENDS`, so a
+   change/addition/deletion in any other NAM source or header also refreshes the
+   overlay.
 
 So the submodule bytes are never touched, the whole NAM target for the patched
 build compiles from one consistent (patched) header set, Eigen/nlohmann remain
-the original pinned headers, and a stale/forked submodule or an edited patch
-text fails closed instead of silently building something else.
+the original pinned headers, and a stale/forked submodule, a deleted upstream
+file, or an edited patch fails closed or refreshes instead of silently building
+something else.
 
 The root `CMakeLists.txt` NAM section now lists the 13 sources from
 `${NAM_RT_NAM_DIR}` and prepends `${NAM_RT_INCLUDE_ROOT}`, keeping the
@@ -105,25 +121,50 @@ the same deterministic workload in one process per library:
 `src/NamLstmDiffTest.cpp` runs 6 configurations (single/multi-layer,
 1/2/3-channel, hidden 3/5/7/11/16, and a zero-layer passthrough) over one cold
 block + 64 warm blocks cycling **ramp, sine, uniform noise, impulses, silence**,
-at block sizes **64, 128 and 512**. `compare_diff.py` checks every one of the
-83 200 output samples per block with a predeclared budget
+at block sizes **64, 128 and 512**. The workload is
+`sum(out_channels) * block * (warm+1)` floats: **41 600 / 83 200 / 332 800**
+total across the ten output channels at block 64 / 128 / 512.
+
+`compare_diff.py` is fail-closed. It requires identical `seed`/`warm_blocks`/
+`block` metadata, exactly the six named configs with no missing/empty/duplicate,
+contiguous non-overlapping offsets/counts covering the whole binary with
+`count == out_channels*block*(warm+1)`, every sample finite in both binaries,
+and the declared per-config FNV-1a and raw float summaries **recomputed from the
+binary** (so a tampered summary fails). Samples are accepted within
 `|a-b| <= 1e-5 + 1e-5*max(|a|,|b|)`.
 
-Result: **bit-exact**. `max_abs_diff = 0.0`, `max_rel_diff = 0.0`,
-`fnv1a` equal for every config at every block size. (This is stronger than the
-budget; the budget is stated because bit-exactness across arbitrary compilers
-is not claimed.) A reproducer is in `differential/combined-diff.json`.
+Result: **bit-exact in the raw-byte sense** — the two output binaries are
+byte-identical at every block size (`raw_bytes_identical = true`, which is how
+`bit_exact` is defined; float equality alone cannot distinguish signed zero).
+`max_abs_diff = 0.0`, `max_rel_diff = 0.0`, and the recomputed `fnv1a` matches
+for every config. A within-budget but not byte-identical pair still passes with
+`bit_exact=false` (exercised by `test_compare_diff.py`). `4.1` is stronger than
+the budget; the budget is the acceptance criterion because bit-exactness across
+arbitrary compilers is not claimed. Reproducer:
+`differential/combined-diff.json`.
 
-### 4.2 Patch provenance / idempotence / stale-hash checks
+`test_compare_diff.py` (ctest `nam_rt_compare_unit`, 19 cases) drives the real
+comparator with scripted fixtures: NaN / ±Inf, empty/missing/duplicate configs,
+truncated tail, offset gap/overlap, negative and wrong counts, metadata
+mismatch, tampered FNV/sum, `all_finite=false`, out-of-budget, within-budget
+non-byte-identical, and signed-zero byte-identity.
+
+### 4.2 Patch provenance / idempotence / dependency / stale-hash checks
 
 `tools/nam-rt-repair/check_patch.sh` (ctest `nam_rt_patch_checks`) verifies:
 
-- `patch -p1` of the tracked patch onto the pinned sources reproduces the
-  generated overlay **byte-for-byte**;
-- two fresh configures produce identical generated bytes and equal the built
+- the tracked zero-context patch applied with `patch -p1` onto the pinned
+  sources reproduces the generated overlay **byte-for-byte**;
+- **same-build** reconfigure (repeated configure of one build dir, which
+  re-seeds the existing generated copy) is idempotent and equals the built
   overlay;
+- editing a harmless other NAM header in a scratch clone refreshes the generated
+  overlay, and deleting that file removes the generated stale copy (whole-tree
+  dependency tracking);
 - a one-line mutation of the pinned `lstm.cpp` makes configure **fail closed**
-  with `SHA256 mismatch`.
+  with an input-SHA mismatch;
+- a mutated tracked patch makes configure **fail closed** with a patch-SHA
+  mismatch while the pinned sources are clean (independent of the input hashes).
 
 ### 4.3 Real-processor callback probe (unchanged RT-002 tools)
 
@@ -153,13 +194,15 @@ editor-absent scene/timer differential and both no-audio controls pass exactly
 as in RT-002 (`scene_restore ≈ 34 ms`, short window not restored, long window
 fallback ≈ 259 ms).
 
-### 4.4 Root CMake integration
+### 4.4 Root CMake integration (partial: `nam_core` target only)
 
 Configuring the actual product from this worktree (read-only submodule
 references for the local check) generated the overlay at
-`<build>/nam-rt/generated/NAM` and built the real `nam_core` target. The
+`<build>/nam-rt/generated/NAM` and built the real `nam_core` target; its
 generated `lstm.cpp`/`lstm.h` SHA256 equal the standalone build's overlay
-exactly (`82f25497…` / `4975a306…`).
+(`82f25497…` / `4975a306…`). The full JUCE/Standalone/VST3 product was **not**
+rebuilt from the overlay here; a full-product build remains a separate future
+verification step.
 
 ## 5. Provenance, licensing and integrity
 
@@ -170,7 +213,7 @@ exactly (`82f25497…` / `4975a306…`).
   `docs/research/DEPENDENCIES.md`.
 - `third_party/NeuralAmpModelerCore` bytes were not modified. Originals
   `lstm.cpp` `c544c217…`, `lstm.h` `e66c90b9…`; generated `82f25497…`,
-  `4975a306…`; patch `bc78b063…`; module `463d72bc…`.
+  `4975a306…`; patch `df0c2ac8…`; module `a8cad69b…`.
 
 ## 6. Reproduce
 
@@ -180,8 +223,10 @@ export PATH=/tmp/opencode/venv/bin:$PATH
 export TMPDIR=/home/mojo/projects/build-RT-003/tmp
 
 # 1. differential + patch checks + committed probe-evidence assertions
+#    (pass -DNAM_CORE_DIR explicitly; the worktree submodule may be empty)
 cmake -S tools/nam-rt-repair -B /home/mojo/projects/build-RT-003/nam -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release
+  -DCMAKE_BUILD_TYPE=Release \
+  -DNAM_CORE_DIR=/home/mojo/projects/guitars/third_party/NeuralAmpModelerCore
 cmake --build /home/mojo/projects/build-RT-003/nam -j
 ctest --test-dir /home/mojo/projects/build-RT-003/nam --output-on-failure
 
@@ -208,8 +253,11 @@ RT002_ARTIFACTS="$PWD/docs/research/nam-rt-repair/probe" \
 ```
 
 Failure checks were exercised by ctest: mutated pinned source ⇒ configure
-aborts; patch/overlay mismatch ⇒ `nam_rt_patch_checks` fails; probe-evidence
-mismatch ⇒ `nam_rt_probe_repair` fails.
+aborts (input SHA); mutated tracked patch with clean sources ⇒ configure aborts
+(patch SHA); patch/overlay mismatch, same-build non-idempotence or untracked
+other-header change ⇒ `nam_rt_patch_checks` fails; probe-evidence mismatch ⇒
+`nam_rt_probe_repair` fails; comparator unsafe fixtures ⇒ `nam_rt_compare_unit`
+fails.
 
 ## 7. Honest limitations
 
@@ -223,9 +271,13 @@ mismatch ⇒ `nam_rt_probe_repair` fails.
   64/128/512; `LSTM::process` is sample-rate independent (only
   `GetPrewarmSamples` reads the rate), so a rate axis is not numerically
   meaningful for this model.
-- The differential result is bit-exact **for this compiler/flag set**; the
-  accepted criterion is the predeclared `1e-5` abs/relative reordering budget.
+- The differential result is byte-identical **for this compiler/flag set**; the
+  accepted criterion is the predeclared `1e-5` abs/relative reordering budget
+  (a within-budget, non-byte-identical pair is accepted with `bit_exact=false`).
   No cross-compiler bit-exactness is claimed.
+- `check_patch.sh` and the probe reproduce steps rely on GNU `patch` and a
+  POSIX shell; this work is verified on Linux only. **Windows verification was
+  not done** and no portable-cross-platform claim is made.
 - Non-device, single-threaded probe: not latency/dropout/device-timing or
   Windows/ASIO evidence. Hosted VST3 remains unmeasured. **G1 remains partial.**
 - No production capture was used or distributed; the pinned example
@@ -235,11 +287,12 @@ mismatch ⇒ `nam_rt_probe_repair` fails.
 
 | path | content |
 |---|---|
-| `differential/combined-diff.json`, `diff-block-{64,128,512}.json` | original-vs-patched numerics |
+| `differential/combined-diff.json`, `diff-block-{64,128,512}.json` | original-vs-patched numerics (metadata, finite, raw-byte identity, budget) |
 | `probe/` | patched `libnam_core.a` probe run (0 allocations) |
 | `probe-baseline/` | pinned-upstream control (RT-002 positive baseline) |
 | `probe-repair-verification.json` | machine-verified patched-vs-control verdict |
 | `manifest.sha256` | hashes of this directory's files |
 
-Total artifact size is ~160 KiB (limit 5 MiB). See `task-notes/RT-003.md` for
-the task-note summary and hashes.
+The `tools/nam-rt-repair/test_compare_diff.py` comparator unit tests are source,
+not artifacts. Total artifact size is ~180 KiB (limit 5 MiB). See
+`task-notes/RT-003.md` for the task-note summary and hashes.
