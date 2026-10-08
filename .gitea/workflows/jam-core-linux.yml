@@ -264,6 +264,9 @@ jobs:
           if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
             expected="$expected jam.RhythmDerived"
           fi
+          if [ -f tests/jam/RhythmSilenceCoverageTests.cpp ]; then
+            expected="$expected jam.RhythmSilenceCoverage"
+          fi
           if [ -f tools/rhythm-eval/tools/test_make_derived.py ] \
              && grep -q 'RhythmDerivedGenerator' jam-core/CMakeLists.txt; then
              expected="$expected jam.RhythmDerivedGenerator"

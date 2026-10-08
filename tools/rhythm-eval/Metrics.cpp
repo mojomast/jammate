@@ -195,19 +195,65 @@ bool nearAnyTruthBeat (const std::vector<double>& beats, double t, double window
     return false;
 }
 
-/** The two corpus fixtures whose declared true silence is a SYNTHESIS ARTIFACT
-    rather than a performance: their two-stage fast decay ends each note in
-    ~0.2 s, so > 70 % of each file is declared true silence and there is almost
-    no playing for a tracker to fabricate against. This is a corpus defect,
-    flagged by name, and is deliberately NOT a numeric coverage threshold: the
-    EVAL-002R ">= 50 % silence" rule also censored genuine sparse playing
-    (`sparse_single_notes` sits at 48.55 %). Remove this list when the corpus is
-    repaired. */
-bool isCorpusDefectiveSilenceFixture (const RhythmTruth& truth)
+/** One reviewed, hash-keyed known fast-decay silence defect. `sha256` is the
+    match key: the DECLARED WAV identity, never the fixture name. `name` and
+    `citation` are the reviewed label and the independent measurement that
+    established the defect. */
+struct KnownFastDecayDefect
 {
-    return truth.name == "sustained_chords"
-           || truth.name == "tapping_muting_only";
+    const char* name;
+    const char* sha256;
+    const char* citation;
+};
+
+/** Reviewed registry of defective recordings whose declared `trueSilenceSpans`
+    are a synthesis artifact rather than a performance (EVAL-007).
+
+    This was previously a by-NAME list (`sustained_chords`, `tapping_muting_only`)
+    which EVAL-006 invalidated: the repaired `sustained_chords` render has the
+    same name and genuine, independently measured 1.43 s of silence, while the
+    `tapping_muting_only` audit found its sparse occupancy to be a property of
+    tap playing, not a defect. Coverage is therefore keyed on the exact WAV
+    hash, so:
+      - the original fast-decay bytes stay `CorpusDefect`, even if renamed;
+      - the repaired same-name render is `Measured`;
+      - `tapping_muting_only` has no entry and is `Measured` from its onset audit.
+
+    The citation is `docs/research/SUSTAIN-REPAIR.md` (which builds on
+    `docs/research/CORPUS-ACOUSTIC-REVIEW.md`). Hashes are the declared manifest
+    hashes, verified externally and re-hashed by the evidence tests; this table
+    does not read or authenticate the PCM and is not a copyright conclusion. */
+const KnownFastDecayDefect kKnownFastDecayDefects[] = {
+    { "sustained_chords",
+      "e4b9297fca341e70a639fc6a51fbd9e884c1321ee4fc802c5c3497feeefe6442",
+      "EVAL-006 docs/research/SUSTAIN-REPAIR.md / CORPUS-ACOUSTIC-REVIEW.md: "
+      "measured 30-35 dB attack collapse by 300 ms, 8.734 s of 11.35 s declared "
+      "true silence from the two-stage fast decay" }
+};
+
+const KnownFastDecayDefect* findKnownFastDecayDefect (const RhythmTruth& truth)
+{
+    if (truth.sha256.empty())
+        return nullptr;   // no identity: cannot be a hash-keyed defect
+    for (const KnownFastDecayDefect& d : kKnownFastDecayDefects)
+        if (truth.sha256 == d.sha256)
+            return &d;
+    return nullptr;
 }
+
+/** True for a derived-noise perturbation (`scenarioTags` carry both `derived`
+    and `noise`). Such a clip inherits its parent's `trueSilenceSpans`, but the
+    added noise floor now fills what used to be quiet, so those spans are
+    STRUCTURAL and are not a re-measured acoustic stop. Name/source tags cannot
+    by themselves establish physical silence, so this becomes an explicit
+    `NotAssessedStructuralNoise` coverage rather than a silent `Measured`. The
+    raw counts are still computed and reported. The base corpus uses the
+    qualifier `noisy`, not `noise`, so `noisy_microphone` is unaffected. */
+bool isDerivedNoiseTransform (const RhythmTruth& truth)
+{
+    return truth.hasTag ("derived") && truth.hasTag ("noise");
+}
+
 
 /** Steady-state window used for BPM / half-double / syncopation metrics. */
 void steadyWindow (const RhythmTruth& truth, const FixtureMetrics& base,
@@ -238,6 +284,12 @@ void steadyWindow (const RhythmTruth& truth, const FixtureMetrics& base,
 bool RhythmTruth::hasTag (const char* tag) const
 {
     return contains (tags, tag);
+}
+
+const char* knownSilenceDefectCitation (const RhythmTruth& truth)
+{
+    const KnownFastDecayDefect* defect = findKnownFastDecayDefect (truth);
+    return defect != nullptr ? defect->citation : "";
 }
 
 int matchBeats (const std::vector<double>& predicted,
@@ -334,6 +386,7 @@ FixtureMetrics scoreFixture (const RhythmTruth& truth,
 {
     FixtureMetrics m;
     m.name = truth.name;
+    m.sourceSha256 = truth.sha256;
     m.core = truth.isCore();
     m.steady = truth.isSteady();
     m.ramp = truth.isRamp();
@@ -530,13 +583,19 @@ FixtureMetrics scoreFixture (const RhythmTruth& truth,
 
         // Coverage/reason. A fixture with no silence is NOT MEASURED (a rate of
         // 0 is absent data, not a pass). A known corpus synthesis defect is
-        // flagged by name. Neither is a numeric duration threshold.
+        // flagged by its exact WAV hash, never by name. A derived noise clip's
+        // inherited spans are structural, not measured acoustic silence. None
+        // of these is a numeric duration/occupancy threshold.
         if (! m.trueSilenceMeasured)
             m.falseBeatCoverage = FalseBeatCoverage::NoTrueSilence;
-        else if (isCorpusDefectiveSilenceFixture (truth))
+        else if (isDerivedNoiseTransform (truth))
+            m.falseBeatCoverage = FalseBeatCoverage::NotAssessedStructuralNoise;
+        else if (findKnownFastDecayDefect (truth) != nullptr)
             m.falseBeatCoverage = FalseBeatCoverage::CorpusDefect;
         else
             m.falseBeatCoverage = FalseBeatCoverage::Measured;
+        if (m.falseBeatCoverage == FalseBeatCoverage::CorpusDefect)
+            m.falseBeatCoverageCitation = knownSilenceDefectCitation (truth);
         m.falseBeatMetricInformative =
             (m.falseBeatCoverage == FalseBeatCoverage::Measured);
 
@@ -765,6 +824,9 @@ AggregateMetrics aggregateFixtures (const std::vector<FixtureMetrics>& perFixtur
             case FalseBeatCoverage::CorpusDefect:
                 ++a.trueSilenceCorpusDefectFixtures;
                 break;
+            case FalseBeatCoverage::NotAssessedStructuralNoise:
+                ++a.trueSilenceStructuralNoiseFixtures;
+                break;
         }
         if (m.trueSilenceMeasured)
         {
@@ -917,6 +979,21 @@ std::string csvNumber (double v)
     return std::string (buf);
 }
 
+std::string csvText (const std::string& text)
+{
+    if (text.find_first_of (",\"\r\n") == std::string::npos)
+        return text;
+    std::string escaped = "\"";
+    for (const char c : text)
+    {
+        if (c == '"')
+            escaped += '"';
+        escaped += c;
+    }
+    escaped += '"';
+    return escaped;
+}
+
 } // namespace
 
 rhythmjson::Value fixtureMetricsToJson (const FixtureMetrics& m)
@@ -924,6 +1001,7 @@ rhythmjson::Value fixtureMetricsToJson (const FixtureMetrics& m)
     using rhythmjson::Value;
     Value o = Value::makeObject();
     o.set ("name", Value::makeString (m.name));
+    o.set ("sourceSha256", Value::makeString (m.sourceSha256));
     o.set ("core", Value::makeBool (m.core));
     o.set ("steady", Value::makeBool (m.steady));
     o.set ("ramp", Value::makeBool (m.ramp));
@@ -962,6 +1040,8 @@ rhythmjson::Value fixtureMetricsToJson (const FixtureMetrics& m)
     o.set ("trueSilenceMeasured", Value::makeBool (m.trueSilenceMeasured));
     o.set ("falseBeatCoverage",
            Value::makeString (rhythmeval::toString (m.falseBeatCoverage)));
+    o.set ("falseBeatCoverageCitation",
+           Value::makeString (m.falseBeatCoverageCitation));
     o.set ("falseBeatMetricInformative", Value::makeBool (m.falseBeatMetricInformative));
     o.set ("silenceAccelerationMeasured", Value::makeBool (m.silenceAccelerationMeasured));
     o.set ("silenceAccelerationInsufficientEvidence",
@@ -1067,6 +1147,8 @@ rhythmjson::Value aggregateMetricsToJson (const AggregateMetrics& a)
            Value::makeNumber (a.trueSilenceNoSilenceFixtures));
     o.set ("trueSilenceCorpusDefectFixtures",
            Value::makeNumber (a.trueSilenceCorpusDefectFixtures));
+    o.set ("trueSilenceStructuralNoiseFixtures",
+           Value::makeNumber (a.trueSilenceStructuralNoiseFixtures));
     o.set ("trueSilenceInformativeFixtures",
            Value::makeNumber (a.trueSilenceInformativeFixtures));
     o.set ("falseBeatsInTrueSilencePerSecondWorst",
@@ -1142,12 +1224,13 @@ rhythmjson::Value scoringVariantToJson (const ScoringVariant& variant)
 
 const char* fixtureMetricsCsvHeader()
 {
-    return "name,core,steady,ramp,detectionMeasured,predictedBeats,truthBeats,truePositives,"
+    return "name,sourceSha256,core,steady,ramp,detectionMeasured,predictedBeats,truthBeats,truePositives,"
            "precision,recall,"
            "fMeasure,acquired,acquisitionBars,bpmRelativeError,halfDoubleTimeError,"
-           "falseBeatsInTrueSilencePerSecond,trueSilenceSeconds,trueSilenceMeasured,"
-           "falseBeatCoverage,falseBeatMetricInformative,"
-           "falseBeatsInUnplayedBeatWindowsPerSecond,"
+           "falseBeatsInTrueSilence,falseBeatsInTrueSilencePerSecond,trueSilenceSeconds,"
+           "trueSilenceMeasured,"
+           "falseBeatCoverage,falseBeatCoverageCitation,falseBeatMetricInformative,"
+           "falseBeatsInUnplayedBeatWindows,falseBeatsInUnplayedBeatWindowsPerSecond,"
            "falseBeatsOffGridInUnplayedBeatWindowsPerSecond,recoverySeconds,"
            "syncopationMaxDeviationFraction,rampLocalTempoRelErrorMean,phaseMeasured,"
            "phaseP95AbsMs,beatsReportedByBackend,beatsStampAtBlockStart,"
@@ -1159,6 +1242,8 @@ std::string fixtureMetricsCsvRow (const FixtureMetrics& m)
 {
     std::string row;
     row += m.name;
+    row += ',';
+    row += m.sourceSha256;
     row += ',';
     row += m.core ? '1' : '0';
     row += ',';
@@ -1188,6 +1273,8 @@ std::string fixtureMetricsCsvRow (const FixtureMetrics& m)
     row += ',';
     row += m.halfDoubleTimeError ? '1' : '0';
     row += ',';
+    row += std::to_string (m.falseBeatsInTrueSilence);
+    row += ',';
     row += csvNumber (m.falseBeatsInTrueSilencePerSecond);
     row += ',';
     row += csvNumber (m.trueSilenceSeconds);
@@ -1196,7 +1283,11 @@ std::string fixtureMetricsCsvRow (const FixtureMetrics& m)
     row += ',';
     row += rhythmeval::toString (m.falseBeatCoverage);
     row += ',';
+    row += csvText (m.falseBeatCoverageCitation);
+    row += ',';
     row += m.falseBeatMetricInformative ? '1' : '0';
+    row += ',';
+    row += std::to_string (m.falseBeatsInUnplayedBeatWindows);
     row += ',';
     row += csvNumber (m.falseBeatsInUnplayedBeatWindowsPerSecond);
     row += ',';
@@ -1336,7 +1427,8 @@ std::string markdownSummary (const std::string& backendId,
         }
         md += "\n\n";
         md += "\n**Per-fixture evidence.** `coverage` is the true-silence diagnostic's "
-              "coverage (Measured / NoTrueSilence / CorpusDefect); `sil accel` is the "
+              "coverage (Measured / NoTrueSilence / CorpusDefect / "
+              "NotAssessedStructuralNoise); `sil accel` is the "
               "silence tempo-increase diagnostic (blank when not measured); `causal lat` "
               "is the mean availability-minus-event delay of backend-reported beats. "
               "`p95 phase` is `n/a` when no predicted beat matched (a zero there is "
@@ -1424,12 +1516,14 @@ std::string markdownSummary (const std::string& backendId,
         std::snprintf (buf, sizeof buf,
                        "- events in TRUE silence (diagnostic, not a gate): worst %.4f/s over %d "
                        "fixtures; measured-coverage worst %.4f/s over %d fixture(s); "
-                       "coverage: %d measured, %d no-silence, %d corpus-defect\n",
+                       "coverage: %d measured, %d no-silence, %d corpus-defect, "
+                       "%d structural-noise\n",
                        a.falseBeatsInTrueSilencePerSecondWorst, a.silenceFixtures,
                        a.falseBeatsInTrueSilencePerSecondWorstInformative,
                        a.trueSilenceMeasuredFixtures,
                        a.trueSilenceMeasuredFixtures, a.trueSilenceNoSilenceFixtures,
-                       a.trueSilenceCorpusDefectFixtures);
+                       a.trueSilenceCorpusDefectFixtures,
+                       a.trueSilenceStructuralNoiseFixtures);
         md += buf;
         std::snprintf (buf, sizeof buf,
                        "- silence tempo-increase diagnostic: max %+.4f BPM over %d evaluated "
@@ -1618,14 +1712,17 @@ std::string markdownSummary (const std::string& backendId,
         }
         {
             std::snprintf (buf, sizeof buf,
-                           "raw diagnostic: %d/%d fixtures measured for true silence have "
-                           "worst %.4f events/s, worst measured-coverage %.4f/s; silence "
-                           "tempo-increase max %+.4f BPM over %d evaluated fixture(s), "
-                           "%d insufficient. SPEC forbids false ACCELERATION, not beat events "
-                           "during a short intentional holdover; the offline harness cannot "
-                           "attribute a tempo change to the silence rather than to legitimate "
-                           "tempo follow, so no gate is claimed.",
-                           a.trueSilenceMeasuredFixtures, a.fixtures,
+                           "raw diagnostic: %d/%d fixtures declare true silence (%d measured, "
+                           "%d corpus-defect, %d structural-noise); worst %.4f events/s, worst "
+                           "measured-coverage %.4f/s; silence tempo-increase max %+.4f BPM over "
+                           "%d evaluated fixture(s), %d insufficient. SPEC forbids false "
+                           "ACCELERATION, not beat events during a short intentional holdover; "
+                           "the offline harness cannot attribute a tempo change to the silence "
+                           "rather than to legitimate tempo follow, so no gate is claimed.",
+                           a.silenceFixtures, a.fixtures,
+                           a.trueSilenceMeasuredFixtures,
+                           a.trueSilenceCorpusDefectFixtures,
+                           a.trueSilenceStructuralNoiseFixtures,
                            a.falseBeatsInTrueSilencePerSecondWorst,
                            a.falseBeatsInTrueSilencePerSecondWorstInformative,
                            a.maxSilenceTempoIncreaseBpm,
@@ -1673,18 +1770,36 @@ std::string markdownSummary (const std::string& backendId,
                 continue;
             anyNotInformative = true;
             if (m.falseBeatCoverage == FalseBeatCoverage::CorpusDefect)
+            {
                 std::snprintf (buf, sizeof buf,
-                               "- `%s` (`%s`): CORPUS DEFECT — %.2f s (%.0f%%) of declared true "
-                               "silence is an artifact of the fixture's two-stage fast decay, not "
-                               "a performance. Its rate must not be read as a pass or a fail.\n",
+                               "- `%s` (`%s`, sha256 `%.12s…`): CORPUS DEFECT — %.2f s "
+                               "(%.0f%%) of declared true silence is an artifact of the "
+                               "fast-decay recording, not a performance. Its rate must not be "
+                               "read as a pass or a fail. Citation: %s\n",
                                m.name.c_str(), v.label.c_str(),
+                               m.sourceSha256.c_str(),
                                m.trueSilenceSeconds,
-                               100.0 * m.trueSilenceFractionOfDuration);
+                               100.0 * m.trueSilenceFractionOfDuration,
+                               m.falseBeatCoverageCitation.c_str());
+            }
+            else if (m.falseBeatCoverage
+                     == FalseBeatCoverage::NotAssessedStructuralNoise)
+            {
+                std::snprintf (buf, sizeof buf,
+                               "- `%s` (`%s`): NOT ASSESSED (STRUCTURAL NOISE) — the declared "
+                               "true-silence spans are inherited by a derived noise transform "
+                               "whose added floor fills what used to be quiet; they are not a "
+                               "re-measured acoustic stop. The raw count is reported but the "
+                               "rate is not a measured pass or fail.\n",
+                               m.name.c_str(), v.label.c_str());
+            }
             else
+            {
                 std::snprintf (buf, sizeof buf,
                                "- `%s` (`%s`): NO TRUE SILENCE — the metric is NOT MEASURED for "
                                "this fixture; a rate of 0 would be absent data, not a pass.\n",
                                m.name.c_str(), v.label.c_str());
+            }
             md += buf;
         }
     }
@@ -1692,12 +1807,17 @@ std::string markdownSummary (const std::string& backendId,
     {
         md += "None: every fixture has real true silence to measure against.\n";
     }
-    md += "\nCriterion (stated, not hidden): a fixture is not informative when it has no "
-          "true silence at all (NOT MEASURED), or when its declared true silence is a known "
-          "corpus synthesis defect (`sustained_chords`, `tapping_muting_only`, whose two-stage "
-          "fast decay ends each note in ~0.2 s). This replaces EVAL-002R's numeric "
-          "'>= 50 % silence' censoring rule, which also censored genuine sparse playing "
-          "(`sparse_single_notes` sits at 48.55 %).\n";
+    md += "\nCriterion (stated, not hidden): a fixture is not informative when (a) it has "
+          "no true-silence spans at all (`NoTrueSilence`), (b) it is a derived noise "
+          "perturbation whose inherited spans are structural (`NotAssessedStructuralNoise`), "
+          "or (c) its declared WAV sha256 is in the reviewed fast-decay defect registry "
+          "(`CorpusDefect`, EVAL-006 `docs/research/SUSTAIN-REPAIR.md`). Classification is by "
+          "WAV identity, not fixture name: the repaired `sustained_chords` render with hash "
+          "`23b8cf21…` measures its own independently derived spans, while the original "
+          "`e4b9297f…` bytes remain a defect even if renamed. The hash is the declared "
+          "manifest hash, not an authentication of the PCM. No numeric silence-occupancy "
+          "threshold is used; this replaces EVAL-002R's '>= 50 % silence' censoring rule, "
+          "which also censored genuine sparse playing (`sparse_single_notes` sits at 48.55 %).\n";
     return md;
 }
 

@@ -1,0 +1,282 @@
+{
+ "base": "664041c2c40bc5f47e6b4c8491462bc7b6718cc6",
+ "corpora": {
+  "derived": {
+   "aubio": {
+    "acquisitionCore": {
+     "evaluated": 0,
+     "within2Bars": 0
+    },
+    "bpmRelErrorWorstCore": 0,
+    "coverage": {
+     "trueSilenceCorpusDefectFixtures": 0,
+     "trueSilenceInformativeFixtures": 19,
+     "trueSilenceMeasuredFixtures": 19,
+     "trueSilenceNoSilenceFixtures": 0,
+     "trueSilenceStructuralNoiseFixtures": 5
+    },
+    "coverageChanges": [
+     {
+      "fixture": "clean_eighths__noise_snr0db",
+      "new": "NotAssessedStructuralNoise",
+      "prior": "Measured"
+     },
+     {
+      "fixture": "clean_eighths__noise_snr10db",
+      "new": "NotAssessedStructuralNoise",
+      "prior": "Measured"
+     },
+     {
+      "fixture": "clean_eighths__noise_snr20db",
+      "new": "NotAssessedStructuralNoise",
+      "prior": "Measured"
+     },
+     {
+      "fixture": "syncopated_funk__noise_snr0db",
+      "new": "NotAssessedStructuralNoise",
+      "prior": "Measured"
+     },
+     {
+      "fixture": "syncopated_funk__noise_snr10db",
+      "new": "NotAssessedStructuralNoise",
+      "prior": "Measured"
+     }
+    ],
+    "fMeasureMean": 0.538880748,
+    "fixtures": 24,
+    "gates": {
+     "bpm2CoreEvaluated": false,
+     "gateAcquire95Core": false,
+     "gateBpm2Core": false,
+     "gateHalfDouble5Core": false
+    },
+    "newResultsSha256": "49ea78d4ecc9a46712143de1ada8ffd9325227833fab0fd8e71df9a0b181dce2",
+    "noncoverageDiffs": [],
+    "priorResultsSha256": "c772690539f3ec019fcd92c0f86f772f784a85e7246138de8df2624d86a18bd3"
+   },
+   "btrack": {
+    "acquisitionCore": {
+     "evaluated": 0,
+     "within2Bars": 0
+    },
+    "bpmRelErrorWorstCore": 0,
+    "coverage": {
+     "trueSilenceCorpusDefectFixtures": 0,
+     "trueSilenceInformativeFixtures": 19,
+     "trueSilenceMeasuredFixtures": 19,
+     "trueSilenceNoSilenceFixtures": 0,
+     "trueSilenceStructuralNoiseFixtures": 5
+    },
+    "coverageChanges": [
+     {
+      "fixture": "clean_eighths__noise_snr0db",
+      "new": "NotAssessedStructuralNoise",
+      "prior": "Measured"
+     },
+     {
+      "fixture": "clean_eighths__noise_snr10db",
+      "new": "NotAssessedStructuralNoise",
+      "prior": "Measured"
+     },
+     {
+      "fixture": "clean_eighths__noise_snr20db",
+      "new": "NotAssessedStructuralNoise",
+      "prior": "Measured"
+     },
+     {
+      "fixture": "syncopated_funk__noise_snr0db",
+      "new": "NotAssessedStructuralNoise",
+      "prior": "Measured"
+     },
+     {
+      "fixture": "syncopated_funk__noise_snr10db",
+      "new": "NotAssessedStructuralNoise",
+      "prior": "Measured"
+     }
+    ],
+    "fMeasureMean": 0.625348297,
+    "fixtures": 24,
+    "gates": {
+     "bpm2CoreEvaluated": false,
+     "gateAcquire95Core": false,
+     "gateBpm2Core": false,
+     "gateHalfDouble5Core": false
+    },
+    "newResultsSha256": "4a5100c7363f17bf600b56cc145c771a32a481e7202f98155d18aea2034a89a7",
+    "noncoverageDiffs": [],
+    "priorResultsSha256": "07a82506e2fa748b05a6fffffad58f1690e1906113b95d94f1cb5d13d372979c"
+   }
+  },
+  "original": {
+   "aubio": {
+    "acquisitionCore": {
+     "evaluated": 11,
+     "within2Bars": 7
+    },
+    "bpmRelErrorWorstCore": 0.0132930279,
+    "coverage": {
+     "trueSilenceCorpusDefectFixtures": 1,
+     "trueSilenceInformativeFixtures": 18,
+     "trueSilenceMeasuredFixtures": 18,
+     "trueSilenceNoSilenceFixtures": 0,
+     "trueSilenceStructuralNoiseFixtures": 0
+    },
+    "coverageChanges": [
+     {
+      "fixture": "tapping_muting_only",
+      "new": "Measured",
+      "prior": "CorpusDefect"
+     }
+    ],
+    "fMeasureMean": 0.535726867,
+    "fixtures": 19,
+    "gates": {
+     "bpm2CoreEvaluated": true,
+     "gateAcquire95Core": false,
+     "gateBpm2Core": true,
+     "gateHalfDouble5Core": true
+    },
+    "newResultsSha256": "f3eafa3259d73ead33f4772c4d02bddb64387b95dbf22d1fbb17d31ee4b7262a",
+    "noncoverageDiffs": [],
+    "priorResultsSha256": "0f2bd13b3c5881ff9a7fe52bb59dc04ba162f9d22c3a60cdacc37ad642e45c56"
+   },
+   "btrack": {
+    "acquisitionCore": {
+     "evaluated": 11,
+     "within2Bars": 4
+    },
+    "bpmRelErrorWorstCore": 0.0234375,
+    "coverage": {
+     "trueSilenceCorpusDefectFixtures": 1,
+     "trueSilenceInformativeFixtures": 18,
+     "trueSilenceMeasuredFixtures": 18,
+     "trueSilenceNoSilenceFixtures": 0,
+     "trueSilenceStructuralNoiseFixtures": 0
+    },
+    "coverageChanges": [
+     {
+      "fixture": "tapping_muting_only",
+      "new": "Measured",
+      "prior": "CorpusDefect"
+     }
+    ],
+    "fMeasureMean": 0.709905541,
+    "fixtures": 19,
+    "gates": {
+     "bpm2CoreEvaluated": true,
+     "gateAcquire95Core": false,
+     "gateBpm2Core": false,
+     "gateHalfDouble5Core": true
+    },
+    "newResultsSha256": "e41f9eb9d446fa5ec0a6aefa6657d2e876cbf4e342f3da05dddd0c2a8c7aa288",
+    "noncoverageDiffs": [],
+    "priorResultsSha256": "ab17c7ba9a23469f5f2323e41a8089c4cad7ddfb08a8091c2856a3bbe0872f33"
+   }
+  },
+  "repaired": {
+   "aubio": {
+    "acquisitionCore": {
+     "evaluated": 11,
+     "within2Bars": 7
+    },
+    "bpmRelErrorWorstCore": 0.0134173234,
+    "coverage": {
+     "trueSilenceCorpusDefectFixtures": 0,
+     "trueSilenceInformativeFixtures": 19,
+     "trueSilenceMeasuredFixtures": 19,
+     "trueSilenceNoSilenceFixtures": 0,
+     "trueSilenceStructuralNoiseFixtures": 0
+    },
+    "coverageChanges": [
+     {
+      "fixture": "sustained_chords",
+      "new": "Measured",
+      "prior": "CorpusDefect"
+     },
+     {
+      "fixture": "tapping_muting_only",
+      "new": "Measured",
+      "prior": "CorpusDefect"
+     }
+    ],
+    "fMeasureMean": 0.546443705,
+    "fixtures": 19,
+    "gates": {
+     "bpm2CoreEvaluated": true,
+     "gateAcquire95Core": false,
+     "gateBpm2Core": true,
+     "gateHalfDouble5Core": true
+    },
+    "newResultsSha256": "bec043cba1fb577b031de9dab54f7703c32578deab4880ef82fe7a56e25070fe",
+    "noncoverageDiffs": [],
+    "priorResultsSha256": "deb430e59710263b8016b5fbd4d17dad78785e90337f5b90d67a5727cc7c4e91"
+   },
+   "btrack": {
+    "acquisitionCore": {
+     "evaluated": 11,
+     "within2Bars": 5
+    },
+    "bpmRelErrorWorstCore": 0.0234375,
+    "coverage": {
+     "trueSilenceCorpusDefectFixtures": 0,
+     "trueSilenceInformativeFixtures": 19,
+     "trueSilenceMeasuredFixtures": 19,
+     "trueSilenceNoSilenceFixtures": 0,
+     "trueSilenceStructuralNoiseFixtures": 0
+    },
+    "coverageChanges": [
+     {
+      "fixture": "sustained_chords",
+      "new": "Measured",
+      "prior": "CorpusDefect"
+     },
+     {
+      "fixture": "tapping_muting_only",
+      "new": "Measured",
+      "prior": "CorpusDefect"
+     }
+    ],
+    "fMeasureMean": 0.72479124,
+    "fixtures": 19,
+    "gates": {
+     "bpm2CoreEvaluated": true,
+     "gateAcquire95Core": false,
+     "gateBpm2Core": false,
+     "gateHalfDouble5Core": true
+    },
+    "newResultsSha256": "af7ec9237000b21f287e2d011fd41325502b147a986547cee59147d5eea91657",
+    "noncoverageDiffs": [],
+    "priorResultsSha256": "2e4cebf9028f8a1173b6c18d53ea44e07dfe988e6af2d839e286c7df75fe6c54"
+   }
+  }
+ },
+ "manifests": {
+  "derived": "3bb6d350f534b6d6f3208ca1ef5c0f29cf7c7069b3a9771c13f191385c5cc3cd",
+  "original": "06fe2c4356dd411a90b5e4948ebeb00eeb68d82f42d26b5ad25f4797c530fab1",
+  "repaired": "9b0104553d8356f82eebb986f66735e16cf1d2d4623b4d66b1048a693798486a"
+ },
+ "rehash": {
+  "entries": 62,
+  "mismatches": 0
+ },
+ "schemaVersion": 1,
+ "tooling": {
+  "cli": {
+   "builtFrom": "task sources tools/rhythm-eval @ 664041c",
+   "path": "build-EVAL-007/cli/rhythm-eval",
+   "sha256": "464488226991a30ab92685ff43d9b83429b8b8c661076c35088a5ea1389ec6b0"
+  },
+  "plugins": {
+   "aubio": {
+    "path": "build-EVAL-005/main-core/librhythm-eval-aubio.so",
+    "sha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41",
+    "source": "main ad7872f (EVAL-005 pin)"
+   },
+   "btrack": {
+    "path": "build-EVAL-005/main-core/librhythm-eval-btrack.so",
+    "sha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d",
+    "source": "main ad7872f (EVAL-005 pin)"
+   }
+  }
+ }
+}

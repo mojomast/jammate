@@ -1,0 +1,69 @@
+{
+  "cliSha256": "caba565f6c6d8482443edf8d2a0a7ec40b6327ba99ccb2898f7213f8c28de552",
+  "declaredWavsVerified": 62,
+  "rawRunRoot": "/home/mojo/projects/build-EVAL-007-integration/raw",
+  "runs": [
+    {
+      "backend": "btrack",
+      "corpus": "original",
+      "csvCitationRoundtrip": true,
+      "fixtures": 19,
+      "matchedWorkerScoringExceptCpu": true,
+      "nonCoverageMetricDifferences": 0,
+      "resultsSha256": "60dae6c8c68193bb4a898517dc43dc55bde2b67b1eb047f80eebdb44617f982a"
+    },
+    {
+      "backend": "aubio",
+      "corpus": "original",
+      "csvCitationRoundtrip": true,
+      "fixtures": 19,
+      "matchedWorkerScoringExceptCpu": true,
+      "nonCoverageMetricDifferences": 0,
+      "resultsSha256": "eb636f7d2327c790cfd4f569c3d01560ba1ce178274a149a939aa5b43ead0d77"
+    },
+    {
+      "backend": "btrack",
+      "corpus": "repaired",
+      "csvCitationRoundtrip": true,
+      "fixtures": 19,
+      "matchedWorkerScoringExceptCpu": true,
+      "nonCoverageMetricDifferences": 0,
+      "resultsSha256": "6c7321de70c98cf5c1d1325819d94b4204e59efce80f7d318c279aebb9270f63"
+    },
+    {
+      "backend": "aubio",
+      "corpus": "repaired",
+      "csvCitationRoundtrip": true,
+      "fixtures": 19,
+      "matchedWorkerScoringExceptCpu": true,
+      "nonCoverageMetricDifferences": 0,
+      "resultsSha256": "1ebb7aef2778a3d8ca3af306d21f6c9883ecfdc3ee607154a4f36119f0cef34f"
+    },
+    {
+      "backend": "btrack",
+      "corpus": "derived",
+      "csvCitationRoundtrip": true,
+      "fixtures": 24,
+      "matchedWorkerScoringExceptCpu": true,
+      "nonCoverageMetricDifferences": 0,
+      "resultsSha256": "412d0570776adcde163a5d35f35085570531b7d8d197fca2449825800b71b6cf"
+    },
+    {
+      "backend": "aubio",
+      "corpus": "derived",
+      "csvCitationRoundtrip": true,
+      "fixtures": 24,
+      "matchedWorkerScoringExceptCpu": true,
+      "nonCoverageMetricDifferences": 0,
+      "resultsSha256": "0465944c0344cc6a4931e68e9e3b75f974383107a5b29a8efbd55c01993cca1d"
+    }
+  ],
+  "sourceBase": "514c154 + orchestrator CSV citation propagation",
+  "sourceHashes": {
+    "tools/rhythm-eval/Manifest.cpp": "196bb3de757af847eb70b2f49e42abacd0efd3188df61fdd4145f14487ce64f6",
+    "tools/rhythm-eval/Metrics.cpp": "499b85b46cf3e92597122e9f8d75193a96f11c821d2b3db78f70b2a18103c0c9",
+    "tools/rhythm-eval/Metrics.h": "79c2da10829d54aa0158180f65a6778df920e237f20b8a2a8b68f4866426a78b",
+    "tools/rhythm-eval/main.cpp": "351624ea1f8969c2bcb6e3a2d07b9cce2bb37f94ab681e67100d3f1d2a576cc3"
+  },
+  "thresholdsChanged": false
+}

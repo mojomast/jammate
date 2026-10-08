@@ -228,6 +228,7 @@ RhythmTruth toTruth (const ManifestFixture& fixture)
 {
     RhythmTruth t;
     t.name = fixture.name;
+    t.sha256 = fixture.sha256;
     t.beats = fixture.beats;
     t.onsets = fixture.onsets;
     t.silenceSpans = fixture.silenceSpans;

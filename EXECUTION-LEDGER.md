@@ -21,7 +21,7 @@ task note + commit SHA + successful integration.
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **15/15 suites**; default-OFF **13/13** | deterministic seams, acquisition replay, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
+| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **16/16 suites**; default-OFF **14/14** | deterministic seams, acquisition replay, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
 | **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **5/5 passed**; **Standalone and VST3 built** | Windows/ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
@@ -36,7 +36,7 @@ PARTIAL, never PASSED.
 | **G0** fork/license/baseline | **PARTIAL** | current fork builds/tests on Linux; baseline audio/device and Windows evidence incomplete |
 | **G1** real-time foundation | **PARTIAL** | scene code compiled against JUCE; engine-generated MIDI bound measured; full callback, scene delivery and actual CI runs incomplete |
 | **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam tested; live analyzer, real DrumEngine integration and Jam UI incomplete |
-| **G3** tracker selected | **IN PROGRESS (advanced early)** | comparison, robustness, versioned sustain repair and partial BeatNet feasibility integrated; defect-label follow-up, acquisition/BPM limitations and selection ADR incomplete |
+| **G3** tracker selected | **IN PROGRESS (advanced early)** | comparison, robustness, sustain repair, version-aware silence coverage and partial BeatNet feasibility integrated; acquisition/BPM limitations and selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
 | **G5** adaptive drummer | not started | — |
 | **G6/G7** UX / release | not started | — |
@@ -105,6 +105,14 @@ PARTIAL, never PASSED.
   longest positional run; palm-mute mixes that with phase-invalid evidence.
   The observed 123.046875 report equals lag42 exactly, but lag42 selection's
   internal cause remains unresolved. No adapter/scorer gate changed.
+- EVAL-007 integration: accepted worker `514c154`, with CSV citation/escaping
+  corrections. All six independent CLI reruns preserve scored results except
+  timing and reproduce zero non-coverage diffs against prior artifacts. All 62
+  declared WAV entries and both plugin hashes verified; CSV fields round-tripped.
+  Enabled core **16/16**, OFF **14/14**, 19 workflow shell bodies valid. The
+  unchanged robustness aggregator reproduces 2160 rows with only CPU/coverage
+  string differences. Original sustained hash stays CorpusDefect; repaired
+  sustain/tapping assessed; five derived-noise clips explicitly unassessed.
 
 ### Returned handoffs under integration review (2026-10-07)
 
@@ -195,7 +203,7 @@ and reports instead.
 | EVAL-006 sustained-corpus repair + tapping audit | **DONE: versioned synthetic repair** | `wp/EVAL-006-sustain`, `e0e3bde` → main + suite registration | C — evidence, Flash | G3 | 37 tests; 1.5 s measured persistence; historical hashes preserved; both real tracker pairs verified; stale name-based defect label reported |
 | TRACK-004 acquisition/BPM diagnosis | **DONE: scoped causal diagnosis** | `wp/TRACK-004-acquisition`, `98da13f` → main + integration corrections | B — evidence, Flash | G3 | 63 replay checks; all four real-backend trace runs exactly reproduced; numerical vs invalid-phase clauses separated; lag-selection cause unresolved |
 | RT-002 real processor runtime probe | REVIEW CORRECTIONS RUNNING | `wp/RT-002-processor-probe`, initial `3daf931`, base `cd9f97f` | A — runtime evidence, Flash | G1 | example LSTM callback heap traffic observed; fix warm input, machine-readable counters, bounded instrumentation and timed scene/fallback discrimination before integration |
-| EVAL-007 version-aware silence coverage | RUNNING | `wp/EVAL-007-silence-coverage`, base `664041c` | C — evidence, Flash | G3 | granted metrics/manifest/test edits; known defect keyed to reviewed audio hash, repaired/tapping assessment and structural-noise coverage; original artifacts preserved |
+| EVAL-007 version-aware silence coverage | **DONE: scoped coverage correction** | `wp/EVAL-007-silence-coverage`, `514c154` → main + CSV citation corrections | C — evidence, Flash | G3 | exact known-defect hash; repaired/tapping assessed; structural noise unassessed; six reruns preserve non-coverage scores; all 62 input entries verified |
 | TRACK-005 causal BPM-report variant | RUNNING | `wp/TRACK-005-tempo-variant`, base `bf61598` | B — evidence, Flash | G3 | diagnostic-only beat-interval report with predeclared bounded method; exact beat-series comparison, startup/gap/ramp and causal-confirmation evidence; no default adapter change |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |

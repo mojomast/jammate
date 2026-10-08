@@ -50,12 +50,17 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
   equals lag42; numerical report disagreement explains four primary core
   failures, while palm-mute has mixed numeric/invalid-phase evidence. Internal
   lag selection remains unresolved. See `docs/research/TRACKER-ACQUISITION.md`.
+- EVAL-007 coverage correction (`514c154`) integrated with CSV citation fixes:
+  reviewed original sustained hash stays defective even if renamed; repaired
+  sustain and tapping are assessed, five noise-derived clips unassessed with raw
+  counts retained. Six integration CLI runs preserve every non-coverage score;
+  all 62 WAV entries verified. See `docs/research/SILENCE-COVERAGE.md`.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
-  pass **15/15**, including acquisition replay, derived/sustain Python acoustic
+  pass **16/16**, including acquisition replay, silence coverage, derived/sustain Python acoustic
   checks, robustness aggregation and BeatNet research-tool contracts.
-  Default-OFF passes **13/13**.
+  Default-OFF passes **14/14**.
   Tests-OFF registers zero tests.
 - Drum MIDI prepare-time reservation now uses a scheduling bound. Old 256-byte
   storage grows to **2115 bytes** in the test; bounded storage shows zero observed
@@ -81,7 +86,7 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | EVAL-006 integrated sustain repair + tapping audit (worker finished) | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
 | TRACK-004 integrated acquisition/BPM diagnosis (worker finished) | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
 | RT-002 real processor runtime probe (review corrections) | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
-| EVAL-007 version-aware silence coverage | `wp/EVAL-007-silence-coverage`, `../worktrees/EVAL-007-silence-coverage` | `ses_ee7215f59ffeWQ6ZWQvH5z229z` |
+| EVAL-007 integrated silence coverage (worker finished) | `wp/EVAL-007-silence-coverage`, `../worktrees/EVAL-007-silence-coverage` | `ses_ee7215f59ffeWQ6ZWQvH5z229z` |
 | TRACK-005 causal BPM-report diagnostic variant | `wp/TRACK-005-tempo-variant`, `../worktrees/TRACK-005-tempo-variant` | `ses_ee71ab2f2ffeNbYXo23DrPP7Da` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
@@ -121,7 +126,10 @@ Metrics/Manifest files and their tests. It replaces the name-based defect list
 with reviewed audio-identity evidence, retains raw counts, marks noise-inherited
 structural silence as unassessed, and reruns both candidates on original,
 repaired and derived corpora. It owns a new report/artifact directory only;
-historical manifests/WAVs/results and metric thresholds remain preserved.
+historical manifests/WAVs/results and metric thresholds remain preserved. Its
+corrected worker `514c154` is now integrated with CSV citation/escaping fixes and
+independently rerun evidence; its own raw artifacts retain the original worker
+schema while `integration-verification.json` records current source/binary pins.
 
 TRACK-004 corrected `98da13f` is integrated with final overflow/availability
 checks and corrected framing explanations. Missing values remain null/empty;
@@ -146,14 +154,15 @@ input-output feedback, incomplete CSV lock categories, an unbounded instrument
 CAS loop/realloc semantics, and scene-timer attribution versus the fallback.
 The bounded dry matrix cannot establish sampler voice coverage without measured
 activity; no scene-delivery closure or whole-callback safety pass is accepted
-before correction. EVAL-007 continues independently.
+before correction. EVAL-007 has finished.
 
 ### Remaining gate work
 
 G0/G1 remain partial: Windows/ASIO, hardware timing, full callback heap/locking
 and scene delivery need evidence. G2 lacks live analyzer/UI and real DrumEngine
-transport wiring. G3 still needs version-aware silence-defect classification (EVAL-007),
-acquisition improvement and an evidence-backed selection ADR. The historical
+transport wiring. G3 still needs acquisition improvement and an evidence-backed
+selection ADR; version-aware silence-defect classification is now integrated.
+The historical
 `sustained_chords` collapses within about 0.5 s; the separate repaired fixture has
 measured persistence at 1.5 s. Tapping's onset-energy audit supports retaining
 the fixture. See `SUSTAIN-REPAIR.md` and `CORPUS-ACOUSTIC-REVIEW.md`. G4's deterministic implementation does

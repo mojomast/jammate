@@ -193,6 +193,9 @@ jobs:
           if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
             CORE_SUITES="$CORE_SUITES jam.RhythmDerived"
           fi
+          if [ -f tests/jam/RhythmSilenceCoverageTests.cpp ]; then
+            CORE_SUITES="$CORE_SUITES jam.RhythmSilenceCoverage"
+          fi
           # jam.RhythmDerivedGenerator is registered by current main's
           # jam-core/CMakeLists.txt only when Python3 is found; without the guard
           # below a runner missing the interpreter would drop the generation

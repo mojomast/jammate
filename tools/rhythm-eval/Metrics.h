@@ -94,6 +94,20 @@ struct RhythmTruth
 {
     std::string name;
 
+    /** Declared WAV sha256 from the corpus manifest, carried as the fixture's
+        audio IDENTITY (EVAL-007). Coverage that is a property of the exact
+        recording (the known fast-decay corpus defect) is keyed on this, not on
+        `name`, because EVAL-006 introduced a repaired render that reuses the
+        name `sustained_chords` with a different hash.
+
+        This is the DECLARED hash; it is NOT authentication of the PCM. The
+        harness trusts manifests that were verified externally, and a run that
+        needs audio-identity evidence must re-hash the inputs itself. Comparing
+        hashes here is a corpus-validity bookkeeping step, not a copyright or
+        authenticity conclusion. Empty when a caller (e.g. a synthetic unit
+        test) supplies no identity; an empty hash matches no registry entry. */
+    std::string sha256;
+
     std::vector<double> beats;                 // metric grid, strictly increasing
     std::vector<double> onsets;                // as-played attacks
     /** +/-30 ms windows around beats the player deliberately did not play while
@@ -227,14 +241,30 @@ struct ObservationSeries
       - `Measured`: there is true silence and it is real performance silence.
       - `NoTrueSilence`: the fixture never stops, so the metric is NOT MEASURED.
         A rate of 0 here is not a pass, it is an absence of data.
-      - `CorpusDefect`: the declared true silence is a known artifact of the
-        two-stage fast decay used to synthesise the fixture, not a performance.
-        Reported with the fixture name; see `scoreFixture`. */
+      - `CorpusDefect`: the declared true silence is a known artifact of a
+        specific defective recording, identified by its exact WAV sha256 in the
+        reviewed registry (originally the EVAL-001 `sustained_chords` two-stage
+        fast decay; see docs/research/SUSTAIN-REPAIR.md). It is NOT keyed on the
+        fixture name, so the EVAL-006 repaired render of the same name is
+        Measured and a renamed copy of the defective bytes is still
+        CorpusDefect.
+      - `NotAssessedStructuralNoise`: the fixture declares true-silence spans
+        that are STRUCTURAL rather than re-measured acoustic silence — a derived
+        noise perturbation inherits its parent's spans while an added floor fills
+        what used to be quiet. The raw counts are still reported, but the rate
+        must not be read as a measured pass or fail. Name/source tags alone
+        cannot establish physical silence; only an independent acoustic
+        measurement can, which is why this is an explicit non-assessed status
+        rather than a silent `Measured`.
+
+    New values are appended so existing integer/string values are unchanged for
+    consumers that persisted the enum. */
 enum class FalseBeatCoverage : int
 {
     Measured = 0,
     NoTrueSilence = 1,
-    CorpusDefect = 2
+    CorpusDefect = 2,
+    NotAssessedStructuralNoise = 3
 };
 
 inline const char* toString (FalseBeatCoverage c) noexcept
@@ -244,6 +274,8 @@ inline const char* toString (FalseBeatCoverage c) noexcept
         case FalseBeatCoverage::Measured:      return "Measured";
         case FalseBeatCoverage::NoTrueSilence: return "NoTrueSilence";
         case FalseBeatCoverage::CorpusDefect:  return "CorpusDefect";
+        case FalseBeatCoverage::NotAssessedStructuralNoise:
+            return "NotAssessedStructuralNoise";
     }
     return "Unknown";
 }
@@ -252,6 +284,10 @@ inline const char* toString (FalseBeatCoverage c) noexcept
 struct FixtureMetrics
 {
     std::string name;
+    /** Declared WAV sha256 the fixture was scored from (see RhythmTruth::sha256).
+        Serialised so an evidence run records exactly which audio identity each
+        row belongs to. Empty for hand-built synthetic input. */
+    std::string sourceSha256;
     bool core = false;
     bool steady = false;
     bool ramp = false;
@@ -319,11 +355,16 @@ struct FixtureMetrics
     double trueSilenceSeconds = 0.0;
     double trueSilenceFractionOfDuration = 0.0;
     double falseBeatsInTrueSilencePerSecond = 0.0;
-    /** True when the fixture has real true silence to measure against at all.
-        False means the metric is NOT MEASURED, not passed. */
+    /** True when the fixture DECLARES true-silence spans to measure against (the
+        raw denominator is present). This is a raw presence flag, not a verdict:
+        whether that silence may be read as measured is `falseBeatCoverage`.
+        For `NotAssessedStructuralNoise` the raw counts below are still carried,
+        but the metric must not be reported as a measured pass/fail. */
     bool trueSilenceMeasured = false;
     /** Coverage/reason for the primary diagnostic (see FalseBeatCoverage). */
     FalseBeatCoverage falseBeatCoverage = FalseBeatCoverage::Measured;
+    /** Reviewed citation for a hash-keyed `CorpusDefect`, empty otherwise. */
+    std::string falseBeatCoverageCitation;
     /** Legacy alias kept for existing consumers: true iff `falseBeatCoverage ==
         Measured`. Must never be read as a gate result. */
     bool falseBeatMetricInformative = true;
@@ -458,6 +499,9 @@ struct AggregateMetrics
     int trueSilenceMeasuredFixtures = 0;
     int trueSilenceNoSilenceFixtures = 0;
     int trueSilenceCorpusDefectFixtures = 0;
+    /** Fixtures whose declared silence is a derived-noise structural span; raw
+        counts are still aggregated, but not as a measured-coverage worst. */
+    int trueSilenceStructuralNoiseFixtures = 0;
     /** Legacy alias: number of fixtures whose false-beat diagnostic is usable. */
     int trueSilenceInformativeFixtures = 0;
     double falseBeatsInTrueSilencePerSecondWorst = 0.0;
@@ -580,6 +624,12 @@ std::string markdownSummary (const std::string& backendId,
 // ---------------------------------------------------------------------------
 // Small pure helpers, exposed for tests and for EVAL-003 extensions
 // ---------------------------------------------------------------------------
+
+/** Reviewed citation for a hash-keyed known fast-decay corpus defect, or an
+    empty string when `truth.sha256` is not in the registry. Pure: it compares
+    the DECLARED hash string only; it reads and hashes no file, and it makes no
+    authenticity claim about the PCM. */
+const char* knownSilenceDefectCitation (const RhythmTruth& truth);
 
 /** One-to-one maximum matching between predicted and ground-truth beats within
     `toleranceSeconds`, using the optimal two-pointer sweep over sorted inputs.
