@@ -101,3 +101,18 @@ status.
 
 Exit status of the validator: 0 all checks pass, 3 any run invalid or a
 zero-expected case is positive.
+
+### Recorded evidence on another machine
+
+The default validator requires the pinned local probe binaries and NAM archives.
+CI uses `--evidence-only` to validate the preserved fifteen-run matrix, recorded
+binary/archive/model identities and all allocation/free/lock/overflow counters.
+Present build artifacts are still hash-checked; absent local build artifacts are
+not required in this explicit mode. The result records `validation_mode` as
+`recorded-evidence` or `local-artifacts`. The independent fresh archive/probe
+rebuild and processor replay remain separately recorded in
+`docs/research/nam-activation-repair-integration.json`.
+
+The validator's34 tests include missing local builds accepted in evidence mode,
+missing local builds rejected in strict mode, and present mismatched builds
+rejected in evidence mode. No recorded counter checks are disabled.

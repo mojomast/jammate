@@ -111,6 +111,18 @@ Receipt and downloaded-log hashes:
 The same device, ASIO and callback-timing limits apply. The simulated Jam UI
 preview was verified locally; this run does not build that preview target.
 
+## RT-005 recorded-evidence portability correction
+
+[Run37727369967](https://github.com/mojomast/jammate/actions/runs/37727369967)
+at `e26eeb64991676836b3e36b4586287bab76e2671` passed all core lanes
+**22/23/23/24** and Windows **6/6 drums**. NAM's seven numerical/patch suites
+passed; the two newly registered evidence suites failed on required local
+probe/archive paths. They now use explicit `--evidence-only` validation of
+recorded identities and all counters. Default local artifact validation remains
+strict, and present mismatched files fail in either mode.34 validator tests and
+both registered evidence suites pass with the correction; remote rerun pending.
+Receipt: [`github-ci/run-37727369967.json`](github-ci/run-37727369967.json).
+
 ## TRACK-008 initial CI failure and local correction
 
 [Run37726314737](https://github.com/mojomast/jammate/actions/runs/37726314737)

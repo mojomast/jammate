@@ -10,12 +10,15 @@ in `warm_alloc_cxx_total`, cold overflow counters, cold free/lock counters, a
 missing authoritative column, and unexpected run directories/files.
 """
 import csv
+import importlib.util
+import json
 import pathlib
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -34,6 +37,7 @@ def run_validator(runs_dir):
             [sys.executable, str(HERE / "check_activation_probe.py"),
              "--runs", str(runs_dir),
              "--predeclared", str(PREDECLARED),
+             "--evidence-only",
              "--models-dir", str(MODELS_DIR),
              "--out-json", str(out)],
             capture_output=True, text=True)
@@ -75,6 +79,48 @@ def edit_status(path, mutate):
 
 
 class ActivationProbeTests(unittest.TestCase):
+    def check_local_artifact_contract(self, evidence_only, mismatch=False):
+        spec = importlib.util.spec_from_file_location("activation_validator",
+                                                     HERE / "check_activation_probe.py")
+        validator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(validator)
+        pre = json.loads(PREDECLARED.read_text())
+        arch = pre['architectures'][0]
+        want = pre['variants']['new']
+        local_builds = {want['binary'], want['nam_archive'], want['shared_archive']}
+        original = validator.os.path.isfile
+
+        def available(path):
+            if str(path) in local_builds:
+                return mismatch  # simulate unavailable builds, or present bad bytes
+            return original(path)
+
+        original_sha = validator.sha256
+
+        def digest(path):
+            return '0' * 64 if str(path) in local_builds else original_sha(path)
+
+        errors = []
+        with patch.object(validator.os.path, 'isfile', available), \
+                patch.object(validator, 'sha256', digest):
+            result = validator.check_run('new', arch, str(RUNS / CLEAN), pre,
+                                         str(MODELS_DIR), errors, evidence_only=evidence_only)
+        self.assertIsNotNone(result)
+        return errors
+
+    def test_recorded_evidence_accepts_missing_local_builds(self):
+        self.assertEqual(self.check_local_artifact_contract(True), [])
+
+    def test_strict_local_validation_rejects_missing_builds(self):
+        errors = self.check_local_artifact_contract(False)
+        self.assertTrue(any('on-disk binary missing' in e for e in errors))
+        self.assertTrue(any('on-disk NAM archive missing' in e for e in errors))
+
+    def test_recorded_evidence_rejects_present_mismatched_builds(self):
+        errors = self.check_local_artifact_contract(True, mismatch=True)
+        self.assertTrue(any('on-disk binary sha' in e for e in errors))
+        self.assertTrue(any('on-disk NAM archive sha' in e for e in errors))
+
     def assert_rejected(self, mutate):
         with tempfile.TemporaryDirectory() as d:
             copy = pathlib.Path(d) / "runs"

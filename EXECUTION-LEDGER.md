@@ -129,6 +129,15 @@ absent,26 portable tests pass and the one local check is explicitly skipped.
 Both registered research suites pass. Remote rerun is pending; failure receipt:
 `docs/research/github-ci/run-37726314737.json`.
 
+Run37727369967 at `e26eeb6` confirms the core portability fix: all core lanes
+pass22/23/23/24 suites and Windows passes6/6 drums. NAM's seven numerical/patch
+suites pass, but the two new evidence suites still require local probe/archive
+paths. An explicit `--evidence-only` CI mode retains all recorded identity and
+counter checks while default local validation remains strict.34 unit tests,
+absent-build acceptance in evidence mode, strict rejection of absent builds,
+strict local validation and both registered evidence suites pass locally.
+Receipt: `docs/research/github-ci/run-37727369967.json`. Remote rerun pending.
+
 ### Completed development wave (base `bcf540a`, 2026-10-08)
 
 The wave started on Haiku on OpenCode Go. The user's subsequent instruction
@@ -377,7 +386,7 @@ and reports instead.
 | CI execution evidence | **REMOTE GREEN: scoped builds/tests** | `0820bb5`, run37715897283 | C | G1 | all6 GitHub jobs pass; this is build/test coverage, not whole callback/device validation |
 | TEST-001 foundation tests | **DONE: bounded foundation coverage (D8)** | `wp/TEST-001-foundation`, `0cfc252b` → main | C — verification, Sol | G1 |50 actual JUCE cases; root rebuild and6/6 suites pass; processor migration/concurrent edits remain uncovered |
 | MOD-003 Jam UI shell | **DONE: isolated simulation shell (D7)** | `wp/MOD-003-jam-ui`, `34ab2cb3` → main | C — UI, Sol | G2 | fresh actual JUCE preview build and Xvfb verification pass; seven screenshots; live editor wiring pending |
-| CI-003 GitHub verification | LOCAL CORRECTION VERIFIED; REMOTE RERUN PENDING | main | orchestrator | G1 | last all-green677727c/run37721981804;1b05672/run37726314737 NAM/Windows pass but core fails on local artifact path; portability correction passes locally |
+| CI-003 GitHub verification | NAM EVIDENCE PORTABILITY FIX VERIFIED; REMOTE RERUN PENDING | main | orchestrator | G1 | last all-green677727c/run37721981804;e26eeb6/run37727369967 core22/23/23/24 andWindows6/6 pass, NAM numerical/patch pass but two evidence suites need explicit recorded-evidence mode |
 | TRACK-007 longer-window acquisition characterization | **DONE: corrected scoped evidence; G3 open** | `wp/TRACK-007-long-windows`, `65cd77d` → main | B — evidence, Haiku/Space Bunny/DeepSeek Go | G3 |48 research tests; independent16-fixture render/48 scores,7503 non-CPU fields exact; raw and corrected evidence preserved; core22/20 suites pass |
 | RT-004 NAM architecture callback coverage | **DONE: bounded historical evidence; A2 repair follows in RT-005** | `wp/RT-004-nam-architectures`, `337f4f3` → main | A — runtime evidence, Haiku + Space Bunny/Go | G1 |81 tests; independent260-case replay (80 NAM),6610 stable fields equal; original A2 PReLU allocation evidence retained |
 | DIAG-001 portable diagnostics foundation | **FOUNDATION DONE (D10); full task PARTIAL** | `wp/DIAG-001-core`, `b5852a0` → main | C — core, Haiku + Space Bunny/Go | G4 | independent21/19 core suites,34 diagnostics cases,strict/TSan/ASan checks pass within receipt scope; live wiring/overhead pending |

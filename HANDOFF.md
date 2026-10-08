@@ -48,6 +48,13 @@ correction pass27 tests locally (one local check skipped when artifacts are
 unavailable). Both registered core research suites pass. Remote rerun pending;
 failure/log receipt: `docs/research/github-ci/run-37726314737.json`.
 
+Run37727369967 (`e26eeb6`) passes core22/23/23/24 and Windows6/6; the two NAM
+evidence suites fail on local artifact requirements. The explicit recorded-
+evidence mode correction passes34 validator tests and both registered suites
+with absent build artifacts; strict local mode still rejects missing artifacts.
+Raw evidence and repair bytes remain unchanged. Receipt:
+`docs/research/github-ci/run-37727369967.json`; remote rerun pending.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.

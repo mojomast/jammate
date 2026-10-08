@@ -135,7 +135,7 @@ def scan_runs(runs_dir, pre):
     return errors
 
 
-def check_run(variant, arch, run_dir, pre, models_dir, errors):
+def check_run(variant, arch, run_dir, pre, models_dir, errors, evidence_only=False):
     label = f"{variant}/{arch['id']}"
     status_path = os.path.join(run_dir, "exit-status.txt")
     csv_path = os.path.join(run_dir, "cases.csv")
@@ -178,7 +178,7 @@ def check_run(variant, arch, run_dir, pre, models_dir, errors):
         if os.path.isfile(disk):
             if sha256(disk) != expected_sha:
                 errors.append(f"{label}: on-disk {what} sha != predeclared")
-        elif what in ("binary", "NAM archive"):
+        elif what in ("binary", "NAM archive") and not evidence_only:
             errors.append(f"{label}: on-disk {what} missing: {disk}")
 
     try:
@@ -293,6 +293,8 @@ def main():
     ap.add_argument("--models-dir", required=True)
     ap.add_argument("--out-json", required=True)
     ap.add_argument("--summary-md")
+    ap.add_argument("--evidence-only", action="store_true",
+                    help="validate recorded identities/counters without requiring local build artifacts; present artifacts are still hash-checked")
     args = ap.parse_args()
 
     pre = json.load(open(args.predeclared))
@@ -301,7 +303,8 @@ def main():
     for variant in pre["matrix"]["variants"]:
         for arch in pre["architectures"]:
             run_dir = os.path.join(args.runs, variant, arch["id"])
-            rec = check_run(variant, arch, run_dir, pre, args.models_dir, errors)
+            rec = check_run(variant, arch, run_dir, pre, args.models_dir, errors,
+                            evidence_only=args.evidence_only)
             if rec is not None:
                 rec["variant"] = variant
                 rec["architecture_id"] = arch["id"]
@@ -377,6 +380,7 @@ def main():
                                   f"{val} vs {other['out_rms'][key]}")
 
     result = {"runs_dir": args.runs, "predeclared": args.predeclared,
+              "validation_mode": "recorded-evidence" if args.evidence_only else "local-artifacts",
               "checks_errors": errors, "runs": runs, "all_pass": not errors}
     json.dump(result, open(args.out_json, "w"), indent=2)
 

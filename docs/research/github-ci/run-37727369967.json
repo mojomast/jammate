@@ -1,0 +1,36 @@
+{
+  "runId": 37727369967,
+  "url": "https://github.com/mojomast/jammate/actions/runs/37727369967",
+  "testedSha": "e26eeb64991676836b3e36b4586287bab76e2671",
+  "conclusion": "failure",
+  "cause": "All core lanes and Windows pass; two newly registered NAM evidence suites require local probe/archive paths",
+  "correction": "Explicit --evidence-only validates preserved identities/counters; default strict validation retains required local artifacts",
+  "jobs": [
+    {"name": "NAM / allocation repairs", "id": 113148505548, "conclusion": "failure"},
+    {"name": "Core / both", "id": 113148505752, "conclusion": "success", "suites": 24},
+    {"name": "Core / btrack", "id": 113148505757, "conclusion": "success", "suites": 23},
+    {"name": "Windows / Standalone + VST3 + drums", "id": 113148505785, "conclusion": "success", "suites": 6},
+    {"name": "Core / depfree", "id": 113148505806, "conclusion": "success", "suites": 22},
+    {"name": "Core / aubio", "id": 113148505845, "conclusion": "success", "suites": 23}
+  ],
+  "localCorrectionChecks": {
+    "validatorUnitTests": 34,
+    "recordedEvidenceWithAbsentBuilds": "passes all fifteen runs",
+    "strictWithAbsentBuilds": "rejects with exit 3",
+    "strictWithPinnedLocalArtifacts": "passes",
+    "registeredEvidenceSuites": "2/2 pass",
+    "repairBehaviorAndRawEvidence": "unchanged"
+  },
+  "logHashes": {
+    "/home/mojo/projects/build-RT-005-integration/github-nam-allocation-repairs-failure-37727369967.log": "7d703070afc828ccaf852fdac585c980d8d6bc32d0bcd3084226f0fe1ab51fb5",
+    "/home/mojo/projects/build-RT-005-integration/github-core-both-success-37727369967.log": "37cebeef00ecc3a89dd9806cb77c9f2e637215f1c802014648be618280245703",
+    "/home/mojo/projects/build-RT-005-integration/github-core-btrack-success-37727369967.log": "bbd30d874b76e67fa661ac60ae29e7d2fc246549cae585a8a22c3b1ed0e342ce",
+    "/home/mojo/projects/build-RT-005-integration/github-windows-standalone-vst3-drums-success-37727369967.log": "31406316e351b62165554fa5fe3027a4a91dec626387f34428bf5c902b56c03d",
+    "/home/mojo/projects/build-RT-005-integration/github-core-depfree-success-37727369967.log": "7701066762b19f240cb6f2f59e173592597bf5de54a3d20047dd81d706d2bfc2",
+    "/home/mojo/projects/build-RT-005-integration/github-core-aubio-success-37727369967.log": "925061e8ffcc72469621ee5c0a0d498075d4e360a74991015447079f59ba9881",
+    "/home/mojo/projects/build-RT-005-integration/ci-validator-unit-tests.log": "36077b90097a881e1e64524014518622101f9af7d340061a102f1ccfdf5fed24",
+    "/home/mojo/projects/build-RT-005-integration/ci-recorded-evidence-absent-builds.log": "9db932beb46534af7d4dc17c112cb3900da9e127b4b06e21f18f751e5ca18786",
+    "/home/mojo/projects/build-RT-005-integration/ci-strict-absent-builds-rejected.log": "d34399c4a2f0c426115becad2ef573bfa6e9489f79f51978de8a1c5ff02b1221",
+    "/home/mojo/projects/build-RT-005-integration/ci-main-evidence-suites.log": "b9f1bd513aec3e854e734f1811accb62a11958e455cacd17ee2116a8cfd4ae2d"
+  }
+}

@@ -148,6 +148,7 @@ add_test(NAME nam_rt_activation_probe_verifier_unit COMMAND "${RT003_PYTHON3}" -
   "${_activation_tools}/test_check_activation_probe.py")
 add_test(NAME nam_rt_activation_probe_repair COMMAND "${RT003_PYTHON3}" -B
   "${_activation_tools}/check_activation_probe.py"
+  --evidence-only
   --runs "${_activation_evidence}/runs"
   --predeclared "${_activation_tools}/predeclared.json"
   --models-dir "${NAM_CORE_DIR}/example_models"
