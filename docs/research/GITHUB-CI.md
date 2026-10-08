@@ -111,6 +111,16 @@ Receipt and downloaded-log hashes:
 The same device, ASIO and callback-timing limits apply. The simulated Jam UI
 preview was verified locally; this run does not build that preview target.
 
+## RT-005 / TRACK-008 published-head pass
+
+[Run37728344321](https://github.com/mojomast/jammate/actions/runs/37728344321)
+at `f7c0a113a12cd6c8cd8c95c0ee98836bdc0a29a5` passes all six jobs:
+core **22/22 OFF,23/23 BTrack-only,23/23 aubio-only,24/24 both**, NAM **9/9**,
+Windows2022/MSVC **Standalone + VST3 and6/6 drums**. Both recorded-evidence
+portability corrections are confirmed remotely. This SHA precedes drum-bridge
+integration. Receipt:
+[`github-ci/run-37728344321.json`](github-ci/run-37728344321.json).
+
 ## RT-005 recorded-evidence portability correction
 
 [Run37727369967](https://github.com/mojomast/jammate/actions/runs/37727369967)

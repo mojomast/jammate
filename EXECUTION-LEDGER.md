@@ -138,6 +138,16 @@ absent-build acceptance in evidence mode, strict rejection of absent builds,
 strict local validation and both registered evidence suites pass locally.
 Receipt: `docs/research/github-ci/run-37727369967.json`. Remote rerun pending.
 
+Run37728344321 at `f7c0a11` passes all six jobs: core22/23/23/24, NAM9/9 and
+Windows Standalone/VST3 with6/6 drums. This confirms both recorded-evidence
+portability corrections. Receipt/log hashes:
+`docs/research/github-ci/run-37728344321.json`.
+INT-DRUM-001 `cce1dec` passes independent75 instrumented/74 normal JUCE cases
+and18 portable tests/150 checks; re-review accepts the fixes. Two final
+orchestrator-requested session-reset/event-ordering corrections are pending
+before merge. Real JUCE product/test prebuild and shared registration are in
+progress; no live processor wiring is claimed.
+
 ### Completed development wave (base `bcf540a`, 2026-10-08)
 
 The wave started on Haiku on OpenCode Go. The user's subsequent instruction
@@ -386,13 +396,13 @@ and reports instead.
 | CI execution evidence | **REMOTE GREEN: scoped builds/tests** | `0820bb5`, run37715897283 | C | G1 | all6 GitHub jobs pass; this is build/test coverage, not whole callback/device validation |
 | TEST-001 foundation tests | **DONE: bounded foundation coverage (D8)** | `wp/TEST-001-foundation`, `0cfc252b` → main | C — verification, Sol | G1 |50 actual JUCE cases; root rebuild and6/6 suites pass; processor migration/concurrent edits remain uncovered |
 | MOD-003 Jam UI shell | **DONE: isolated simulation shell (D7)** | `wp/MOD-003-jam-ui`, `34ab2cb3` → main | C — UI, Sol | G2 | fresh actual JUCE preview build and Xvfb verification pass; seven screenshots; live editor wiring pending |
-| CI-003 GitHub verification | NAM EVIDENCE PORTABILITY FIX VERIFIED; REMOTE RERUN PENDING | main | orchestrator | G1 | last all-green677727c/run37721981804;e26eeb6/run37727369967 core22/23/23/24 andWindows6/6 pass, NAM numerical/patch pass but two evidence suites need explicit recorded-evidence mode |
+| CI-003 GitHub verification | **DONE: RT-005/TRACK-008 remote green** | main, `f7c0a11` | orchestrator | G1 | run37728344321 core22/23/23/24, NAM9/9, Windows Standalone/VST3 +6/6 drums; failed-run receipts retained |
 | TRACK-007 longer-window acquisition characterization | **DONE: corrected scoped evidence; G3 open** | `wp/TRACK-007-long-windows`, `65cd77d` → main | B — evidence, Haiku/Space Bunny/DeepSeek Go | G3 |48 research tests; independent16-fixture render/48 scores,7503 non-CPU fields exact; raw and corrected evidence preserved; core22/20 suites pass |
 | RT-004 NAM architecture callback coverage | **DONE: bounded historical evidence; A2 repair follows in RT-005** | `wp/RT-004-nam-architectures`, `337f4f3` → main | A — runtime evidence, Haiku + Space Bunny/Go | G1 |81 tests; independent260-case replay (80 NAM),6610 stable fields equal; original A2 PReLU allocation evidence retained |
 | DIAG-001 portable diagnostics foundation | **FOUNDATION DONE (D10); full task PARTIAL** | `wp/DIAG-001-core`, `b5852a0` → main | C — core, Haiku + Space Bunny/Go | G4 | independent21/19 core suites,34 diagnostics cases,strict/TSan/ASan checks pass within receipt scope; live wiring/overhead pending |
 | RT-005 NAM activation allocation repair | **DONE: measured activation repair; G1 partial** | `wp/RT-005-nam-activations`, `e83d619` → main | A — repair, DeepSeek Go | G1 | independent source review, fresh archive/probe +390 cases/16770 stable fields;9/9 required suites;5 repaired model runs measured-clean |
 | TRACK-008 frozen tempo-stability candidate | **DONE: scoped diagnostic; G3 open** | `wp/TRACK-008-tempo-stability`, `f621ee2` → main | B — diagnostic candidate, DeepSeek Go | G3 | independent review/rebuild/replay accepted;160 scores/24744 fields; frozen behavior + historical raw retained; core24/22 suites pass |
-| INT-DRUM-001 actual clock-to-drum bridge | REVIEW BLOCKED / CORRECTIONS | `wp/INT-DRUM-001-clock-bridge`, `724d75f` | C — injected bridge, DeepSeek Go | G2/G4 | independent10/11/50 driver passes; join/tempo collision and beat-resync phase defects require correction before merge |
+| INT-DRUM-001 actual clock-to-drum bridge | REVIEW ACCEPTED; FINAL EDGE CORRECTIONS | `wp/INT-DRUM-001-clock-bridge`, `cce1dec` | C — injected bridge, DeepSeek Go | G2/G4 | independent75 probe/74 normal JUCE cases,18 portable tests/150 checks; final session-reset and event-ordering edge fixes pending before merge |
 
 ---
 

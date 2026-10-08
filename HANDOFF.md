@@ -55,6 +55,13 @@ with absent build artifacts; strict local mode still rejects missing artifacts.
 Raw evidence and repair bytes remain unchanged. Receipt:
 `docs/research/github-ci/run-37727369967.json`; remote rerun pending.
 
+Remote rerun37728344321 at `f7c0a11` is fully green: core22/23/23/24,
+NAM9/9, Windows Standalone/VST3 and6/6 drums. Receipt/log hashes:
+`docs/research/github-ci/run-37728344321.json`. INT-DRUM-001 `cce1dec` passes
+independent75 instrumented/74 normal JUCE cases and18 portable tests/150 checks,
+and review accepts the fixes. The worker is closing session-reset counters and
+chronological staged-event handling before merge; product/test prebuild is active.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.

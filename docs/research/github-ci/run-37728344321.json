@@ -1,0 +1,36 @@
+{
+  "runId": 37728344321,
+  "url": "https://github.com/mojomast/jammate/actions/runs/37728344321",
+  "testedSha": "f7c0a113a12cd6c8cd8c95c0ee98836bdc0a29a5",
+  "conclusion": "success",
+  "suiteCounts": {
+    "Core / depfree": 22,
+    "Core / btrack": 23,
+    "Core / aubio": 23,
+    "Core / both": 24,
+    "NAM / allocation repairs": 9,
+    "Windows / Standalone + VST3 + drums": 6
+  },
+  "jobs": [
+    {"name": "NAM / allocation repairs", "id": 113151536524, "conclusion": "success"},
+    {"name": "Core / both", "id": 113151536727, "conclusion": "success"},
+    {"name": "Core / depfree", "id": 113151536741, "conclusion": "success"},
+    {"name": "Windows / Standalone + VST3 + drums", "id": 113151536782, "conclusion": "success"},
+    {"name": "Core / aubio", "id": 113151536805, "conclusion": "success"},
+    {"name": "Core / btrack", "id": 113151536834, "conclusion": "success"}
+  ],
+  "limits": [
+    "Drum bridge not integrated at this tested SHA",
+    "Local frozen tempo binaries are an explicit opt-in check; CI authenticates preserved source/freeze/provenance",
+    "NAM CI builds differential targets and validates recorded processor evidence; the 15 actual processor replays were local",
+    "Windows build and drum tests only; no device, ASIO or callback deadline validation"
+  ],
+  "logHashes": {
+    "/home/mojo/projects/build-RT-005-integration/github-nam-allocation-repairs-success-37728344321.log": "cd7541455e91a515f8715adf666c782e031bd6a453a038efcda0e7e94dfc2821",
+    "/home/mojo/projects/build-RT-005-integration/github-core-both-success-37728344321.log": "9d4341e6e9019f9fdb32c23a87c7a9f7d338f95c80112c86bc18d437f50b3976",
+    "/home/mojo/projects/build-RT-005-integration/github-core-depfree-success-37728344321.log": "539c712205c8b849f091276ddae132aa4bdceade4bfa7f70b0ab37cccb7b55fe",
+    "/home/mojo/projects/build-RT-005-integration/github-windows-standalone-vst3-drums-success-37728344321.log": "3ba6fd98a4968bba94ded8ad014cbb39f39c0e2c393b7f9ff424930118f4a92b",
+    "/home/mojo/projects/build-RT-005-integration/github-core-aubio-success-37728344321.log": "389235db448d91aaeb12dc593576012104151409301e6bf6399070870ebc8420",
+    "/home/mojo/projects/build-RT-005-integration/github-core-btrack-success-37728344321.log": "662e82548a24eb6705eeace600f7683b80ea0504cb67147752d1782761bdf4e3"
+  }
+}
