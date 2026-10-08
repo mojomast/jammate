@@ -80,8 +80,9 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | EVAL-005 integrated paired diagnostics (worker finished) | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
 | EVAL-006 integrated sustain repair + tapping audit (worker finished) | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
 | TRACK-004 integrated acquisition/BPM diagnosis (worker finished) | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
-| RT-002 real processor runtime probe | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
+| RT-002 real processor runtime probe (review corrections) | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
 | EVAL-007 version-aware silence coverage | `wp/EVAL-007-silence-coverage`, `../worktrees/EVAL-007-silence-coverage` | `ses_ee7215f59ffeWQ6ZWQvH5z229z` |
+| TRACK-005 causal BPM-report diagnostic variant | `wp/TRACK-005-tempo-variant`, `../worktrees/TRACK-005-tempo-variant` | `ses_ee71ab2f2ffeNbYXo23DrPP7Da` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
 tree and SHA. Review/merge returned work rather than rerunning a worker's topic
@@ -131,6 +132,21 @@ selection. Stored provenance records the pre-correction HEAD used during the
 worker's uncommitted regeneration; `ca47376` commits those exact corrections.
 Integration independently reproduced all four corpus runs. No tracker fix or
 selection is merged; G3 remains open.
+
+TRACK-004 integration merge is `bf61598`. TRACK-005 starts from it in the vacated
+Flash lane: new diagnostic-only wrapper/report/artifacts, a causal fixed-history
+beat-interval BPM variant frozen before corpus scoring. It must preserve beat
+events and every other observation field, compare baseline/variant on original
+and repaired corpora, and record event-start versus causal-confirmation times.
+No default adapter, vendor, scorer, gate or live transport changes authorised.
+
+RT-002 initial `3daf931` returned an actual processor probe and example LSTM
+callback allocations, but is not integrated. Same worker is correcting warm
+input-output feedback, incomplete CSV lock categories, an unbounded instrument
+CAS loop/realloc semantics, and scene-timer attribution versus the fallback.
+The bounded dry matrix cannot establish sampler voice coverage without measured
+activity; no scene-delivery closure or whole-callback safety pass is accepted
+before correction. EVAL-007 continues independently.
 
 ### Remaining gate work
 
