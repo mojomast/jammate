@@ -45,13 +45,17 @@ The existing application provides a substantial practice rig:
 | **Keep the idea** | Presets and guitar/drum/mix recording |
 | **Find tones** | Optional TONE3000 integration and a local capture/IR library |
 
-**The first experimental live Jam loop is connected.** Guitar analysis feeds
-the Musical Clock, which schedules one 4/4 Rock groove into the actual drum
-engine. The Jam screen offers Start/Stop, tap, phase resync, half/double tempo
-and freeze/resume with live telemetry and audio-owner playback status.
+**Experimental live Jam now includes adaptive drums.** Guitar analysis feeds
+the Musical Clock, which joins the prepared 4/4 drum engine on a bar boundary.
+Choose Rock, Hard Rock/Metal, Blues, Funk, Pop or Shuffle, with intensity,
+complexity and automatic/explicit one-bar fills. The Jam screen also offers
+Start/Stop, tap, phase resync, half/double tempo and freeze/resume, with live
+telemetry and audio-owner playback status.
 Default builds use **experimental BTrack**; production tracker selection,
 representative-guitar acquisition and physical-interface timing remain open.
-Adaptive styles, dynamics and fills are later slices and are visibly disabled.
+Style and pattern changes are bar-quantized. Break and follow-tightness controls
+remain visibly disabled. See the [adaptive integration protocol](docs/research/ADAPTIVE-REPLAY-PROTOCOL.md)
+and [execution ledger](EXECUTION-LEDGER.md) for verification status.
 
 <details>
 <summary><strong>See the drum, song and stage screens</strong></summary>
@@ -118,7 +122,7 @@ for this fork. macOS has not been verified.
 | Clock-to-drum bridge | Internal kit/hosted MIDI verified; live processor connected, with queue-full retry and manual transport recovery |
 | Jam controls | Live command/state wiring; 20 UI cases pass, including editor recreation and rapid intent toggling |
 | Tracker selection | BTrack and aubio evaluated; acquisition gate still unmet; no production backend selected |
-| Adaptive drummer | First live 4/4 Rock slice connected; broader musical adaptation and acceptance gates remain open |
+| Adaptive drummer | Six prepared 4/4 styles, gradual dynamics/complexity and one-bar fills; guitar/device acceptance gates remain open |
 
 ### Verification
 

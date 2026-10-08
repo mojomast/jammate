@@ -1,8 +1,8 @@
 # JamMate user guide
 
 JamMate currently uses the inherited **Guitar Companion** interface. This guide
-covers the rig, sequenced drums and the first experimental live Jam workflow.
-The wider adaptive controls described in [SPEC.md](../SPEC.md) remain in development.
+covers the rig, sequenced drums and experimental adaptive live Jam workflow.
+Verification status and remaining gates are in [EXECUTION-LEDGER.md](../EXECUTION-LEDGER.md).
 
 Build the app using the [README](../README.md#build-from-source). The executable,
 plugin bundle and user-data directory still use the name Guitar Companion.
@@ -27,10 +27,11 @@ experimental listening mode, described below.
 Open **JAM** from the main toolbar. In a default live-enabled build, the backend
 is labelled **experimental BTrack**. It listens to guitar after input gain and
 before the gate, effects and drum mix. The Musical Clock owns the tempo; the
-first slice prepares one **4/4 Rock** groove and joins on a clock-aligned bar.
+prepared **4/4** styles join on a clock-aligned bar.
 
 1. Choose a working input/output in **Audio & MIDI** and set guitar input level.
-2. Open **JAM**, choose **START**, then play a steady, clearly accented rhythm.
+2. Open **JAM**, choose Rock, Hard Rock/Metal, Blues, Funk, Pop or Shuffle, then
+   choose **START** and play a steady, clearly accented rhythm.
 3. Watch **LISTENING**, **WAITING FOR THE CLOCK** and **JOIN PENDING**. These are
    progress states. **PLAYING (AUDIO ECHO)** means the audio owner reports actual
    drum playback; an accepted Start alone does not mean drums have joined.
@@ -45,8 +46,13 @@ transports can be used again without changing devices. Closing/reopening the
 Jam screen preserves the session. Closing the editor does not stop the audio
 pipeline; the reopened button follows live state.
 
-Style, dynamics, complexity, fills and breaks are visibly disabled in the first
-slice. A build without an available tracker reports **UNAVAILABLE** and does not
+**Intensity** sets the dynamic baseline, with gradual input-energy response.
+**Complexity** guides the groove tier. **Fill amount** controls automatic fills;
+set it to zero for explicit fills only. **FILL** requests a one-bar fill at the
+next safe bar, then the engine returns to the selected groove. Usable clock
+confidence is required; a queued musical decision is not proof it has sounded.
+Style/pattern changes land on bar boundaries. **BREAK** and **Follow tightness**
+are visibly disabled. A build without an available tracker reports **UNAVAILABLE** and does not
 start Jam. Demo previews opt into simulation explicitly; their screenshots are
 labelled **MOCK FIXTURE** and are not live-input measurements.
 
@@ -54,7 +60,13 @@ Tracker selection is still open: useful lock within two bars on representative
 guitar material, physical interface latency and Windows/ASIO play tests remain
 unverified. See the [live pipeline](research/LIVE-JAM-PIPELINE.md),
 [Jam controls](research/LIVE-JAM-UI.md) and
-[replay evidence](research/LIVE-JAM-REPLAY.md) for current results and scope.
+[first-slice replay evidence](research/LIVE-JAM-REPLAY.md) and
+[adaptive replay protocol](research/ADAPTIVE-REPLAY-PROTOCOL.md) for results and scope.
+
+Representative recordings can be imported privately with
+[`tools/guitar-lock-eval/`](../tools/guitar-lock-eval/README.md). Physical loopback
+and play-session evidence tooling is documented in the execution ledger. Empty,
+synthetic or unmeasured populations cannot close those acceptance gates.
 
 ## Rig: build the sound
 
