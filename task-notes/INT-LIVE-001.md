@@ -6,6 +6,7 @@ Base: `88893e24be328f131b5df673078ff934a46ed5ab`
 Handoff commit: `c561de31510bedb14d157178519d0dd90b725bf8` (initial implementation)
 Extension 1 commit: `900afeddc278c193a0421e6f6028efca5cd51345`
 Extension 2 commit (P2 Lost spam + P3 stop-kind upgrade): `a5185d4c64b89b7656512285c0f6346266d43341`
+Extension 3 commit (staged-tempo accepted-only latch): `73458e25b09aebe9266f1e42643c11c0ebf18227`
 Frozen inputs: `docs/research/LIVE-JAM-CONTRACT.md`, `src/jam/JamLiveInterface.h`
 Research: `docs/research/LIVE-JAM-PIPELINE.md`
 
@@ -54,6 +55,25 @@ agents.
 
 `jam-core` and its tests pick the new sources up through the existing
 `CONFIGURE_DEPENDS` globs, so no shared CMake change is required.
+
+## Final-review fix (staged-tempo accepted-only latch)
+
+- **Bug:** `stageTempo` set `haveStagedTempo_/stagedBpm_` *before* the `publish`
+  (which is void and drops on a full queue). A dropped enqueue still latched the
+  target, so the per-target dedupe suppressed every retry; `applyStagedState`
+  later moved the worker grid to a tempo the engine never received (permanent
+  drift).
+- **Fix (`.cpp` only, header hash unchanged):** latch the staged state only after
+  the publish was accepted, detected with `queue_.droppedCount()` before/after
+  (the same pattern `requestJoinAtNextBar`/`requestStopNow` use). On a drop the
+  old staged state is left exactly unchanged, so the next worker tick retries;
+  an accepted target is not republished (no flood); a changed accepted target
+  replaces at the same boundary. No counter is silently restored/overwritten —
+  the serial gap and drops are counted evidence.
+- **Tests:** bridge drop-doesn't-latch-and-retries; drop keeps a previously
+  accepted target and converges at the following bar; actual-engine
+  dropped-150 cannot drift the 120 renderer across the phantom boundary, and a
+  later accepted 150 converges at the following bar with the downbeat intact.
 
 ## P2/P3 second-review fixes
 
@@ -120,7 +140,7 @@ export PATH=/tmp/opencode/venv/bin:$PATH
 cmake -S jam-core -B /home/mojo/projects/build-INT-LIVE-001-worker/jamcore \
       -G Ninja -DCMAKE_BUILD_TYPE=Release -DJAM_CORE_BUILD_TESTS=ON
 cmake --build .../jamcore --target jamTests -j 2
-./jamTests                         # 260 tests, 212702 checks, 0 failed
+./jamTests                         # 262 tests, 212750 checks, 0 failed
 ./jamTests jamjoinpolicy.          # 21 tests, 0 failed
 ./jamTests livejamsession.         # 33 tests, 0 failed
 ctest -R 'jam\.(livejamsession|jamjoinpolicy|DrumClockBridge)'  # 100% passed
@@ -134,7 +154,7 @@ g++ -std=c++17 -O2 -I src tools/live-jam-pipeline/live_jam_pipeline_driver.cpp \
 # (relink reused build-INT-DRUM-001-integration/product JUCE objs + assets,
 #  with DrumEngine/DrumLibrary/DrumGenerator/DrumClockBridgeTests recompiled from
 #  this worktree and jam-core replaced by the new build)
-./GuitarCompanionTests             # 81 cases, 0 failed (incl. intdrum_ + 2 heap probes)
+./GuitarCompanionTests             # 82 cases, 0 failed (incl. intdrum_ + 2 heap probes)
 
 # processor syntax check against the INT-DRUM-001 prebuilt JUCE/NAM env
 #   src/PluginProcessor.cpp -fsyntax-only  -> 0 errors
