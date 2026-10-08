@@ -1,0 +1,26 @@
+# tools/jam-ui-preview current-source adapted run (UI-LIVE-001)
+# Generated 2026-10-08T05:55:01Z
+# Source base: 88893e2 (frozen contract). Harness source: UI-LIVE-001 corrected handoff.
+# Reuse deps: /home/mojo/projects/build-INT-DRUM-001-integration/product (read-only JUCE objects)
+# This supersedes verification.log for CURRENT claims; verification.log is retained
+# as the historical MOD-003 base proof (not a current claim).
+
+$ cmake -S tools/jam-ui-preview -B /home/mojo/projects/build-UI-LIVE-001-preview -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release -DJUCE_SOURCE_DIR=/home/mojo/projects/guitars/third_party/JUCE \
+    -DJUCE_REUSE_BUILD=/home/mojo/projects/build-INT-DRUM-001-integration/product
+$ cmake --build /home/mojo/projects/build-UI-LIVE-001-preview -j 2
+$ xvfb-run -a /home/mojo/projects/build-UI-LIVE-001-preview/JamUiPreview --verify <scratch>/verify-live
+
+PASS layout + screenshot jam-shell-wide.png 1060x720
+PASS resize sweep 580x600
+PASS resize sweep 800x600
+PASS resize sweep 1000x600
+PASS resize sweep 1016x600
+PASS resize sweep 1280x600
+PASS layout + screenshot jam-shell-minimum.png 580x480
+PASS layout + screenshot jam-shell-compact.png 640x540
+PASS layout + screenshot jam-shell-compact-actions.png 640x540
+PASS layout + screenshot jam-shell-diagnostics.png 1060x860
+PASS layout + screenshot jam-shell-stopped.png 1060x860
+PASS silent refresh, controls, timer telemetry, queued bar stop, lock states; intents=21
+exit=0

@@ -24,6 +24,19 @@ class Simulator final : private juce::Timer
 public:
     explicit Simulator (JamOverlay& v) : view (v)
     {
+        // UI-LIVE-001: production defaults are now zero/unavailable, so the
+        // preview must EXPLICITLY opt in to the demo control set and seed the
+        // demo telemetry it asserts against (no fake production defaults).
+        view.setSimulatedPreview (true);
+        state.candidateBpm = 118.4;
+        state.clockBpm = 120.0;
+        state.confidence = 0.82f;
+        state.style = 1;
+        state.mode = 3;
+        state.amounts = { 65.0, 40.0, 30.0, 70.0 };
+        state.lock = JamViewState::Lock::acquiring;
+        state.nextIntent = "Ready to join";
+        state.diagnostics = "No audio device attached. All telemetry is simulated.";
         view.onIntent = [this] (const JamUiIntent& i) { handle (i); };
         publish(); startTimerHz (30);
     }
