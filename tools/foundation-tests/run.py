@@ -40,12 +40,16 @@ def main():
         else:
             flags.append(flag)
             i += 1
+    flags = [f"-I{source / 'src'}", *flags]
     sources = [source / "tests" / name for name in
                ("TestMain.cpp", "DrumSpecTests.cpp", "DrumLibraryTests.cpp",
                 "DrumGeneratorTests.cpp", "DrumCodecTests.cpp", "DrumMidiTests.cpp")]
     sources += [owned / "tests/DrumFoundationTests.cpp"]
     sources += [source / "src" / name for name in
                 ("DrumEngine.cpp", "DrumLibrary.cpp", "DrumGenerator.cpp")]
+    for relative in ("tests/DrumHeapProbe.cpp", "src/jam/DrumClockBridge.cpp"):
+        if (source / relative).is_file():
+            sources.append(source / relative)
     objects = []
     executed = []
     with (output / "build.log").open("w") as log:

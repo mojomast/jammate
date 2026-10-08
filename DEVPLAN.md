@@ -22,8 +22,9 @@ and INT-DRUM-001 actual clock-to-drum bridge. Ownership and sessions are in the
 ledger's Active build wave table. TRACK-008 is accepted and integrated with
 core24/22 suites; RT-005 is accepted with9/9 required NAM suites and independently
 reproduced zero allocations across its five repaired model runs. INT-DRUM-001's
-corrected timing handoff is in final review. Production tracker selection and
-live processor wiring stay open.
+final `467603e` handoff is accepted: merged76 instrumented/75 normal JUCE cases,
+20 portable tests/205 checks and core25/23 suites pass. Production tracker
+selection and live processor wiring stay open.
 
 ---
 

@@ -283,6 +283,7 @@ target_link_libraries(GuitarCompanion
 # It never pulls in juce::; see jam-core/CMakeLists.txt for the rules.
 enable_testing()
 add_subdirectory(jam-core)
+target_link_libraries(GuitarCompanion PRIVATE jam-core)
 
 # --- Unit tests (opt-in) ------------------------------------------------------
 # OFF by default: the normal build is untouched and the test target never even

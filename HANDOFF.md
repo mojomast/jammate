@@ -22,8 +22,8 @@ documented in EXECUTION-LEDGER's completed-wave history.
 TRACK-008 builds and freezes a new tempo-stability diagnostic candidate;
 INT-DRUM-001 builds the bounded bridge to the actual DrumEngine with injected
 clock input. Three isolated worker sessions and ownership are in the ledger's
-Active build wave table. TRACK-008 and RT-005 are integrated; INT-DRUM-001's
-corrected handoff is in final review. Orchestrator owns
+Active build wave table. TRACK-008, RT-005 and INT-DRUM-001's final `467603e`
+handoff are integrated. Orchestrator owns
 shared build/CI registration, processor/editor wiring and integration.
 
 Review update: TRACK-008 final `f621ee2` is accepted and integrated (fresh plugin
@@ -61,6 +61,17 @@ NAM9/9, Windows Standalone/VST3 and6/6 drums. Receipt/log hashes:
 independent75 instrumented/74 normal JUCE cases and18 portable tests/150 checks,
 and review accepts the fixes. The worker is closing session-reset counters and
 chronological staged-event handling before merge; product/test prebuild is active.
+
+Final INT-DRUM-001 `467603e` closes both residuals and is accepted after personal
+narrow-delta review. Merged independent checks pass76 instrumented/75 normal
+JUCE cases and20 portable tests/205 checks; core25/25 both-enabled and23/23 OFF
+pass. Shared tests link one heap-probe TU plus jam-core; the product links
+jam-core for the actual bridge. Both forge guards require the bridge suites.
+No worker remains active; live guitar analysis/processor/UI wiring is pending.
+The final-source Linux Standalone/VST3/test-target build and7/7 registered drum
+suites pass, as does the updated foundation driver's50 cases. Independent
+integration receipt: `docs/research/drum-clock-bridge-integration.json`.
+Final published-head remote CI is pending.
 
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:

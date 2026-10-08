@@ -17,6 +17,7 @@ CORE = {
     'jam.RhythmDerivedGenerator', 'jam.RhythmRobustness',
     'jam.RhythmSustainRepair', 'jam.BeatNetResearch', 'jam.TempoCharacterization',
     'jam.TempoStable', 'jam.TempoStableResearch',
+    'jam.DrumClockBridge',
 }
 NAM = {
     'nam_rt_diff', 'nam_rt_compare_unit', 'nam_rt_patch_checks',
@@ -28,6 +29,7 @@ DRUMS = {
     'drums.parseSpec', 'drums.library', 'drums.generator', 'drums.barCodec',
     'drums.midiCapacity',
     'drums.foundation',
+    'drums.clockBridge',
 }
 TRACKERS = {
     'btrack': ('jam.BTrackBackend', 'jamBTrackTests', r'BTrack::'),

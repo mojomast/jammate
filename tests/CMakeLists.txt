@@ -14,6 +14,8 @@ target_sources(GuitarCompanionTests
         DrumCodecTests.cpp
         DrumMidiTests.cpp
         DrumFoundationTests.cpp
+        DrumClockBridgeTests.cpp
+        DrumHeapProbe.cpp
         # production code under test
         ${PROJECT_SOURCE_DIR}/src/DrumEngine.cpp
         ${PROJECT_SOURCE_DIR}/src/DrumLibrary.cpp
@@ -37,6 +39,7 @@ target_link_libraries(GuitarCompanionTests
         # BinaryData.h: DrumEngine.cpp decodes the embedded GMRockKit samples,
         # so the symbols have to be there even though the tests never play audio.
         GuitarCompanionAssets
+        jam-core
         juce::juce_audio_formats
         juce::juce_audio_processors
     PUBLIC
@@ -51,6 +54,7 @@ add_test(NAME drums.generator  COMMAND GuitarCompanionTests generator_)
 add_test(NAME drums.barCodec   COMMAND GuitarCompanionTests codec_)
 add_test(NAME drums.midiCapacity COMMAND GuitarCompanionTests midi_)
 add_test(NAME drums.foundation COMMAND GuitarCompanionTests foundation_)
+add_test(NAME drums.clockBridge COMMAND GuitarCompanionTests intdrum_)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_definitions(GuitarCompanionTests PRIVATE DRUM_MIDI_HEAP_PROBE=1)

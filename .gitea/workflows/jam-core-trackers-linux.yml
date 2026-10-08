@@ -199,6 +199,9 @@ jobs:
           if [ -f tests/jam/DiagnosticsTests.cpp ]; then
             CORE_SUITES="$CORE_SUITES jam.Diagnostics"
           fi
+          if [ -f tests/jam/DrumClockCommandTests.cpp ]; then
+            CORE_SUITES="$CORE_SUITES jam.DrumClockBridge"
+          fi
           if [ -f tools/tempo-characterization/tests/test_long_windows.py ]; then
             CORE_SUITES="$CORE_SUITES jam.TempoCharacterization"
           fi

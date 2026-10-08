@@ -302,7 +302,7 @@ jobs:
           ctest --test-dir build -C Release -N
 
           # Required drum suites cannot silently disappear from registration.
-          for suite in drums.parseSpec drums.library drums.generator drums.barCodec drums.midiCapacity drums.foundation; do
+          for suite in drums.parseSpec drums.library drums.generator drums.barCodec drums.midiCapacity drums.foundation drums.clockBridge; do
             if ! ctest --test-dir build -C Release -N | grep -q " ${suite}$"; then
               echo "::error::expected suite ${suite} is not registered with ctest"
               exit 1

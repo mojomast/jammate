@@ -21,8 +21,8 @@ task note + commit SHA + successful integration.
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **20/20 suites**; default-OFF **18/18** | deterministic seams, worker lifecycle, acquisition/tempo diagnostics, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
-| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **6/6 passed on Linux and Windows**; **Standalone and VST3 built on both** | ASIO, full callback and device measurements still required |
+| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **25/25 suites**; default-OFF **23/23** | deterministic seams, worker lifecycle, injected drum bridge, acquisition/tempo diagnostics, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
+| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | current Linux drum tests **7/7 passed**; last remotely tested Windows **6/6**; **Standalone and VST3 built on both** | final bridge Windows rerun pending; ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
 PARTIAL, never PASSED.
@@ -34,10 +34,10 @@ PARTIAL, never PASSED.
 | Gate | State | Blocking items |
 |---|---|---|
 | **G0** fork/license/baseline | **PARTIAL** | Linux/Windows formats and drum tests verified; baseline physical audio/device and ASIO evidence incomplete |
-| **G1** real-time foundation | **PARTIAL** | remote CI green; bounded Linux callbacks and editor-absent scene delivery measured; other NAM architectures, full callback/device/hosted-plugin and ASIO coverage incomplete |
-| **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam and simulated Jam shell verified; live analyzer, real DrumEngine/editor integration incomplete |
-| **G3** tracker selected | **IN PROGRESS (advanced early)** | comparison and fixed-variant paired robustness measured; acquisition unmet, variant gap/noise and early-readiness regressions, selection ADR incomplete |
-| **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
+| **G1** real-time foundation | **PARTIAL** | remote CI green; bounded Linux callbacks, LSTM/PReLU repair and editor-absent scene delivery measured; wider model/control, full callback/device/hosted-plugin and ASIO coverage incomplete |
+| **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport and actual injected-clock DrumEngine bridge verified; live analyzer/processor/editor connection incomplete |
+| **G3** tracker selected | **IN PROGRESS (advanced early)** | frozen stability candidate recovers diagnostic regressions in preserved matrix; representative guitar useful-lock evidence and production selection ADR incomplete |
+| **G4** musical clock | **PARTIAL (advanced early)** | deterministic clock and actual injected drum join/follow/resync tests pass; live end-to-end and broader gate evidence incomplete |
 | **G5** adaptive drummer | not started | — |
 | **G6/G7** UX / release | not started | — |
 
@@ -142,11 +142,16 @@ Run37728344321 at `f7c0a11` passes all six jobs: core22/23/23/24, NAM9/9 and
 Windows Standalone/VST3 with6/6 drums. This confirms both recorded-evidence
 portability corrections. Receipt/log hashes:
 `docs/research/github-ci/run-37728344321.json`.
-INT-DRUM-001 `cce1dec` passes independent75 instrumented/74 normal JUCE cases
-and18 portable tests/150 checks; re-review accepts the fixes. Two final
-orchestrator-requested session-reset/event-ordering corrections are pending
-before merge. Real JUCE product/test prebuild and shared registration are in
-progress; no live processor wiring is claimed.
+INT-DRUM-001 final `467603e` is accepted after review and personal narrow-delta
+verification of session reset and chronological staged tempo/resync handling.
+The merged independent driver passes76 instrumented/75 normal JUCE cases and
+20 portable tests/205 checks; core25/25 both-enabled and23/23 OFF pass. Shared
+product/test linking and fail-closed registration are integrated. No live
+processor wiring or G4/G1 pass is claimed.
+The final-source Linux product/test build passes Standalone, VST3 and7/7
+registered drum suites; the updated legacy foundation driver passes50 cases.
+Receipt: `docs/research/drum-clock-bridge-integration.json`. The wave's
+implementation workers are complete; final published-head CI is pending.
 
 ### Completed development wave (base `bcf540a`, 2026-10-08)
 
@@ -402,7 +407,7 @@ and reports instead.
 | DIAG-001 portable diagnostics foundation | **FOUNDATION DONE (D10); full task PARTIAL** | `wp/DIAG-001-core`, `b5852a0` → main | C — core, Haiku + Space Bunny/Go | G4 | independent21/19 core suites,34 diagnostics cases,strict/TSan/ASan checks pass within receipt scope; live wiring/overhead pending |
 | RT-005 NAM activation allocation repair | **DONE: measured activation repair; G1 partial** | `wp/RT-005-nam-activations`, `e83d619` → main | A — repair, DeepSeek Go | G1 | independent source review, fresh archive/probe +390 cases/16770 stable fields;9/9 required suites;5 repaired model runs measured-clean |
 | TRACK-008 frozen tempo-stability candidate | **DONE: scoped diagnostic; G3 open** | `wp/TRACK-008-tempo-stability`, `f621ee2` → main | B — diagnostic candidate, DeepSeek Go | G3 | independent review/rebuild/replay accepted;160 scores/24744 fields; frozen behavior + historical raw retained; core24/22 suites pass |
-| INT-DRUM-001 actual clock-to-drum bridge | REVIEW ACCEPTED; FINAL EDGE CORRECTIONS | `wp/INT-DRUM-001-clock-bridge`, `cce1dec` | C — injected bridge, DeepSeek Go | G2/G4 | independent75 probe/74 normal JUCE cases,18 portable tests/150 checks; final session-reset and event-ordering edge fixes pending before merge |
+| INT-DRUM-001 actual clock-to-drum bridge | **DONE: injected bridge; G2/G4 partial** | `wp/INT-DRUM-001-clock-bridge`, `467603e` → main | C — injected bridge, DeepSeek Go | G2/G4 | merged76 probe/75 normal JUCE cases,20 portable tests/205 checks; timing/lifecycle review accepted; production wiring pending |
 
 ---
 

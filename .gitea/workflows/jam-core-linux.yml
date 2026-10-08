@@ -270,6 +270,9 @@ jobs:
           if [ -f tests/jam/DiagnosticsTests.cpp ]; then
             expected="$expected jam.Diagnostics"
           fi
+          if [ -f tests/jam/DrumClockCommandTests.cpp ]; then
+            expected="$expected jam.DrumClockBridge"
+          fi
           if [ -f tools/tempo-characterization/tests/test_long_windows.py ]; then
             expected="$expected jam.TempoCharacterization"
           fi

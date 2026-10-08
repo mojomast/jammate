@@ -8,7 +8,7 @@ constitute remote execution evidence.
 ## Required jobs
 
 - **Core matrix:** dependency-free, BTrack-only, aubio-only and both enabled.
-  No submodules are materialized. All registered suites execute; 22 base suites
+  No submodules are materialized. All registered suites execute; 23 base suites
   are required, plus each enabled tracker suite. `nm` must succeed and produce
   actual symbol lines; the core archive/tests cannot contain tracker symbols,
   each enabled tracker binary must contain its own real symbols, and the fully
@@ -19,8 +19,8 @@ constitute remote execution evidence.
   This rechecks numerical evidence and committed callback artifacts; it does
   not rerun the actual processor callback probe.
 - **Windows:** fetch only JUCE and NAM product dependencies, configure MSVC,
-  build Standalone, VST3 and the actual drum test executable, require all six
-  existing drum suites, and execute them. This uses WASAPI/DirectSound, with the
+  build Standalone, VST3 and the actual drum test executable, require all seven
+  drum suites (including the injected-clock bridge), and execute them. This uses WASAPI/DirectSound, with the
   embedded browser disabled. ASIO/device/latency execution is separate.
 
 Actions are pinned to immutable commits; checkout does not persist credentials.
@@ -53,6 +53,13 @@ The activation validator is exercised on the preserved evidence in CI; local
 probe binaries are not invoked by the remote job. Receipts:
 [`tempo-stability-integration.json`](tempo-stability-integration.json) and
 [`nam-activation-repair-integration.json`](nam-activation-repair-integration.json).
+
+INT-DRUM-001 final integration passes core **23/23 OFF,25/25 both**, and the
+final-source Linux Standalone/VST3 build with **7/7 registered drum suites**.
+The separate instrumented/normal actual-JUCE driver passes76/75 cases, plus
+20 portable tests/205 checks. Both forge guards require the bridge suites.
+Final published-head remote CI is pending. Receipt:
+[`drum-clock-bridge-integration.json`](drum-clock-bridge-integration.json).
 
 Fresh BTrack-only and aubio-only Release builds also each pass **19/19 suites**
 and their real linkage/registration guards. Logs are retained locally under

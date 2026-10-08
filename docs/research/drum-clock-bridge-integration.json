@@ -1,0 +1,56 @@
+{
+  "task": "INT-DRUM-001",
+  "workerHead": "467603ed784adc64b865f4c4f8d5af9b57575233",
+  "reviewedPrecedingHead": "cce1dec2a9b1f137690fb8a0671ec0f40e49766c",
+  "independentReviewSession": "ses_ee65b4f5cffe6G0UYbBY01ETNU",
+  "finalDeltaReview": "orchestrator: bounded chronological tempo/resync transitions and quiescent session reset verified",
+  "scratch": "/home/mojo/projects/build-INT-DRUM-001-integration",
+  "validation": {
+    "instrumentedActualJuceCases": 76,
+    "normalBuildActualJuceCases": 75,
+    "portableTests": 20,
+    "portableChecks": 205,
+    "legacyFoundationDriverCases": 50,
+    "coreBothEnabledSuites": 25,
+    "coreBothDisabledSuites": 23,
+    "rootDrumSuites": 7,
+    "linuxProductTargets": ["GuitarCompanionTests", "GuitarCompanion_Standalone", "GuitarCompanion_VST3"],
+    "finalProductSourceBytes": "relevant production/test/CMake files match merged main exactly",
+    "freshSourcesReusedInputsAndBinaries": "manifest hashes independently verified",
+    "observedDriverCompilerWarnings": 0,
+    "bashWorkflowBodiesParsed": 33
+  },
+  "testsInclude": [
+    "Exact next-bar join and both coincident snapshot/join orders",
+    "Clock-owned boundary tempo updates and same-boundary coalescing",
+    "Exact beat/bar resync phase plus subsequent stop and tempo updates",
+    "Chronological staged tempo/resync overshoot equal to stepwise updates",
+    "Internal embedded sampler, fallback synth and processor-style skip guard",
+    "Hosted MIDI clear/stop release ordered before new note-ons",
+    "Queue pressure, late commands, nonzero timeline origin, device re-prepare and quiescent session resets",
+    "30-minute fractional 127 BPM MIDI event horizon with no sample drift"
+  ],
+  "binaries": {
+    "merged/probe/DrumAllTests": "5c04e41b371061b437ef3dba7c5b7e8face7f0fe132198b1eb8af2f6ca9ae1f6",
+    "merged/no-probe/DrumAllTests": "ddb0c6b1cf482dd79418dc8f91ced93c86ae7aa99e440e644275f7d5728ca8de",
+    "merged/portable/DrumClockBridgePortableTests": "ac88160895a91b3b4dc3c4747b391278f7adc499488cda822a0635f07828f182"
+  },
+  "limits": [
+    "Injected clock input; live analysis/availability stamping/processor/Jam UI wiring remains pending",
+    "Lifecycle changes require producer, audio consumer and readers quiescent/joined; attach/detach are not concurrent hot swaps",
+    "Audio-owner getters are not cross-thread UI telemetry",
+    "One prepared 4/4 Rock groove; adaptive dynamics/fills/style planning remain future work",
+    "Heap probe covers the measured no-op hosted guest and bounded MIDI path, not arbitrary third-party plugins",
+    "No physical device, ASIO or callback deadline evidence; G1/G2/G4 remain partial"
+  ],
+  "logHashes": {
+    "merged/driver.log": "5e1d8fd41fc6ffc8236e10063cbba7d29915bec907c8e042c9a4d4a9718f4f14",
+    "merged-off-ctest.log": "f06a0a3fe0d928cb197511adf0053f604443bf67c89c62424d3051a9573ab414",
+    "merged-both-ctest.log": "351f771c7c0d53282d68926071231ac63ed425326b15ef1130748e850865f398",
+    "merged-guard-tests.log": "74c03fc16fde9a2dfeff03db0ec8f472a5a8dfed04e9e982a912b4b7f64faee3",
+    "final-product-build.log": "db9009d561ff480bcaa3e69b94f59dbe05658daaf9c69e026e281dba7d38717d",
+    "final-product-guard.log": "5091579f3b886c59fca8ff1bec01675b9cd50085e66fd296295ebc7a6da70181",
+    "final-product-tests.log": "b8506e6be3726af4d55b8bab674fb0a6f9689022daea4d95411d06a46b45c4b4",
+    "foundation-compatibility.log": "96b650c1b49abfb14c208fad80fdc9cae3389a0f32c9e9dd69a07e6a0be220a6"
+  }
+}

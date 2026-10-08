@@ -108,6 +108,7 @@ for this fork. macOS has not been verified.
 | Analysis-worker foundation | Injected tracker, lifecycle, discontinuities and bounded evidence queue implemented and tested |
 | Rhythm diagnostics | Portable snapshots and bounded trace export tested; live wiring and callback-overhead measurement pending |
 | Musical Clock | Deterministic core implemented; live end-to-end evidence pending |
+| Clock-to-drum bridge | Actual internal kit and hosted-MIDI paths verified with injected clock; live analysis/processor connection pending |
 | Jam UI shell | Simulated standalone preview built and resize/control checks pass; application wiring pending |
 | Tracker selection | BTrack and aubio evaluated; acquisition gate still unmet; no production backend selected |
 | Adaptive drummer | Live auto-join/follow, dynamics, fills and production Jam controls pending |
@@ -116,7 +117,7 @@ for this fork. macOS has not been verified.
 
 Latest local verification, **8 October 2026**:
 
-- **24/24** core suites with both optional trackers enabled; **22/22** with them
+- **25/25** core suites with both optional trackers enabled; **23/23** with them
   disabled. The core builds without JUCE or an audio device.
 - **6/6** JUCE drum suites pass, including 12 new foundation regressions;
   **Standalone + VST3** builds succeed on Linux and Windows.
@@ -150,6 +151,11 @@ Latest local verification, **8 October 2026**:
   40-fixture diagnostic matrix. Independent replay reproduces all 160 scores;
   delayed confirmation and residual jitter remain, and it is not promoted to
   production.
+- The [actual clock-to-drum bridge](docs/research/DRUM-CLOCK-BRIDGE.md) passes
+  **76 instrumented and 75 normal-build JUCE cases**, plus **20 portable tests /
+  205 checks**. Injected-clock checks cover exact next-bar join, boundary tempo
+  changes, beat/bar resync, stop, internal audio and a 30-minute fractional-tempo
+  MIDI horizon. Production analysis and UI wiring remain pending.
 
 The [execution ledger](EXECUTION-LEDGER.md) is the authoritative status record.
 Reproduction commands, hashes and limitations live in the linked research
