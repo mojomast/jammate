@@ -99,6 +99,8 @@ jobs:
           cd "$CI_WORKDIR"
 
           git init -q .
+          # NAM overlay verifies upstream bytes; keep LF checkout bytes on Windows.
+          git config core.autocrlf false
           git remote add origin "${CI_REPO_URL}"
           if ! git -c protocol.version=2 fetch -q --no-tags --depth 1 origin "${CI_COMMIT_SHA}"; then
             echo "Direct fetch by SHA refused; retrying via ref tips."
@@ -141,7 +143,7 @@ jobs:
           # Root CMakeLists.txt:36-40 puts Dependencies/eigen on the include
           # path. Do not "simplify" this to a non-recursive init.
           git submodule update --init third_party/JUCE
-          git submodule update --init --recursive third_party/NeuralAmpModelerCore
+          git -c core.autocrlf=false submodule update --init --recursive third_party/NeuralAmpModelerCore
 
           # Assert what we got rather than trusting the command's exit code.
           # The three nested gitlinks are all checked, not just NAM's direct

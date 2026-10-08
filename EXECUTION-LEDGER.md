@@ -34,7 +34,7 @@ PARTIAL, never PASSED.
 | Gate | State | Blocking items |
 |---|---|---|
 | **G0** fork/license/baseline | **PARTIAL** | current fork builds/tests on Linux; baseline audio/device and Windows evidence incomplete |
-| **G1** real-time foundation | **PARTIAL** | bounded real dry/drum callbacks and editor-absent scene delivery measured; example LSTM allocates per model sample; full callback/device/hosted-plugin and remote CI coverage incomplete |
+| **G1** real-time foundation | **PARTIAL** | bounded dry/drum and repaired example-LSTM callbacks plus editor-absent scene delivery measured; other NAM architectures, full callback/device/hosted-plugin and remote CI coverage incomplete |
 | **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam tested; live analyzer, real DrumEngine integration and Jam UI incomplete |
 | **G3** tracker selected | **IN PROGRESS (advanced early)** | comparison, robustness, sustain repair, version-aware silence coverage and partial BeatNet feasibility integrated; acquisition/BPM limitations and selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
@@ -135,6 +135,15 @@ PARTIAL, never PASSED.
   worst core BPM error 0.77%. Sparse original sustain low-tempo/acceleration
   proxy regression retained; no default or gate change, G3 open. Enabled core
   18/18, default-OFF16/16, 19 workflow shell bodies valid.
+- RT-003 integration: corrected `401a6c1`,5/5 standalone suites pass; independent
+  six-config/three-block output binaries are byte-identical. Baseline/repaired
+  processor probes reproduce two/zero C allocations per model sample. Fixed the
+  actual product include-root regression; fresh Standalone/VST3 builds and5/5
+  JUCE drum suites pass. Further probe against fresh product archives is clean
+  across all26 cases, including all8 NAM cases. Case matrix, heap frees and scene
+  evidence validators strengthened; new Linux NAM workflow requires five suites;
+  all22 workflow shell bodies pass syntax checks. Submodule remains pristine.
+  This closes the measured example-LSTM allocation issue, not full G1 coverage.
 
 ### Returned handoffs under integration review (2026-10-07)
 
@@ -227,8 +236,9 @@ and reports instead.
 | RT-002 real processor runtime probe | **DONE: bounded runtime evidence** | `wp/RT-002-processor-probe`, `6e89b1c` → main + integration fixes | A — runtime evidence, Flash | G1 | 26 cases independently reproduced; example LSTM callback allocations measured; scene Timer/fallback differential; full G1 remains partial |
 | EVAL-007 version-aware silence coverage | **DONE: scoped coverage correction** | `wp/EVAL-007-silence-coverage`, `514c154` → main + CSV citation corrections | C — evidence, Flash | G3 | exact known-defect hash; repaired/tapping assessed; structural noise unassessed; six reruns preserve non-coverage scores; all 62 input entries verified |
 | TRACK-005 causal BPM-report variant | **DONE: diagnostic-only variant evidence** | `wp/TRACK-005-tempo-variant`, `7b3a4d7` → main + framing corrections | B — evidence, Flash | G3 | causal readiness-gated step evidence; six runs reproduced; gains and sparse regression retained; no production/default change |
-| RT-003 LSTM callback allocation repair | REVIEW CORRECTIONS RUNNING | `wp/RT-003-nam-lstm`, initial `c96134b`, base `af8b77a` | A — runtime repair, Flash | G1 | measured allocation removal promising; fix non-finite comparator acceptance, patch-file verification, repeated reconfiguration and copied-source refresh before integration |
-| ANALYSIS-001 injected worker lifecycle subset | RETURNED FOR REVIEW (D6) | `wp/ANALYSIS-001-worker`, `20a015a`, base `af8b77a` | C — core implementation, Flash | G4 | injected worker, bounded event/availability publication and tests/benchmark returned; lifecycle/rate/discontinuity contracts require review; no processor wiring or selection |
+| RT-003 LSTM callback allocation repair | **DONE: measured LSTM repair** | `wp/RT-003-nam-lstm`, `401a6c1` → main + product/verifier fixes | A — runtime repair, Flash | G1 | numerical and real processor evidence reproduced;5/5 standalone checks; fresh product builds/drum tests/probe pass; full G1 partial |
+| ANALYSIS-001 injected worker lifecycle subset | REVIEW CORRECTIONS PAUSED (D6) | `wp/ANALYSIS-001-worker`, initial `20a015a` + uncommitted corrections | C — core implementation, Flash | G4 | Flash insufficient-balance error; partial worker corrections preserved for local review/verification; no processor wiring or selection |
+| TRACK-006 fixed variant paired robustness | BLOCKED: Flash provider balance | `wp/TRACK-006-variant-robustness`, base `85e1cf4` | B — evidence, Flash | G3 | worker stopped with Insufficient Balance before producing code/evidence; no measured robustness result |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |

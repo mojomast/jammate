@@ -1,0 +1,70 @@
+# Standalone NAM repair checks; no JUCE or audio device required.
+# Remote runner/toolchain installation remains unverified locally.
+name: NAM LSTM repair (linux)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nam-rt-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI_REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
+      CI_COMMIT_SHA: ${{ github.sha }}
+    steps:
+      - name: Exact commit and pinned NAM submodules
+        run: |
+          set -eu
+          CI_WORKDIR="${GITHUB_WORKSPACE:-$HOME}/nam-rt-ci"
+          echo "CI_WORKDIR=$CI_WORKDIR" >> "$GITHUB_ENV"
+          mkdir -p "$CI_WORKDIR"
+          cd "$CI_WORKDIR"
+          git init -q .
+          git remote add origin "$CI_REPO_URL"
+          if ! git fetch -q --no-tags --depth 1 origin "$CI_COMMIT_SHA"; then
+            git fetch -q --no-tags --depth 1 origin \
+              '+refs/heads/*:refs/remotes/origin/*' \
+              '+refs/pull/*/head:refs/remotes/pull/*' \
+              '+refs/pull/*/merge:refs/remotes/pull-merge/*'
+          fi
+          git checkout -q --detach "$CI_COMMIT_SHA"
+          test "$(git rev-parse HEAD)" = "$CI_COMMIT_SHA"
+          git submodule update --init --recursive third_party/NeuralAmpModelerCore
+          expected=$(git ls-tree HEAD third_party/NeuralAmpModelerCore | awk '{print $3}')
+          test "$(git -C third_party/NeuralAmpModelerCore rev-parse HEAD)" = "$expected"
+          test ! -e third_party/JUCE/CMakeLists.txt
+          test -z "$(git submodule status --recursive third_party/NeuralAmpModelerCore | grep -E '^[+-U]' || true)"
+      - name: Linux toolchain
+        run: |
+          set -eu
+          if [ "$(id -u)" -eq 0 ]; then
+            APT=apt-get
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+            APT='sudo -n apt-get'
+          else
+            echo 'Runner requires a C++20 compiler, CMake >=3.22, Ninja, Python3 and patch.' >&2
+            exit 1
+          fi
+          $APT update -qq
+          $APT install -y -qq build-essential cmake ninja-build python3 patch
+      - name: Build and require all repair checks
+        run: |
+          set -eu
+          cd "$CI_WORKDIR"
+          cmake -S tools/nam-rt-repair -B build-nam-rt -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-nam-rt --parallel 2
+          ctest --test-dir build-nam-rt -N --show-only=json-v1 > build-nam-rt/tests.json
+          python3 - <<'PY'
+          import json
+          expected = {'nam_rt_diff', 'nam_rt_compare_unit', 'nam_rt_patch_checks',
+                      'nam_rt_probe_repair', 'nam_rt_probe_verifier_unit'}
+          registered = {test['name'] for test in json.load(open('build-nam-rt/tests.json'))['tests']}
+          assert registered == expected, (registered, expected)
+          PY
+          ctest --test-dir build-nam-rt --output-on-failure

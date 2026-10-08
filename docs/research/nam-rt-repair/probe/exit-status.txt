@@ -1,0 +1,4 @@
+full_exit=0
+scene_noaudio_short_exit=0
+scene_noaudio_long_exit=0
+combined_findings_exit=0

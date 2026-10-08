@@ -1,0 +1,2 @@
+# The configure-time NAM patch has a byte-identity pin.
+patches/nam/*.patch text eol=lf

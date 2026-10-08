@@ -1,0 +1,16 @@
+# RT-002 artifact manifest (sha256)
+# generated=2026-10-08T00:45:51Z
+b5edc95ae1fcce0d58475124389fcc503730bf8b0e4aa8163b37f2f19bf0a19d  /home/mojo/projects/build-RT-003/probe-build/processor_probe
+71f4550981220c6343d132f909a14830da7a9c470a59679192ca37cbe8c36516  /home/mojo/projects/worktrees/RT-003-nam-lstm/docs/research/nam-rt-repair/probe/exit-status.txt
+3ede433e43bb89aa7386095929ddb8d148811117ef99dc09545944c0de637ea9  /home/mojo/projects/worktrees/RT-003-nam-lstm/docs/research/nam-rt-repair/probe/findings-full.json
+314c855030931b8722b2ad7d117b697bf44738def5fd92780a735b78b055d3c9  /home/mojo/projects/worktrees/RT-003-nam-lstm/docs/research/nam-rt-repair/probe/findings.json
+82988565b686518eba76d160a878545c6eafeb59a5909e12957d8d068308122a  /home/mojo/projects/worktrees/RT-003-nam-lstm/docs/research/nam-rt-repair/probe/processor-probe-combos.csv
+d94a93b34ee70aabc0a5496b19e5cb65dbbeea513d8e1a8bbd09ddafae739e7f  /home/mojo/projects/worktrees/RT-003-nam-lstm/docs/research/nam-rt-repair/probe/processor-probe-run.log
+bbaecb53dade60610ba4cbc0e8aae1d48263a13e32d579d714eeea58d658178d  /home/mojo/projects/worktrees/RT-003-nam-lstm/docs/research/nam-rt-repair/probe/scene-noaudio-long.json
+097fc0aa24531188501a35b495cb691154422ce5cb8911da5eca249a4f43f9ec  /home/mojo/projects/worktrees/RT-003-nam-lstm/docs/research/nam-rt-repair/probe/scene-noaudio-long.log
+922ed472e7011ab65adc9da3d0e934bb9957e134d85f957fd23576dc0be527af  /home/mojo/projects/worktrees/RT-003-nam-lstm/docs/research/nam-rt-repair/probe/scene-noaudio-short.json
+06b9fabbe9e09d6170c44db0fce5e826e80b3db550dbec762353861a9592f69c  /home/mojo/projects/worktrees/RT-003-nam-lstm/docs/research/nam-rt-repair/probe/scene-noaudio-short.log
+46edfe5dcda44acf28c690b5a2a0eeb3401f6f7aff0f557d1863003d96f6b147  /home/mojo/projects/build-RT-003/probe-plugin/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a
+dbd11fb2c63b69e00b78a559cff0cb1fbe14ece214dba73326b4232014498507  /home/mojo/projects/build-RT-003/probe-plugin/libnam_core.a
+c097a68ce36cc0f46fd30b13e02988328efe1bc5dffc35957efa4efb0e04618c  /home/mojo/projects/build-RT-003/probe-plugin/libGuitarCompanionAssets.a
+df9f78c49f49c2bb32411df47e3f53746075adb206b92d017e06379d1e56234a  /home/mojo/projects/guitars/third_party/NeuralAmpModelerCore/example_models/lstm.nam

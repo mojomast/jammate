@@ -1471,9 +1471,10 @@ Keep this near the top of the live devplan during implementation.
 | RT-002 | DONE (bounded callback/timer evidence) | main | 6e89b1c + integration fixes | G1 |
 | EVAL-007 | DONE (version-aware silence coverage) | main | 514c154 + CSV citation corrections | G3 |
 | TRACK-005 | DONE (diagnostic-only causal BPM-report variant) | main | 7b3a4d7 + framing corrections | G3 |
-| RT-003 | review corrections running (measured LSTM repair) | wp/RT-003-nam-lstm | initial c96134b, not merged | G1 |
+| RT-003 | DONE (measured LSTM repair) | main | 401a6c1 + product/verifier fixes | G1 |
+| TRACK-006 | BLOCKED: Flash insufficient balance | wp/TRACK-006-variant-robustness | base85e1cf4, no result | G3 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
-| ANALYSIS-001 | lifecycle subset RETURNED FOR REVIEW (D6); full task BLOCKED:G3 | wp/ANALYSIS-001-worker | 20a015a, not merged | G4 |
+| ANALYSIS-001 | corrections PAUSED: Flash balance (D6); full task BLOCKED:G3 | wp/ANALYSIS-001-worker | initial20a015a + uncommitted worker corrections | G4 |
 | DIAG-001 | BLOCKED:G3 | | | G4 |
 | STYLE-001 | BLOCKED:G4 | | | G5 |
 | DIRECTOR-001 | BLOCKED:G4 | | | G5 |

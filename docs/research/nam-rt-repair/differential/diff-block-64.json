@@ -1,0 +1,64 @@
+{
+  "abs_tol": 1e-05,
+  "rel_tol": 1e-05,
+  "block": 64,
+  "warm_blocks": 64,
+  "seed": 1592594996,
+  "configs": [
+    {
+      "name": "mono_1x3",
+      "count": 4160,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1
+    },
+    {
+      "name": "mono_2x5",
+      "count": 4160,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1
+    },
+    {
+      "name": "mono_4x16",
+      "count": 4160,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1
+    },
+    {
+      "name": "stereo_3x7",
+      "count": 8320,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1
+    },
+    {
+      "name": "multi_io_2x11",
+      "count": 8320,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1
+    },
+    {
+      "name": "zero_layer",
+      "count": 12480,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1
+    }
+  ],
+  "max_abs_diff": 0.0,
+  "max_rel_diff": 0.0,
+  "raw_bytes_identical": true,
+  "errors": [],
+  "budget_pass": true,
+  "bit_exact": true,
+  "all_pass": true
+}

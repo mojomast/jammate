@@ -66,6 +66,11 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
   unchanged. Original/repaired128 acquisition6/11 and7/11, original5128/11,
   worst core BPMerror0.77%; sparse-train regression retained. No tracker selected.
   See `docs/research/TEMPO-REPORT-VARIANT.md`.
+- RT-003 LSTM repair (`401a6c1`) integrated with product include-root/verifier
+  fixes:5/5 standalone checks, byte-identical numerical outputs, fresh Linux
+  Standalone/VST3 builds and5/5 JUCE drum suites. Fresh product-archive probe is
+  clean in all26 cases, including8 NAM cases; measured example-LSTM allocations
+  removed. Other architectures/device/hosted-plugin safety unmeasured, G1 partial.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
@@ -99,8 +104,9 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | RT-002 integrated processor runtime probe (worker finished) | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
 | EVAL-007 integrated silence coverage (worker finished) | `wp/EVAL-007-silence-coverage`, `../worktrees/EVAL-007-silence-coverage` | `ses_ee7215f59ffeWQ6ZWQvH5z229z` |
 | TRACK-005 integrated diagnostic variant (worker finished) | `wp/TRACK-005-tempo-variant`, `../worktrees/TRACK-005-tempo-variant` | `ses_ee71ab2f2ffeNbYXo23DrPP7Da` |
-| RT-003 LSTM repair (review corrections) | `wp/RT-003-nam-lstm`, `../worktrees/RT-003-nam-lstm` | `ses_ee70c33feffeq8pD9Eid5zfHob` |
-| ANALYSIS-001 injected lifecycle subset (returned for review) | `wp/ANALYSIS-001-worker`, `../worktrees/ANALYSIS-001-worker` | `ses_ee70baf44ffeg2zw0hfVyeQjc1` |
+| RT-003 integrated LSTM repair (worker finished) | `wp/RT-003-nam-lstm`, `../worktrees/RT-003-nam-lstm` | `ses_ee70c33feffeq8pD9Eid5zfHob` |
+| ANALYSIS-001 partial corrections (Flash balance error) | `wp/ANALYSIS-001-worker`, `../worktrees/ANALYSIS-001-worker` | `ses_ee70baf44ffeg2zw0hfVyeQjc1` |
+| TRACK-006 blocked before code/evidence (Flash balance error) | `wp/TRACK-006-variant-robustness`, `../worktrees/TRACK-006-variant-robustness` | `ses_ee6ef54b8ffeuAc4vH05SyS44E` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
 tree and SHA. Review/merge returned work rather than rerunning a worker's topic
@@ -198,10 +204,30 @@ reconfigure/copied-source refresh before integration. ANALYSIS-001 `20a015a`
 returned tracker-neutral worker code/tests/benchmark; review is pending and the
 broader task remains partial until selected-backend/processor wiring.
 
+TRACK-005 merge is `85e1cf4`. RT-003 corrected `401a6c1` now passes independent
+numerical and real-processor checks; integration fixes the product's missing
+AudioDSPTools include-root dependency, strengthens probe-artifact validation,
+and adds a standalone Linux repair workflow.5/5 standalone suites pass; the
+separate product rebuild is pending (shell `sh_1190b067e001rd5dzESzU2Xz1y`, do not
+poll). Merge is staged but not committed until product verification returns.
+ANALYSIS-001 same worker corrects early-exit state, stale restart audio and the
+incorrect claim that frame-end is actual live availability. TRACK-006 starts
+from `85e1cf4` in the vacated Flash lane, measuring the unchanged variant against
+all24 derived perturbations with bounded new artifacts only. No default changes.
+
+Update: RT-003 is integrated after fresh product Standalone/VST3 builds,5/5 drum
+tests and a clean fresh-archive26-case processor probe. Independent standalone
+checks5/5 pass; original baseline archives are preserved. Both remaining Flash
+sessions stopped with provider `Insufficient Balance`: TRACK-006 has no changes
+or result; ANALYSIS-001 has uncommitted corrections in its worktree (nine owned
+files) that must be preserved and reviewed before continuing. No corrected
+analyzer handoff or integration is accepted yet.
+
 ### Remaining gate work
 
 G0/G1 remain partial: Windows/ASIO, hardware timing, full callback heap/locking
-and the measured LSTM allocations need work. Bounded editor-absent scene delivery
+and other NAM architectures need work. The measured example-LSTM allocation
+issue is repaired. Bounded editor-absent scene delivery
 has runtime evidence. G2 lacks live analyzer/UI and real DrumEngine
 transport wiring. G3 still needs acquisition improvement and an evidence-backed
 selection ADR; version-aware silence-defect classification is now integrated.

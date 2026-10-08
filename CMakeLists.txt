@@ -13,20 +13,27 @@ add_subdirectory(third_party/JUCE)
 # como faz o NeuralAmpModelerPlugin oficial. Lista de fontes pinada ao v0.5.4.
 set(NAM_CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/NeuralAmpModelerCore")
 
+# RT-003: o NAM é compilado a partir de uma cópia gerada em configure time, com
+# o patch de tempo real do LSTM aplicado (ver cmake/nam-rt/NamRtPatch.cmake).
+# O gitlink em third_party/ nunca é modificado; Eigen/nlohmann continuam vindo
+# das localizações originais pinadas. O overlay verifica SHA256 e falha fechado.
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/nam-rt/NamRtPatch.cmake")
+nam_rt_generate_overlay("${NAM_CORE_DIR}")
+
 add_library(nam_core STATIC
-    ${NAM_CORE_DIR}/NAM/activations.cpp
-    ${NAM_CORE_DIR}/NAM/container.cpp
-    ${NAM_CORE_DIR}/NAM/conv1d.cpp
-    ${NAM_CORE_DIR}/NAM/convnet.cpp
-    ${NAM_CORE_DIR}/NAM/dsp.cpp
-    ${NAM_CORE_DIR}/NAM/get_dsp.cpp
-    ${NAM_CORE_DIR}/NAM/linear.cpp
-    ${NAM_CORE_DIR}/NAM/lstm.cpp
-    ${NAM_CORE_DIR}/NAM/ring_buffer.cpp
-    ${NAM_CORE_DIR}/NAM/util.cpp
-    ${NAM_CORE_DIR}/NAM/wavenet/a2_fast.cpp
-    ${NAM_CORE_DIR}/NAM/wavenet/model.cpp
-    ${NAM_CORE_DIR}/NAM/wavenet/slimmable.cpp)
+    ${NAM_RT_NAM_DIR}/activations.cpp
+    ${NAM_RT_NAM_DIR}/container.cpp
+    ${NAM_RT_NAM_DIR}/conv1d.cpp
+    ${NAM_RT_NAM_DIR}/convnet.cpp
+    ${NAM_RT_NAM_DIR}/dsp.cpp
+    ${NAM_RT_NAM_DIR}/get_dsp.cpp
+    ${NAM_RT_NAM_DIR}/linear.cpp
+    ${NAM_RT_NAM_DIR}/lstm.cpp
+    ${NAM_RT_NAM_DIR}/ring_buffer.cpp
+    ${NAM_RT_NAM_DIR}/util.cpp
+    ${NAM_RT_NAM_DIR}/wavenet/a2_fast.cpp
+    ${NAM_RT_NAM_DIR}/wavenet/model.cpp
+    ${NAM_RT_NAM_DIR}/wavenet/slimmable.cpp)
 
 # O Core exige C++20 (upstream: target_compile_features cxx_std_20).
 target_compile_features(nam_core PRIVATE cxx_std_20)
@@ -36,6 +43,9 @@ set_target_properties(nam_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # (os warning flags recomendados do JUCE não valem para código que não é nosso).
 target_include_directories(nam_core SYSTEM
     PUBLIC
+        ${NAM_RT_INCLUDE_ROOT}
+        # PluginProcessor also includes Dependencies/AudioDSPTools from this root.
+        # Keep it after the overlay so NAM/ headers consistently prefer the patch.
         ${NAM_CORE_DIR}
         ${NAM_CORE_DIR}/Dependencies/eigen
         ${NAM_CORE_DIR}/Dependencies/nlohmann)

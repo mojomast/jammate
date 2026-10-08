@@ -1,0 +1,58 @@
+# RT-003 — minimal real-time allocation repair for the NeuralAmpModelerCore LSTM.
+#
+# Upstream pinned revision: third_party/NeuralAmpModelerCore @
+#   1f42f88535884450104b8711d7595019afa0495b (claimed v0.5.4)
+#
+# This is a *source* patch against upstream NAM. It is applied to a
+# configure-time generated copy of the pinned NAM directory under the build
+# tree; third_party/ is never modified (see cmake/nam-rt/NamRtPatch.cmake).
+# `patch -p1` inside a NAM checkout reproduces the generated overlay.
+#
+# It makes five logical edits across two files (lstm.cpp, lstm.h) that remove
+# the two per-model-sample C-heap allocations RT-002 measured in
+# nam::lstm::LSTMCell::process_ (`_w * _xh + _b`, calloc(48)) and
+# nam::lstm::LSTM::_process_sample (`get_hidden_state()` by value, malloc(12)).
+# The floating-point op order is preserved; see docs/research/NAM-LSTM-RT-REPAIR.md.
+#
+# Zero-context (-U0) on purpose: no context lines means no blank " " lines,
+# so the tracked patch passes `git diff --check`.
+--- a/NAM/lstm.cpp
++++ b/NAM/lstm.cpp
+@@ -31 +31 @@
+-void nam::lstm::LSTMCell::process_(const Eigen::VectorXf& x)
++void nam::lstm::LSTMCell::process_(const Eigen::Ref<const Eigen::VectorXf>& x)
+@@ -37,2 +37,10 @@
+-  // The matmul
+-  this->_ifgo = this->_w * this->_xh + this->_b;
++  // The matmul.
++  //
++  // RT-003: evaluate the matrix-vector product directly into the preallocated
++  // gate vector and add the bias in place. The original single expression
++  // (`_w * _xh + _b`) makes Eigen materialise the product in a heap temporary
++  // for this mixed matrix-vector/sum expression. Splitting it keeps the exact
++  // floating-point operation order (product, then bias) while removing the
++  // per-sample allocation and its matching free.
++  this->_ifgo.noalias() = this->_w * this->_xh;
++  this->_ifgo += this->_b;
+@@ -157 +165,2 @@
+-  const Eigen::VectorXf& hidden_state = this->_layers[this->_layers.size() - 1].get_hidden_state();
++  const Eigen::Ref<const Eigen::VectorXf> hidden_state =
++    this->_layers[this->_layers.size() - 1].get_hidden_state();
+--- a/NAM/lstm.h
++++ b/NAM/lstm.h
+@@ -27,2 +27,10 @@
+-  /// \return Hidden state vector
+-  Eigen::VectorXf get_hidden_state() const { return this->_xh(Eigen::placeholders::lastN(this->_get_hidden_size())); };
++  /// \return A non-owning view of the hidden-state block inside `_xh`.
++  ///
++  /// RT-003: this used to return `Eigen::VectorXf` by value, which allocated a
++  /// heap copy on every call (once per layer hop and once for the head). The
++  /// returned `Ref` maps the existing storage; callers must not keep it beyond
++  /// the cell's lifetime. `process_` accepts it without copying.
++  Eigen::Ref<const Eigen::VectorXf> get_hidden_state() const
++  {
++    return this->_xh(Eigen::placeholders::lastN(this->_get_hidden_size()));
++  };
+@@ -32 +40 @@
+-  void process_(const Eigen::VectorXf& x);
++  void process_(const Eigen::Ref<const Eigen::VectorXf>& x);
