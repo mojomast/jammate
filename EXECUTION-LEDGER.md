@@ -175,6 +175,7 @@ and reports instead.
 | EVAL-005 paired robustness curves | **DONE: scoped paired diagnostics** | `wp/EVAL-005-robustness`, `816a955` → main | B — evidence, Flash | G3 | 29 tests; 2160 rows exactly reproduced; all 24 derived WAV hashes/sizes checked; short-window/missing-data caveats retained |
 | EVAL-006 sustained-corpus repair + tapping audit | RUNNING | `wp/EVAL-006-sustain`, base `6287288` | C — evidence, Flash | G3 | new versioned replacement corpus; original hashes preserved; independent duration/energy checks and paired tracker runs |
 | TRACK-004 acquisition/BPM diagnosis | RUNNING | `wp/TRACK-004-acquisition`, base `6287288` | B — evidence, Flash | G3 | causal observation traces and exact acquisition replay; per-core reasons and BTrack bias diagnosis; no shared tracker/scorer changes |
+| RT-002 real processor runtime probe | RUNNING | `wp/RT-002-processor-probe`, base `cd9f97f` | A — runtime evidence, Flash | G1 | actual JUCE processBlock heap/lock probes and editor-absent timer delivery; independent tools only; scope limits explicit |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |

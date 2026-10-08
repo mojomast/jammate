@@ -67,6 +67,7 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | EVAL-005 integrated paired diagnostics (worker finished) | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
 | EVAL-006 sustained repair + tapping audit | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
 | TRACK-004 acquisition/BPM diagnosis | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
+| RT-002 real processor runtime probe | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
 tree and SHA. Review/merge returned work rather than rerunning a worker's topic
@@ -85,6 +86,13 @@ report; it preserves the historical corpus and audits tapping before proposing
 changes. The second owns new causal trace/replay diagnostics and its report,
 with no tracker/harness/scoring edits. CI-002 has finished. Current
 integration merges: TRACK-003 `e61784d`, EVAL-005 `6287288`.
+
+CI-002 integration merge is `cd9f97f`. RT-002 starts from that SHA in a third
+isolated Flash lane: new independent tools/report only, reuse real JUCE build
+objects, instrument actual callbacks and actual editor-absent timer delivery.
+No legacy callback changes authorised; any runtime/build blocker must be
+recorded as measured partial evidence. Device latency, NAM/arbitrary plugins
+and full G1 coverage are not inferred from a bounded non-device probe.
 
 ### Remaining gate work
 
