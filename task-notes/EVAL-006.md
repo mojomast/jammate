@@ -168,6 +168,6 @@ python3 tools/rhythm-eval/tools/test_repair_sustained.py
 - Round 1 (implementation + evidence + note): `26b5a20`.
 - Round 2 (integration-review corrections — custom `--out`, wording/overclaim,
   build-time validators, physical-byte tests, tooling-pin wording):
-  `<FILLED BY NEXT COMMIT>`.
+  `d904287b`.
 - The note-SHA update is the subsequent commit on `wp/EVAL-006-sustain`; the
   branch head is the handoff SHA reported to the orchestrator.
