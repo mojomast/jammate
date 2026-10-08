@@ -146,9 +146,13 @@ public:
     /// classified by the library's own fill flag: an entry listed in `grooves`
     /// must be a groove, one in `fills` must be a fill. Invalid/mismatched/
     /// non-4/4 entries are skipped (never guessed). Duplicates collapse. Returns
-    /// the number of entries accepted and selects the first accepted groove (or
-    /// keeps the previous selection when no groove was accepted), so a bank
-    /// prepared once plays exactly like `prepareInjectedGroove`.
+    /// the number of entries accepted. A bank prepare is a FULL re-selection: it
+    /// clears any previously prepared bank and selection first, then selects the
+    /// first accepted groove. If no groove is accepted the bank has no selected
+    /// groove (`injectedSelectedGroove()`/`injectedGroove()` are kNoLibraryEntry),
+    /// the pattern is not ready and joins are refused until a groove is prepared.
+    /// A bank prepared from one groove therefore plays exactly like
+    /// `prepareInjectedGroove`.
     int prepareInjectedBank (const jam::LibraryIndex* grooves, int numGrooves,
                             const jam::LibraryIndex* fills, int numFills);
 

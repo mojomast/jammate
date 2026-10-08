@@ -150,6 +150,51 @@ def main():
         if not path.is_file():
             raise FileNotFoundError(f"Missing fresh source: {path}")
 
+    # Sources of the portable, JUCE-free suites (compiled with the bare compiler).
+    portable_sources = [
+        source / "tests" / "jam" / "JamTestMain.cpp",
+        source / "src" / "jam" / "DrumClockBridge.cpp",
+        source / "tests" / "jam" / "DrumClockCommandTests.cpp",
+        source / "tests" / "jam" / "DrumAdaptiveBridgeTests.cpp",
+    ]
+
+    # Provenance is not just the compiled .cpp files: a header change is enough to
+    # change the binary, so the receipt hashes EVERY consumed project header and
+    # the driver itself as well. Without this a pre-commit run could report the
+    # old HEAD next to new .cpp bytes (the integration-review observation).
+    project_headers = [
+        source / "src" / "DrumEngine.h",
+        source / "src" / "DrumMidiCapacity.h",
+        source / "src" / "jam" / "DrumClockBridge.h",
+        source / "src" / "jam" / "IDrumTransport.h",
+        source / "src" / "jam" / "RhythmTypes.h",
+        source / "src" / "rt" / "RtSignal.h",
+        source / "tests" / "TestHarness.h",
+        source / "tests" / "DrumHeapProbe.h",
+        source / "tests" / "jam" / "JamTest.h",
+        Path(__file__).resolve(),
+    ]
+    project_inputs = []
+    for path in [*all_sources, *portable_sources, *project_headers]:
+        if path not in project_inputs:
+            project_inputs.append(path)
+    for path in project_inputs:
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing consumed project input: {path}")
+
+    # Self-test provenance: record the exact HEAD and the dirty status. A dirty
+    # worktree is reported explicitly (not a hard failure) so an intermediate run
+    # still produces a diagnostic receipt, but a final evidence receipt MUST be
+    # from a clean commit.
+    source_head = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
+    git_status = subprocess.check_output(
+        ["git", "status", "--porcelain"], cwd=source, text=True)
+    git_clean = git_status.strip() == ""
+    if not git_clean:
+        print("WARNING: worktree is DIRTY; this is NOT a clean-commit receipt:\n"
+              + git_status, file=sys.stderr)
+
     executed = []
     exit_code = 0
 
@@ -208,10 +253,7 @@ def main():
             cxx, "-std=c++17", "-O2", "-Wall", "-Wextra", "-Wpedantic",
             f"-I{source / 'src'}", f"-I{source / 'tests' / 'jam'}",
             f"-I{source / 'tests'}",
-            str(source / "tests" / "jam" / "JamTestMain.cpp"),
-            str(source / "src" / "jam" / "DrumClockBridge.cpp"),
-            str(source / "tests" / "jam" / "DrumClockCommandTests.cpp"),
-            str(source / "tests" / "jam" / "DrumAdaptiveBridgeTests.cpp"),
+            *[str(p) for p in portable_sources],
             "-o", str(portable_binary),
         ]
         executed.append(portable_cmd)
@@ -221,9 +263,11 @@ def main():
     binaries = [probe_binary, nomacro_binary] + ([portable_binary] if portable_binary else [])
     manifest = {
         "source": str(source),
-        "sourceHead": subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=source, text=True).strip(),
+        "sourceHead": source_head,
+        "gitClean": git_clean,
+        "gitStatus": git_status,
         "freshSources": {str(p): digest(p) for p in all_sources},
+        "projectInputs": {str(p): digest(p) for p in project_inputs},
         "reusedInputs": {p: digest(p) for p in reused},
         "commands": executed,
         "binaries": {str(b.relative_to(output)): digest(b) for b in binaries},
@@ -231,6 +275,7 @@ def main():
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
     print(f"\nManifest and logs: {output}")
+    print(f"sourceHead: {source_head}  gitClean: {git_clean}")
     return exit_code
 
 

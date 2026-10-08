@@ -35,8 +35,19 @@ Useful flags: `--source`, `--product-build`, `--output`, `--no-portable`.
 
 Outputs are kept in per-mode subdirectories (`probe/`, `no-probe/`,
 `portable/`) with each `build.log` and `*-results.log`; the top-level
-`manifest.json` records the source HEAD, fresh-source hashes, reused-input
-hashes, exact commands and binary hashes.
+`manifest.json` records the source HEAD, the **dirty status** (`gitClean` /
+`gitStatus`), fresh-source hashes, hashes of **all consumed project headers and
+the driver itself** (`projectInputs`), reused-input hashes, exact commands and
+binary hashes. A dirty worktree is reported explicitly (and on stderr) rather
+than silently; a final evidence receipt must show `gitClean: true`.
+
+Run the final receipt into a **new** `--output` directory so earlier logs and
+receipts are preserved rather than overwritten:
+
+```sh
+python3 tools/drum-adaptive/run.py \
+  --output /home/mojo/projects/build-DRUM-ADAPT-002-worker/receipt-<head>
+```
 
 This driver does not build the plugin, does not write to the product build, and
 does not register the new tests in the root build. The orchestrator owns that

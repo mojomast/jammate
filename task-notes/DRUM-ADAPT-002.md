@@ -164,8 +164,13 @@ Driver (`tools/drum-adaptive/run.py`, command log
   configuration.
 - Portable JUCE-free suites (`DrumClockBridge` + `DrumAdaptiveBridge`):
   **47 tests, 500 checks, 0 failed**.
-- Binary SHA-256s, per-source/reused-input hashes, exact commands and the source
-  HEAD are in `/home/mojo/projects/build-DRUM-ADAPT-002-worker/manifest.json`.
+- Binary SHA-256s, hashes of every consumed project input (all compiled sources
+  **and** every consumed header plus the driver itself, `projectInputs`),
+  reused-input hashes, the exact `sourceHead`, the dirty status
+  (`gitClean`/`gitStatus`), and exact commands are in the corrected clean-commit
+  receipt folder
+  `/home/mojo/projects/build-DRUM-ADAPT-002-worker/receipt-<head>/manifest.json`
+  (earlier logs/receipts are preserved, not overwritten).
 
 `jam-core` (platform-neutral integration):
 - Auto-globbed `tests/jam/DrumAdaptiveBridgeTests.cpp` and registered
