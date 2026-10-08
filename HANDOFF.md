@@ -44,12 +44,18 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
   **7/11** (both fail); original corpus evidence remains unchanged. By-name
   CorpusDefect label still requires a version-aware follow-up. See
   `docs/research/SUSTAIN-REPAIR.md` and `testdata/rhythm/repaired-sustain/`.
+- TRACK-004 causal diagnosis (`98da13f`) integrated with **63 replay checks**.
+  Both real backends' original-corpus 128/512 runs exactly reproduced, including
+  fixture metrics, replay JSON and stored traces. BTrack's observed123.046875
+  equals lag42; numerical report disagreement explains four primary core
+  failures, while palm-mute has mixed numeric/invalid-phase evidence. Internal
+  lag selection remains unresolved. See `docs/research/TRACKER-ACQUISITION.md`.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
-  pass **14/14**, including derived/sustain Python acoustic checks, robustness
-  aggregation and BeatNet research-tool contracts. Default-OFF has 12 registered
-  suites; the new sustain check passes (last full OFF run was **11/11**).
+  pass **15/15**, including acquisition replay, derived/sustain Python acoustic
+  checks, robustness aggregation and BeatNet research-tool contracts.
+  Default-OFF passes **13/13**.
   Tests-OFF registers zero tests.
 - Drum MIDI prepare-time reservation now uses a scheduling bound. Old 256-byte
   storage grows to **2115 bytes** in the test; bounded storage shows zero observed
@@ -73,7 +79,7 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | TRACK-003 integrated partial feasibility (worker finished) | `wp/TRACK-003-beatnet`, `../worktrees/TRACK-003-beatnet` | `ses_ee745589effeU0Q5VSCHfvX51T` |
 | EVAL-005 integrated paired diagnostics (worker finished) | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
 | EVAL-006 integrated sustain repair + tapping audit (worker finished) | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
-| TRACK-004 acquisition/BPM diagnosis (review corrections) | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
+| TRACK-004 integrated acquisition/BPM diagnosis (worker finished) | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
 | RT-002 real processor runtime probe | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
 | EVAL-007 version-aware silence coverage | `wp/EVAL-007-silence-coverage`, `../worktrees/EVAL-007-silence-coverage` | `ses_ee7215f59ffeWQ6ZWQvH5z229z` |
 
@@ -116,14 +122,15 @@ structural silence as unassessed, and reruns both candidates on original,
 repaired and derived corpora. It owns a new report/artifact directory only;
 historical manifests/WAVs/results and metric thresholds remain preserved.
 
-TRACK-004 initial `51554f1` returned real causal traces and acquisition replay.
-The 123.046875 report equals integer lag42 exactly while lag41 represents126;
-tested click runs retain the bias without device-rate conversion. This is a
-useful lead, not an integrated tracker fix. Same worker is correcting missing
-metrics written as zero, explicit per-clause lock failure evidence, contradictory
-framing/rate claims, plugin destruction and trace sampling-bound wording. Await
-revised SHA and regenerated artifacts; old claim of universal resampler exclusion
-is not accepted. No tracker selected; G3 remains open.
+TRACK-004 corrected `98da13f` is integrated with final overflow/availability
+checks and corrected framing explanations. Missing values remain null/empty;
+per-clause evidence distinguishes numerical errors from invalid phase. The
+tested last/median BPM reports retain the bias without device-rate conversion;
+this does not establish universal resampler exclusion or explain internal lag
+selection. Stored provenance records the pre-correction HEAD used during the
+worker's uncommitted regeneration; `ca47376` commits those exact corrections.
+Integration independently reproduced all four corpus runs. No tracker fix or
+selection is merged; G3 remains open.
 
 ### Remaining gate work
 

@@ -181,6 +181,21 @@ if (JAM_CORE_BUILD_TESTS AND JAM_TEST_SOURCES)
                     "${JAM_DISCOVERED_SUITES_DISPLAY}")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
+    if (EXISTS "${JAM_ROOT}/tools/tracker-diagnostics/tests/TraceReplayTests.cpp")
+        add_executable(jamTrackerDiagnosticsTests
+            "${JAM_ROOT}/tools/tracker-diagnostics/tests/TraceReplayTests.cpp"
+            "${JAM_ROOT}/tools/tracker-diagnostics/TraceRunner.cpp"
+            "${JAM_ROOT}/tools/tracker-diagnostics/AcquisitionReplay.cpp"
+            "${JAM_ROOT}/tools/tracker-diagnostics/BtrackGrid.cpp"
+            "${JAM_ROOT}/tools/rhythm-eval/Metrics.cpp"
+            "${JAM_ROOT}/tools/rhythm-eval/BackendRunner.cpp")
+        target_compile_features(jamTrackerDiagnosticsTests PRIVATE cxx_std_17)
+        target_include_directories(jamTrackerDiagnosticsTests PRIVATE
+            "${JAM_ROOT}/tools/tracker-diagnostics"
+            "${JAM_ROOT}/tools/rhythm-eval")
+        target_link_libraries(jamTrackerDiagnosticsTests PRIVATE jam-core)
+        add_test(NAME jam.TrackerDiagnostics COMMAND jamTrackerDiagnosticsTests)
+    endif()
     if (Python3_Interpreter_FOUND)
         if (EXISTS "${JAM_ROOT}/tools/rhythm-eval/tools/test_make_derived.py")
             add_test(NAME jam.RhythmDerivedGenerator

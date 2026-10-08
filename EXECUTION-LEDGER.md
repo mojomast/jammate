@@ -21,7 +21,7 @@ task note + commit SHA + successful integration.
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **14/14 suites** | deterministic seams, derived/sustain generators, paired robustness and BeatNet research-tool contracts; not all SPEC acceptance conditions |
+| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **15/15 suites**; default-OFF **13/13** | deterministic seams, acquisition replay, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
 | **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **5/5 passed**; **Standalone and VST3 built** | Windows/ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
@@ -95,6 +95,16 @@ PARTIAL, never PASSED.
   sustain-suite guard. New fixture F=0.7273/0.5882 (BTrack/aubio); repaired-corpus
   acquisition=5/11 and 7/11, so both still fail. By-name CorpusDefect label remains
   conservative/stale for the repaired fixture; no silence gate pass inferred.
+- TRACK-004 integration: accepted revised `98da13f` with integer-overflow and
+  incomplete-availability corrections; **63 replay checks pass**. Independently
+  reproduced all 19 fixture metrics, acquisition JSON and stored trace rows for
+  both real trackers at 128/512 frames. Original WAV hashes and plugin hashes
+  verified. Both-enabled core **15/15**, default-OFF **13/13**, tests-OFF zero
+  registrations; all 19 workflow shell bodies pass syntax checks. At 128 frames
+  four BTrack failed core fixtures have only numerical BPM disagreement in the
+  longest positional run; palm-mute mixes that with phase-invalid evidence.
+  The observed 123.046875 report equals lag42 exactly, but lag42 selection's
+  internal cause remains unresolved. No adapter/scorer gate changed.
 
 ### Returned handoffs under integration review (2026-10-07)
 
@@ -183,7 +193,7 @@ and reports instead.
 | CI-002 tracker CI repair | **DONE: definitions + local execution** | `wp/CI-002-trackers`, `480f15f` → main + research-suite guards | C — evidence, Flash | G1/G3 | current-main 11/12/12/13 suites; ON/OFF symbols and fail-closed nm; remote/Windows execution still unverified |
 | EVAL-005 paired robustness curves | **DONE: scoped paired diagnostics** | `wp/EVAL-005-robustness`, `816a955` → main | B — evidence, Flash | G3 | 29 tests; 2160 rows exactly reproduced; all 24 derived WAV hashes/sizes checked; short-window/missing-data caveats retained |
 | EVAL-006 sustained-corpus repair + tapping audit | **DONE: versioned synthetic repair** | `wp/EVAL-006-sustain`, `e0e3bde` → main + suite registration | C — evidence, Flash | G3 | 37 tests; 1.5 s measured persistence; historical hashes preserved; both real tracker pairs verified; stale name-based defect label reported |
-| TRACK-004 acquisition/BPM diagnosis | REVIEW CORRECTIONS RUNNING | `wp/TRACK-004-acquisition`, initial `51554f1`, base `6287288` | B — evidence, Flash | G3 | real traces/replay returned; correct missing values, per-clause evidence, framing/rate/licence claims and factory lifecycle before integration |
+| TRACK-004 acquisition/BPM diagnosis | **DONE: scoped causal diagnosis** | `wp/TRACK-004-acquisition`, `98da13f` → main + integration corrections | B — evidence, Flash | G3 | 63 replay checks; all four real-backend trace runs exactly reproduced; numerical vs invalid-phase clauses separated; lag-selection cause unresolved |
 | RT-002 real processor runtime probe | RUNNING | `wp/RT-002-processor-probe`, base `cd9f97f` | A — runtime evidence, Flash | G1 | actual JUCE processBlock heap/lock probes and editor-absent timer delivery; independent tools only; scope limits explicit |
 | EVAL-007 version-aware silence coverage | RUNNING | `wp/EVAL-007-silence-coverage`, base `664041c` | C — evidence, Flash | G3 | granted metrics/manifest/test edits; known defect keyed to reviewed audio hash, repaired/tapping assessment and structural-noise coverage; original artifacts preserved |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |

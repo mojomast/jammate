@@ -258,6 +258,9 @@ jobs:
           if [ -f tests/jam/BackendRunnerTests.cpp ]; then
             expected="$expected jam.BackendRunner"
           fi
+          if [ -f tools/tracker-diagnostics/tests/TraceReplayTests.cpp ]; then
+            expected="$expected jam.TrackerDiagnostics"
+          fi
           if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
             expected="$expected jam.RhythmDerived"
           fi
