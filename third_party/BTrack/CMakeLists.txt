@@ -112,8 +112,14 @@ set_target_properties(kiss_fft PROPERTIES C_STANDARD 99 POSITION_INDEPENDENT_COD
 
 # --- BTrack ------------------------------------------------------------------
 # Upstream is C++11 and carries its own warnings; do not impose -Werror here.
+set(BTRACK_IMPLEMENTATION "${CMAKE_CURRENT_SOURCE_DIR}/src/BTrack.cpp")
+if(MSVC)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/MsvcOverlay.cmake")
+    set(BTRACK_IMPLEMENTATION "${CMAKE_CURRENT_BINARY_DIR}/msvc/BTrack.cpp")
+    btrack_generate_msvc_overlay("${BTRACK_IMPLEMENTATION}")
+endif()
 add_library(btrack STATIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/BTrack.cpp
+    ${BTRACK_IMPLEMENTATION}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/OnsetDetectionFunction.cpp)
 target_include_directories(btrack PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(btrack PUBLIC kiss_fft samplerate)
@@ -121,6 +127,9 @@ target_link_libraries(btrack PUBLIC kiss_fft samplerate)
 # kiss_fft.h only under this define; upstream's own src/CMakeLists.txt sets it.
 # Without it the build fails with 'complexOut was not declared'.
 target_compile_definitions(btrack PUBLIC USE_KISS_FFT=1)
+if(MSVC)
+    target_compile_definitions(btrack PRIVATE _USE_MATH_DEFINES=1)
+endif()
 set_target_properties(btrack PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # --- our adapter -------------------------------------------------------------

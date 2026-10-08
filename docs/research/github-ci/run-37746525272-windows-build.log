@@ -1,0 +1,272 @@
+﻿2026-10-08T07:58:50.3360565Z ##[group]Run cmake --build build/windows --config Release --target GuitarCompanion_Standalone GuitarCompanion_VST3 GuitarCompanionTests --parallel 2
+2026-10-08T07:58:50.3361749Z [36;1mcmake --build build/windows --config Release --target GuitarCompanion_Standalone GuitarCompanion_VST3 GuitarCompanionTests --parallel 2[0m
+2026-10-08T07:58:50.3398710Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-08T07:58:50.3399149Z ##[endgroup]
+2026-10-08T07:58:50.6647601Z MSBuild version 17.14.60+43b635718 for .NET Framework
+2026-10-08T07:58:50.6959166Z 
+2026-10-08T07:58:50.9521376Z   Checking File Globs
+2026-10-08T07:58:51.2222414Z   1>Checking Build System
+2026-10-08T07:58:51.3877281Z   Generating GuitarCompanion_artefacts/JuceLibraryCode/GuitarCompanion_resources.rc
+2026-10-08T07:58:51.4078312Z   Building Custom Rule D:/a/jammate/jammate/CMakeLists.txt
+2026-10-08T07:58:51.6364317Z   GuitarCompanion_rc_lib.vcxproj -> D:\a\jammate\jammate\build\windows\GuitarCompanion_rc_lib.dir\Release\GuitarCompanion_rc_lib.lib
+2026-10-08T07:58:51.7773780Z   Generating juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData3.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData4.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData5.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData6.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData7.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData8.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData9.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData10.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData11.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData12.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData13.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData14.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData15.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData16.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData17.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData18.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData19.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData20.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData21.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData22.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData23.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData24.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData25.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData26.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData27.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData28.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData29.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData30.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData31.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData32.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData33.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData34.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData35.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData36.cpp, juce_binarydata_GuitarCompanionAssets/JuceLibraryCode/BinaryData.h
+2026-10-08T07:58:51.8449667Z   Building Custom Rule D:/a/jammate/jammate/third_party/BTrack/CMakeLists.txt
+2026-10-08T07:58:51.9616193Z   kiss_fft.c
+2026-10-08T07:58:51.9841078Z   Building Custom Rule D:/a/jammate/jammate/CMakeLists.txt
+2026-10-08T07:58:51.9984848Z   Building Custom Rule D:/a/jammate/jammate/third_party/BTrack/CMakeLists.txt
+2026-10-08T07:58:52.0952988Z   samplerate.c
+2026-10-08T07:58:52.1682156Z   src_linear.c
+2026-10-08T07:58:52.1754886Z   kiss_fft.vcxproj -> D:\a\jammate\jammate\build\windows\jam-core\btrack\Release\kiss_fft.lib
+2026-10-08T07:58:52.1904388Z   BinaryData1.cpp
+2026-10-08T07:58:52.2317367Z   src_sinc.c
+2026-10-08T07:58:52.3063255Z   Building Custom Rule D:/a/jammate/jammate/jam-core/CMakeLists.txt
+2026-10-08T07:58:52.3344894Z   BinaryData2.cpp
+2026-10-08T07:58:52.3937614Z   Diagnostics.cpp
+2026-10-08T07:58:52.5030443Z   BinaryData3.cpp
+2026-10-08T07:58:52.6112669Z   BinaryData4.cpp
+2026-10-08T07:58:52.6736471Z D:\a\jammate\jammate\src\jam\AnalysisAudioRing.h(164,40): warning C4324: 'jam::AnalysisAudioRing': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:52.6738630Z   (compiling source file '../../../src/jam/Diagnostics.cpp')
+2026-10-08T07:58:52.6739578Z   
+2026-10-08T07:58:52.6741085Z D:\a\jammate\jammate\src\jam\AnalysisAudioRing.h(165,40): warning C4324: 'jam::AnalysisAudioRing': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:52.6742906Z   (compiling source file '../../../src/jam/Diagnostics.cpp')
+2026-10-08T07:58:52.6743658Z   
+2026-10-08T07:58:52.6745094Z D:\a\jammate\jammate\src\jam\AnalysisAudioRing.h(166,40): warning C4324: 'jam::AnalysisAudioRing': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:52.6746833Z   (compiling source file '../../../src/jam/Diagnostics.cpp')
+2026-10-08T07:58:52.6747579Z   
+2026-10-08T07:58:52.7282673Z   BinaryData5.cpp
+2026-10-08T07:58:52.7808999Z   src_zoh.c
+2026-10-08T07:58:52.8063704Z D:\a\jammate\jammate\src\rt\RtSignal.h(288,1): warning C4324: 'jam::rt::CommandQueue<jam::ObservationEnvelope,32>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:52.8071293Z   (compiling source file '../../../src/jam/Diagnostics.cpp')
+2026-10-08T07:58:52.8072453Z       D:\a\jammate\jammate\src\rt\RtSignal.h(288,1):
+2026-10-08T07:58:52.8073207Z       the template instantiation context (the oldest one first) is
+2026-10-08T07:58:52.8074079Z           D:\a\jammate\jammate\src\jam\RhythmAnalyzer.h(277,70):
+2026-10-08T07:58:52.8075271Z           see reference to class template instantiation 'jam::rt::CommandQueue<jam::ObservationEnvelope,32>' being compiled
+2026-10-08T07:58:52.8076277Z   
+2026-10-08T07:58:52.8077628Z D:\a\jammate\jammate\src\rt\RtSignal.h(290,1): warning C4324: 'jam::rt::CommandQueue<jam::ObservationEnvelope,32>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:52.8079437Z   (compiling source file '../../../src/jam/Diagnostics.cpp')
+2026-10-08T07:58:52.8080188Z   
+2026-10-08T07:58:52.8081698Z D:\a\jammate\jammate\src\rt\RtSignal.h(288,1): warning C4324: 'jam::rt::CommandQueue<jam::diagnostics::DiagnosticsEvent,256>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:52.8083614Z   (compiling source file '../../../src/jam/Diagnostics.cpp')
+2026-10-08T07:58:52.8084226Z       D:\a\jammate\jammate\src\rt\RtSignal.h(288,1):
+2026-10-08T07:58:52.8084864Z       the template instantiation context (the oldest one first) is
+2026-10-08T07:58:52.8085535Z           D:\a\jammate\jammate\src\jam\Diagnostics.h(358,56):
+2026-10-08T07:58:52.8086588Z           see reference to class template instantiation 'jam::rt::CommandQueue<jam::diagnostics::DiagnosticsEvent,256>' being compiled
+2026-10-08T07:58:52.8087582Z   
+2026-10-08T07:58:52.8088958Z D:\a\jammate\jammate\src\rt\RtSignal.h(290,1): warning C4324: 'jam::rt::CommandQueue<jam::diagnostics::DiagnosticsEvent,256>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:52.8090900Z   (compiling source file '../../../src/jam/Diagnostics.cpp')
+2026-10-08T07:58:52.8092377Z   
+2026-10-08T07:58:52.8093719Z D:\a\jammate\jammate\src\rt\RtSignal.h(172,1): warning C4324: 'jam::rt::LatestValue<jam::diagnostics::DiagnosticsEvent>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:52.8094792Z   (compiling source file '../../../src/jam/Diagnostics.cpp')
+2026-10-08T07:58:52.8095197Z       D:\a\jammate\jammate\src\rt\RtSignal.h(172,1):
+2026-10-08T07:58:52.8095612Z       the template instantiation context (the oldest one first) is
+2026-10-08T07:58:52.8096042Z           D:\a\jammate\jammate\src\jam\Diagnostics.h(359,39):
+2026-10-08T07:58:52.8096669Z           see reference to class template instantiation 'jam::rt::LatestValue<jam::diagnostics::DiagnosticsEvent>' being compiled
+2026-10-08T07:58:52.8097238Z   
+2026-10-08T07:58:52.8098048Z D:\a\jammate\jammate\src\rt\RtSignal.h(175,1): warning C4324: 'jam::rt::LatestValue<jam::diagnostics::DiagnosticsEvent>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:52.8098994Z   (compiling source file '../../../src/jam/Diagnostics.cpp')
+2026-10-08T07:58:52.8099369Z   
+2026-10-08T07:58:52.8525703Z   Generating Code...
+2026-10-08T07:58:52.9280137Z   BinaryData6.cpp
+2026-10-08T07:58:53.1320534Z   DrumClockBridge.cpp
+2026-10-08T07:58:53.1910444Z   BinaryData7.cpp
+2026-10-08T07:58:53.2386155Z D:\a\jammate\jammate\src\rt\RtSignal.h(288,1): warning C4324: 'jam::rt::CommandQueue<jam::DrumClockCommand,16>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.2388466Z   (compiling source file '../../../src/jam/DrumClockBridge.cpp')
+2026-10-08T07:58:53.2389441Z       D:\a\jammate\jammate\src\rt\RtSignal.h(288,1):
+2026-10-08T07:58:53.2390314Z       the template instantiation context (the oldest one first) is
+2026-10-08T07:58:53.2391494Z           D:\a\jammate\jammate\src\jam\DrumClockBridge.h(286,27):
+2026-10-08T07:58:53.2392639Z           see reference to class template instantiation 'jam::rt::CommandQueue<jam::DrumClockCommand,16>' being compiled
+2026-10-08T07:58:53.2393788Z   
+2026-10-08T07:58:53.2395230Z D:\a\jammate\jammate\src\rt\RtSignal.h(290,1): warning C4324: 'jam::rt::CommandQueue<jam::DrumClockCommand,16>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.2396942Z   (compiling source file '../../../src/jam/DrumClockBridge.cpp')
+2026-10-08T07:58:53.2399781Z   
+2026-10-08T07:58:53.2656532Z   samplerate.vcxproj -> D:\a\jammate\jammate\build\windows\jam-core\btrack\Release\samplerate.lib
+2026-10-08T07:58:53.2829258Z   DrumTransportAdapter.cpp
+2026-10-08T07:58:53.2901422Z   BinaryData8.cpp
+2026-10-08T07:58:53.3302534Z   BinaryData9.cpp
+2026-10-08T07:58:53.3658458Z   BinaryData10.cpp
+2026-10-08T07:58:53.3942768Z   Building Custom Rule D:/a/jammate/jammate/CMakeLists.txt
+2026-10-08T07:58:53.4292980Z   BinaryData11.cpp
+2026-10-08T07:58:53.4541002Z   activations.cpp
+2026-10-08T07:58:53.4873139Z   BinaryData12.cpp
+2026-10-08T07:58:53.5583266Z   BinaryData13.cpp
+2026-10-08T07:58:53.5647623Z   JamCore.cpp
+2026-10-08T07:58:53.5800427Z   JamJoinPolicy.cpp
+2026-10-08T07:58:53.6111906Z   LiveJamSession.cpp
+2026-10-08T07:58:53.6656718Z   BinaryData14.cpp
+2026-10-08T07:58:53.7655666Z   BinaryData15.cpp
+2026-10-08T07:58:53.8631230Z D:\a\jammate\jammate\src\jam\AnalysisAudioRing.h(164,40): warning C4324: 'jam::AnalysisAudioRing': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.8633300Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.8634066Z   
+2026-10-08T07:58:53.8635476Z D:\a\jammate\jammate\src\jam\AnalysisAudioRing.h(165,40): warning C4324: 'jam::AnalysisAudioRing': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.8637718Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.8638418Z   
+2026-10-08T07:58:53.8639832Z D:\a\jammate\jammate\src\jam\AnalysisAudioRing.h(166,40): warning C4324: 'jam::AnalysisAudioRing': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.8641460Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.8642127Z   
+2026-10-08T07:58:53.8700231Z   BinaryData16.cpp
+2026-10-08T07:58:53.8749950Z D:\a\jammate\jammate\src\rt\RtSignal.h(288,1): warning C4324: 'jam::rt::CommandQueue<jam::DrumClockCommand,16>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.8751872Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.8752742Z       D:\a\jammate\jammate\src\rt\RtSignal.h(288,1):
+2026-10-08T07:58:53.8753576Z       the template instantiation context (the oldest one first) is
+2026-10-08T07:58:53.8754426Z           D:\a\jammate\jammate\src\jam\DrumClockBridge.h(286,27):
+2026-10-08T07:58:53.8755591Z           see reference to class template instantiation 'jam::rt::CommandQueue<jam::DrumClockCommand,16>' being compiled
+2026-10-08T07:58:53.8756632Z   
+2026-10-08T07:58:53.8758084Z D:\a\jammate\jammate\src\rt\RtSignal.h(290,1): warning C4324: 'jam::rt::CommandQueue<jam::DrumClockCommand,16>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.8759814Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.8760537Z   
+2026-10-08T07:58:53.9147437Z   BinaryData17.cpp
+2026-10-08T07:58:53.9541389Z   BinaryData18.cpp
+2026-10-08T07:58:53.9877004Z D:\a\jammate\jammate\src\rt\RtSignal.h(288,1): warning C4324: 'jam::rt::CommandQueue<jam::ObservationEnvelope,32>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.9879301Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.9880118Z       D:\a\jammate\jammate\src\rt\RtSignal.h(288,1):
+2026-10-08T07:58:53.9880948Z       the template instantiation context (the oldest one first) is
+2026-10-08T07:58:53.9881767Z           D:\a\jammate\jammate\src\jam\RhythmAnalyzer.h(277,70):
+2026-10-08T07:58:53.9882906Z           see reference to class template instantiation 'jam::rt::CommandQueue<jam::ObservationEnvelope,32>' being compiled
+2026-10-08T07:58:53.9883926Z   
+2026-10-08T07:58:53.9885430Z D:\a\jammate\jammate\src\rt\RtSignal.h(290,1): warning C4324: 'jam::rt::CommandQueue<jam::ObservationEnvelope,32>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.9887190Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.9887914Z   
+2026-10-08T07:58:53.9967707Z D:\a\jammate\jammate\src\rt\RtSignal.h(288,1): warning C4324: 'jam::rt::CommandQueue<jam::LiveJamSession::QueuedCommand,16>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.9969892Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.9970707Z       D:\a\jammate\jammate\src\rt\RtSignal.h(288,1):
+2026-10-08T07:58:53.9974936Z       the template instantiation context (the oldest one first) is
+2026-10-08T07:58:53.9975897Z           D:\a\jammate\jammate\src\jam\LiveJamSession.h(243,62):
+2026-10-08T07:58:53.9977052Z           see reference to class template instantiation 'jam::rt::CommandQueue<jam::LiveJamSession::QueuedCommand,16>' being compiled
+2026-10-08T07:58:53.9978047Z   
+2026-10-08T07:58:53.9979489Z D:\a\jammate\jammate\src\rt\RtSignal.h(290,1): warning C4324: 'jam::rt::CommandQueue<jam::LiveJamSession::QueuedCommand,16>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.9981738Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.9982341Z   
+2026-10-08T07:58:53.9983623Z D:\a\jammate\jammate\src\rt\RtSignal.h(171,1): warning C4324: 'jam::rt::LatestValue<jam::JamLiveState>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.9985142Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.9985802Z       D:\a\jammate\jammate\src\rt\RtSignal.h(171,1):
+2026-10-08T07:58:53.9986491Z       the template instantiation context (the oldest one first) is
+2026-10-08T07:58:53.9987212Z           D:\a\jammate\jammate\src\jam\LiveJamSession.h(247,35):
+2026-10-08T07:58:53.9988176Z           see reference to class template instantiation 'jam::rt::LatestValue<jam::JamLiveState>' being compiled
+2026-10-08T07:58:53.9989033Z   
+2026-10-08T07:58:53.9990308Z D:\a\jammate\jammate\src\rt\RtSignal.h(172,1): warning C4324: 'jam::rt::LatestValue<jam::JamLiveState>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.9991943Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.9992551Z   
+2026-10-08T07:58:53.9993830Z D:\a\jammate\jammate\src\rt\RtSignal.h(175,1): warning C4324: 'jam::rt::LatestValue<jam::JamLiveState>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.9995380Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.9995964Z   
+2026-10-08T07:58:53.9997312Z D:\a\jammate\jammate\src\rt\RtSignal.h(171,1): warning C4324: 'jam::rt::LatestValue<jam::DrumPlaybackEcho>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:53.9998923Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:53.9999597Z       D:\a\jammate\jammate\src\rt\RtSignal.h(171,1):
+2026-10-08T07:58:54.0000278Z       the template instantiation context (the oldest one first) is
+2026-10-08T07:58:54.0001003Z           D:\a\jammate\jammate\src\jam\LiveJamSession.h(248,39):
+2026-10-08T07:58:54.0002279Z           see reference to class template instantiation 'jam::rt::LatestValue<jam::DrumPlaybackEcho>' being compiled
+2026-10-08T07:58:54.0008853Z   
+2026-10-08T07:58:54.0010348Z D:\a\jammate\jammate\src\rt\RtSignal.h(172,1): warning C4324: 'jam::rt::LatestValue<jam::DrumPlaybackEcho>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:54.0011946Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:54.0012609Z   
+2026-10-08T07:58:54.0013927Z D:\a\jammate\jammate\src\rt\RtSignal.h(175,1): warning C4324: 'jam::rt::LatestValue<jam::DrumPlaybackEcho>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:54.0015503Z   (compiling source file '../../src/jam/LiveJamSession.cpp')
+2026-10-08T07:58:54.0016085Z   
+2026-10-08T07:58:54.0158423Z   BinaryData19.cpp
+2026-10-08T07:58:54.0621263Z   BinaryData20.cpp
+2026-10-08T07:58:54.1017847Z   Generating Code...
+2026-10-08T07:58:54.1955731Z   MusicalClock.cpp
+2026-10-08T07:58:54.3179850Z   Compiling...
+2026-10-08T07:58:54.3180476Z   BinaryData21.cpp
+2026-10-08T07:58:54.3810880Z   BinaryData22.cpp
+2026-10-08T07:58:54.4740151Z   RhythmAnalyzer.cpp
+2026-10-08T07:58:54.5143398Z   BinaryData23.cpp
+2026-10-08T07:58:54.6295944Z   BinaryData24.cpp
+2026-10-08T07:58:54.7224960Z D:\a\jammate\jammate\src\jam\AnalysisAudioRing.h(164,40): warning C4324: 'jam::AnalysisAudioRing': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:54.7228309Z   (compiling source file '../../src/jam/RhythmAnalyzer.cpp')
+2026-10-08T07:58:54.7229796Z   
+2026-10-08T07:58:54.7231133Z D:\a\jammate\jammate\src\jam\AnalysisAudioRing.h(165,40): warning C4324: 'jam::AnalysisAudioRing': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:54.7232662Z   (compiling source file '../../src/jam/RhythmAnalyzer.cpp')
+2026-10-08T07:58:54.7233221Z   
+2026-10-08T07:58:54.7234458Z D:\a\jammate\jammate\src\jam\AnalysisAudioRing.h(166,40): warning C4324: 'jam::AnalysisAudioRing': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:54.7236057Z   (compiling source file '../../src/jam/RhythmAnalyzer.cpp')
+2026-10-08T07:58:54.7236623Z   
+2026-10-08T07:58:54.7623753Z   BinaryData25.cpp
+2026-10-08T07:58:54.8503273Z D:\a\jammate\jammate\src\rt\RtSignal.h(288,1): warning C4324: 'jam::rt::CommandQueue<jam::ObservationEnvelope,32>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:54.8505414Z   (compiling source file '../../src/jam/RhythmAnalyzer.cpp')
+2026-10-08T07:58:54.8506073Z       D:\a\jammate\jammate\src\rt\RtSignal.h(288,1):
+2026-10-08T07:58:54.8506733Z       the template instantiation context (the oldest one first) is
+2026-10-08T07:58:54.8507435Z           D:\a\jammate\jammate\src\jam\RhythmAnalyzer.h(277,70):
+2026-10-08T07:58:54.8508440Z           see reference to class template instantiation 'jam::rt::CommandQueue<jam::ObservationEnvelope,32>' being compiled
+2026-10-08T07:58:54.8509331Z   
+2026-10-08T07:58:54.8510666Z D:\a\jammate\jammate\src\rt\RtSignal.h(290,1): warning C4324: 'jam::rt::CommandQueue<jam::ObservationEnvelope,32>': structure was padded due to alignment specifier [D:\a\jammate\jammate\build\windows\jam-core\jam-core.vcxproj]
+2026-10-08T07:58:54.8512226Z   (compiling source file '../../src/jam/RhythmAnalyzer.cpp')
+2026-10-08T07:58:54.8512781Z   
+2026-10-08T07:58:54.8950454Z   BinaryData26.cpp
+2026-10-08T07:58:54.9864699Z   Generating Code...
+2026-10-08T07:58:55.0976067Z   BinaryData27.cpp
+2026-10-08T07:58:55.4218280Z   BinaryData28.cpp
+2026-10-08T07:58:55.8343374Z   BinaryData29.cpp
+2026-10-08T07:58:55.9991552Z   BinaryData30.cpp
+2026-10-08T07:58:56.1200955Z   jam-core.vcxproj -> D:\a\jammate\jammate\build\windows\jam-core\Release\jam-core.lib
+2026-10-08T07:58:56.1510075Z   BinaryData31.cpp
+2026-10-08T07:58:56.1758896Z   Building Custom Rule D:/a/jammate/jammate/third_party/BTrack/CMakeLists.txt
+2026-10-08T07:58:56.2709371Z   BTrack.cpp
+2026-10-08T07:58:56.2988365Z   BinaryData32.cpp
+2026-10-08T07:58:56.4546354Z   BinaryData33.cpp
+2026-10-08T07:58:56.6228647Z   BinaryData34.cpp
+2026-10-08T07:58:56.7833299Z   OnsetDetectionFunction.cpp
+2026-10-08T07:58:56.7953079Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(120,67): error C2065: 'M_PI': undeclared identifier [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.7957866Z   BinaryData35.cpp
+2026-10-08T07:58:56.7991489Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(350,17): error C2131: expression did not evaluate to a constant [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.7999076Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(350,17):
+2026-10-08T07:58:56.8010674Z       failure was caused by a read of a variable outside its lifetime
+2026-10-08T07:58:56.8011687Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(350,17):
+2026-10-08T07:58:56.8012402Z       see usage of 'this'
+2026-10-08T07:58:56.8012921Z   
+2026-10-08T07:58:56.8014371Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(353,18): error C3863: array type 'float [this->4<L_ALIGN>14004]' is not assignable [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8016611Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(445,19): error C2131: expression did not evaluate to a constant [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8022196Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(445,19):
+2026-10-08T07:58:56.8023199Z       failure was caused by a read of a variable outside its lifetime
+2026-10-08T07:58:56.8024082Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(445,19):
+2026-10-08T07:58:56.8024804Z       see usage of 'N'
+2026-10-08T07:58:56.8025311Z   
+2026-10-08T07:58:56.8026497Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(456,16): error C3863: array type 'double [N]' is not assignable [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8028588Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(462,16): error C3863: array type 'double [N]' is not assignable [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8030737Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(469,16): error C3863: array type 'double [N]' is not assignable [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8032899Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(624,40): error C2131: expression did not evaluate to a constant [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8034460Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(624,40):
+2026-10-08T07:58:56.8035288Z       failure was caused by a read of a variable outside its lifetime
+2026-10-08T07:58:56.8036120Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(624,40):
+2026-10-08T07:58:56.8036873Z       see usage of 'windowSize'
+2026-10-08T07:58:56.8037397Z   
+2026-10-08T07:58:56.8038553Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(638,49): error C2131: expression did not evaluate to a constant [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8040030Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(638,31):
+2026-10-08T07:58:56.8040811Z       failure was caused by a read of a variable outside its lifetime
+2026-10-08T07:58:56.8041607Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(638,31):
+2026-10-08T07:58:56.8042318Z       see usage of 'this'
+2026-10-08T07:58:56.8042806Z   
+2026-10-08T07:58:56.8043987Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(639,31): error C2131: expression did not evaluate to a constant [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8045504Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(639,31):
+2026-10-08T07:58:56.8046440Z       failure was caused by a read of a variable outside its lifetime
+2026-10-08T07:58:56.8047340Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(639,31):
+2026-10-08T07:58:56.8048123Z       see usage of 'beatExpectationWindowSize'
+2026-10-08T07:58:56.8048740Z   
+2026-10-08T07:58:56.8050242Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(643,34): error C3863: array type 'double [this->4<L_ALIGN>14004+beatExpectationWindowSize]' is not assignable [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8052824Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(654,28): error C3863: array type 'double [beatExpectationWindowSize]' is not assignable [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8055023Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(667,40): error C2131: expression did not evaluate to a constant [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.8056405Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(667,40):
+2026-10-08T07:58:56.8057162Z       failure was caused by a read of a variable outside its lifetime
+2026-10-08T07:58:56.8057912Z       D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(667,40):
+2026-10-08T07:58:56.8058564Z       see usage of 'pastWindowSize'
+2026-10-08T07:58:56.8059311Z   
+2026-10-08T07:58:56.8060663Z D:\a\jammate\jammate\third_party\BTrack\src\BTrack.cpp(678,34): error C3863: array type 'double [this->4<L_ALIGN>14004+beatExpectationWindowSize]' is not assignable [D:\a\jammate\jammate\build\windows\jam-core\btrack\btrack.vcxproj]
+2026-10-08T07:58:56.9557202Z   BinaryData36.cpp
+2026-10-08T07:58:57.0883173Z   Generating Code...
+2026-10-08T07:58:57.1861012Z   Generating Code...
+2026-10-08T07:58:57.5116754Z   GuitarCompanionAssets.vcxproj -> D:\a\jammate\jammate\build\windows\Release\GuitarCompanionAssets.lib
+2026-10-08T07:58:58.5935651Z   container.cpp
+2026-10-08T07:59:02.2675364Z   conv1d.cpp
+2026-10-08T07:59:05.2803540Z   convnet.cpp
+2026-10-08T07:59:10.0149934Z   dsp.cpp
+2026-10-08T07:59:14.9779304Z   get_dsp.cpp
+2026-10-08T07:59:19.0258838Z   linear.cpp
+2026-10-08T07:59:22.9072427Z   lstm.cpp
+2026-10-08T07:59:26.9737567Z   ring_buffer.cpp
+2026-10-08T07:59:28.7917831Z   util.cpp
+2026-10-08T07:59:30.4804203Z   a2_fast.cpp
+2026-10-08T07:59:35.9180656Z   model.cpp
+2026-10-08T07:59:40.7992007Z   slimmable.cpp
+2026-10-08T07:59:45.1430334Z   Generating Code...
+2026-10-08T08:00:07.1693704Z   nam_core.vcxproj -> D:\a\jammate\jammate\build\windows\Release\nam_core.lib
+2026-10-08T08:00:07.3012090Z ##[error]Process completed with exit code 1.

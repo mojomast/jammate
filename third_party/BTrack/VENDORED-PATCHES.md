@@ -9,8 +9,8 @@ London). Compatible with this project's AGPLv3 only inside the already-open path
 (SPEC.md §25.6). `libs/kiss_fft130` is BSD; its `COPYING` ships here.
 
 **Current state: every file under `src/` and `libs/` is byte-identical to
-upstream.** There are no source patches. This was not always true, and the reason
-is the most important thing in this file.
+upstream.** MSVC now compiles a generated portability copy described below;
+GNU/Linux still compiles the original. The vendored files are never rewritten.
 
 ---
 
@@ -92,7 +92,28 @@ diff -r third_party/BTrack/src <(git -C <upstream-clone> show 9d61276:src)
    inherited C-only macros and failed to compile. The flag and generated-header
    search directory now apply only to the samplerate target. Its public API
    header directory and static link dependency remain exported. No BTrack,
-   libsamplerate or kiss_fft source byte changes are involved.
+    libsamplerate or kiss_fft source byte changes are involved.
+
+## MSVC-only generated portability overlay
+
+GitHub run37746525272 first compiled the experimental BTrack product backend on
+Windows and exposed upstream GNU variable-length arrays and an unavailable
+`M_PI`. `MsvcOverlay.cmake` verifies the LF-normalised source SHA256
+`e787d20139c1628b2710330c3eaa3ec0a1ad1d5a9f02a789c658c48dffc829b0` and writes a
+build-directory copy only when `MSVC` is true. It replaces six VLA declarations
+with uninitialised RAII-owned arrays and raw pointer aliases. All extents,
+indexing, arithmetic and call sites remain unchanged. `_USE_MATH_DEFINES=1` is
+private to the BTrack target. The original GPL notice stays in the generated
+file and the generator ships in the corresponding source.
+
+These arrays allocate on the analysis worker, where allocation is permitted;
+they are not callback-thread scratch or a claim of worker-wide allocation
+freedom. The overlay fails closed on a changed source pin. Native strict C++17
+compilation succeeds, the original VLA source fails the strict compiler control,
+and a changed-source negative control fails the generator. Original versus
+overlay beat flags, tempo and cumulative scores are bit-identical across36,000
+rows (three hop sizes × four steady/noise/gap cases). Native comparison is not
+a Windows runtime/deadline claim; Windows compilation is checked by CI.
 
 ---
 

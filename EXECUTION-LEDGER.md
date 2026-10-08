@@ -231,6 +231,14 @@ INT-LIVE-001 `016c0c8`, UI-LIVE-001 `8ac4517` and EVAL-LIVE-001 through
 First-slice work is complete locally. Publication/GitHub Windows/NAM promotion
 is next; G0/G1/G3 and broader physical/musical/release gates remain partial.
 
+Published `23c4299` run37746525272 passes all four core configurations and NAM,
+but Windows fails compiling upstream BTrack's GNU VLAs and `M_PI`. A Windows-
+only generated overlay is source-pinned, preserves vendored/Linux source and
+passes strict C++17 plus changed-pin/original-VLA negative controls. Native
+original/overlay beat/tempo/cumulative outputs are bit-identical across36,000
+rows. This repair does not alter clock thresholds or the measured Linux path;
+Windows promotion is being retried.
+
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The
 default BTrack adapter is experimental. Synthetic processor replay verifies

@@ -1,0 +1,25 @@
+{
+  "schema": "btrack-msvc-portability/1",
+  "source_pin": "e787d20139c1628b2710330c3eaa3ec0a1ad1d5a9f02a789c658c48dffc829b0",
+  "scope": "generated MSVC-only source; original vendor/Linux source unchanged",
+  "strict_cpp17": "pass",
+  "original_vla_control": "expected failure",
+  "changed_pin_control": "expected failure",
+  "comparison_rows": 36000,
+  "comparison_outputs_identical": true,
+  "files": {
+    "overlay": "943af901085422af07d50bdaad96e878a5cb47b57c347367d645646a8014f6a8",
+    "original.txt": "a18568b0ad78e440e287219bdc9fe185ed875bf3fdd4b77e79b8182adca08afc",
+    "compare.cpp": "a5206e0bc08707798b42c890a214cfd59ed007ba41bbdffdea936b9d740f219f",
+    "generate.cmake": "533f26c43bc8b7970361cf80fcb7acda881f7b8ccd2370e9eb713577bb698914",
+    "BTrack.cpp": "767229455a65e2154f61144cb7960f79d56d4b7b87f479606f867e79ad57757a",
+    "strict-overlay.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "negative.cmake": "f364cefbf789d62be37eb15ed4ba3b52ed6adcc707e93434263d4d20437a442e",
+    "overlay.txt": "a18568b0ad78e440e287219bdc9fe185ed875bf3fdd4b77e79b8182adca08afc",
+    "strict-original-negative.log": "0a4fa954b6c6775912835613f8c2bfbfc098e3fb1543720a796b80939720c13e",
+    "altered.cpp": "7e85f1a9929331d77c1f364392c5ef6beecbc672f397872ebff691b9c823614e",
+    "changed-pin-negative.log": "480a94bf07540553345679a24e156b57da2e49968bc86413ebcbea7e88abcbb6",
+    "original": "a2bcb993f54fb43e6643a9537b520f53b44f13325f4559fc10762437cd4e9aff"
+  },
+  "windows_build": "pending CI"
+}
