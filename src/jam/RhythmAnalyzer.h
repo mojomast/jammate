@@ -22,12 +22,16 @@
 //     BPM into a drum decision; the pipeline stays
 //         audio -> RhythmObservation -> MusicalClock -> ClockSnapshot.
 //   - The observation travels through the output queue BYTE-FOR-BYTE unaltered.
-//     The envelope adds only metadata: the causal availability (end of the input
-//     block, the device time at which the evidence became knowable) and the
-//     stream generation. `observation.inputSampleTime` is the *event* time; it
-//     may legitimately be earlier than the availability. Keeping both makes
-//     "when it happened" and "when we could know it" distinct, which is what a
-//     clock consumer needs to avoid stepping backwards in time (EVAL-004).
+//     The envelope adds metadata: the input horizon (end of the input block) and
+//     the stream generation. `observation.inputSampleTime` is the *event* time it
+//     claims. The input horizon is a LOWER BOUND on live causality: with a
+//     backlog, the worker's current frame can be behind the audio the device has
+//     already produced, so the frame end is "the earliest this evidence could
+//     possibly have been knowable", NOT the measured time it became knowable.
+//     `availabilityMeasured` is false until a future processor/master-clock
+//     integration stamps a real consumer receipt (INT-ANALYSIS-001).
+//     `observationWithinInputHorizon()` tests the event against this lower bound
+//     only; it is not a claim about live availability.
 //
 // Discontinuity policy:
 //   - The device sample clock is expected to advance contiguously. A frame gap,
@@ -91,18 +95,30 @@ struct ObservationEnvelope
 
     uint64_t streamGeneration = 0;          // bumped on every tracker reset
     uint64_t blockStartSampleTime = 0;      // device time of the block's first sample
-    uint64_t availabilitySampleTime = 0;    // device time at the block's END: when this
-                                            // evidence became causally knowable
+
+    /** Device time at the END of the input block: an audio-data HORIZON and a
+        LOWER BOUND on when this evidence could have been knowable, not a
+        measured live availability. See `availabilityMeasured`. */
+    uint64_t inputHorizonSampleTime = 0;
+
     double   sourceSampleRate = 48000.0;    // device rate the block was captured at
     uint64_t sequence = 0;                  // monotone enqueue order
 
-    /** True when the backend reported an event time that is not in the future of
-        the causal availability. A false value means the event claim cannot be
-        acted on at its stated time (it is non-causal); the observation itself is
-        left untouched so the consumer decides what to do. */
-    bool observationCausal() const noexcept
+    /** True only when a real consumer-receipt device timestamp was stamped by a
+        future integration. Always false for this worker: the horizon above is a
+        bound, never a fabricated live measurement. */
+    bool availabilityMeasured = false;
+
+    /** Modular, wrap-safe test that the reported event lies within the input
+        horizon (at or before it), using a bounded unsigned distance. Equal
+        distances at half the counter range are ambiguous and rejected; a valid
+        event just before a wrap with a horizon just after it is accepted.
+        This is a bound test, not a live-availability claim. */
+    bool observationWithinInputHorizon() const noexcept
     {
-        return observation.inputSampleTime <= availabilitySampleTime;
+        static constexpr uint64_t kMaxEventToHorizonDistance = uint64_t { 1 } << 63;
+        return (inputHorizonSampleTime - observation.inputSampleTime)
+               < kMaxEventToHorizonDistance;
     }
 };
 
@@ -134,20 +150,28 @@ inline const char* toString (AnalyzerStartResult result) noexcept
 }
 
 /** Relaxed, multi-field diagnostic sample. Individual counters are each exact;
-    the set is not a single atomic snapshot, and is documented as such. */
+    the set is not a single atomic snapshot. Readers must be quiescent during
+    start() so they cannot mix counters from two different sessions. */
 struct RhythmAnalyzerStats
 {
     bool running = false;
     bool failed = false;
 
     uint64_t streamGeneration = 0;
-    uint64_t processedFrames = 0;       // ring frames fed to the backend
+    uint64_t processedFrames = 0;       // ring frames fed to the backend this session
     uint64_t processedSamples = 0;      // summed numSamples of those frames
     uint64_t discontinuities = 0;       // tracker resets after the priming reset
     uint64_t invalidRateFrames = 0;     // frames dropped for a non-finite/bad rate
     uint64_t enqueuedObservations = 0;  // envelopes accepted by the output queue
-    uint64_t droppedObservations = 0;   // envelopes dropped because the queue was full
-    uint64_t ringOverruns = 0;          // AnalysisAudioRing producer drops (read-only)
+    uint64_t droppedObservations = 0;   // PER-SESSION output-queue drops
+    uint64_t lifetimeDroppedObservations = 0; // output-queue drops since construction
+    uint64_t discardedAudioBlocks = 0;  // restart-only: queued audio blocks discarded
+    uint64_t discardedAudioFrames = 0;  // restart-only: queued audio frames discarded
+    uint64_t discardedAudioDiscardEvents = 0; // restart-only: number of restarts that discarded
+
+    /** Cumulative producer drops reported by the PRE-EXISTING AnalysisAudioRing
+        counter; it is not reset per session and can predate this analyzer. */
+    uint64_t ringOverruns = 0;
 };
 
 class RhythmAnalyzer
@@ -168,10 +192,16 @@ public:
     /** Ownership of a dlopen()ed plugin backend, torn down through its C
         interface (`jam_rhythm_destroy`) rather than `delete`, so the backend's
         own allocator/destructor in the shared object is used. The shared object
-        must stay loaded until this analyzer is destroyed. */
+        must stay loaded until this analyzer is destroyed.
+
+        Contract: a non-null `tracker` MUST come with a non-null `deleter`. This
+        never falls back to `delete` for a plugin object, because the wrong
+        deallocator would cross the shared-object boundary. Violating the
+        contract throws std::invalid_argument. A null `tracker` is accepted (it
+        yields the `noTracker` rejection at start()). */
     RhythmAnalyzer (AnalysisAudioRing& ring,
                     IRhythmTracker* tracker,
-                    TrackerDeleter deleter) noexcept;
+                    TrackerDeleter deleter);
 
     /** Joins the worker if one is running. Non-RT. Safe when already stopped. */
     ~RhythmAnalyzer();
@@ -184,8 +214,15 @@ public:
         it if that frame declares a different rate. Rejects a duplicate start, a
         null tracker and a non-finite / non-positive rate without starting.
 
-        Requires the consumer to be quiescent: start() flushes any envelopes left
-        by a previous session so the new session is reproducible. */
+        Lifecycle caller contract: start()/stop() are called by ONE non-RT owner
+        thread, never concurrently with each other. The producer (audio callback)
+        and the evidence consumer must be quiescent for the duration of start().
+
+        First start preserves audio already queued in the ring (so tests and a
+        caller that primes audio before starting are supported). Every LATER
+        restart DISCARDS whatever audio is still queued from the previous stream
+        and flushes the evidence queue, so a new session cannot process stale
+        frames under a new generation. Discards are counted in stats(). */
     AnalyzerStartResult start (double sampleRate);
 
     /** Signal and join. Non-RT, cannot be called from the worker. Idempotent.
@@ -213,6 +250,13 @@ public:
     /** Worker failure flag. Set once when a backend throws from reset()/process().
         The worker then stops; the owner must stop()/join and decide what to do. */
     bool failed() const noexcept;
+
+    /** Failure text, valid only while failed() is true. The returned pointer is
+        owned by this object and must only be read by the lifecycle owner after
+        stop()/join (or by a diagnostic reader that accepts quiescence). It is
+         stable until the next lifecycle call that produces a new failure; start()
+         does not mutate it. This is a quiescent diagnostic API, not an audio
+         callback API. */
     const char* failureMessage() const noexcept;
 
 private:
@@ -222,6 +266,11 @@ private:
     void resetTracker (double rate) noexcept;
     void requestStopFromWorker() noexcept;
     void setFailure (const char* message) noexcept;
+
+    /** Restart-only: pops and counts every frame currently queued in the ring so
+        a previous stream cannot leak into a new session. Bounded by ring
+        capacity; producer must be quiescent (documented lifecycle contract). */
+    void discardQueuedAudio() noexcept;
 
     AnalysisAudioRing& ring_;
     TrackerPtr tracker_;
@@ -234,6 +283,10 @@ private:
     std::thread thread_;
 
     std::atomic<bool> running_ { false };
+
+    // Lifecycle-owner-only session bookkeeping (start/stop caller).
+    bool hasStartedOnce_ = false;
+    std::atomic<uint64_t> dropBaseAtStart_ { 0 };
 
     // Worker-thread-owned stream continuity state (no atomics needed: only the
     // worker reads/writes it after start(); start() touches it only while the
@@ -255,9 +308,17 @@ private:
     std::atomic<uint64_t> invalidRateFrames_ { 0 };
     std::atomic<uint64_t> enqueuedObservations_ { 0 };
     std::atomic<uint64_t> sequence_ { 0 };
+    std::atomic<uint64_t> discardedAudioBlocks_ { 0 };
+    std::atomic<uint64_t> discardedAudioFrames_ { 0 };
+    std::atomic<uint64_t> discardedAudioDiscardEvents_ { 0 };
 
     std::atomic<bool> failed_ { false };
     char failureMessage_[256] = {};
+
+    static_assert (std::atomic<uint64_t>::is_always_lock_free,
+                   "RhythmAnalyzer counters require lock-free uint64_t atomics");
+    static_assert (std::atomic<bool>::is_always_lock_free,
+                   "RhythmAnalyzer flags require lock-free bool atomics");
 };
 
 } // namespace jam

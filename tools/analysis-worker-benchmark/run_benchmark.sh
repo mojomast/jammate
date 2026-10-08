@@ -4,7 +4,7 @@
 # It compiles the benchmark tool plus the worktree's RhythmAnalyzer, dlopen()s the
 # pinned read-only BTrack/aubio plugin shared objects built by EVAL-005, and
 # writes throughput.csv + benchmark.json under the results directory. No GPL
-# backend is linked into the tool (SPEC.md 25.6) and no jam-core archive is used,
+# backend is compiled into the tool; loaded-plugin licences still apply. No jam-core archive is used,
 # so the measured analysis worker is the one in this worktree.
 #
 #   tools/analysis-worker-benchmark/run_benchmark.sh [plugin-dir] [out-dir]
@@ -22,9 +22,6 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
 
 plugin_dir="${1:-${ANALYSIS_BENCH_PLUGIN_DIR:-/home/mojo/projects/build-EVAL-005/main-core}}"
-if [ ! -d "$plugin_dir" ]; then
-    plugin_dir="/home/mojo/projects/build-EVAL-005/core"
-fi
 
 out_dir="${2:-$here/results}"
 scratch="${ANALYSIS_BENCH_SCRATCH:-/home/mojo/projects/build-ANALYSIS-001/benchmark}"
@@ -42,7 +39,7 @@ for so in "$btrack_so" "$aubio_so"; do
 done
 
 echo "== compiling benchmark (scratch: $scratch) =="
-c++ -std=c++17 -O2 -Wall -Wextra -pthread -I"$root/src" \
+"${CXX:-c++}" -std=c++17 -O2 -Wall -Wextra -Wpedantic -pthread -I"$root/src" \
     -o "$scratch/analysis_worker_benchmark" \
     "$here/analysis_worker_benchmark.cpp" \
     "$root/src/jam/RhythmAnalyzer.cpp" \
@@ -58,7 +55,7 @@ echo "== plugins =="
 printf '  btrack %s  %s\n' "$btrack_sha" "$btrack_so"
 printf '  aubio  %s  %s\n' "$aubio_sha" "$aubio_so"
 echo "  source $source_sha"
-echo "  compiler $(c++ --version | head -1)"
+echo "  compiler $(${CXX:-c++} --version | head -1)"
 echo "  date $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 echo "== running (block-frames=128, 44100 + 48000 Hz) =="

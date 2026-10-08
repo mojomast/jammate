@@ -2,7 +2,9 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <exception>
+#include <stdexcept>
 
 namespace jam
 {
@@ -26,6 +28,18 @@ void deleteTracker (IRhythmTracker* tracker) noexcept
     delete tracker;
 }
 
+// Validates the plugin-ownership contract BEFORE the unique_ptr member is
+// constructed, so a throwing constructor never leaves a live pointer paired with
+// a null deleter (whose unwind would call a null function pointer).
+IRhythmTracker* requirePluginDeleter (IRhythmTracker* tracker,
+                                      RhythmAnalyzer::TrackerDeleter deleter)
+{
+    if (tracker != nullptr && deleter == nullptr)
+        throw std::invalid_argument (
+            "RhythmAnalyzer: a non-null tracker requires a non-null deleter");
+    return tracker;
+}
+
 } // namespace
 
 RhythmAnalyzer::RhythmAnalyzer (AnalysisAudioRing& ring,
@@ -37,9 +51,9 @@ RhythmAnalyzer::RhythmAnalyzer (AnalysisAudioRing& ring,
 
 RhythmAnalyzer::RhythmAnalyzer (AnalysisAudioRing& ring,
                                 IRhythmTracker* tracker,
-                                TrackerDeleter deleter) noexcept
+                                TrackerDeleter deleter)
     : ring_ (ring),
-      tracker_ (tracker, deleter)
+      tracker_ (requirePluginDeleter (tracker, deleter), deleter)
 {
 }
 
@@ -61,6 +75,7 @@ AnalyzerStartResult RhythmAnalyzer::start (double sampleRate)
     if (! (std::isfinite (sampleRate) && sampleRate > 0.0))
         return AnalyzerStartResult::invalidSampleRate;
 
+    bool restart = false;
     {
         std::lock_guard<std::mutex> lock (lifecycleMutex_);
         // A thread that has exited but not been joined is still a live session:
@@ -70,11 +85,20 @@ AnalyzerStartResult RhythmAnalyzer::start (double sampleRate)
             return AnalyzerStartResult::alreadyRunning;
 
         stopRequested_ = false;
+        restart = hasStartedOnce_;
+        hasStartedOnce_ = true;
     }
 
-    // Flush stale evidence from any previous session. The contract requires the
-    // consumer to be quiescent here; start() is a non-RT lifecycle call.
+    // The producer (audio callback) and the evidence consumer must be quiescent
+    // here; start() is a non-RT lifecycle call. Flush stale EVIDENCE, and on a
+    // restart also DISCARD stale AUDIO so a previous stream cannot be processed
+    // under the new generation.
     flushObservations();
+    discardedAudioBlocks_.store (0, std::memory_order_relaxed);
+    discardedAudioFrames_.store (0, std::memory_order_relaxed);
+    discardedAudioDiscardEvents_.store (0, std::memory_order_relaxed);
+    if (restart)
+        discardQueuedAudio();
 
     // A restart is a new, reproducible session: counters reset, generation bumps
     // so any envelope a consumer kept from before is unambiguously stale.
@@ -85,7 +109,13 @@ AnalyzerStartResult RhythmAnalyzer::start (double sampleRate)
     enqueuedObservations_.store (0, std::memory_order_relaxed);
     sequence_.store (0, std::memory_order_relaxed);
     failed_.store (false, std::memory_order_relaxed);
-    failureMessage_[0] = '\0';
+    // failureMessage_ is deliberately NOT cleared: failureMessage() returns a
+    // pointer that stays stable until the next failure, and it is only read by
+    // the lifecycle owner after join (or by a quiescent diagnostic reader).
+
+    // Session-local drop baseline: the CommandQueue drop counter is cumulative
+    // over the object's lifetime, so stats() reports the per-session delta.
+    dropBaseAtStart_.store (output_.droppedCount(), std::memory_order_relaxed);
 
     streamRate_ = sampleRate;
     expectedNextSampleTime_ = 0;
@@ -97,7 +127,8 @@ AnalyzerStartResult RhythmAnalyzer::start (double sampleRate)
     // Prime the backend at the nominal rate on the caller's (non-RT) thread. The
     // first frame re-primes it if the device declares a different rate, so the
     // backend always sees the adapter's true device rate (SPEC.md 7.2); this
-    // worker performs no resampling of its own.
+    // worker performs no resampling of its own. After this point the backend is
+    // exclusively owned by the worker thread until stop() joins.
     try
     {
         tracker_->reset (sampleRate);
@@ -113,22 +144,27 @@ AnalyzerStartResult RhythmAnalyzer::start (double sampleRate)
         return AnalyzerStartResult::trackerResetFailed;
     }
 
+    // running_ is published BEFORE the thread starts, so a worker that fails
+    // immediately and clears it to false cannot be overwritten by a later store
+    // here. The worker's exit store is therefore definitive.
+    running_.store (true, std::memory_order_release);
     try
     {
         thread_ = std::thread (&RhythmAnalyzer::workerLoop, this);
     }
     catch (const std::exception& e)
     {
+        running_.store (false, std::memory_order_release);
         setFailure (e.what());
         return AnalyzerStartResult::threadStartFailed;
     }
     catch (...)
     {
+        running_.store (false, std::memory_order_release);
         setFailure ("std::thread construction threw a non-std exception");
         return AnalyzerStartResult::threadStartFailed;
     }
 
-    running_.store (true, std::memory_order_release);
     return AnalyzerStartResult::started;
 }
 
@@ -159,6 +195,25 @@ void RhythmAnalyzer::flushObservations() noexcept
     }
 }
 
+void RhythmAnalyzer::discardQueuedAudio() noexcept
+{
+    AnalysisFrame discarded;
+    uint64_t blocks = 0;
+    uint64_t frames = 0;
+    while (ring_.pop (discarded))
+    {
+        ++blocks;
+        frames += discarded.numSamples;
+    }
+
+    if (blocks > 0)
+    {
+        discardedAudioBlocks_.fetch_add (blocks, std::memory_order_relaxed);
+        discardedAudioFrames_.fetch_add (frames, std::memory_order_relaxed);
+        discardedAudioDiscardEvents_.fetch_add (1, std::memory_order_relaxed);
+    }
+}
+
 RhythmAnalyzerStats RhythmAnalyzer::stats() const noexcept
 {
     RhythmAnalyzerStats s;
@@ -170,7 +225,13 @@ RhythmAnalyzerStats RhythmAnalyzer::stats() const noexcept
     s.discontinuities = discontinuities_.load (std::memory_order_relaxed);
     s.invalidRateFrames = invalidRateFrames_.load (std::memory_order_relaxed);
     s.enqueuedObservations = enqueuedObservations_.load (std::memory_order_relaxed);
-    s.droppedObservations = output_.droppedCount();
+    s.lifetimeDroppedObservations = output_.droppedCount();
+    s.droppedObservations =
+        s.lifetimeDroppedObservations - dropBaseAtStart_.load (std::memory_order_relaxed);
+    s.discardedAudioBlocks = discardedAudioBlocks_.load (std::memory_order_relaxed);
+    s.discardedAudioFrames = discardedAudioFrames_.load (std::memory_order_relaxed);
+    s.discardedAudioDiscardEvents =
+        discardedAudioDiscardEvents_.load (std::memory_order_relaxed);
     s.ringOverruns = ring_.overrunCount();
     return s;
 }
@@ -299,10 +360,13 @@ void RhythmAnalyzer::processFrame (const AnalysisFrame& frame) noexcept
     }
 
     ObservationEnvelope envelope;
-    envelope.observation = observation;
+    std::memcpy (&envelope.observation, &observation, sizeof (observation));
     envelope.streamGeneration = generation_.load (std::memory_order_relaxed);
     envelope.blockStartSampleTime = frame.sampleTime;
-    envelope.availabilitySampleTime = frame.sampleTime + frame.numSamples;
+    // Lower-bound audio-data horizon: the end of this input block. NOT measured
+    // live availability (availabilityMeasured stays false).
+    envelope.inputHorizonSampleTime = frame.sampleTime + frame.numSamples;
+    envelope.availabilityMeasured = false;
     envelope.sourceSampleRate = rate;
     envelope.sequence = sequence_.fetch_add (1, std::memory_order_relaxed);
 

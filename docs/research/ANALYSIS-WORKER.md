@@ -7,6 +7,12 @@ tracker selection and no processor wiring.
 executed. Production tracker selection (G3) and the processor/clock wiring
 (INT-ANALYSIS-001) are out of scope and remain open.
 
+**Review continuation:** Flash stopped with `Insufficient Balance` while its
+corrections were uncommitted. The orchestrator preserved those edits, completed
+review locally and independently executed the checks below. Initial handoff was
+`20a015a`; the corrected source and result pins are in
+`tools/analysis-worker-benchmark/results/integration-verification.json`.
+
 ---
 
 ## 1. Scope
@@ -54,7 +60,7 @@ queue; no drum engine reads it directly.
   stop predicate; the audio callback never notifies it. `stop()` sets the flag and
   notifies, then joins.
 
-## 4. Evidence envelope: event time vs causal availability
+## 4. Evidence envelope: event time vs the input horizon
 
 Each queued unit is an `ObservationEnvelope`:
 
@@ -63,17 +69,30 @@ Each queued unit is an `ObservationEnvelope`:
 | `observation` | the backend's `RhythmObservation`, **byte-for-byte unaltered** |
 | `streamGeneration` | bumped on every tracker reset / stream discontinuity |
 | `blockStartSampleTime` | device time of the block's first sample |
-| `availabilitySampleTime` | device time at the **end** of the input block — when the evidence became causally knowable |
+| `inputHorizonSampleTime` | device time at the **end** of the input block: an audio-data **horizon** and **lower bound**, not a measured live availability |
 | `sourceSampleRate` | device rate the block was captured at |
 | `sequence` | monotone enqueue order |
-| `observationCausal()` | true iff `observation.inputSampleTime <= availabilitySampleTime` |
+| `availabilityMeasured` | always false here; true only once a future integration stamps a real consumer receipt |
+| `observationWithinInputHorizon()` | wrapsafe bound test that the reported event is at/before the horizon |
 
 The two times are deliberately distinct. `observation.inputSampleTime` is the
 *event* time a backend claims (often the block start, sometimes a predicted
-onset). `availabilitySampleTime` is the *earliest* time a real-time consumer
-could have known it. A clock consumer must advance on availability and never on
-event time, or it can step backwards; the optional clock test in the suite
-demonstrates exactly this (see §7).
+onset). `inputHorizonSampleTime` is the end of the frame that was processed, so
+it is the **earliest** the evidence could possibly have been knowable. It is NOT
+the live time it became knowable: with a backlog, the worker's current frame can
+lag the audio the device has already produced. A future INT-ANALYSIS-001
+integration must stamp the real availability from the device/sample master or a
+consumer receipt (with rate and generation) before advancing a clock; this worker
+never fabricates that. Reading a wall clock here would not be a device
+measurement and is deliberately not attempted.
+
+`observationWithinInputHorizon()` compares the event to the horizon with a
+bounded unsigned distance (wrap-safe). Direct `event <= horizon` would wrongly
+reject a valid event just before a `uint64_t` wrap whose horizon lands just
+after; a future event one sample past the horizon is still rejected. The clock
+test is a synchronous **offline replay** advancing on the horizon, not a live
+consumer example. A live consumer must use its current sample master and stamp
+receipt time; advancing a live clock to an old frame horizon can move it backward.
 
 ## 5. Continuity, discontinuity and wrap safety
 
@@ -122,16 +141,18 @@ SPSC queue whose full policy is **drop the incoming item and count it**, never
 overwrite queued evidence, never retry, never wait. Capacity is
 `jam::kObservationQueueCapacity = 32`.
 
-- `enqueuedObservations` counts accepted envelopes.
-- `droppedObservations` (`CommandQueue::droppedCount`) counts the dropped
-  incoming envelopes. The loss is explicit; the worker never pretends a dropped
-  beat is still queued.
-- `ringOverruns` is read through from `AnalysisAudioRing::overrunCount()` so a
-  consumer sees audio-side drops on the same stats object.
+- `enqueuedObservations` counts accepted envelopes this session.
+- `droppedObservations` is the **per-session** delta of the cumulative
+  `CommandQueue::droppedCount()`; `lifetimeDroppedObservations` is the cumulative
+  value since construction. The loss is explicit; the worker never pretends a
+  dropped beat is still queued.
+- `ringOverruns` is read through from `AnalysisAudioRing::overrunCount()`; it is
+  a **cumulative, pre-existing** counter that can predate this analyzer.
 
 The queue retains **beat events**, not just a latest blob: every observation is
 enqueued in order, so a burst of beats cannot coalesce into one. A test submits
-30 consecutive beats and asserts all 30 arrive.
+30 consecutive beats and asserts all 30 arrive. Under overflow the retained set
+is the FIRST 32 envelopes, never the latest.
 
 ## 7. Failure handling
 
@@ -148,24 +169,43 @@ If a backend throws from `reset()` or `process()`:
   `failureMessage`, then requests stop; the worker clears `running` on exit and
   `stop()` joins safely.
 
+`running_` is published **before** the worker thread is launched and is never
+written by `start()` afterwards, so a worker that fails immediately and clears it
+cannot be masked by a later store; the worker's exit store is definitive. A
+100-iteration test drives a first-frame failure and asserts that after join
+`failed() == true` and `running() == false` with no resurrection.
+
+`failureMessage()` returns an object-owned pointer that stays stable until the
+next failure. It is safe only for the lifecycle owner after `stop()`/join (or a
+diagnostic reader that accepts quiescence); `start()` does not mutate it. This is
+stated in the header as a quiescent owner-only diagnostic API.
+
 `start()` also rejects, without starting, a null tracker (`noTracker`), a
 non-finite or non-positive rate (`invalidSampleRate`) and a duplicate start
-(`alreadyRunning`).
+(`alreadyRunning`). The plugin-ownership constructor throws
+`std::invalid_argument` if a non-null tracker is paired with a null deleter, and
+never falls back to `delete` for a plugin object.
 
 ## 8. Restart contract
 
-`start()` is a fresh, reproducible session:
+`start()` is a fresh, reproducible session. The producer (audio callback) and the
+evidence consumer must be quiescent for its duration:
 
-- it flushes any evidence left queued by a previous session (the consumer must be
-  quiescent during start);
-- it resets the session counters;
-- it bumps `streamGeneration`, so any envelope a consumer retained from before
-  the restart is unambiguously stale.
+- it flushes any evidence left queued by a previous session;
+- on a **restart** (not the first start) it additionally **discards** whatever
+  audio is still queued in the ring, counting `discardedAudioBlocks` /
+  `discardedAudioFrames`, so a previous stream frame cannot be processed under
+  the new generation;
+- the first start preserves prequeued audio, so a caller that primes audio before
+  starting is supported;
+- it resets the per-session counters and the drop baseline, and bumps
+  `streamGeneration`, so any envelope a consumer retained from before the restart
+  is unambiguously stale.
 
-A test runs the same input twice on one analyzer and once on a fresh analyzer and
-asserts the payload sequences match, that `sequence` restarts, and that the
-generation advanced; a second test starts with a non-empty queue and asserts the
-queue is empty immediately after the restart.
+Tests: the same input run twice on one analyzer, and once on a fresh analyzer,
+produces matching payload sequences with `sequence` restarting and the generation
+advancing; a restart with queued audio and queued evidence discards/flushes both
+and processes nothing from the old stream; and the first start does not discard.
 
 ## 9. Tests executed
 
@@ -173,27 +213,39 @@ queue is empty immediately after the restart.
 binary (`ctest -R jam.RhythmAnalyzer`):
 
 ```
-22 tests, 565 checks, 0 failed check(s) in 0 test(s)
+29 tests, 1210 checks, 0 failed check(s) in 0 test(s)
 ```
 
-Coverage: duplicate/invalid/null start rejection; 20× start/stop; destructor
-join; in-order publication with unaltered observations; all beats retained;
-availability vs event time (including a non-causal event); gap / out-of-order /
-rate-change / invalid-rate resets and generation bumps; `uint64_t` wrap safety;
-output-queue pressure drops with exact `enqueued + dropped == processed`; ring
-overrun surfacing; reproducible restart and flush; throwing reset at start, at a
-discontinuity, and throwing process; a slow backend with a bounded `stop()`;
-a concurrent producer/consumer stress run (thread IDs prove `reset` ran on the
-lifecycle thread and `process` on the worker); and a future `MusicalClock`
-consumer advancing on availability without moving backwards.
+Coverage: duplicate/invalid/null start rejection; plugin-ownership null-deleter
+rejection; 20× start/stop; destructor join; in-order publication with unaltered
+observations; all beats retained; the input horizon vs event time and the
+wrap-safe within-horizon predicate; a blocked backend proving the horizon is the
+frame end (not a fabricated live availability); gap / out-of-order / rate-change
+/ invalid-rate resets and generation bumps; `uint64_t` wrap safety; per-session
+queue-pressure drops with `enqueued + drops == processed`; ring overrun
+surfacing; reproducible restart, audio discard and flush; a 100× first-frame
+failure proving `running` cannot be resurrected; throwing reset (start and
+discontinuity) and process; a slow backend with a bounded `stop()`; a concurrent
+producer/consumer stress run (thread IDs prove `reset` ran on the lifecycle
+thread and `process` on the worker); bit-preserving forwarding of every backend
+field (including signed zero and a NaN payload); and a synchronous offline
+`MusicalClock` replay advancing on the input horizon.
 
-The full `jam-core` ctest suite (existing suites plus this one) is green:
-`100% tests passed, 0 tests failed out of 15`.
+The worker initially reported full OFF/ON lanes of 15/17 suites. The corrected
+orchestrator build independently executes this suite at
+`/home/mojo/projects/build-ANALYSIS-001-integration/worker-core` (Ninja, Release,
+GCC14.2; both backends OFF). Current-main full suite counts are recorded at
+integration, since TRACK-005 added two suites after this task's base.
+
+A limited ThreadSanitizer run of all 29 analyzer tests reports no data races;
+compiler and runtime logs are preserved with the integration pins. This covers
+the synthetic suite, not the third-party plugins or a running audio device.
 
 ## 10. Benchmark (throughput, not a gate)
 
 `tools/analysis-worker-benchmark/` compiles this worktree's `RhythmAnalyzer.cpp`,
-`dlopen`s the pinned EVAL-005 BTrack/aubio plugins (no GPL linkage), and feeds a
+`dlopen`s the pinned EVAL-005 BTrack/aubio plugins (no GPL code is **compiled
+into** the binary; the loaded plugins' own licences still apply), and feeds a
 deterministic 120 BPM click train in bounded bursts.
 
 Throughput mode (5 s, 128-frame blocks, ring 64, burst 32), wall vs CPU.
@@ -202,15 +254,29 @@ Run-to-run wall time varies by roughly ±10%; the exact committed values are in
 
 | backend | rate | wall s | CPU s | realtime × |
 |---|---|---|---|---|
-| btrack | 44100 | 0.0777 | 0.0976 | 64× |
-| btrack | 48000 | 0.0814 | 0.1025 | 61× |
-| aubio | 44100 | 0.0786 | 0.0861 | 64× |
-| aubio | 48000 | 0.0700 | 0.0781 | 71× |
+| btrack | 44100 | 0.0753 | 0.0954 | 66× |
+| btrack | 48000 | 0.0817 | 0.1012 | 61× |
+| aubio | 44100 | 0.0668 | 0.0739 | 75× |
+| aubio | 48000 | 0.0737 | 0.0810 | 68× |
 
 `ringOverruns == 0` in every throughput run. The pressure mode (consumer does not
-drain) drops `processed − 32` envelopes and reports the matching
-`droppedObservations`, demonstrating the bounded drop-and-count policy. Plugin
-and source SHA-256 are in `tools/analysis-worker-benchmark/results/manifest.txt`.
+drain) keeps the FIRST 32 envelopes, drops the rest, and reports the matching
+`droppedObservations`, demonstrating the bounded drop-and-count policy. The
+throughput `wall_seconds` includes the burst hand-off and the worker's idle poll
+between bursts (a conservative floor); the `cpu_seconds` column is process CPU
+across threads. Plugin and source SHA-256 are in
+`tools/analysis-worker-benchmark/results/manifest.txt`.
+
+The benchmark's producer retries failed ring pushes **offline** in pressure
+mode, so `ringOverruns` there counts failed push attempts, not unique lost audio
+blocks. Every unique block is eventually processed; observation drops count
+unique incoming envelopes. That retry loop is never used in the audio callback.
+Pressure results now drain the retained first32 envelopes at the end and verify
+`retained + dropped == processed`. The runner rejects invalid numeric/mode/
+capacity arguments, failed or null backends and output flush/close failures;
+five Python checks exercise these cases with scripted plugins. A 60-second
+progress deadline bounds producer retries for a returning backend. As with
+`stop()`, it cannot force a backend that blocks indefinitely to return.
 
 These are throughput numbers only. No latency threshold is asserted, no tracker
 is selected and the SPEC gates are unchanged (G3 open).
@@ -230,8 +296,8 @@ for the plugin loader.
 
 - No production tracker selection, no processor/editor/DrumEngine wiring, no
   device. G3 remains open.
-- The clock-consumer test consumes observations non-RT and asserts only that
-  availability-driven advancement never moves backwards; it is not a musical
-  validity proof.
+- The offline clock replay consumes observations non-RT and asserts only that
+  horizon-driven replay never moves backwards; it is not a musical validity
+  proof, and the horizon is a lower bound, not a measured live availability.
 - The benchmark is synthetic and non-device; it makes no latency/dropout claim.
 - The 2048-frame ring clip requires the future integration to bound its chunks.

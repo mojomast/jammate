@@ -4,18 +4,20 @@
 //
 // What is asserted here:
 //   - lifecycle: clean start/stop, duplicate / bad-rate / absent-tracker
-//     rejection, restart reproducibility and queue flush, destructor join;
+//     rejection, restart reproducibility, queued-audio discard, destructor join,
+//     and that an early worker failure cannot resurrect a stale `running` flag;
 //   - drain: observations reach the bounded output queue in order, byte-for-byte
-//     unaltered, with causal availability and stream generation as separate
-//     metadata;
+//     unaltered, with the input horizon (a lower bound, not a measured live
+//     availability) and stream generation as separate metadata;
 //   - continuity: a frame gap, an out-of-order frame, a rate change and an
 //     invalid rate all reset the tracker and bump the generation, while a
-//     device-clock wrap is NOT a gap;
-//   - pressure: the output queue drops the incoming envelope and counts it; the
-//     ring overrun counter is surfaced;
+//     device-clock wrap is NOT a gap; the within-horizon predicate is wrap-safe;
+//   - pressure: the output queue drops the incoming envelope and counts it per
+//     session; the ring overrun counter is surfaced (and is cumulative);
 //   - failure: a throwing backend sets the failure flag and lets stop() join;
-//   - a future clock consumer can use availability (not event time) to advance
-//     without moving forward in time incorrectly.
+//   - a blocked backend proves the horizon is the current frame's end, not a
+//     fabricated live availability, and a synchronous offline clock replay can
+//     advance on the input horizon without moving backwards.
 //
 // Threading policy for these tests: every wait is bounded by a timeout and
 // progresses on a condition variable or a bounded yield loop, never on a fixed
@@ -66,6 +68,9 @@ struct FakeTracker : jam::IRhythmTracker
     bool     throwOnReset = false;
     uint64_t throwAtResetCall = 0;      // 0 = never; throw on the Nth reset
     int      processSleepMs = 0;        // worker-side latency model (non-RT)
+    bool     blockProcess = false;      // block inside process() until released
+    std::atomic<bool> enteredProcess { false };
+    std::atomic<bool> releaseProcess { false };
 
     // Counters the tests observe.
     std::atomic<uint64_t> processCalls { 0 };
@@ -87,10 +92,14 @@ struct FakeTracker : jam::IRhythmTracker
 
     void reset (double sampleRate) override
     {
-        const uint64_t call = resetCalls.fetch_add (1, std::memory_order_relaxed) + 1;
-        lastResetRateBits.store (bitsOf (sampleRate), std::memory_order_relaxed);
-        if (captureThreads.load (std::memory_order_relaxed))
-            resetThread = std::this_thread::get_id();
+        uint64_t call = 0;
+        {
+            std::lock_guard<std::mutex> lock (syncMutex);
+            call = resetCalls.fetch_add (1, std::memory_order_relaxed) + 1;
+            lastResetRateBits.store (bitsOf (sampleRate), std::memory_order_relaxed);
+            if (captureThreads.load (std::memory_order_relaxed))
+                resetThread = std::this_thread::get_id();
+        }
 
         syncCv.notify_all();
 
@@ -100,24 +109,41 @@ struct FakeTracker : jam::IRhythmTracker
 
     jam::RhythmObservation process (const jam::AnalysisFrame& frame) override
     {
-        const uint64_t call = processCalls.fetch_add (1, std::memory_order_relaxed) + 1;
-        samplesSeen.fetch_add (frame.numSamples, std::memory_order_relaxed);
-        lastSampleTime.store (frame.sampleTime, std::memory_order_relaxed);
-        lastRate.store (frame.sourceSampleRate, std::memory_order_relaxed);
-        if (captureThreads.load (std::memory_order_relaxed))
-            processThread = std::this_thread::get_id();
+        uint64_t call = 0;
+        {
+            std::lock_guard<std::mutex> lock (syncMutex);
+            call = processCalls.fetch_add (1, std::memory_order_relaxed) + 1;
+            samplesSeen.fetch_add (frame.numSamples, std::memory_order_relaxed);
+            lastSampleTime.store (frame.sampleTime, std::memory_order_relaxed);
+            lastRate.store (frame.sourceSampleRate, std::memory_order_relaxed);
+            if (captureThreads.load (std::memory_order_relaxed))
+                processThread = std::this_thread::get_id();
+        }
 
         syncCv.notify_all();
 
         if (processSleepMs > 0)
             std::this_thread::sleep_for (std::chrono::milliseconds (processSleepMs));
 
+        if (blockProcess)
+        {
+            {
+                std::lock_guard<std::mutex> lock (syncMutex);
+                enteredProcess.store (true, std::memory_order_release);
+            }
+            syncCv.notify_all(); // wake a waiter that missed the pre-block notify
+            const auto deadline = std::chrono::steady_clock::now()
+                                + std::chrono::seconds (30);
+            while (! releaseProcess.load (std::memory_order_acquire)
+                   && std::chrono::steady_clock::now() < deadline)
+                std::this_thread::yield();
+        }
+
         if (throwOnProcess && (throwAtProcessCall == 0 || call == throwAtProcessCall))
             throw std::runtime_error ("fake tracker process failure");
 
         jam::RhythmObservation obs {};
-        obs.inputSampleTime = static_cast<uint64_t> (
-            static_cast<int64_t> (frame.sampleTime) + eventOffsetSamples);
+        obs.inputSampleTime = frame.sampleTime + static_cast<uint64_t> (eventOffsetSamples);
         obs.sourceSampleRate = frame.sourceSampleRate;
         obs.bpmCandidate = bpm;
         obs.beatPhase01 = 0.25f;
@@ -234,6 +260,32 @@ JAM_TEST (RhythmAnalyzer, startRejectsBadConfiguration)
     CHECK (! analyzer.failed());
 }
 
+JAM_TEST (RhythmAnalyzer, pluginOwnershipRejectsNullDeleter)
+{
+    jam::AnalysisAudioRing ring (4);
+
+    auto tracker = std::make_unique<FakeTracker>();
+    FakeTracker* raw = tracker.release();
+
+    bool threw = false;
+    try
+    {
+        RhythmAnalyzer bad (ring, raw, nullptr);
+    }
+    catch (const std::invalid_argument&)
+    {
+        threw = true;
+    }
+    CHECK (threw);
+
+    // The rejected construction must NOT have deleted or leaked the tracker.
+    delete raw;
+
+    // A null tracker with a null deleter is legal and yields the noTracker path.
+    RhythmAnalyzer empty (ring, nullptr, nullptr);
+    CHECK (empty.start (48000.0) == AnalyzerStartResult::noTracker);
+}
+
 JAM_TEST (RhythmAnalyzer, lifecycleRepeatsCleanly)
 {
     for (int iteration = 0; iteration < 20; ++iteration)
@@ -298,12 +350,12 @@ JAM_TEST (RhythmAnalyzer, publishesObservationsInOrder)
         const auto& e = envelopes[i];
         CHECK_EQ (e.sequence, static_cast<uint64_t> (i));
         CHECK_EQ (e.blockStartSampleTime, static_cast<uint64_t> (i) * 128);
-        CHECK_EQ (e.availabilitySampleTime, (static_cast<uint64_t> (i) + 1) * 128);
+        CHECK_EQ (e.inputHorizonSampleTime, (static_cast<uint64_t> (i) + 1) * 128);
         CHECK_EQ (e.sourceSampleRate, 48000.0);
         CHECK_EQ (e.observation.inputSampleTime, static_cast<uint64_t> (i) * 128);
         CHECK_EQ (e.observation.sourceSampleRate, 48000.0);
         CHECK_EQ (e.streamGeneration, 1u);
-        CHECK (e.observationCausal());
+        CHECK (e.observationWithinInputHorizon());
         if (e.observation.beatEvent)
             ++beats;
     }
@@ -346,7 +398,7 @@ JAM_TEST (RhythmAnalyzer, beatEventsAreRetainedNotCoalesced)
     CHECK_EQ (beats, 30);
 }
 
-JAM_TEST (RhythmAnalyzer, availabilityIsSeparateFromEventTime)
+JAM_TEST (RhythmAnalyzer, inputHorizonIsSeparateFromEventTime)
 {
     jam::AnalysisAudioRing ring (16);
     auto tracker = std::make_unique<FakeTracker>();
@@ -363,9 +415,145 @@ JAM_TEST (RhythmAnalyzer, availabilityIsSeparateFromEventTime)
     ObservationEnvelope e;
     REQUIRE (analyzer.popObservation (e));
     CHECK_EQ (e.blockStartSampleTime, 0u);
-    CHECK_EQ (e.availabilitySampleTime, 128u);            // end of input block
+    CHECK_EQ (e.inputHorizonSampleTime, 128u);            // end of input block
     CHECK_EQ (e.observation.inputSampleTime, 500u);       // event, unaltered
-    CHECK (! e.observationCausal());                      // 500 > 128
+    CHECK (! e.observationWithinInputHorizon());          // 500 > 128
+    // The horizon is a lower bound; it is never presented as measured live
+    // availability.
+    CHECK (! e.availabilityMeasured);
+}
+
+JAM_TEST (RhythmAnalyzer, backendFieldsAreForwardedBitForBit)
+{
+    struct PayloadTracker : jam::IRhythmTracker
+    {
+        jam::RhythmObservation payload {};
+        void reset (double) override {}
+        jam::RhythmObservation process (const jam::AnalysisFrame&) override { return payload; }
+        const char* id() const noexcept override { return "payload"; }
+    };
+
+    jam::AnalysisAudioRing ring (4);
+    auto tracker = std::make_unique<PayloadTracker>();
+    tracker->payload.inputSampleTime = 7;
+    tracker->payload.sourceSampleRate = 44100.0;
+    tracker->payload.bpmCandidate = 127.75f;
+    tracker->payload.beatPhase01 = -0.0f;
+    const uint32_t nanBits = 0x7fc01234;
+    std::memcpy (&tracker->payload.beatConfidence01, &nanBits, sizeof (nanBits));
+    tracker->payload.onsetStrength01 = 0.375f;
+    tracker->payload.energyRmsDbfs = -45.5f;
+    tracker->payload.transientDensity01 = 0.625f;
+    tracker->payload.beatEvent = true;
+    tracker->payload.silence = true;
+    tracker->payload.phaseValid = false;
+    const auto expected = tracker->payload;
+    RhythmAnalyzer analyzer (ring, std::move (tracker));
+    CHECK (pushFrame (ring, 0));
+    CHECK (analyzer.start (48000.0) == AnalyzerStartResult::started);
+    ObservationEnvelope envelope;
+    CHECK (waitUntil ([&] { return analyzer.popObservation (envelope); }));
+    analyzer.stop();
+    const auto& actual = envelope.observation;
+    CHECK_EQ (actual.inputSampleTime, expected.inputSampleTime);
+    CHECK (std::memcmp (&actual.sourceSampleRate, &expected.sourceSampleRate, sizeof (double)) == 0);
+    const float jam::RhythmObservation::* fields[] = {
+        &jam::RhythmObservation::bpmCandidate, &jam::RhythmObservation::beatPhase01,
+        &jam::RhythmObservation::beatConfidence01, &jam::RhythmObservation::onsetStrength01,
+        &jam::RhythmObservation::energyRmsDbfs, &jam::RhythmObservation::transientDensity01
+    };
+    for (auto field : fields)
+        CHECK (std::memcmp (&(actual.*field), &(expected.*field), sizeof (float)) == 0);
+    CHECK_EQ (actual.beatEvent, expected.beatEvent);
+    CHECK_EQ (actual.silence, expected.silence);
+    CHECK_EQ (actual.phaseValid, expected.phaseValid);
+    CHECK_EQ (envelope.sourceSampleRate, 48000.0); // envelope rate does not rewrite evidence
+}
+
+JAM_TEST (RhythmAnalyzer, withinHorizonPredicateIsWrapSafe)
+{
+    // Event before the wrap, horizon just after it: valid even though the raw
+    // integer comparison event <= horizon would be false.
+    const uint64_t nearMax = std::numeric_limits<uint64_t>::max() - 5;
+    ObservationEnvelope afterWrap;
+    afterWrap.observation.inputSampleTime = nearMax;
+    afterWrap.inputHorizonSampleTime = 9; // (9 - (MAX-5)) mod 2^64 == 15
+    CHECK (afterWrap.observationWithinInputHorizon());
+
+    // Event exactly at the horizon is within it.
+    ObservationEnvelope equal;
+    equal.observation.inputSampleTime = 128;
+    equal.inputHorizonSampleTime = 128;
+    CHECK (equal.observationWithinInputHorizon());
+
+    // A future event just past the horizon is rejected.
+    ObservationEnvelope future;
+    future.observation.inputSampleTime = 129;
+    future.inputHorizonSampleTime = 128;
+    CHECK (! future.observationWithinInputHorizon());
+
+    // An old event far outside the bounded half-range is rejected (no wrap
+    // aliasing).
+    ObservationEnvelope old;
+    old.observation.inputSampleTime = 0;
+    old.inputHorizonSampleTime = (uint64_t { 1 } << 63) + 10;
+    CHECK (! old.observationWithinInputHorizon());
+}
+
+JAM_TEST (RhythmAnalyzer, popEmptyLeavesOutputUntouched)
+{
+    jam::AnalysisAudioRing ring (4);
+    RhythmAnalyzer analyzer (ring, nullptr);
+
+    ObservationEnvelope e;
+    e.sequence = 12345;
+    e.blockStartSampleTime = 7;
+    e.inputHorizonSampleTime = 99;
+
+    CHECK (! analyzer.popObservation (e));
+    CHECK_EQ (e.sequence, 12345u);
+    CHECK_EQ (e.blockStartSampleTime, 7u);
+    CHECK_EQ (e.inputHorizonSampleTime, 99u);
+}
+
+JAM_TEST (RhythmAnalyzer, blockedBackendProvesHorizonIsTheFrameEnd)
+{
+    jam::AnalysisAudioRing ring (16);
+    auto tracker = std::make_unique<FakeTracker>();
+    auto* tp = tracker.get();
+    tp->blockProcess = true;
+
+    RhythmAnalyzer analyzer (ring, std::move (tracker));
+
+    for (int i = 0; i < 3; ++i)
+        CHECK (pushFrame (ring, static_cast<uint64_t> (i) * 128));
+
+    CHECK (analyzer.start (48000.0) == AnalyzerStartResult::started);
+    CHECK (waitFor (*tp, [tp] { return tp->enteredProcess.load(); }));
+
+    // The worker is paused on frame 0 while the producer advances the device
+    // clock well ahead of it.
+    for (int i = 3; i < 7; ++i)
+        CHECK (pushFrame (ring, static_cast<uint64_t> (i) * 128));
+
+    // No evidence is available while the worker is blocked: the horizon is not a
+    // fabricated "current master" availability.
+    ObservationEnvelope e;
+    CHECK (! analyzer.popObservation (e));
+
+    tp->releaseProcess.store (true, std::memory_order_release);
+    CHECK (waitFor (*tp, [tp] { return tp->processCalls.load() >= 7; }));
+    analyzer.stop();
+
+    const auto envelopes = drainAll (analyzer);
+    REQUIRE (envelopes.size() == 7u);
+    for (std::size_t i = 0; i < envelopes.size(); ++i)
+    {
+        // Each horizon is that frame's own end, not the latest queued frame end.
+        CHECK_EQ (envelopes[i].inputHorizonSampleTime,
+                  (static_cast<uint64_t> (i) + 1) * 128);
+        CHECK (! envelopes[i].availabilityMeasured);
+    }
 }
 
 //==============================================================================
@@ -497,7 +685,7 @@ JAM_TEST (RhythmAnalyzer, sampleTimeWrapIsNotAGap)
     for (const auto& e : envelopes)
         CHECK_EQ (e.streamGeneration, 1u);
 
-    CHECK_EQ (envelopes[0].availabilitySampleTime,
+    CHECK_EQ (envelopes[0].inputHorizonSampleTime,
               static_cast<uint64_t> (base + 128));
     CHECK_EQ (envelopes[1].blockStartSampleTime, base + 128);
 }
@@ -532,6 +720,38 @@ JAM_TEST (RhythmAnalyzer, queuePressureDropsIncomingAndCountsIt)
     CHECK_EQ (envelopes.size(), RhythmAnalyzer::observationQueueCapacity());
     for (std::size_t i = 0; i < envelopes.size(); ++i)
         CHECK_EQ (envelopes[i].sequence, static_cast<uint64_t> (i));
+}
+
+JAM_TEST (RhythmAnalyzer, dropCounterIsPerSessionAndLifetimeSeparate)
+{
+    jam::AnalysisAudioRing ring (64);
+    auto tracker = std::make_unique<FakeTracker>();
+    auto* tp = tracker.get();
+
+    RhythmAnalyzer analyzer (ring, std::move (tracker));
+
+    // Session 1: overflow the queue, consumer never drains.
+    for (int i = 0; i < 64; ++i)
+        CHECK (pushFrame (ring, static_cast<uint64_t> (i) * 128));
+    CHECK (analyzer.start (48000.0) == AnalyzerStartResult::started);
+    CHECK (waitFor (*tp, [tp] { return tp->processCalls.load() >= 64; }));
+    analyzer.stop();
+
+    const auto st1 = analyzer.stats();
+    CHECK_EQ (st1.droppedObservations, 64u - RhythmAnalyzer::observationQueueCapacity());
+    CHECK_EQ (st1.lifetimeDroppedObservations, st1.droppedObservations);
+
+    // Session 2: a restart discards nothing here, fits in the queue, no drops.
+    CHECK (analyzer.start (48000.0) == AnalyzerStartResult::started);
+    for (int i = 0; i < 8; ++i)
+        CHECK (pushFrame (ring, static_cast<uint64_t> (i) * 128));
+    CHECK (waitFor (*tp, [tp] { return tp->processCalls.load() >= 72; }));
+    analyzer.stop();
+
+    const auto st2 = analyzer.stats();
+    CHECK_EQ (st2.droppedObservations, 0u);                     // per-session delta
+    CHECK_EQ (st2.lifetimeDroppedObservations, st1.lifetimeDroppedObservations);
+    CHECK_EQ (st2.enqueuedObservations, 8u);
 }
 
 JAM_TEST (RhythmAnalyzer, ringOverrunIsCountedAndWorkerDrainsWhatFits)
@@ -576,8 +796,10 @@ JAM_TEST (RhythmAnalyzer, restartIsReproducibleAndFresh)
     analyzer.stop();
     const auto run1 = drainAll (analyzer);
 
-    fill();
+    // A restart discards pre-existing queued audio, so the second session's
+    // frames are submitted after start(), exactly as a live producer would.
     CHECK (analyzer.start (48000.0) == AnalyzerStartResult::started);
+    fill();
     CHECK (waitFor (*tp, [tp] { return tp->processCalls.load() >= 10; }));
     analyzer.stop();
     const auto run2 = drainAll (analyzer);
@@ -589,7 +811,7 @@ JAM_TEST (RhythmAnalyzer, restartIsReproducibleAndFresh)
     {
         CHECK_EQ (run2[i].observation.inputSampleTime, run1[i].observation.inputSampleTime);
         CHECK_EQ (run2[i].observation.bpmCandidate, run1[i].observation.bpmCandidate);
-        CHECK_EQ (run2[i].availabilitySampleTime, run1[i].availabilitySampleTime);
+        CHECK_EQ (run2[i].inputHorizonSampleTime, run1[i].inputHorizonSampleTime);
         CHECK_EQ (run2[i].sequence, static_cast<uint64_t> (i)); // sequence restarts
     }
 
@@ -597,28 +819,52 @@ JAM_TEST (RhythmAnalyzer, restartIsReproducibleAndFresh)
     CHECK_GE (run2[0].streamGeneration, run1[0].streamGeneration + 1);
 }
 
-JAM_TEST (RhythmAnalyzer, startFlushesQueuedEvidence)
+JAM_TEST (RhythmAnalyzer, restartDiscardsQueuedAudioAndFlushesEvidence)
 {
     jam::AnalysisAudioRing ring (16);
     auto tracker = std::make_unique<FakeTracker>();
     auto* tp = tracker.get();
 
     RhythmAnalyzer analyzer (ring, std::move (tracker));
+
+    // Session 1 consumes its frames but the consumer never drains the evidence.
     for (int i = 0; i < 3; ++i)
         CHECK (pushFrame (ring, static_cast<uint64_t> (i) * 128));
-
     CHECK (analyzer.start (48000.0) == AnalyzerStartResult::started);
     CHECK (waitFor (*tp, [tp] { return tp->processCalls.load() >= 3; }));
     analyzer.stop();
-
-    // Leftover evidence from the first session is present...
     CHECK_EQ (analyzer.stats().enqueuedObservations, 3u);
 
-    // ...and a restart must flush it so the new session starts clean.
+    // Stale audio left in the ring by the previous stream.
+    CHECK (pushFrame (ring, 9000));
+    CHECK (pushFrame (ring, 9128));
+
+    // A restart discards the stale audio and flushes the stale evidence, so the
+    // new session cannot process an old stream frame under the new generation.
     CHECK (analyzer.start (48000.0) == AnalyzerStartResult::started);
+    const auto st = analyzer.stats();
+    CHECK_EQ (st.discardedAudioBlocks, 2u);
+    CHECK_EQ (st.discardedAudioFrames, 256u);
+    CHECK_EQ (st.discardedAudioDiscardEvents, 1u);
+    CHECK_EQ (st.processedFrames, 0u);
+
     ObservationEnvelope e;
     CHECK (! analyzer.popObservation (e));
     analyzer.stop();
+    CHECK_EQ (analyzer.stats().processedFrames, 0u);
+
+    // The first start must NOT discard: a caller may legitimately prime audio
+    // before the very first start.
+    jam::AnalysisAudioRing ring2 (4);
+    auto tracker2 = std::make_unique<FakeTracker>();
+    auto* tp2 = tracker2.get();
+    RhythmAnalyzer analyzer2 (ring2, std::move (tracker2));
+    CHECK (pushFrame (ring2, 0));
+    CHECK (analyzer2.start (48000.0) == AnalyzerStartResult::started);
+    CHECK (waitFor (*tp2, [tp2] { return tp2->processCalls.load() >= 1; }));
+    analyzer2.stop();
+    CHECK_EQ (analyzer2.stats().discardedAudioBlocks, 0u);
+    CHECK_EQ (analyzer2.stats().processedFrames, 1u);
 }
 
 //==============================================================================
@@ -656,6 +902,7 @@ JAM_TEST (RhythmAnalyzer, processExceptionSetsFailureAndStops)
     CHECK (analyzer.start (48000.0) == AnalyzerStartResult::started);
     CHECK (waitUntil ([&] { return analyzer.failed() && ! analyzer.running(); }));
 
+    analyzer.stop(); // failure text is a quiescent, joined-owner API
     CHECK (! analyzer.running());
     CHECK (std::strlen (analyzer.failureMessage()) > 0);
 
@@ -664,6 +911,33 @@ JAM_TEST (RhythmAnalyzer, processExceptionSetsFailureAndStops)
 
     analyzer.stop();
     CHECK (! analyzer.running());
+}
+
+JAM_TEST (RhythmAnalyzer, earlyFailureDoesNotResurrectRunning)
+{
+    // The running flag is published BEFORE the worker starts and is never
+    // written by start() after the launch, so a worker that fails on a prequeued
+    // frame and exits cannot be masked by a later store. Repeat to stress the
+    // start/exit ordering.
+    for (int iteration = 0; iteration < 100; ++iteration)
+    {
+        jam::AnalysisAudioRing ring (4);
+        auto tracker = std::make_unique<FakeTracker>();
+        auto* tp = tracker.get();
+        tp->throwOnProcess = true;
+        tp->throwAtProcessCall = 1; // fail on the first (prequeued) frame
+
+        RhythmAnalyzer analyzer (ring, std::move (tracker));
+        CHECK (pushFrame (ring, 0));
+        CHECK (analyzer.start (48000.0) == AnalyzerStartResult::started);
+
+        // Once failed, running must settle to false and stay false.
+        CHECK (waitUntil ([&] { return analyzer.failed() && ! analyzer.running(); }));
+
+        analyzer.stop();
+        CHECK (analyzer.failed());
+        CHECK (! analyzer.running());
+    }
 }
 
 JAM_TEST (RhythmAnalyzer, resetFailureOnDiscontinuityStopsSafely)
@@ -750,7 +1024,7 @@ JAM_TEST (RhythmAnalyzer, concurrentProducerAndConsumer)
             if (popped > 0 && e.sequence <= lastSequence)
                 sequencesMonotonic = false;
             lastSequence = e.sequence;
-            if (e.availabilitySampleTime != e.blockStartSampleTime + 128)
+            if (e.inputHorizonSampleTime != e.blockStartSampleTime + 128)
                 metadataCoherent = false;
             ++popped;
         }
@@ -779,7 +1053,7 @@ JAM_TEST (RhythmAnalyzer, concurrentProducerAndConsumer)
     CHECK (tp->processThread != std::this_thread::get_id());
 }
 
-JAM_TEST (RhythmAnalyzer, futureClockConsumerAdvancesOnAvailability)
+JAM_TEST (RhythmAnalyzer, offlineClockReplayAdvancesOnInputHorizon)
 {
     jam::AnalysisAudioRing ring (32);
     auto tracker = std::make_unique<FakeTracker>();
@@ -798,21 +1072,22 @@ JAM_TEST (RhythmAnalyzer, futureClockConsumerAdvancesOnAvailability)
     REQUIRE (envelopes.size() == 8u);
 
     jam::MusicalClock clock;
-    uint64_t lastAvailability = 0;
+    uint64_t lastHorizon = 0;
     bool neverBackwards = true;
     uint64_t previousClockGeneration = clock.snapshot().generation;
 
     for (const auto& e : envelopes)
     {
-        // Advance by the causal availability, which is monotone. Event time may
-        // be earlier; using it to advance would risk moving time backwards.
-        const uint64_t delta = e.availabilitySampleTime - lastAvailability;
+        // Synchronous OFFLINE replay can advance on the input horizon. A live
+        // consumer instead advances on its current device clock and must stamp
+        // receipt availability; frame-end alone is insufficient under backlog.
+        const uint64_t delta = e.inputHorizonSampleTime - lastHorizon;
         if (delta >= (uint64_t { 1 } << 63)) // modular "negative"
             neverBackwards = false;
 
         clock.advance (delta, e.sourceSampleRate);
         clock.observe (e.observation);
-        lastAvailability = e.availabilitySampleTime;
+        lastHorizon = e.inputHorizonSampleTime;
 
         const uint64_t generation = clock.snapshot().generation;
         if (generation < previousClockGeneration)
@@ -821,7 +1096,7 @@ JAM_TEST (RhythmAnalyzer, futureClockConsumerAdvancesOnAvailability)
     }
 
     CHECK (neverBackwards);
-    CHECK_EQ (lastAvailability, 8u * 128u);
+    CHECK_EQ (lastHorizon, 8u * 128u);
 }
 
 JAM_TEST (RhythmAnalyzer, statsReflectProcessedWork)
@@ -838,16 +1113,18 @@ JAM_TEST (RhythmAnalyzer, statsReflectProcessedWork)
         CHECK (pushFrame (ring, static_cast<uint64_t> (i) * 64, 48000.0, 64));
 
     CHECK (analyzer.start (48000.0) == AnalyzerStartResult::started);
+    CHECK (analyzer.running());
     CHECK (waitFor (*tp, [tp] { return tp->processCalls.load() >= 3; }));
 
+    // stats() is a relaxed, multi-field sample, not a snapshot; read the final
+    // values after join(), which establishes happens-before for every counter.
+    analyzer.stop();
+
     const auto st = analyzer.stats();
-    CHECK (st.running);
+    CHECK (! st.running);
     CHECK (st.streamGeneration >= 1u);
     CHECK_EQ (st.processedFrames, 3u);
     CHECK_EQ (st.processedSamples, 3u * 64u);
     CHECK_EQ (st.enqueuedObservations, 3u);
     CHECK_EQ (st.droppedObservations, 0u);
-
-    analyzer.stop();
-    CHECK (! analyzer.stats().running);
 }

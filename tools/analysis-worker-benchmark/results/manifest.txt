@@ -1,6 +1,6 @@
 plugin_dir /home/mojo/projects/build-EVAL-005/main-core
-source_sha256 5d120b1165f1e11a56919527a246f3a6dbed68ba801896e9250ed91f5d782d0a
+source_sha256 b4aefd5a61ced3ef99ab31b3115465d1df8b01c43538d5fc27f23f95ec71807d
 btrack_sha256 41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d
 aubio_sha256 61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41
 compiler c++ (Debian 14.2.0-19) 14.2.0
-date_utc 2026-10-08T00:53:43Z
+date_utc 2026-10-08T01:22:15Z

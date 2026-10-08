@@ -22,6 +22,7 @@
 #include "jam/RhythmAnalyzer.h"
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -31,6 +32,7 @@
 #include <dlfcn.h>
 #include <fstream>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -98,6 +100,24 @@ std::pair<std::string, std::string> splitPair (const std::string& text)
     return { text.substr (0, at), text.substr (at + 1) };
 }
 
+double parseReal (const std::string& text)
+{
+    std::size_t consumed = 0;
+    const double value = std::stod (text, &consumed);
+    if (consumed != text.size() || ! std::isfinite (value) || value <= 0.0)
+        throw std::runtime_error ("expected a finite positive number: " + text);
+    return value;
+}
+
+std::size_t parseCount (const std::string& text)
+{
+    std::size_t value = 0;
+    const auto parsed = std::from_chars (text.data(), text.data() + text.size(), value);
+    if (parsed.ec != std::errc {} || parsed.ptr != text.data() + text.size() || value == 0)
+        throw std::runtime_error ("expected a positive integer: " + text);
+    return value;
+}
+
 Options parseArgs (int argc, char** argv)
 {
     Options o;
@@ -126,20 +146,22 @@ Options parseArgs (int argc, char** argv)
                 throw std::runtime_error ("--plugin-sha for unknown plugin: " + name);
         }
         else if (arg.rfind ("--rate=", 0) == 0)
-            o.rates.push_back (std::stod (value ("--rate")));
+            o.rates.push_back (parseReal (value ("--rate")));
         else if (arg.rfind ("--bpm=", 0) == 0)
-            o.bpm = std::stod (value ("--bpm"));
+            o.bpm = parseReal (value ("--bpm"));
         else if (arg.rfind ("--seconds=", 0) == 0)
-            o.seconds = std::stod (value ("--seconds"));
+            o.seconds = parseReal (value ("--seconds"));
         else if (arg.rfind ("--block-frames=", 0) == 0)
-            o.blockFrames = static_cast<std::size_t> (std::stoul (value ("--block-frames")));
+            o.blockFrames = parseCount (value ("--block-frames"));
         else if (arg.rfind ("--ring-capacity=", 0) == 0)
-            o.ringCapacity = static_cast<std::size_t> (std::stoul (value ("--ring-capacity")));
+            o.ringCapacity = parseCount (value ("--ring-capacity"));
         else if (arg.rfind ("--burst=", 0) == 0)
-            o.burst = static_cast<std::size_t> (std::stoul (value ("--burst")));
+            o.burst = parseCount (value ("--burst"));
         else if (arg.rfind ("--mode=", 0) == 0)
         {
             const std::string m = value ("--mode");
+            if (m != "throughput" && m != "pressure" && m != "both")
+                throw std::runtime_error ("unknown benchmark mode: " + m);
             o.throughputMode = (m == "throughput" || m == "both");
             o.pressureMode = (m == "pressure" || m == "both");
         }
@@ -157,6 +179,21 @@ Options parseArgs (int argc, char** argv)
         throw std::runtime_error ("at least one --rate is required");
     if (o.blockFrames == 0 || o.blockFrames > jam::kMaxAnalysisBlock)
         throw std::runtime_error ("--block-frames must be in [1, kMaxAnalysisBlock]");
+    if (o.ringCapacity > 4096 || o.burst > o.ringCapacity
+        || (o.throughputMode && o.burst > jam::kObservationQueueCapacity))
+        throw std::runtime_error ("ring/burst exceeds bounded benchmark capacity");
+    if (o.bpm < 40.0 || o.bpm > 240.0 || o.seconds > 120.0)
+        throw std::runtime_error ("BPM must be 40..240 and duration <=120 seconds");
+    for (double rate : o.rates)
+        if (rate < 8000.0 || rate > 192000.0 || o.seconds * rate > 10000000.0
+            || o.seconds * rate < static_cast<double> (o.blockFrames))
+            throw std::runtime_error ("rate/duration exceeds benchmark sample budget");
+    std::set<std::string> names;
+    for (const auto& plugin : o.plugins)
+        if (plugin.name.empty() || plugin.path.empty() || ! names.insert (plugin.name).second
+            || plugin.name.find_first_not_of ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
+               != std::string::npos)
+            throw std::runtime_error ("plugin names must be unique nonempty CSV-safe identifiers");
 
     return o;
 }
@@ -190,6 +227,14 @@ struct LoadedPlugin
     void* handle = nullptr;
     jam::IRhythmTracker* (*create)() = nullptr;
     void (*destroy) (jam::IRhythmTracker*) = nullptr;
+
+    LoadedPlugin() = default;
+    LoadedPlugin (const LoadedPlugin&) = delete;
+    LoadedPlugin& operator= (const LoadedPlugin&) = delete;
+    LoadedPlugin (LoadedPlugin&& other) noexcept
+        : handle (std::exchange (other.handle, nullptr)),
+          create (other.create), destroy (other.destroy) {}
+    ~LoadedPlugin() { if (handle != nullptr) dlclose (handle); }
 
     bool valid() const noexcept { return handle != nullptr && create != nullptr && destroy != nullptr; }
 };
@@ -253,11 +298,11 @@ RunResult runOne (const LoadedPlugin& plugin, const PluginSpec& spec, double rat
     jam::AnalysisAudioRing ring (o.ringCapacity);
     jam::IRhythmTracker* rawTracker = plugin.create();
     if (rawTracker == nullptr)
-        return r;
+        throw std::runtime_error ("backend factory returned a null tracker");
 
     jam::RhythmAnalyzer analyzer (ring, rawTracker, plugin.destroy);
     if (analyzer.start (rate) != jam::AnalyzerStartResult::started)
-        return r;
+        throw std::runtime_error ("analysis worker start failed");
 
     uint64_t pushed = 0;
     uint64_t backoffs = 0;
@@ -265,11 +310,17 @@ RunResult runOne (const LoadedPlugin& plugin, const PluginSpec& spec, double rat
     uint64_t beats = 0;
 
     const auto wallStart = Clock::now();
+    const auto runDeadline = wallStart + std::chrono::seconds (60);
     const std::clock_t cpuStart = std::clock();
 
     jam::AnalysisFrame frame;
     frame.sourceSampleRate = rate;
     frame.numSamples = static_cast<uint32_t> (o.blockFrames);
+
+    const auto requireProgress = [&] {
+        if (analyzer.failed() || ! analyzer.running() || Clock::now() >= runDeadline)
+            throw std::runtime_error ("backend failed or benchmark progress deadline expired");
+    };
 
     for (uint64_t b = 0; b < totalBlocks; ++b)
     {
@@ -278,6 +329,7 @@ RunResult runOne (const LoadedPlugin& plugin, const PluginSpec& spec, double rat
 
         while (! ring.push (frame.samples, frame.numSamples, frame.sampleTime, frame.sourceSampleRate))
         {
+            requireProgress();
             ++backoffs;
             if (! pressure)
                 consumed += drainObservations (analyzer, beats);
@@ -298,9 +350,9 @@ RunResult runOne (const LoadedPlugin& plugin, const PluginSpec& spec, double rat
             // burst before submitting the next. Under nominal load the ring never
             // overruns, so this measures worker throughput, not backpressure.
             const uint64_t target = b + 1;
-            const auto burstDeadline = Clock::now() + std::chrono::seconds (60);
-            while (analyzer.stats().processedFrames < target && Clock::now() < burstDeadline)
+            while (analyzer.stats().processedFrames < target)
             {
+                requireProgress();
                 consumed += drainObservations (analyzer, beats);
                 std::this_thread::yield();
             }
@@ -309,9 +361,9 @@ RunResult runOne (const LoadedPlugin& plugin, const PluginSpec& spec, double rat
     }
 
     // Wait (bounded) for the worker to have fed every block, then drain.
-    const auto deadline = Clock::now() + std::chrono::seconds (60);
-    while (analyzer.stats().processedFrames < totalBlocks && Clock::now() < deadline)
+    while (analyzer.stats().processedFrames < totalBlocks)
     {
+        requireProgress();
         if (! pressure)
             consumed += drainObservations (analyzer, beats);
         std::this_thread::yield();
@@ -322,8 +374,18 @@ RunResult runOne (const LoadedPlugin& plugin, const PluginSpec& spec, double rat
     const auto wallEnd = Clock::now();
     const std::clock_t cpuEnd = std::clock();
 
-    const auto stats = analyzer.stats();
     analyzer.stop();
+    const auto stats = analyzer.stats();
+    if (! pressure)
+        consumed += drainObservations (analyzer, beats);
+    else
+        consumed = drainObservations (analyzer, beats);
+    if (stats.failed || stats.processedFrames != totalBlocks
+        || consumed != stats.enqueuedObservations
+        || stats.enqueuedObservations + stats.droppedObservations != totalBlocks
+        || (! pressure && stats.droppedObservations != 0)
+        || (pressure && consumed != std::min<uint64_t> (totalBlocks, jam::kObservationQueueCapacity)))
+        throw std::runtime_error ("incomplete or inconsistent observation accounting");
 
     r.frames = pushed * o.blockFrames;
     r.blocks = pushed;
@@ -340,7 +402,7 @@ RunResult runOne (const LoadedPlugin& plugin, const PluginSpec& spec, double rat
 
     // "ready" only means the pinned backend loaded and the worker fed it every
     // block. It is not a quality result and asserts no backend selection.
-    r.ready = loaded && stats.processedFrames == totalBlocks;
+    r.ready = loaded && ! stats.failed && stats.processedFrames == totalBlocks;
     return r;
 }
 
@@ -349,6 +411,13 @@ std::string escapeJson (const std::string& s)
     std::string out;
     for (char c : s)
     {
+        if (static_cast<unsigned char> (c) < 0x20)
+        {
+            char escaped[7];
+            std::snprintf (escaped, sizeof (escaped), "\\u%04x", static_cast<unsigned char> (c));
+            out += escaped;
+            continue;
+        }
         if (c == '"' || c == '\\')
             out += '\\';
         out += c;
@@ -372,26 +441,28 @@ int main (int argc, char** argv)
     }
 
     std::vector<RunResult> results;
-    for (const auto& spec : options.plugins)
+    try
     {
-        const LoadedPlugin plugin = loadPlugin (spec.path);
-        if (! plugin.valid())
-            std::fprintf (stderr, "warning: could not load backend %s from %s: %s\n",
-                          spec.name.c_str(), spec.path.c_str(),
-                          dlerror() != nullptr ? dlerror() : "unknown");
-
-        for (double rate : options.rates)
+        for (const auto& spec : options.plugins)
         {
-            if (options.throughputMode)
-                results.push_back (runOne (plugin, spec, rate, options, false));
-            if (options.pressureMode)
-                results.push_back (runOne (plugin, spec, rate, options, true));
-        }
+            const LoadedPlugin plugin = loadPlugin (spec.path);
+            if (! plugin.valid())
+                throw std::runtime_error ("could not load backend " + spec.name + " from " + spec.path);
 
-        // All analyzers for this plugin have been destroyed by now, so the
-        // tracker deleter no longer points into the shared object.
-        if (plugin.handle != nullptr)
-            dlclose (plugin.handle);
+            for (double rate : options.rates)
+            {
+                if (options.throughputMode)
+                    results.push_back (runOne (plugin, spec, rate, options, false));
+                if (options.pressureMode)
+                    results.push_back (runOne (plugin, spec, rate, options, true));
+            }
+            // Plugin RAII closes it after all analyzers have been destroyed.
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::fprintf (stderr, "error: %s\n", e.what());
+        return 1;
     }
 
     std::ofstream csv (options.outDir + "/throughput.csv");
@@ -461,6 +532,17 @@ int main (int argc, char** argv)
     }
     json << "  ]\n";
     json << "}\n";
+
+    csv.flush();
+    json.flush();
+    const bool flushed = csv.good() && json.good();
+    csv.close();
+    json.close();
+    if (! flushed || csv.fail() || json.fail())
+    {
+        std::fprintf (stderr, "error: output flush/close failed\n");
+        return 3;
+    }
 
     std::printf ("wrote %s/throughput.csv and %s/benchmark.json (%zu runs)\n",
                  options.outDir.c_str(), options.outDir.c_str(), results.size());

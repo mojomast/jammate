@@ -1,0 +1,31 @@
+{
+  "analyzerChecks": 1210,
+  "analyzerTests": 29,
+  "benchmarkFailureTests": 5,
+  "benchmarkRuns": 8,
+  "hashes": {
+    "/home/mojo/projects/build-ANALYSIS-001-integration/analyzer-tsan": "bfef0c90391d710eca74d9febae2846c4430336531fabff2f6b7ac3b49087e4d",
+    "/home/mojo/projects/build-ANALYSIS-001-integration/benchmark/analysis_worker_benchmark": "d281d2f4c86a0c0bd9ef722f36c9131c0e7a05bd037ec922866886a4ea44025f",
+    "/home/mojo/projects/build-ANALYSIS-001-integration/worker-core/jamTests": "1395b2eca4bb389557a966dea334a77579547a3614a029d9a0cdfa3ebde85486",
+    "src/jam/RhythmAnalyzer.cpp": "02522a594269039d30212c1e6128f7c7554c53ead5d6bbf411cf18163b102970",
+    "src/jam/RhythmAnalyzer.h": "a1aa01ac5e98c7adf63266b85c3ce21262f956e8dd440f179e5734e8bf18a506",
+    "tests/jam/RhythmAnalyzerTests.cpp": "5db57cd7bfc656d0c868ad9abfedb19f3d7f26d916df93aab271bf769f081d68",
+    "tools/analysis-worker-benchmark/README.md": "b26fc1717ba3ca7926a7108b67a0e0d8edc56a6695efec7c202578993857415a",
+    "tools/analysis-worker-benchmark/analysis_worker_benchmark.cpp": "9873076f4d1d63f9e0df6342d487d3ad444529684285a47763a99cb22968f108",
+    "tools/analysis-worker-benchmark/results/analyzer-tests.log": "c58ef15b357320087c85ae39cb7e028d3203857f289b4ab8cc7ced8ea21a92e2",
+    "tools/analysis-worker-benchmark/results/benchmark-checks.log": "0af963adaed1500d7c147a714b2ee80f67655ea697e93ca9c8606f8f643d7f9f",
+    "tools/analysis-worker-benchmark/results/benchmark.json": "03805356b1a5ca0739475c775f5ca714e909004ac93d2eb441938d8d4f9a388a",
+    "tools/analysis-worker-benchmark/results/manifest.txt": "5f26733fa353934d19916803b71be58fb1f27ed72bd210527091d6c009cc9b74",
+    "tools/analysis-worker-benchmark/results/throughput.csv": "6edbfbcab46a708d6ed04cd63c72505fa2cc4d8caa8c98a09f29138aab2bb566",
+    "tools/analysis-worker-benchmark/results/tsan-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tools/analysis-worker-benchmark/results/tsan-run.log": "c58ef15b357320087c85ae39cb7e028d3203857f289b4ab8cc7ced8ea21a92e2",
+    "tools/analysis-worker-benchmark/run_benchmark.sh": "0b039d47d2c391d3f83c52d9dac4073d7d0425d5bc2bfac64d526c4f58ec32b7",
+    "tools/analysis-worker-benchmark/test_failclosed.py": "06ada4cd8bbf807787ce699276ad1ef12e8be05a69632adf50bfbecbe5082c5c"
+  },
+  "initialWorkerSha": "20a015a",
+  "reviewContinuedLocallyAfterFlashInsufficientBalance": true,
+  "scope": "injected worker lifecycle foundation; no production tracker or processor wiring",
+  "scratchRoot": "/home/mojo/projects/build-ANALYSIS-001-integration",
+  "threadSanitizerExit": 0,
+  "threadSanitizerNoReportedRaces": true
+}
