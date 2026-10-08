@@ -159,8 +159,73 @@ README), `docs/research/device-validation/README.md`,
 `docs/research/device-validation/example/synthetic-session/`
 (`report.json`, `summary.md`, raw WAVs).
 
+## Correction round 1 — independent review of `dbd261d`
+
+The independent review verdict was FIX (severe false passes). Protocol and
+per-finding closures: `docs/research/device-validation/CORRECTION-PROTOCOL.md`.
+All changes are additive; the round-1 synthetic example
+(`example/synthetic-session/`) and `environment.json` are preserved byte-for-byte
+and a corrected example is added (`example-corrected/`).
+
+Closed holes (each has an adversarial test in
+`tests/test_adversarial.py`, TEST-ONLY fixtures in temp dirs):
+
+- **F1 canonical** — expected rate/channels and target are derived from the
+  condition spec + session interface; contradicting `analysis.params` is a hard
+  error; `asio_48k_128` is always 12 ms. A 13 ms/`target_ms=100` and a
+  44.1 kHz/`expected_rate=44100` record now fail.
+- **F2 typed measured** — `measured: true, value: null` is a hard error; an
+  all-null play trial cannot pass.
+- **F3 monitoring** — latency cells require `monitoring == software-app`; identity
+  cross-check now includes input/output device and monitoring.
+- **F4 parseable receipts** — numeric measured values gate only with a parseable
+  `receipt/1.0` whose metric value and interface identity are re-checked;
+  unparseable/zero-byte receipts are `receipt-attested` and never gate;
+  functional outcomes require a parseable receipt. Judgements stay
+  `operator-report`.
+- **F5 crash-safe** — malformed params/analysis become hard errors and the
+  validator keeps processing every record.
+- **F6 worst-case** — a failing observation is never masked by a passing one;
+  conflicts are reported.
+- **F7 estimator** — polarity-inverted returns recover the correct lag; the
+  ambiguity window is independent of the template width and the reference
+  template is auto-sized; 96-vs-200 and 96-vs-1000 sample paths are rejected as
+  ambiguous.
+
+Extra rules from the review: a `synthetic` session forces every record out of
+every physical gate even when the record flag is false; physical records require
+a 40-hex source SHA; raw paths must be session-contained and relative; the
+callback deadline gate needs a gated `p99 <= 0.70 × block` (over-target is a
+failed cell, missing is unmeasured); required top-level keys, `synthetic` and
+provenance are validated in code.
+
+### Commands executed
+
+```sh
+python3 -m py_compile tools/device-validation/*.py tools/device-validation/tests/*.py
+python3 -m unittest discover -s tools/device-validation/tests -v
+# -> Ran 75 tests ... OK
+
+python3 tools/device-validation/make_synthetic_evidence.py \
+  --out docs/research/device-validation/example-corrected/synthetic-session
+python3 tools/device-validation/validate_evidence.py \
+  --session docs/research/device-validation/example-corrected/synthetic-session \
+  --allow-synthetic-selftest --gate all \
+  --out docs/research/device-validation/example-corrected/synthetic-session/report.json \
+  --summary-md docs/research/device-validation/example-corrected/synthetic-session/summary.md
+# -> hard_errors=0, matrix_empty=true, all physical gates FAIL,
+#    synthetic_selftest=PASS, exit=2
+```
+
+### Correction commit SHA
+
+- `ae8e71ca76f5d5712225f8d847d7410b771cd84f` (tools + schemas + tests + docs +
+  corrected example).
+
 ## Final commit SHA
 
 - Round 1 (implementation + tests + example + docs):
   `f9c0b3c9efd93ffe17fe440dae28bef07684c708`.
+- Correction round 1 (review closures):
+  `ae8e71ca76f5d5712225f8d847d7410b771cd84f`.
 - The task-note commit is the branch head reported to the orchestrator.
