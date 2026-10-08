@@ -1,0 +1,59 @@
+{
+  "schema": "live-jam-replay/protocol-amendment/2.0",
+  "task": "EVAL-LIVE-001",
+  "title": "Second corrective addendum: readiness bootstrap, findings set, scenario gates, override allowlist, timeout and audio-owner gates",
+  "base_commit": "88893e24be328f131b5df673078ff934a46ed5ab",
+  "frozen_before": "any reevaluation or measurement under the second-corrected tools",
+  "supersedes": {
+    "previous_correction_commit": "a293c20",
+    "previous_tools_commit": "a3ecf1f",
+    "note": "Additive. The original predeclared.json, protocol.sha256 and every pre-existing docs/research/live-jam-replay artifact remain byte-for-byte unchanged."
+  },
+  "reason": "Second independent review BLOCKed a3ecf1f. These corrections tighten gate meaning; they are not new measurements.",
+  "corrections": {
+    "N1_readiness_bootstrap": {
+      "defect": "The harness read readJamLiveState before any prepare, when the latest-value slot is unpublished, so backendKind=unknown/usable=false persisted and a good product was reported awaiting-backend.",
+      "correction": "prepareToPlay first (proper cold publish), then a bounded off-callback read loop (max 2000 attempts, 1 ms sleep) to obtain a coherent prepared tag; always releaseResources() before the cells. Bootstrap runs outside the armed region and is excluded from counters. The default actual backend must be exactly experimentalBTrack; no arbitrary injected actual identity. Self-check failures (instrument/support/facade) fail closed before any measurement."
+    },
+    "N2_findings_set": {
+      "defect": "The harness emitted a finding when (alloc||free||lock), but the validator expected only alloc, so free-only or lock-only runs produced a spurious findings/status mismatch.",
+      "correction": "One finding per phase (cold/warm) when ANY measured allocator family, free family or lock/trylock/unlock/cond occurred. Authoritative C++/C + delete/cfree scope; overflow cannot be clean. Correctly reported findings are a real RT gate failure (status measured-findings), not an invalid-identity error."
+    },
+    "N3_scenario_gates": {
+      "defect": "The validator ignored the scenarios block entirely.",
+      "correction": "Full scope requires both preregistered scenarios. default_clean_long must have run with the actual experimentalBTrack backend and real audio-owner advancement. injected_join_stop_resync must have run with the injectedTest backend and actual processor/clock/renderer evidence (join observed, steps fired, StopNow stopped, resync accepted, generation changed on re-prepare, shutdown released). If the injection seam is absent, full scope is callback-coverage-only: join_proof_unavailable is a gate FAIL with a known reason code, never a hard pass. Smoke may omit scenarios and is clearly partial; it never claims first-audible verified."
+    },
+    "N4_override_allowlist": {
+      "defect": "Preflight accepted any non-immutable override path and any hash.",
+      "correction": "Canonical allowlist of exactly three changed pipeline compile seams, pinned to exact hashes: src/jam/DrumClockBridge.h=c115eb8b24f0918f7a375f6507d094cf94d5a0fc99019bba6cf5b3b4459d1025, src/PluginProcessor.h=3e1958e3eccc3892304f8a42c28a1c7cdf711c226e7ec91082211b0d80059930, src/PluginProcessor.cpp=21e3d7ad2cb8a0d5f8fb4f068ee82ac3332a0bf8a4cdaaede062bca146e76e66. Unknown paths fail override_unknown_path; immutable headers fail override_immutable and must always match their original pins; duplicate entries fail override_duplicate; a non-preregistered hash fails override_hash_not_preregistered; a file hash not matching the override fails override_mismatch. Paths are canonical (no traversal). The allowlist covers changed pipeline compile seams (header and cpp), not headers only.",
+      "orchestrator_file": "docs/research/live-jam-replay-source-pins.json (schema source-pin-overrides/1.0) already links successfully; live-jam-bridge-pin-amendment.json is a chronology document (schema 1) and is not an override input."
+    },
+    "N5_link_metadata_required": {
+      "defect": "A no-Ninja fallback used an incomplete static link list that drops BTrack dependencies.",
+      "correction": "Require complete real link metadata; if the metadata tool is unavailable, fail closed with the named missing_link_metadata_tool and never guess an incomplete static list. GNU/Linux tool scope only; no MSVC link claim."
+    },
+    "N6_reported_cursor_start": {
+      "defect": "reported_cursor_start was a dead assignment (always 0).",
+      "correction": "Record the first snapshot cursor before the haveReported flag is set, via a tested helper. A genuinely cold zero snapshot is valid; a forged zero is not."
+    },
+    "N7_timeout_partial": {
+      "defect": "A timeout before cells.json wrote measured_partial=false while the validator required true.",
+      "correction": "A truthful timeout may have measured_partial=false with counters unmeasured (not zero); measured_partial=true requires a preserved parsed cells file with its exact hash. Logs are preserved with an exact hash; the timeout deadline is <=300 s. A timeout artifact is a failure of the whole goal and never a gate pass."
+    },
+    "N8_audio_owner_gate": {
+      "defect": "audio_owner_measured/0 could be vacuously valid when the cursor never advanced.",
+      "correction": "Every measured cell must have audio_owner_measured=true and real advancement: audio_owner_start == block (cold baseline), audio_owner_end == (warm_blocks+1)*block, audio_owner_end > audio_owner_start, delta_ok true, no mismatches/backwards. Missing/false/forged-zero fails. Source-owner checks stay outside the armed region on the callback thread. identity.source.immutable_pins_ok must be true."
+    }
+  },
+  "gates": {
+    "structural": "schema/scope/matrix/counters/identity/fixtures/overrides",
+    "rt_gate": "no callback findings",
+    "join_gate": "full scope requires the injected join/stop/resync scenario to pass",
+    "overall": "structural AND rt_gate AND join_gate"
+  },
+  "immutable_preserved": {
+    "predeclared_json_sha256": "d29eeedf903aa9abb63e44ad4293f60e5bedfa2ef3c6f8033cb325b7348432fa",
+    "protocol_sha256_file": "fdc22bab2bc0154ddae2758766026a70e9db495655c73684013f31f09a6dba09",
+    "note": "Updated tool pins are recorded separately after the fix; originals are never rewritten."
+  }
+}
