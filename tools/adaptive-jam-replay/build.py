@@ -49,7 +49,7 @@ def main():
     # therefore remain pending even after a successful full product build.
     pending = subprocess.check_output(['ninja', '-n', 'GuitarCompanion', 'GuitarCompanionTests'],
                                       cwd=product, text=True)
-    if any(word in pending for word in ('Building ', 'Linking ', 'Re-running CMake')):
+    if pending.strip() != 'ninja: no work to do.':
         raise SystemExit('Product shared-code/test targets are not up-to-date; build them before reusing their closure')
     closure = recipe.extract_link_closure(str(product))
     if not closure['ok']:

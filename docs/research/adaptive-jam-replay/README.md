@@ -4,6 +4,9 @@ Scope: the actual processor, internal drum kit and callback-thread instrumentati
 with zero guitar audio and injected rhythm observations. This does not measure
 representative-guitar acquisition, physical monitoring latency, Windows ASIO,
 worker-wide allocations or callback deadlines across the full product matrix.
+The direct-call/archive `--wrap` probe detects the wrapped pthread entry points;
+it does not intercept calls made internally by shared libraries such as
+libstdc++. Its zero result is reported as no **detected** lock/wait calls.
 
 The [protocol](../ADAPTIVE-REPLAY-PROTOCOL.md) was committed before measurement.
 The [execution ledger](../../../EXECUTION-LEDGER.md) records acceptance status.
