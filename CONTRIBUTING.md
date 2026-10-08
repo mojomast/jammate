@@ -1,16 +1,20 @@
-# Contributing to Guitar Companion
+# Contributing to JamMate
 
 Thanks for your interest! This guide covers the essentials to build, change and submit improvements.
+Start with the [README](README.md) for current feature status and build options,
+and [DEVPLAN.md](DEVPLAN.md) for task contracts. Application identifiers and UI
+developer flags currently retain the Guitar Companion name.
 
 ## 🔨 Environment and build
 
-- **Windows 10/11 x64** · Visual Studio 2022 (Build Tools or Community) with "Desktop development with C++" · CMake ≥ 3.22 · Git
+- **Windows 10/11 x64** · Visual Studio 2022 (Build Tools or Community) with "Desktop development with C++" · CMake ≥ 3.24 · Git
 - Clone and build:
 
 ```powershell
-git clone <repo-url> GuitarRigNAM
-cd GuitarRigNAM
-git submodule update --init --recursive third_party   # references/ is NOT needed
+git clone https://github.com/mojomast/jammate.git
+cd jammate
+git submodule update --init third_party/JUCE
+git -c core.autocrlf=false submodule update --init --recursive third_party/NeuralAmpModelerCore
 cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
@@ -20,6 +24,10 @@ cmake --build build --config Release
   the first configure. Build offline with `-DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF`
   (the store then uses the system browser, as it always did).
 - Run the Standalone: `build\GuitarCompanion_artefacts\Release\Standalone\Guitar Companion.exe`
+
+For a JUCE-free contribution, build/test `jam-core` first; it needs no submodule
+initialization or audio hardware. The README includes both default and optional
+tracker test recipes. Linux application build instructions are there too.
 
 ### 🧪 Dev flags
 
@@ -55,6 +63,9 @@ closes it on focus loss.
 | `src/ToneWebView.*` | Embedded TONE3000 picker (WebView2): catches the OAuth redirect in `pageAboutToLoad` |
 | `src/Tone3000Client.*` | TONE3000 API: OAuth PKCE, prompt flows, downloads, images |
 | `src/DrumEngine.* · DrumOverlay.* · DrumGenerator.* · DrumLibrary.cpp` | Drums module: sequencer, staff/library UI, groove generator, factory library |
+| `src/jam/` | Portable analysis worker, Musical Clock, rhythm types and transport seams |
+| `src/rt/` | Bounded signalling and queues |
+| `tools/` | Offline evaluations, diagnostic traces and runtime probes |
 
 ## ⚡ Golden rules
 
@@ -75,7 +86,11 @@ closes it on focus loss.
 
 ## 🧭 Where to start
 
-See the **Roadmap** in the README — unchecked items are welcome. New ideas: open an issue first to align the scope. The projects in `references/` serve as algorithm references (mind the licenses described in `references/README.md` — only MIT code may be ported directly).
+See [DEVPLAN.md](DEVPLAN.md) for tasks and acceptance criteria, and
+[EXECUTION-LEDGER.md](EXECUTION-LEDGER.md) for verified progress and open gates.
+New ideas: open an issue first to align the scope. The projects in `references/`
+serve as algorithm references; retain their attribution and check the dependency
+inventory before introducing or porting third-party code.
 
 ## 📜 License
 
