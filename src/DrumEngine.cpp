@@ -692,10 +692,13 @@ bool DrumEngine::applyInjectedCommand (const jam::DrumClockCommand& command,
             return insertInjectedEvent (command);
 
         case jam::DrumClockCommandType::Clear:
-            // Discontinuity/lifecycle: lose the injected transport, keep the
-            // prepared pattern so a later Join can restart without a message
-            // thread round-trip. Release notes immediately so a Clear+Join in
-            // the same callback is ordered correctly.
+            // Discontinuity/lifecycle/stop-now: lose the injected transport,
+            // keep the prepared pattern so a later Join can restart without a
+            // message thread round-trip, and LEAVE INJECTED MODE so the legacy
+            // manual sequencer/song controls are usable again without a device
+            // prepare. Release notes immediately so a Clear+Join in the same
+            // callback is ordered correctly.
+            injActive_ = false;
             injPlaying_ = false;
             injEventCount_ = 0;
             injSamplesToNext_ = 0.0;
@@ -770,6 +773,10 @@ void DrumEngine::applyInjectedEvent (std::uint64_t nowSample, int offset,
             break;
 
         case jam::DrumClockCommandType::StopAtBar:
+            // Bounded musical stop at the bar boundary. Leave injected mode so
+            // the legacy manual transport is available again without a device
+            // prepare; a later JoinAtBar re-engages it.
+            injActive_ = false;
             injPlaying_ = false;
             flushInjectedNotes (vst, midi, offset); // exact ordered release
             break;

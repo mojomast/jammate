@@ -44,12 +44,13 @@ public:
     bool readJamLiveState (jam::JamLiveState&) const noexcept override;
 
     /** Additive, non-facade test/replay seam: hand the live pipeline a
-        deterministic tracker for the NEXT prepare. Must be called while the
-        processor is quiescent (no audio callback, before prepareToPlay); it
-        replaces any tracker this build would otherwise create. The frozen
-        IJamLiveControl facade above is unchanged. Ownership is taken and
-        released with the session. */
-    void setJamTrackerForTesting (std::unique_ptr<jam::IRhythmTracker> tracker) noexcept;
+        deterministic tracker (tagged injectedTest) for the NEXT prepare.
+        Returns false and changes nothing when the session is currently prepared
+        (audio active) — the caller must release the device first; it is never
+        silently ignored. Valid before the first prepare and after release.
+        Ownership is taken and released with the session. The frozen
+        IJamLiveControl facade above is unchanged. */
+    bool setJamTrackerForTesting (std::unique_ptr<jam::IRhythmTracker> tracker) noexcept;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -895,7 +896,6 @@ private:
     // readers never see the latest-value slot destroyed under them.
     std::unique_ptr<jam::LiveJamSession> jamSession_;
     std::unique_ptr<jam::IRhythmTracker> jamTestTracker_;  // injected for replay
-    bool jamTrackerConfigured = false;                     // one-shot ownership handover
 
     // Session-relative absolute uint64 audio sample counter. It advances by the
     // actual callback size on every callback (including while Jam is stopped)

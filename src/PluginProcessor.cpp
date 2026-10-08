@@ -915,11 +915,19 @@ bool GuitarCompanionProcessor::readJamLiveState (jam::JamLiveState& out) const n
     return jamSession_ != nullptr && jamSession_->readState (out);
 }
 
-void GuitarCompanionProcessor::setJamTrackerForTesting (
+bool GuitarCompanionProcessor::setJamTrackerForTesting (
     std::unique_ptr<jam::IRhythmTracker> tracker) noexcept
 {
-    // Quiescent test/replay seam: the tracker is adopted at the next prepare.
+    if (jamSession_ == nullptr)
+        return false;
+
+    // Refuse while audio is live: the caller must release first. Never silently
+    // ignore a requested injection.
+    if (jamSession_->prepared())
+        return false;
+
     jamTestTracker_ = std::move (tracker);
+    return true;
 }
 
 void GuitarCompanionProcessor::prepareLoadedModel (LoadedModel& lm, double hostRate, int blockSize) const
@@ -1137,16 +1145,22 @@ void GuitarCompanionProcessor::prepareToPlay (double sampleRate, int samplesPerB
     jamAudioSampleTime.store (0, std::memory_order_relaxed);
     if (jamSession_ != nullptr)
     {
-        if (! jamTrackerConfigured)
+        // Quiescent stop so a tracker can be adopted; idempotent.
+        jamSession_->release();
+
+        if (jamTestTracker_ != nullptr)
         {
-            jamTrackerConfigured = true;
-            if (jamTestTracker_ != nullptr)
-                jamSession_->setTracker (std::move (jamTestTracker_));
-#ifdef JAM_LIVE_BTRACK_AVAILABLE
-            else
-                jamSession_->setTracker (std::make_unique<jam::BTrackBackend>());
-#endif
+            // Explicit injected-test tag, never reported as the real backend.
+            jamSession_->setTracker (std::move (jamTestTracker_),
+                                     jam::JamLiveBackend::injectedTest);
         }
+#ifdef JAM_LIVE_BTRACK_AVAILABLE
+        else if (! jamSession_->hasTracker())
+        {
+            jamSession_->setTracker (std::make_unique<jam::BTrackBackend>(),
+                                     jam::JamLiveBackend::experimentalBTrack);
+        }
+#endif
 
         jamSession_->prepare (sampleRate, samplesPerBlock, true);
 
@@ -1388,7 +1402,8 @@ void GuitarCompanionProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     // control worker to fold into JamLiveState. The engine's plain getters are
     // audio-owner only and are never polled from the message thread/UI.
     if (jamSession_ != nullptr)
-        jamSession_->publishDrumEcho ({ true,
+        jamSession_->publishDrumEcho ({ jamSession_->currentGeneration(),
+                                        true,
                                         drumEngine.injectedActive(),
                                         drumEngine.injectedPlaying(),
                                         drumEngine.injectedSamplePosition(),

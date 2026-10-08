@@ -1062,6 +1062,105 @@ TEST_CASE (intdrum_standalone_manual_transport_is_unchanged)
 }
 
 //==============================================================================
+// INT-LIVE-001 STOPDECISION: a bounded Stop (requestStopNow) leaves injected
+// mode, so the legacy manual transport is usable again WITHOUT a device prepare;
+// no stuck flags, and the engine stays attached/servicing the clock queue.
+//==============================================================================
+TEST_CASE (intdrum_stop_now_releases_injected_mode_and_manual_resumes)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 512u, 512);
+    CHECK (rig.engine.injectedActive());
+    CHECK (rig.engine.injectedPlaying());
+
+    REQUIRE (rig.bridge.requestStopNow());
+    rig.block (512);
+    CHECK (! rig.engine.injectedActive());
+    CHECK (! rig.engine.injectedPlaying());
+    CHECK (rig.engine.isAudible()); // still attached, servicing the clock queue
+
+    // Legacy manual transport works again with no device prepare.
+    rig.engine.playing.store (true);
+    rig.engine.bpm.store (120.0f);
+    rig.engine.barUsed[0].store (true);
+    for (int s = 0; s < drum::maxStepsPerBar; ++s)
+        rig.engine.pattern[0][drum::kick][s].store (1);
+    rig.hits.clear();
+    const std::uint64_t start = rig.elapsed;
+    rig.render (start + 4096u, 512);
+    CHECK (firstHit (rig.hits, kKick) >= 0);
+}
+
+//==============================================================================
+// A cancel/clear before the first join must not engage injected mode, and the
+// manual transport is immediately available.
+//==============================================================================
+TEST_CASE (intdrum_clear_before_first_join_releases_mode)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    CHECK (! rig.engine.injectedActive());
+
+    REQUIRE (rig.bridge.requestStopNow());
+    rig.block (512);
+    CHECK (! rig.engine.injectedActive());
+    CHECK (rig.engine.isAudible());
+
+    rig.engine.playing.store (true);
+    rig.engine.bpm.store (120.0f);
+    rig.engine.barUsed[0].store (true);
+    for (int s = 0; s < drum::maxStepsPerBar; ++s)
+        rig.engine.pattern[0][drum::kick][s].store (1);
+    rig.hits.clear();
+    const std::uint64_t start = rig.elapsed;
+    rig.render (start + 4096u, 512);
+    CHECK (firstHit (rig.hits, kKick) >= 0);
+}
+
+//==============================================================================
+// A musical StopAtNextBar releases injected mode exactly at its boundary (note
+// releases ordered there) and the manual transport resumes.
+//==============================================================================
+TEST_CASE (intdrum_stop_at_next_bar_releases_mode_and_manual_resumes)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 512u, 512);
+
+    REQUIRE (rig.bridge.requestStopAtNextBar());
+    rig.render (200000u, 512);
+    for (const auto& hit : rig.hits)
+        CHECK (hit.sample < 192000u);
+    CHECK (countHitsIn (rig.noteOffs, 192000u, 192001u, -1) >= 1);
+    CHECK (! rig.engine.injectedActive());
+    CHECK (rig.engine.isAudible());
+
+    rig.engine.playing.store (true);
+    rig.engine.bpm.store (120.0f);
+    rig.engine.barUsed[0].store (true);
+    for (int s = 0; s < drum::maxStepsPerBar; ++s)
+        rig.engine.pattern[0][drum::kick][s].store (1);
+    rig.hits.clear();
+    const std::uint64_t start = rig.elapsed;
+    rig.render (start + 4096u, 512);
+    CHECK (firstHit (rig.hits, kKick) >= 0);
+}
+
+//==============================================================================
 // The injected audio callback allocates nothing when the MIDI scratch is
 // reserved (measured with the shared ELF wrapping).
 //==============================================================================

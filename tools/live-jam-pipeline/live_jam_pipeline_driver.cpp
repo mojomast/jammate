@@ -85,6 +85,7 @@ struct EmulatedDrum
 {
     bool joined = false;
     bool playing = false;
+    bool stopPendingAtBar = false;
     uint64_t joinBoundary = 0;
     uint64_t stopBoundary = 0;
     int joinsSeen = 0;
@@ -104,7 +105,15 @@ struct EmulatedDrum
                     break;
                 case jam::DrumClockCommandType::StopAtBar:
                     ++stopsSeen;
+                    stopPendingAtBar = true;
                     stopBoundary = command.sampleTime;
+                    break;
+                case jam::DrumClockCommandType::Clear:
+                    // INT-LIVE-001 Stop: bounded cancel/clear, releases mode.
+                    ++stopsSeen;
+                    joined = false;
+                    playing = false;
+                    stopPendingAtBar = false;
                     break;
                 default:
                     break;
@@ -113,10 +122,14 @@ struct EmulatedDrum
 
         if (joined && ! playing && cursor >= joinBoundary)
             playing = true;
-        if (playing && stopsSeen > 0 && cursor >= stopBoundary)
+        if (playing && stopPendingAtBar && cursor >= stopBoundary)
+        {
             playing = false;
+            stopPendingAtBar = false;
+        }
 
         jam::DrumPlaybackEcho echo;
+        echo.sessionGeneration = session.currentGeneration();
         echo.attached = true;
         echo.injectedActive = joined;
         echo.injectedPlaying = playing;
@@ -145,10 +158,9 @@ bool chunkingCheck()
     auto tracker = std::make_unique<CountingTracker>();
     auto* raw = tracker.get();
     jam::LiveJamSessionConfig config;
-    config.availableBackend = jam::JamLiveBackend::injectedTest;
     config.audioRingCapacity = 8;
     jam::LiveJamSession session (config);
-    session.setTracker (std::move (tracker));
+    session.setTracker (std::move (tracker), jam::JamLiveBackend::injectedTest);
     session.prepare (kSampleRate, kBlock, false);
 
     // A 4096-frame callback split into two <=2048 chunks, as the processor does.
@@ -173,12 +185,12 @@ int main()
     std::printf ("live-jam-pipeline driver: deterministic 120 BPM trace\n");
 
     jam::LiveJamSessionConfig config;
-    config.availableBackend = jam::JamLiveBackend::injectedTest;
     config.audioRingCapacity = 8;
     jam::LiveJamSession session (config);
     // The scripted observations are injected, so a null tracker would be fine,
     // but a real tracker keeps the backend "available" as in production.
-    session.setTracker (std::make_unique<CountingTracker>());
+    session.setTracker (std::make_unique<CountingTracker>(),
+                        jam::JamLiveBackend::injectedTest);
     session.prepare (kSampleRate, kBlock, false);
 
     EmulatedDrum drum;

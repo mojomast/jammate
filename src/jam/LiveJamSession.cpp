@@ -45,14 +45,25 @@ LiveJamSession::~LiveJamSession()
     release();
 }
 
-bool LiveJamSession::setTracker (std::unique_ptr<IRhythmTracker> tracker) noexcept
+bool LiveJamSession::setTracker (std::unique_ptr<IRhythmTracker> tracker,
+                                 JamLiveBackend backend) noexcept
 {
-    // Ownership is handed to the analyzer exactly once. A second hand-over after
-    // the analyzer exists would make the live tracker ambiguous.
-    if (analyzer_ != nullptr)
+    // Legal before the first prepare and after a release()/re-prepare, but never
+    // while the control worker runs or the session is prepared: ownership of a
+    // live tracker must stay unambiguous.
+    if (running_.load (std::memory_order_acquire))
+        return false;
+    if (prepared_.load (std::memory_order_acquire))
         return false;
 
     pendingTracker_ = std::move (tracker);
+    pendingBackend_ = backend;
+    haveTracker_ = pendingTracker_ != nullptr;
+    backend_ = haveTracker_ ? backend : JamLiveBackend::unavailable;
+
+    // Drop any stopped analyzer so the next prepare rebuilds it around the new
+    // tracker. Safe: not running and not prepared.
+    analyzer_.reset();
     return true;
 }
 
@@ -63,6 +74,23 @@ void LiveJamSession::resetSessionStats() noexcept
     staleCommandRejects_ = 0;
     agedObservationDrops_ = 0;
     discontinuities_ = 0;
+}
+
+void LiveJamSession::publishColdState (bool prepared) noexcept
+{
+    // Sole-publisher path: the control worker is joined here. Publishing a cold
+    // coherent state means a stale prepared/playing payload can never leak
+    // across a prepare/release.
+    JamLiveState state;
+    state.sessionGeneration = sessionGeneration_;
+    state.prepared = prepared;
+    state.sampleRate = sampleRate_;
+    state.backend = backend_;
+    state.failure = failure_;
+    state.requestedRunning = false;
+    state.joinPending = false;
+    state.drumsPlaying = false;
+    state_.publish (state);
 }
 
 bool LiveJamSession::prepare (double sampleRate, int maximumBlockSize,
@@ -79,9 +107,6 @@ bool LiveJamSession::prepare (double sampleRate, int maximumBlockSize,
     sessionGeneration_ = generation_.fetch_add (1, std::memory_order_relaxed) + 1;
     sampleRate_ = sampleRate;
 
-    // Time and grids restart at this origin. The audio side is expected to have
-    // reset its own cursor to 0 in the same prepare boundary, so the worker
-    // clock and the attached DrumEngine share the domain.
     ring_.reset();
     bridge_.prepare (sampleRate, maximumBlockSize);
     clock_.reset();
@@ -89,7 +114,6 @@ bool LiveJamSession::prepare (double sampleRate, int maximumBlockSize,
 
     haveClockAnchor_ = false;
     clockSampleTime_ = 0;
-    requestedRunning_ = false;
     lastEcho_ = DrumPlaybackEcho {};
     discontinuitySeen_ = false;
     haveAnalyzerGeneration_ = false;
@@ -105,13 +129,10 @@ bool LiveJamSession::prepare (double sampleRate, int maximumBlockSize,
 
     // --- analyzer -----------------------------------------------------------
     if (analyzer_ == nullptr)
-    {
-        haveTracker_ = pendingTracker_ != nullptr;
         analyzer_ = std::make_unique<RhythmAnalyzer> (ring_, std::move (pendingTracker_));
-    }
 
-    backend_ = haveTracker_ ? config_.availableBackend : JamLiveBackend::unavailable;
-    failure_ = JamLiveFailure::none;
+    if (backend_ != JamLiveBackend::unavailable)
+        failure_ = JamLiveFailure::none;
 
     const AnalyzerStartResult startResult = analyzer_->start (sampleRate);
     if (startResult == AnalyzerStartResult::noTracker)
@@ -119,13 +140,12 @@ bool LiveJamSession::prepare (double sampleRate, int maximumBlockSize,
     else if (startResult != AnalyzerStartResult::started)
         failure_ = JamLiveFailure::workerFailure;
 
-    // UI commands are kept across a re-prepare and rejected by GENERATION once
-    // the worker runs, so a command that was in flight while prepare() bumped the
-    // generation can never be applied to the new session. Rebaseline the
-    // cumulative drop counter so userCommandDrops is per-session.
     resetSessionStats();
 
+    // Publish the new generation's cold prepared state BEFORE the worker starts,
+    // so no previous snapshot can be read under the new generation.
     prepared_.store (true, std::memory_order_release);
+    publishColdState (true);
     state_.invalidate();
 
     if (startControlThread)
@@ -141,6 +161,10 @@ void LiveJamSession::release() noexcept
         analyzer_->stop();
 
     prepared_.store (false, std::memory_order_release);
+
+    // Cold released state from the lifecycle owner (worker joined), then a
+    // re-read hint. The latest-value slot itself is never destroyed.
+    publishColdState (false);
     state_.invalidate();
 }
 
@@ -206,8 +230,6 @@ void LiveJamSession::stepControlForTesting() noexcept
 
 bool LiveJamSession::popObservation (ObservationEnvelope& out) noexcept
 {
-    // Deterministic test envelopes take priority so a manually-stepped session
-    // does not depend on the analyzer thread.
     if (injectedObservations_.pop (out))
         return true;
     if (analyzer_ != nullptr)
@@ -215,51 +237,44 @@ bool LiveJamSession::popObservation (ObservationEnvelope& out) noexcept
     return false;
 }
 
-void LiveJamSession::advanceClockTo (std::uint64_t cursor, double rate) noexcept
+bool LiveJamSession::advanceClockTo (std::uint64_t cursor, double rate) noexcept
 {
     if (! haveClockAnchor_)
     {
         clock_.advance (cursor, rate);
         clockSampleTime_ = cursor;
         haveClockAnchor_ = true;
-        return;
+        return false;
     }
 
     if (cursor < clockSampleTime_
         || cursor - clockSampleTime_ > config_.bridge.maxForwardJumpSamples)
     {
-        // Backwards or implausibly large jump: the grid we derived no longer
-        // describes the audio timeline. Re-anchor at the new origin without
-        // fabricating elapsed beats, and count the discontinuity.
+        // Backwards or implausibly large jump: re-anchor at the new origin
+        // without fabricating elapsed beats. The caller counts this once.
         clock_.reset();
         clock_.advance (cursor, rate);
         clockSampleTime_ = cursor;
-        ++discontinuities_;
-        discontinuitySeen_ = true;
-        return;
+        return true;
     }
 
     const std::uint64_t delta = cursor - clockSampleTime_;
     if (delta == 0)
-        return;
+        return false;
 
     clock_.advance (delta, rate);
     clockSampleTime_ = cursor;
+    return false;
 }
 
 void LiveJamSession::processObservation (const ObservationEnvelope& envelope,
                                          std::uint64_t cursor) noexcept
 {
-    // The receipt is stamped from the ACTUAL audio cursor at the moment the
-    // control worker popped the envelope. The envelope itself is left
-    // unmodified: this is a separate, block-resolution availability signal, not
-    // a physical device-latency claim and not fabricated sub-block timing.
+    // Receipt: the ACTUAL audio cursor at the moment the worker popped the
+    // envelope. The envelope itself is left unmodified.
     lastReceipt_ = cursor;
     receiptMeasured_ = true;
 
-    // Distinguish a fresh tracker stream from a tracker reset: a generation
-    // change is a discontinuity, so the clock is not silently fed evidence from
-    // a different stream.
     if (haveAnalyzerGeneration_ && envelope.streamGeneration != lastAnalyzerGeneration_)
     {
         ++discontinuities_;
@@ -270,11 +285,9 @@ void LiveJamSession::processObservation (const ObservationEnvelope& envelope,
 
     const std::uint64_t event = envelope.observation.inputSampleTime;
 
-    // Fail closed: an event that claims a future time, or one older than the
-    // bounded age, is dropped and counted rather than applied to a clock that has
-    // already moved on. This keeps the event phase honest.
-    if (event > cursor
-        || cursor - event > config_.maxObservationAgeSamples)
+    // Fail closed: future or too-old evidence is dropped and counted rather than
+    // applied to a clock that has already moved on.
+    if (event > cursor || cursor - event > config_.maxObservationAgeSamples)
     {
         ++agedObservationDrops_;
         return;
@@ -294,8 +307,7 @@ void LiveJamSession::syncBridgePhaseToClock (std::uint64_t cursor) noexcept
     if (! (snapshot.bpm > 0.0) || ! std::isfinite (snapshot.bpm))
         return;
 
-    const double samplesPerBeat =
-        kSecondsPerMinute * sampleRate_ / snapshot.bpm;
+    const double samplesPerBeat = kSecondsPerMinute * sampleRate_ / snapshot.bpm;
     double beatsToNextBar =
         (1.0 - snapshot.barPhase01) * static_cast<double> (snapshot.beatsPerBar);
     if (beatsToNextBar <= 1.0e-9)
@@ -316,23 +328,22 @@ void LiveJamSession::applyCommand (const JamLiveCommand& command,
         case JamLiveCommandType::Start:
             if (! haveTracker_)
             {
-                // No live backend in this build: reject Start and report the
-                // failure. Never fall back to a simulator.
                 failure_ = JamLiveFailure::unavailableBackend;
-                requestedRunning_ = false;
                 return;
             }
             if (failure_ == JamLiveFailure::unavailableBackend)
                 failure_ = JamLiveFailure::none;
-            requestedRunning_ = true;
+            policy_.notifyStart();
             break;
 
         case JamLiveCommandType::Stop:
+            // Bounded stop at the next serviced audio block; cancels any queued
+            // join and releases injected mode so manual transport works again.
+            policy_.notifyStop (JamStopKind::now);
+            break;
+
         case JamLiveCommandType::StopAtNextBar:
-            // Stop is a bounded commitment at the next bar boundary; it never
-            // tears down the pipeline. The policy turns this into a stop and
-            // clears the engaged state.
-            requestedRunning_ = false;
+            policy_.notifyStop (JamStopKind::nextBar);
             break;
 
         case JamLiveCommandType::TapTempo:
@@ -342,8 +353,6 @@ void LiveJamSession::applyCommand (const JamLiveCommand& command,
 
         case JamLiveCommandType::ResyncNextBeat:
             clock_.command (clockCommand (ClockCommandType::ResyncNextBeat, cursor));
-            // Same absolute phase statement to the engine so both grids re-phase
-            // together. The clock remains the tempo authority.
             bridge_.requestResyncNextBeat (cursor);
             break;
 
@@ -354,8 +363,6 @@ void LiveJamSession::applyCommand (const JamLiveCommand& command,
 
         case JamLiveCommandType::HalfTime:
             clock_.command (clockCommand (ClockCommandType::HalfTime, 0));
-            // The clock owns tempo and phase; the bridge follows by landing its
-            // next downbeat on the clock's. No raw BPM is written to the engine.
             syncBridgePhaseToClock (cursor);
             break;
 
@@ -382,43 +389,39 @@ void LiveJamSession::applyCommand (const JamLiveCommand& command,
         }
 
         case JamLiveCommandType::Reset:
-            // A full session reset: the clock forgets tempo/phase, the policy
-            // forgets its engagement and the grid is safely stopped. The user
-            // must press Start again; there is no automatic resume.
+            // Immediate-serviced stop + clock forget. No quiescent bridge reset
+            // while audio is active: the policy issues a bounded cancel stop.
             clock_.command (clockCommand (ClockCommandType::Reset, 0));
             haveClockAnchor_ = false;
             clockSampleTime_ = 0;
-            requestedRunning_ = false;
-            policy_.reset();
-            bridge_.requestStopAtNextBar();
+            policy_.notifyReset();
             discontinuitySeen_ = true;
-            ++discontinuities_;
             break;
     }
 }
 
 void LiveJamSession::stepControl (std::uint64_t cursor) noexcept
 {
-    // 1. Fold the audio owner's drum echo. The control worker is the only reader.
+    // 1. Fold the audio owner's drum echo; ignore a stale generation.
     DrumPlaybackEcho echo;
-    if (echo_.tryRead (echo))
+    if (echo_.tryRead (echo) && echo.sessionGeneration == sessionGeneration_)
         lastEcho_ = echo;
 
-    // 2. Advance the clock from the actual audio cursor, whether or not any
-    //    evidence arrived and whether or not Jam is playing.
-    advanceClockTo (cursor, sampleRate_);
+    // 2. Advance the clock from the actual audio cursor (even during silence).
+    bool discontinuity = advanceClockTo (cursor, sampleRate_);
 
-    // 3. Anchor the bridge's grid to the same absolute cursor before any command
-    //    that needs an up-to-date `now`.
+    // 3. Anchor the bridge to the same absolute cursor; a discontinuity there is
+    //    the SAME event and is counted once.
     if (! bridge_.setClockSample (cursor))
+        discontinuity = true;
+
+    if (discontinuity)
     {
-        // The bridge saw a discontinuity and already published a Clear.
         ++discontinuities_;
         discontinuitySeen_ = true;
     }
 
-    // 4. Drain UI commands. Stale-generation commands (submitted before a
-    //    re-prepare) are rejected here rather than applied.
+    // 4. Drain UI commands; stale-generation commands are rejected.
     {
         QueuedCommand queued;
         std::size_t applied = 0;
@@ -427,8 +430,6 @@ void LiveJamSession::stepControl (std::uint64_t cursor) noexcept
             ++applied;
             if (queued.generation != sessionGeneration_)
             {
-                // In flight across a re-prepare: reject rather than apply to the
-                // new session.
                 ++staleCommandRejects_;
                 continue;
             }
@@ -447,33 +448,30 @@ void LiveJamSession::stepControl (std::uint64_t cursor) noexcept
         }
     }
 
-    // 6. Publish the (possibly updated) clock belief to the bridge. This only
-    //    stages tempo at the next bar boundary; it never writes a raw detector
-    //    value to the engine.
+    // 6. Publish the clock belief to the bridge (stages tempo at the next bar).
     bridge_.applySnapshot (clock_.snapshot());
 
-    // 7. Minimal director: one join from a usable lock, hold through holdover,
-    //    safe stop on loss/reset.
-    const JamJoinDecision decision =
-        policy_.update (clock_.snapshot(), requestedRunning_, discontinuitySeen_);
+    // 7. Minimal director: join / hold / stop. The bridge's accept/reject is
+    //    reported back so a full queue is retried, never latched.
+    const JamJoinDecision decision = policy_.update (clock_.snapshot(), discontinuitySeen_);
     discontinuitySeen_ = false;
 
     switch (decision.action)
     {
         case JamJoinAction::joinAtNextBar:
-            bridge_.requestJoinAtNextBar (config_.groove);
+            policy_.notifyJoinAccepted (bridge_.requestJoinAtNextBar (config_.groove));
+            break;
+        case JamJoinAction::stopNow:
+            policy_.notifyStopAccepted (bridge_.requestStopNow());
             break;
         case JamJoinAction::stopAtNextBar:
-        case JamJoinAction::clearNow:
-            // A discontinuity has already asked the engine to Clear; a plain
-            // loss only needs the grid stopped.
-            bridge_.requestStopAtNextBar();
+            policy_.notifyStopAccepted (bridge_.requestStopAtNextBar());
             break;
         case JamJoinAction::none:
             break;
     }
 
-    // 8. Confirm/abandon a pending join from the real audio-owner echo.
+    // 8. Confirm/abandon from the real audio-owner echo.
     policy_.notifyPlaybackEcho (lastEcho_.attached
                                 && lastEcho_.injectedActive
                                 && lastEcho_.injectedPlaying);
@@ -487,7 +485,7 @@ void LiveJamSession::publishState (std::uint64_t cursor) noexcept
     JamLiveState state;
     state.sessionGeneration = sessionGeneration_;
     state.prepared = prepared_.load (std::memory_order_relaxed);
-    state.requestedRunning = requestedRunning_;
+    state.requestedRunning = policy_.requestedRunning();
     state.joinPending = policy_.joinPending();
     state.drumsPlaying = lastEcho_.attached
                          && lastEcho_.injectedActive

@@ -101,7 +101,6 @@ struct StubTracker : jam::IRhythmTracker
 LiveJamSessionConfig testConfig()
 {
     LiveJamSessionConfig config;
-    config.availableBackend = jam::JamLiveBackend::injectedTest;
     config.groove = 0;
     return config;
 }
@@ -113,7 +112,7 @@ std::unique_ptr<LiveJamSession> makeSession (StubTracker** outTracker = nullptr,
     auto tracker = std::make_unique<StubTracker>();
     if (outTracker != nullptr)
         *outTracker = tracker.get();
-    session->setTracker (std::move (tracker));
+    session->setTracker (std::move (tracker), jam::JamLiveBackend::injectedTest);
     return session;
 }
 
@@ -175,25 +174,38 @@ void lockClockWithTaps (LiveJamSession& session)
     session.stepControlForTesting();
 }
 
+// Audio-owner echo tagged with the session's current generation.
+jam::DrumPlaybackEcho echoFor (LiveJamSession& session, bool playing)
+{
+    return jam::DrumPlaybackEcho { session.currentGeneration(), true, true, playing,
+                                   session.audioCursor(), 0 };
+}
+
 } // namespace
 
 //============================================================================
 // Backend availability
 //============================================================================
 
-JAM_TEST (livejamsession, stateUnavailableBeforeFirstTick)
+JAM_TEST (livejamsession, preparePublishesColdStateBeforeFirstTick)
 {
     auto session = makeSession();
-    session->prepare (48000.0, 512, false);
+    REQUIRE (session->prepare (48000.0, 512, false));
 
-    JamLiveState state;
-    CHECK (! session->readState (state)); // nothing published yet
+    // prepare() publishes a cold coherent state before the worker starts, so a
+    // stale prepared/playing payload can never leak (P3).
+    const JamLiveState state = stateOf (*session);
+    CHECK (state.prepared);
+    CHECK (! state.requestedRunning);
+    CHECK (! state.joinPending);
+    CHECK (! state.drumsPlaying);
+    CHECK (! state.receiptMeasured);
 }
 
 JAM_TEST (livejamsession, noTrackerReportsUnavailableAndRejectsStart)
 {
     auto session = std::make_unique<LiveJamSession> (testConfig());
-    REQUIRE (session->setTracker (nullptr));
+    REQUIRE (session->setTracker (nullptr, jam::JamLiveBackend::unavailable));
     REQUIRE (session->prepare (48000.0, 512, false));
 
     CHECK (session->backend() == jam::JamLiveBackend::unavailable);
@@ -255,7 +267,7 @@ JAM_TEST (livejamsession, startJoinsAtNextBarThenEchoConfirms)
     CHECK (countType (commands, DrumClockCommandType::JoinAtBar) == 1);
 
     // Audio owner reports the injected transport is really rendering.
-    session->publishDrumEcho (jam::DrumPlaybackEcho { true, true, true, 0, 0 });
+    session->publishDrumEcho (echoFor (*session, true));
     session->stepControlForTesting();
 
     const JamLiveState afterEcho = stateOf (*session);
@@ -278,7 +290,7 @@ JAM_TEST (livejamsession, echoDistinguishesPendingFromPlaying)
     session->stepControlForTesting();
 
     // Attached but not yet playing: still pending, not playing.
-    session->publishDrumEcho (jam::DrumPlaybackEcho { true, true, false, 0, 0 });
+    session->publishDrumEcho (echoFor (*session, false));
     session->stepControlForTesting();
     {
         const JamLiveState state = stateOf (*session);
@@ -286,7 +298,7 @@ JAM_TEST (livejamsession, echoDistinguishesPendingFromPlaying)
         CHECK (! state.drumsPlaying);
     }
 
-    session->publishDrumEcho (jam::DrumPlaybackEcho { true, true, true, 0, 0 });
+    session->publishDrumEcho (echoFor (*session, true));
     session->stepControlForTesting();
     {
         const JamLiveState state = stateOf (*session);
@@ -386,11 +398,11 @@ JAM_TEST (livejamsession, stopAtNextBarStopsAndDoesNotAutoResume)
     lockClockWithTaps (*session);
     session->submitCommand (JamLiveCommand { JamLiveCommandType::Start, 0.0 });
     session->stepControlForTesting();
-    session->publishDrumEcho (jam::DrumPlaybackEcho { true, true, true, 0, 0 });
+    session->publishDrumEcho (echoFor (*session, true));
     session->stepControlForTesting();
     (void) drainCommands (*session);
 
-    session->submitCommand (JamLiveCommand { JamLiveCommandType::Stop, 0.0 });
+    session->submitCommand (JamLiveCommand { JamLiveCommandType::StopAtNextBar, 0.0 });
     session->stepControlForTesting();
 
     {
@@ -400,12 +412,55 @@ JAM_TEST (livejamsession, stopAtNextBarStopsAndDoesNotAutoResume)
     const auto commands = drainCommands (*session);
     CHECK (countType (commands, DrumClockCommandType::StopAtBar) == 1);
 
-    // Later ticks must not rejoin even with the lock still valid.
-    session->publishDrumEcho (jam::DrumPlaybackEcho { true, true, false, 0, 0 });
+    // Later ticks must not rejoin even with the lock still valid, and the
+    // still-playing echo must NOT clear the pending stop.
+    session->publishDrumEcho (echoFor (*session, true));
     session->stepControlForTesting();
     session->stepControlForTesting();
     const auto later = drainCommands (*session);
     CHECK (countType (later, DrumClockCommandType::JoinAtBar) == 0);
+    CHECK (! stateOf (*session).requestedRunning);
+}
+
+JAM_TEST (livejamsession, stopNowCancelsJoinAndReleases)
+{
+    auto session = makeSession();
+    REQUIRE (session->prepare (48000.0, 512, false));
+    lockClockWithTaps (*session);
+    (void) drainCommands (*session);
+
+    // Join is wanted but the audio owner has not confirmed playback yet.
+    session->submitCommand (JamLiveCommand { JamLiveCommandType::Start, 0.0 });
+    session->stepControlForTesting();
+    CHECK (stateOf (*session).joinPending);
+
+    // Stop before the downbeat: a bounded cancel/clear is published. The FIFO
+    // already-queued join is cancelled by the Clear ordered after it, and the
+    // policy never re-enqueues a join.
+    session->submitCommand (JamLiveCommand { JamLiveCommandType::Stop, 0.0 });
+    session->stepControlForTesting();
+    {
+        const JamLiveState state = stateOf (*session);
+        CHECK (! state.requestedRunning);
+        CHECK (! state.joinPending);
+    }
+    const auto commands = drainCommands (*session);
+    REQUIRE (countType (commands, DrumClockCommandType::Clear) >= 1);
+    int lastJoin = -1;
+    int clear = -1;
+    for (int i = 0; i < (int) commands.size(); ++i)
+    {
+        if (commands[(std::size_t) i].type == DrumClockCommandType::JoinAtBar)
+            lastJoin = i;
+        if (commands[(std::size_t) i].type == DrumClockCommandType::Clear)
+            clear = i;
+    }
+    CHECK (clear > lastJoin); // the cancel is ordered after the queued join
+
+    // Later ticks with a still-valid lock must not enqueue another join.
+    session->stepControlForTesting();
+    session->stepControlForTesting();
+    CHECK (countType (drainCommands (*session), DrumClockCommandType::JoinAtBar) == 0);
     CHECK (! stateOf (*session).requestedRunning);
 }
 
@@ -416,7 +471,7 @@ JAM_TEST (livejamsession, resetClearsAndDoesNotAutoResume)
     lockClockWithTaps (*session);
     session->submitCommand (JamLiveCommand { JamLiveCommandType::Start, 0.0 });
     session->stepControlForTesting();
-    session->publishDrumEcho (jam::DrumPlaybackEcho { true, true, true, 0, 0 });
+    session->publishDrumEcho (echoFor (*session, true));
     session->stepControlForTesting();
     (void) drainCommands (*session);
 
@@ -430,7 +485,7 @@ JAM_TEST (livejamsession, resetClearsAndDoesNotAutoResume)
         CHECK (state.clock.lockState == jam::ClockLockState::Acquiring);
     }
     const auto commands = drainCommands (*session);
-    CHECK (countType (commands, DrumClockCommandType::StopAtBar) >= 1);
+    CHECK (countType (commands, DrumClockCommandType::Clear) >= 1);
 
     // No automatic resume after Reset.
     session->stepControlForTesting();
@@ -439,6 +494,94 @@ JAM_TEST (livejamsession, resetClearsAndDoesNotAutoResume)
         CHECK (! state.requestedRunning);
         CHECK (! state.joinPending);
     }
+}
+
+//============================================================================
+// P1: bounded retry when the bridge queue is full (no latched-forever intent)
+//============================================================================
+
+namespace
+{
+void fillBridgeQueue (LiveJamSession& session)
+{
+    jam::DrumClockCommand filler;
+    filler.type = jam::DrumClockCommandType::None;
+    while (session.drumCommandQueue().push (filler))
+    {
+    }
+}
+} // namespace
+
+JAM_TEST (livejamsession, joinRetriesAfterQueueFull)
+{
+    auto session = makeSession();
+    REQUIRE (session->prepare (48000.0, 512, false));
+    lockClockWithTaps (*session);
+    (void) drainCommands (*session);
+
+    fillBridgeQueue (*session); // capacity 16: the next join must be rejected
+
+    session->submitCommand (JamLiveCommand { JamLiveCommandType::Start, 0.0 });
+    session->stepControlForTesting();
+
+    // Rejected, but still wanted: not latched, and no join was queued.
+    CHECK (stateOf (*session).joinPending);
+    CHECK (countType (drainCommands (*session), DrumClockCommandType::JoinAtBar) == 0);
+
+    // Next tick retries; the accepted join reaches the engine queue.
+    session->stepControlForTesting();
+    CHECK (countType (drainCommands (*session), DrumClockCommandType::JoinAtBar) == 1);
+    CHECK (stateOf (*session).joinPending);
+}
+
+JAM_TEST (livejamsession, stopRetriesWhenQueueFullAndEchoPlayingDoesNotClearIt)
+{
+    auto session = makeSession();
+    REQUIRE (session->prepare (48000.0, 512, false));
+    lockClockWithTaps (*session);
+    session->submitCommand (JamLiveCommand { JamLiveCommandType::Start, 0.0 });
+    session->stepControlForTesting();
+    session->publishDrumEcho (echoFor (*session, true));
+    session->stepControlForTesting();
+    (void) drainCommands (*session);
+    CHECK (stateOf (*session).drumsPlaying);
+
+    fillBridgeQueue (*session); // the stop request will be rejected
+
+    session->submitCommand (JamLiveCommand { JamLiveCommandType::Stop, 0.0 });
+    session->stepControlForTesting();
+    {
+        // The still-playing echo must NOT clear the pending stop.
+        const JamLiveState state = stateOf (*session);
+        CHECK (! state.requestedRunning);
+        CHECK (state.drumsPlaying);
+    }
+    (void) drainCommands (*session);
+
+    // Retry with room: a cancel/clear is published.
+    session->stepControlForTesting();
+    CHECK (countType (drainCommands (*session), DrumClockCommandType::Clear) >= 1);
+
+    // Audio owner echoes stopped: the pending stop resolves.
+    session->publishDrumEcho (echoFor (*session, false));
+    session->stepControlForTesting();
+    CHECK (! stateOf (*session).drumsPlaying);
+}
+
+JAM_TEST (livejamsession, echoFromOtherGenerationIsIgnored)
+{
+    auto session = makeSession();
+    REQUIRE (session->prepare (48000.0, 512, false));
+
+    jam::DrumPlaybackEcho stale = echoFor (*session, true);
+    stale.sessionGeneration = session->currentGeneration() + 7;
+    session->publishDrumEcho (stale);
+    session->stepControlForTesting();
+    CHECK (! stateOf (*session).drumsPlaying); // stale generation ignored
+
+    session->publishDrumEcho (echoFor (*session, true));
+    session->stepControlForTesting();
+    CHECK (stateOf (*session).drumsPlaying);
 }
 
 //============================================================================
@@ -575,6 +718,99 @@ JAM_TEST (livejamsession, agedObservationFailsClosed)
     const JamLiveState state = stateOf (*session);
     CHECK_EQ (state.lastEventSampleTime, (uint64_t) 0);
     CHECK_GE (state.observationDrops, (uint64_t) 1);
+}
+
+//============================================================================
+// Release / re-prepare state coherence
+//============================================================================
+
+JAM_TEST (livejamsession, releasePublishesColdState)
+{
+    auto session = makeSession();
+    REQUIRE (session->prepare (48000.0, 512, false));
+    lockClockWithTaps (*session);
+    session->submitCommand (JamLiveCommand { JamLiveCommandType::Start, 0.0 });
+    session->stepControlForTesting();
+    session->publishDrumEcho (echoFor (*session, true));
+    session->stepControlForTesting();
+    CHECK (stateOf (*session).drumsPlaying);
+
+    session->release();
+
+    // A cold released state must be readable; no stale prepared/playing payload.
+    const JamLiveState state = stateOf (*session);
+    CHECK (! state.prepared);
+    CHECK (! state.requestedRunning);
+    CHECK (! state.joinPending);
+    CHECK (! state.drumsPlaying);
+    CHECK (! state.receiptMeasured);
+}
+
+JAM_TEST (livejamsession, secondPrepareResetsReceiptAndTimestamps)
+{
+    auto session = makeSession();
+    REQUIRE (session->prepare (48000.0, 512, false));
+    session->publishAudioCursor (5000);
+    CHECK (session->injectObservationForTesting (observation (1000, 2000)));
+    session->stepControlForTesting();
+    CHECK (stateOf (*session).receiptMeasured);
+
+    REQUIRE (session->prepare (48000.0, 512, false));
+    const JamLiveState state = stateOf (*session);
+    CHECK (state.prepared);
+    CHECK (! state.receiptMeasured);
+    CHECK_EQ (state.lastReceiptSampleTime, (uint64_t) 0);
+    CHECK_EQ (state.lastEventSampleTime, (uint64_t) 0);
+    CHECK_EQ (state.audioSampleTime, (uint64_t) 0);
+}
+
+JAM_TEST (livejamsession, releaseThenSetTrackerAllowsReprepare)
+{
+    auto session = makeSession();
+    REQUIRE (session->prepare (48000.0, 512, false));
+    // A tracker cannot be replaced while prepared.
+    CHECK (! session->setTracker (std::make_unique<StubTracker>(),
+                                  jam::JamLiveBackend::injectedTest));
+    session->release();
+    // After release it is legal again (re-prepare with a new tracker).
+    CHECK (session->setTracker (std::make_unique<StubTracker>(),
+                                jam::JamLiveBackend::injectedTest));
+    REQUIRE (session->prepare (48000.0, 512, false));
+    CHECK (session->backend() == jam::JamLiveBackend::injectedTest);
+}
+
+JAM_TEST (livejamsession, uiReaderConcurrentWithControlWorker)
+{
+    // Bounded concurrency smoke: a UI-style reader polls while the control
+    // worker publishes. Meaningful under a TSan build; here it must at least not
+    // deadlock or crash, and the final state must be coherent.
+    auto session = makeSession();
+    REQUIRE (session->prepare (48000.0, 512, true));
+
+    std::atomic<bool> stop { false };
+    std::atomic<int> reads { 0 };
+    std::thread reader ([&] {
+        while (! stop.load (std::memory_order_relaxed))
+        {
+            jam::JamLiveState state;
+            if (session->readState (state))
+                reads.fetch_add (1, std::memory_order_relaxed);
+        }
+    });
+
+    for (int i = 0; i < 200; ++i)
+    {
+        session->publishAudioCursor ((uint64_t) (i + 1) * 512);
+        session->injectObservationForTesting (observation ((uint64_t) i * 512,
+                                                           (uint64_t) (i + 1) * 512));
+        std::this_thread::sleep_for (std::chrono::milliseconds (1));
+    }
+
+    stop.store (true, std::memory_order_relaxed);
+    reader.join();
+    session->release();
+    CHECK (reads.load (std::memory_order_relaxed) > 0);
+    CHECK (! stateOf (*session).prepared);
 }
 
 //============================================================================

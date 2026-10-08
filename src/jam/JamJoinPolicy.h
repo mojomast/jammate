@@ -7,22 +7,23 @@
 // loss/reset" — expressed as a pure, deterministic state machine so it can be
 // driven without threads, audio or timers.
 //
+// INTENT / SENT / ECHO-ACK ARE SEPARATE
+//   A join is only "sent" once the bridge accepted the command (queue space),
+//   and only "engaged" once the audio owner echoes real playback. A rejected
+//   join stays wanted and is retried on the next tick; it is never latched as
+//   pending-forever. A stop wanted persists until the audio owner echoes that
+//   it actually stopped — a still-playing echo does NOT clear it, so a stop
+//   cannot be silently dropped.
+//
 // WHAT IT DOES
-//   - Maps the accepted Start/Stop intent plus the current ClockSnapshot to one
-//     of a small set of actions the session applies through the MusicClock and
-//     the DrumClockBridge. It never sets a drum tempo, never touches the audio
-//     callback and never reads engine state.
-//   - Join happens once, from a Locked clock, and is "pending" until the audio
-//     owner echoes that the engine actually started. This is what lets
-//     JamLiveState distinguish requestedRunning / joinPending / drumsPlaying
-//     instead of claiming sound from a scheduled command.
-//   - Holdover HOLDS: the drummer keeps playing on the last anchored grid
-//     (explicit holdover policy). Only Loss or an explicit discontinuity stops
-//     the grid.
-//   - Discontinuity (device re-prepare, backwards cursor, tracker reset) clears
-//     the engaged state and asks for a safe stop; it never auto-resumes.
-//   - An explicit UI Stop sets requestedRunning=false; a later Start is a new
-//     intent, never an automatic resume.
+//   - a join is requested only from a `Locked` clock;
+//   - `Holdover` HOLDS: the drummer keeps the last anchored grid;
+//   - `Lost` stops the grid safely (cancelling any future join) and keeps the
+//     running intent, so a re-locked clock rejoins (loss recovery, not an
+//     automatic resume after a UI Stop);
+//   - an explicit UI Stop (`stopNow`) or StopAtNextBar commits a bounded stop;
+//     a later Start is a new intent, never an automatic resume;
+//   - a discontinuity clears the engagement and forces a cancel stop.
 //
 // THREADING: pure data, owned and called by the single control worker (or by a
 // deterministic test). No allocation, no locks, no time source.
@@ -36,13 +37,25 @@
 namespace jam
 {
 
-/** One action the session must apply for the current tick. */
+/** Which stop the user asked for. `now` is the bounded next-serviced-block stop
+    (the bridge publishes a cancel/clear); `nextBar` is the musical next-bar
+    stop. */
+enum class JamStopKind : int
+{
+    none = 0,
+    now,      // JamLiveCommandType::Stop / Reset / Loss
+    nextBar   // JamLiveCommandType::StopAtNextBar
+};
+
+/** One action the session must attempt through the bridge this tick. The session
+    reports the bridge's accept/reject back through notifyJoinAccepted() /
+    notifyStopAccepted(). */
 enum class JamJoinAction : int
 {
     none = 0,
     joinAtNextBar,   // bridge.requestJoinAtNextBar(groove)
-    stopAtNextBar,   // bridge.requestStopAtNextBar()
-    clearNow         // a discontinuity already cleared the grid; stop is enough
+    stopNow,         // bridge.requestStopNow()
+    stopAtNextBar    // bridge.requestStopAtNextBar()
 };
 
 inline const char* toString (JamJoinAction a) noexcept
@@ -51,25 +64,19 @@ inline const char* toString (JamJoinAction a) noexcept
     {
         case JamJoinAction::none:          return "none";
         case JamJoinAction::joinAtNextBar: return "joinAtNextBar";
+        case JamJoinAction::stopNow:       return "stopNow";
         case JamJoinAction::stopAtNextBar: return "stopAtNextBar";
-        case JamJoinAction::clearNow:      return "clearNow";
     }
     return "unknown";
 }
 
 struct JamJoinPolicyConfig
 {
-    // A join is only ever requested from a Locked clock. Acquiring/Holdover are
-    // not usable for a first join; Holdover keeps an already-engaged grid.
-    bool joinOnlyWhenLocked = true;
-
     // Loss (clock Lost) safely stops the grid. The intent stays running, so a
-    // freshly re-locked clock can rejoin without the user pressing Start again;
-    // this is loss recovery, not an automatic resume after a UI Stop.
+    // freshly re-locked clock can rejoin.
     bool stopOnLost = true;
 
-    // A discontinuity (device re-prepare, cursor backwards, tracker reset)
-    // clears the engaged state and asks for a safe stop.
+    // A discontinuity forces a cancel stop and clears the engagement.
     bool stopOnDiscontinuity = true;
 };
 
@@ -87,31 +94,61 @@ public:
     /** Forget all state. Called on prepare / explicit Reset. */
     void reset() noexcept;
 
-    /** Advance the policy one tick.
-        @param clock             current stable clock belief
-        @param requestedRunning  accepted UI intent (Start=true / Stop=false)
-        @param discontinuity     true when this tick saw a grid discontinuity
-        @returns the single action to apply this tick */
-    JamJoinDecision update (const ClockSnapshot& clock,
-                            bool requestedRunning,
-                            bool discontinuity) noexcept;
+    // --- accepted user intent (one control owner) ---------------------------
 
-    /** Audio-owner echo: the engine really is (not) rendering. Confirms or
-        abandons a pending join. Called every tick. */
+    /** Start: run, joining once a usable lock exists. Cancels an unlanded stop
+        intent, but never reactivates a join cancelled by a prior Stop. */
+    void notifyStart() noexcept;
+
+    /** Stop: requestedRunning=false and a bounded stop is wanted. Any future
+        join is cancelled immediately. */
+    void notifyStop (JamStopKind kind) noexcept;
+
+    /** Reset: forget the belief, cancel everything, force an immediate stop. */
+    void notifyReset() noexcept;
+
+    // --- per-tick decision --------------------------------------------------
+
+    /** Advance the policy one tick.
+        @param clock          current stable clock belief
+        @param discontinuity  true when this tick saw a grid discontinuity
+        @returns the single action to attempt this tick */
+    JamJoinDecision update (const ClockSnapshot& clock, bool discontinuity) noexcept;
+
+    // --- bridge accept/reject feedback -------------------------------------
+
+    /** The bridge accepted (true) or rejected (false) the join command. A
+        rejected join remains wanted and is retried next tick. */
+    void notifyJoinAccepted (bool accepted) noexcept;
+
+    /** The bridge accepted (true) or rejected (false) the stop command. A
+        rejected stop remains wanted and is retried next tick. */
+    void notifyStopAccepted (bool accepted) noexcept;
+
+    /** Audio-owner echo. A playing echo confirms an outstanding join; it never
+        clears a pending stop. A stopped echo confirms a pending stop. */
     void notifyPlaybackEcho (bool playing) noexcept;
 
+    // --- observers ----------------------------------------------------------
+
     bool requestedRunning() const noexcept { return requestedRunning_; }
-    bool joinPending() const noexcept { return joinPending_; }
+    /** Join wanted or sent, but not yet confirmed playing. */
+    bool joinPending() const noexcept { return joinWanted_ || joinSent_; }
+    bool joinSent() const noexcept { return joinSent_; }
     bool engaged() const noexcept { return engaged_; }
-    bool stopPending() const noexcept { return stopPending_; }
+    /** Stop wanted or sent, not yet confirmed stopped. */
+    bool stopPending() const noexcept { return stopWanted_ || stopSent_; }
 
 private:
     JamJoinPolicyConfig config_;
 
     bool requestedRunning_ = false;
-    bool engaged_ = false;      // a join has been requested and not yet stopped
-    bool joinPending_ = false;  // join requested, audio echo not seen yet
-    bool stopPending_ = false;  // stop requested, echo not confirmed stopped
+    bool joinWanted_ = false;    // we want to play; retried until accepted
+    bool joinSent_ = false;      // bridge accepted a join; awaiting echo
+    bool engaged_ = false;       // echo confirmed playing
+    bool stopWanted_ = false;    // we want to stop; retried until accepted
+    bool stopSent_ = false;      // bridge accepted a stop; awaiting echo stop
+    JamStopKind stopKind_ = JamStopKind::none;
 };
 
 } // namespace jam

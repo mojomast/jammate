@@ -423,6 +423,41 @@ bool DrumClockBridge::requestStopAtNextBar() noexcept
     return true;
 }
 
+bool DrumClockBridge::requestStopNow() noexcept
+{
+    if (! prepared_)
+    {
+        ++invalidRequestCount_;
+        return false;
+    }
+
+    // A bounded cancel/clear: the engine applies it at its next serviced block,
+    // drops every pending event and leaves injected mode. No bar wait, no
+    // device prepare, no forced manual play.
+    DrumClockCommand command;
+    command.type = DrumClockCommandType::Clear;
+    command.sampleTime = now_;
+    command.generation = lastSnapshotGeneration_;
+
+    const std::uint64_t dropsBefore = queue_.droppedCount();
+    publish (command);
+    if (queue_.droppedCount() != dropsBefore)
+    {
+        // Full queue: the cancel was dropped, not half-published. Leave the
+        // worker grid untouched so the caller can retry.
+        ++invalidRequestCount_;
+        return false;
+    }
+
+    // Accepted: update the worker grid state (never before acceptance).
+    playing_ = false;
+    stopPending_ = false;
+    stopBoundary_ = 0;
+    haveStagedTempo_ = false;
+    haveStagedResync_ = false;
+    return true;
+}
+
 bool DrumClockBridge::requestResyncNextBeat (std::uint64_t targetSample) noexcept
 {
     if (! prepared_ || ! haveClockSample_ || targetSample < now_)

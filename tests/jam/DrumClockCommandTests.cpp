@@ -577,3 +577,74 @@ JAM_TEST (DrumClockBridge, overshootUpdateMatchesStepwise)
             }
     }
 }
+
+//==============================================================================
+// INT-LIVE-001 STOPDECISION: requestStopNow() is a bounded cancel/clear that
+// stops at the next serviced audio block (not the next bar), releases the
+// injected grid, and only updates worker state when the command was accepted.
+//==============================================================================
+JAM_TEST (DrumClockBridge, requestStopNowPublishesClearAndStops)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    CHECK (bridge.requestJoinAtNextBar (0));
+    CHECK_EQ (bridge.playing(), true);
+    (void) popOne (bridge); // the join
+
+    CHECK (bridge.requestStopNow());
+    CHECK_EQ (bridge.playing(), false);       // worker state updated only on accept
+    CHECK_EQ (bridge.stopPending(), false);
+
+    const DrumClockCommand clear = popOne (bridge);
+    CHECK_EQ (static_cast<int> (clear.type),
+              static_cast<int> (DrumClockCommandType::Clear));
+
+    // A later join re-engages the worker grid.
+    CHECK (bridge.requestJoinAtNextBar (0));
+    CHECK_EQ (bridge.playing(), true);
+}
+
+JAM_TEST (DrumClockBridge, requestStopNowCancelsStagedTempoAndResync)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    bridge.applySnapshot (lockedSnapshot (150.0, 1)); // staged at 96000
+    (void) popOne (bridge);                           // SetTempo
+    CHECK (bridge.requestResyncNextBar (40000));
+    (void) popOne (bridge);                           // ResyncBar
+
+    CHECK (bridge.requestStopNow());
+
+    // Crossing the old staged boundary must not apply the cancelled tempo.
+    bridge.setClockSample (kBar120);
+    CHECK_NEAR (bridge.bpm(), 120.0, 1e-12);
+}
+
+JAM_TEST (DrumClockBridge, requestStopNowRejectedWhenUnprepared)
+{
+    DrumClockBridge bridge (config120());
+    CHECK_EQ (bridge.requestStopNow(), false);
+    CHECK_GE (bridge.invalidRequestCount(), static_cast<std::uint64_t> (1));
+}
+
+JAM_TEST (DrumClockBridge, requestStopNowQueueFullLeavesGridStateUntouched)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    CHECK (bridge.requestJoinAtNextBar (0));
+    CHECK_EQ (bridge.playing(), true);
+    (void) popOne (bridge); // drain the join; queue empty again
+
+    for (int i = 0; i < static_cast<int> (kDrumClockCommandCapacity); ++i)
+        CHECK (bridge.requestJoinAtNextBar (0)); // fill the queue
+
+    CHECK_EQ (bridge.requestStopNow(), false); // rejected whole
+    CHECK_EQ (bridge.playing(), true);         // grid state not flipped on reject
+    CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (1));
+}

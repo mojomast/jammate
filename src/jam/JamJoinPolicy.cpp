@@ -11,113 +11,161 @@ JamJoinPolicy::JamJoinPolicy (const JamJoinPolicyConfig& config) noexcept
 void JamJoinPolicy::reset() noexcept
 {
     requestedRunning_ = false;
+    joinWanted_ = false;
+    joinSent_ = false;
     engaged_ = false;
-    joinPending_ = false;
-    stopPending_ = false;
+    stopWanted_ = false;
+    stopSent_ = false;
+    stopKind_ = JamStopKind::none;
 }
 
-JamJoinDecision JamJoinPolicy::update (const ClockSnapshot& clock,
-                                       bool requestedRunning,
-                                       bool discontinuity) noexcept
+void JamJoinPolicy::notifyStart() noexcept
 {
-    JamJoinDecision decision;
-
-    // A discontinuity invalidates the grid the engine was rendering. Drop the
-    // engaged state so a later Start/lock cannot be mistaken for a live join.
-    if (discontinuity)
-    {
-        engaged_ = false;
-        joinPending_ = false;
-        stopPending_ = false;
-        requestedRunning_ = requestedRunning;
-        if (config_.stopOnDiscontinuity)
-            decision.action = JamJoinAction::clearNow;
-        return decision;
-    }
-
-    // Explicit Stop (or StopAtNextBar): commit a bounded stop and clear the
-    // engaged state. The intent is recorded so a later Start is a fresh join.
-    if (! requestedRunning)
-    {
-        if (engaged_ || joinPending_)
-        {
-            if (! stopPending_)
-            {
-                decision.action = JamJoinAction::stopAtNextBar;
-                stopPending_ = true;
-            }
-            engaged_ = false;
-            joinPending_ = false;
-        }
-        requestedRunning_ = false;
-        return decision;
-    }
-
-    // Start requested. A Start that cancels an unlanded Stop is a fresh intent:
-    // drop the pending stop and let the lock gate the rejoin below.
-    if (stopPending_)
-    {
-        // The engine may already be stopping at the next bar; a new join
-        // command supersedes it inside the bridge (requestJoinAtNextBar clears a
-        // pending stop), so no extra action is issued here.
-        stopPending_ = false;
-    }
-
-    const ClockLockState lock = clock.lockState;
-
-    if (lock == ClockLockState::Lost)
-    {
-        // Loss: stop safely, but keep the running intent so a recovered lock can
-        // rejoin. Only an explicit UI Stop clears the intent.
-        const bool wasEngaged = engaged_ || joinPending_;
-        engaged_ = false;
-        joinPending_ = false;
-        requestedRunning_ = true;
-        if (wasEngaged && config_.stopOnLost)
-            decision.action = JamJoinAction::stopAtNextBar;
-        return decision;
-    }
-
-    // Holdover HOLDS: the drummer is anchored on the last grid; do nothing.
-    if (lock == ClockLockState::Holdover)
-    {
-        requestedRunning_ = true;
-        return decision;
-    }
-
-    // Locked and not engaged: request exactly one join at the next bar. The
-    // Acquiring case falls through with no action (wait for a usable lock).
-    if (lock == ClockLockState::Locked && ! engaged_ && ! joinPending_)
-    {
-        decision.action = JamJoinAction::joinAtNextBar;
-        joinPending_ = true;
-    }
-
     requestedRunning_ = true;
-    return decision;
+    // A Start is a fresh intent: an unlanded stop is abandoned. It does NOT
+    // revive a join that a prior Stop cancelled — the join is re-armed only when
+    // update() next sees a usable Locked clock.
+    stopWanted_ = false;
+    stopSent_ = false;
+    stopKind_ = JamStopKind::none;
+}
+
+void JamJoinPolicy::notifyStop (JamStopKind kind) noexcept
+{
+    requestedRunning_ = false;
+    stopKind_ = kind;
+    // Cancel any future join immediately (Stop/Reset/Lost must not leave a
+    // queued join that could resurrect playback).
+    joinWanted_ = false;
+    joinSent_ = false;
+    stopWanted_ = true;
+    // A previous stop may already be in flight; keep stopSent_ so we do not
+    // publish a second stop command until the first is resolved.
+}
+
+void JamJoinPolicy::notifyReset() noexcept
+{
+    requestedRunning_ = false;
+    joinWanted_ = false;
+    joinSent_ = false;
+    engaged_ = false;
+    stopWanted_ = true;
+    stopSent_ = false;
+    stopKind_ = JamStopKind::now;
+}
+
+void JamJoinPolicy::notifyJoinAccepted (bool accepted) noexcept
+{
+    if (accepted)
+        joinSent_ = true;
+    // On rejection, joinWanted_ stays true and update() retries next tick.
+}
+
+void JamJoinPolicy::notifyStopAccepted (bool accepted) noexcept
+{
+    if (accepted)
+        stopSent_ = true;
+    // On rejection, stopWanted_ stays true and update() retries next tick.
 }
 
 void JamJoinPolicy::notifyPlaybackEcho (bool playing) noexcept
 {
     if (playing)
     {
-        // The engine is really rendering: the join has landed.
-        if (joinPending_)
+        // Real playback confirms an outstanding join. It must NOT clear a
+        // pending stop: the engine can still be rendering the final bar of a
+        // next-bar stop, and clearing here would drop the stop forever.
+        if (joinWanted_ || joinSent_)
         {
-            joinPending_ = false;
+            joinWanted_ = false;
+            joinSent_ = false;
             engaged_ = true;
         }
-        stopPending_ = false;
     }
     else
     {
-        // The engine is silent: a committed stop has landed, and an engaged flag
-        // without a pending join can only mean the engine dropped out under us.
-        if (stopPending_)
-            stopPending_ = false;
-        if (engaged_ && ! joinPending_)
+        // The engine really stopped: resolve a pending stop.
+        if (stopSent_ || stopWanted_)
+        {
+            stopSent_ = false;
+            stopWanted_ = false;
+        }
+        // The engine dropped out under us without a stop: re-arm a join if the
+        // running intent survives, so recovery is automatic.
+        if (engaged_)
+        {
             engaged_ = false;
+            if (requestedRunning_)
+                joinWanted_ = true;
+        }
     }
+}
+
+JamJoinDecision JamJoinPolicy::update (const ClockSnapshot& clock, bool discontinuity) noexcept
+{
+    JamJoinDecision decision;
+
+    if (discontinuity)
+    {
+        joinWanted_ = false;
+        joinSent_ = false;
+        engaged_ = false;
+        stopSent_ = false;
+        stopWanted_ = true;
+        stopKind_ = JamStopKind::now;
+        if (config_.stopOnDiscontinuity)
+            decision.action = JamJoinAction::stopNow;
+        return decision;
+    }
+
+    if (! requestedRunning_)
+    {
+        // Commit a wanted stop, retrying until the bridge accepts it. Once
+        // accepted (stopSent_) wait for the stopped echo.
+        if (stopWanted_ && ! stopSent_)
+            decision.action = (stopKind_ == JamStopKind::nextBar)
+                                  ? JamJoinAction::stopAtNextBar
+                                  : JamJoinAction::stopNow;
+        return decision;
+    }
+
+    // Running intent.
+    if (stopWanted_ || stopSent_)
+    {
+        // A Start cancelled an unlanded stop; the engine is about to be rejoined.
+        stopWanted_ = false;
+        stopSent_ = false;
+        stopKind_ = JamStopKind::none;
+    }
+
+    if (clock.lockState == ClockLockState::Lost)
+    {
+        if (config_.stopOnLost)
+        {
+            joinWanted_ = false;
+            joinSent_ = false;
+            engaged_ = false;
+            stopSent_ = false;
+            stopWanted_ = true;
+            stopKind_ = JamStopKind::now;
+            decision.action = JamJoinAction::stopNow;
+        }
+        return decision;
+    }
+
+    // Holdover HOLDS: keep the anchored grid, no action.
+    if (clock.lockState == ClockLockState::Holdover)
+        return decision;
+
+    // Locked: want a join, retry until the bridge accepts it.
+    if (clock.lockState == ClockLockState::Locked && ! engaged_)
+    {
+        joinWanted_ = true;
+        if (! joinSent_)
+            decision.action = JamJoinAction::joinAtNextBar;
+    }
+
+    return decision;
 }
 
 } // namespace jam
