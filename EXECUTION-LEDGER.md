@@ -14,7 +14,7 @@ task note + commit SHA + successful integration.
 | Branch | `main` (single integration branch; workers branch from it) |
 | Frozen upstream SHA | `88f7e7c805c9c5e17388154a678c2c6a3633ff23` (verified zero drift) |
 | Submodules initialised | JUCE, NAM Core, and NAM's pinned Eigen / AudioDSPTools; no reference repositories |
-| Forge | Gitea workflow definitions; actual hosting and runners remain unverified |
+| Forge | Public GitHub repository `mojomast/jammate`; GitHub verification being integrated; historical Gitea definitions retained |
 | Build seam | `jam-core/` — platform-neutral, no `juce::`, tests via ctest |
 
 ## Verification lanes
@@ -66,7 +66,31 @@ PARTIAL, never PASSED.
    injected `IRhythmTracker`; lifecycle, bounded publication, discontinuities and
    shutdown can be verified without selecting a production backend. No processor
    wiring is authorised. Full ANALYSIS-001 stays partial until selected-backend
-   wiring and live integration are measured.
+    wiring and live integration are measured.
+7. **D7 — MOD-003 isolated UI shell starts before full G1/G2.** A separately
+   compiled JUCE preview uses explicit simulated state and an intent interface.
+   No processor/editor wiring or live adaptive behavior is authorised.
+8. **D8 — TEST-001 resumes using the verified local JUCE lane.** Regression
+   tests may document existing parser/transport compatibility, without changing
+   production behavior. The former claim that JUCE cannot run here is superseded
+   by the executed Linux builds and drum suites.
+9. **D9 — CI-003 adds GitHub Actions after publication.** User requested and
+   approved public `mojomast/jammate`. D3 described the earlier assumed forge;
+   GitHub is now the measured destination. Remote CI status is recorded only
+   after execution, separately from local workflow checks.
+
+### Active resumption wave (2026-10-08)
+
+Both Flash launch attempts failed immediately with `Insufficient Balance`.
+The user explicitly approved **OpenAI Sol** for the replacement workers.
+
+| Task | Worker session | Owned worktree / paths |
+|---|---|---|
+| TRACK-006 | `ses_ee6cc1552ffejirmt58pxD4co6` | `../worktrees/TRACK-006-variant-robustness`; fixed-variant paired tooling and new evidence |
+| MOD-003 (D7) | `ses_ee6cbe495ffeIbNYJkk4me4r7b` | `../worktrees/MOD-003-jam-ui`; isolated Jam UI and preview |
+| TEST-001 (D8) | `ses_ee6cbaba5ffep3Oe3caD334mQL` | `../worktrees/TEST-001-foundation`; new foundation tests and standalone runner |
+
+Orchestrator owns CI-003 (`.github/workflows/`, `tools/ci/`) and integration.
 
 ---
 
@@ -201,6 +225,9 @@ Escalation is not the default. A worker that reports a blocked contract is
 reassigned at the same tier first; only a genuinely central, safety-critical, or
 cross-cutting problem goes to `gpt-6.1-sol#xhigh`.
 
+Current-wave override: **`openai/gpt-6.1-sol`** workers authorised by the user
+after repeated Flash balance failures; xhigh remains reserved for hard reviews.
+
 ## Controlled integration surfaces (orchestrator-only unless granted)
 
 `src/PluginProcessor.*` · `src/PluginEditor.*` · `src/DrumEngine.*` ·
@@ -246,11 +273,12 @@ and reports instead.
 | TRACK-005 causal BPM-report variant | **DONE: diagnostic-only variant evidence** | `wp/TRACK-005-tempo-variant`, `7b3a4d7` → main + framing corrections | B — evidence, Flash | G3 | causal readiness-gated step evidence; six runs reproduced; gains and sparse regression retained; no production/default change |
 | RT-003 LSTM callback allocation repair | **DONE: measured LSTM repair** | `wp/RT-003-nam-lstm`, `401a6c1` → main + product/verifier fixes | A — runtime repair, Flash | G1 | numerical and real processor evidence reproduced;5/5 standalone checks; fresh product builds/drum tests/probe pass; full G1 partial |
 | ANALYSIS-001 injected worker lifecycle subset | **DONE: lifecycle foundation (D6); full task PARTIAL** | `wp/ANALYSIS-001-worker`, corrected `5162e4d` → main | C — core implementation, Flash + local review completion | G4 |29 tests/1210 checks, limited synthetic TSAN and throughput verified; production tracker/processor-clock wiring still blocked |
-| TRACK-006 fixed variant paired robustness | BLOCKED: Flash provider balance | `wp/TRACK-006-variant-robustness`, base `85e1cf4` | B — evidence, Flash | G3 | worker stopped with Insufficient Balance before producing code/evidence; no measured robustness result |
+| TRACK-006 fixed variant paired robustness | IN PROGRESS | `wp/TRACK-006-variant-robustness`, base `45fa333` | B — evidence, Sol | G3 | replacement worker executing paired diagnostics; no accepted result yet |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
-| TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
-| MOD-003 Jam UI shell | BLOCKED:G2 | | C | G2 | **not verifiable here** — needs JUCE |
+| TEST-001 foundation tests | IN PROGRESS (D8) | `wp/TEST-001-foundation` | C — verification, Sol | G1 | actual JUCE regression checks; production behavior unchanged |
+| MOD-003 Jam UI shell | IN PROGRESS (D7) | `wp/MOD-003-jam-ui` | C — UI, Sol | G2 | isolated fake-data shell; live editor wiring pending |
+| CI-003 GitHub verification | IN PROGRESS | main | orchestrator | G1 | portable four-config matrix, NAM checks and first Windows product build |
 
 ---
 

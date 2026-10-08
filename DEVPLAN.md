@@ -1453,10 +1453,10 @@ Keep this near the top of the live devplan during implementation.
 | FND-003 | DONE | main | 931be23 | G0 |
 | RT-001 | F1 JUCE-compiled; F2 engine heap bound verified; full runtime open | main | 135b4b7 + resumption fixes | G1 |
 | CI-001 | definitions integrated; actual runner execution open | main | 4376672 | G1 |
-| TEST-001 | BLOCKED:G0 | | | G1 |
+| TEST-001 | IN PROGRESS (D8: actual local JUCE lane) | wp/TEST-001-foundation | base45fa333 | G1 |
 | MOD-001 | DONE (offline seam) | main | 89db28d + efb820b | G2 |
 | MOD-002 | DONE (offline seam); real engine wiring open | main | 86544f1 | G2 |
-| MOD-003 | BLOCKED:G1 | | | G2 |
+| MOD-003 | IN PROGRESS (D7: isolated simulation shell) | wp/MOD-003-jam-ui | base45fa333 | G2 |
 | EVAL-001 | integrated historical corpus; versioned sustain repair + tapping audit in EVAL-006 | main | f5f5a11 + c68df60 + EVAL-006 | G3 |
 | EVAL-002 | integrated; timestamp/gate follow-up underway | main | 3e5bb7b + wp/EVAL-002R | G3 |
 | TRACK-001 | DONE (offline candidate) | main | c3dad10 | G3 |

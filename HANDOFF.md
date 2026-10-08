@@ -12,8 +12,15 @@ source of truth. Do not rewrite them to match the code.
 
 `main` is the integration branch. `EXECUTION-LEDGER.md` holds current task/gate
 status; the rest of this older handoff describes the original checkout setup.
-The original uncommitted seams are long since integrated. All newly delegated
-work uses `deepseek/deepseek-flash` per the user's resumption instruction.
+The original uncommitted seams are long since integrated. Flash launch attempts
+again failed with insufficient balance; the user explicitly authorised
+`openai/gpt-6.1-sol` workers for the current resumption wave.
+
+Active workers and path ownership are in EXECUTION-LEDGER's active resumption
+table: TRACK-006 fixed paired robustness, MOD-003 isolated simulated Jam UI,
+and TEST-001 actual JUCE foundation regressions. Their branches start at
+`45fa333`; none is accepted until reviewed and rerun. The orchestrator owns
+CI-003 GitHub Actions plus all shared build/editor/processor integration.
 
 ### Integrated since the original handoff
 

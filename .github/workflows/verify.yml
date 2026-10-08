@@ -1,0 +1,121 @@
+name: JamMate verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Core / ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: depfree, btrack: 'OFF', aubio: 'OFF' }
+          - { name: btrack, btrack: 'ON', aubio: 'OFF' }
+          - { name: aubio, btrack: 'OFF', aubio: 'ON' }
+          - { name: both, btrack: 'ON', aubio: 'ON' }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Verify fail-closed CI guards
+        run: python3 -B tools/ci/test_registration.py
+      - name: Configure and build the portable core
+        run: |
+          set -eu
+          test ! -e third_party/JUCE/CMakeLists.txt
+          test ! -e third_party/NeuralAmpModelerCore/NAM/dsp.cpp
+          cmake -S jam-core -B build/core -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DJAM_CORE_BUILD_TESTS=ON \
+            -DJAM_ENABLE_BTRACK=${{ matrix.btrack }} -DJAM_ENABLE_AUBIO=${{ matrix.aubio }}
+          cmake --build build/core --parallel 2
+      - name: Require suites and verify tracker linkage boundaries
+        run: python3 tools/ci/verify_registration.py --lane core --build build/core --btrack ${{ matrix.btrack }} --aubio ${{ matrix.aubio }}
+      - name: Run all registered core suites
+        run: ctest --test-dir build/core --output-on-failure
+      - name: Keep failure evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: core-${{ matrix.name }}-logs
+          path: build/core/Testing/Temporary/
+
+  nam:
+    name: NAM / LSTM repair
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Initialize only the pinned NAM dependency tree
+        run: |
+          set -eu
+          git -c core.autocrlf=false submodule update --init --recursive third_party/NeuralAmpModelerCore
+          test ! -e third_party/JUCE/CMakeLists.txt
+          test -z "$(git submodule status --recursive third_party/NeuralAmpModelerCore | grep -E '^[+-U]' || true)"
+      - name: Build repair checks
+        run: |
+          cmake -S tools/nam-rt-repair -B build/nam -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/nam --parallel 2
+      - name: Require and run all repair suites
+        run: |
+          python3 tools/ci/verify_registration.py --lane nam --build build/nam
+          ctest --test-dir build/nam --output-on-failure
+      - name: Keep failure evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nam-logs
+          path: |
+            build/nam/Testing/Temporary/
+            build/nam/diff-artifacts/
+
+  windows:
+    name: Windows / Standalone + VST3 + drums
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Initialize the pinned product dependencies
+        shell: bash
+        run: |
+          set -eu
+          git submodule update --init third_party/JUCE
+          git -c core.autocrlf=false submodule update --init --recursive third_party/NeuralAmpModelerCore
+          test -z "$(git submodule status --recursive third_party/JUCE third_party/NeuralAmpModelerCore | grep -E '^[+-U]' || true)"
+          for path in references/*; do
+            test ! -e "$path/.git"
+          done
+      - name: Configure the WASAPI/DirectSound application
+        run: cmake -S . -B build/windows -G "Visual Studio 17 2022" -A x64 -DGUITAR_COMPANION_BUILD_TESTS=ON -DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF
+      - name: Build both formats and drum tests
+        run: cmake --build build/windows --config Release --target GuitarCompanion_Standalone GuitarCompanion_VST3 GuitarCompanionTests --parallel 2
+      - name: Require and run drum suites
+        run: |
+          python tools/ci/verify_registration.py --lane drums --build build/windows --config Release
+          ctest --test-dir build/windows -C Release -R '^drums\.' --output-on-failure
+      - name: Keep failure evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-logs
+          path: |
+            build/windows/Testing/Temporary/
+            build/windows/CMakeFiles/CMakeConfigureLog.yaml
