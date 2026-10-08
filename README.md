@@ -66,6 +66,14 @@ These screenshots show the inherited interface, rather than the planned adaptive
 
 </details>
 
+### Jam screen prototype
+
+The new [Jam UI shell](docs/research/JAM-UI-SHELL.md) has been compiled and
+verified as a standalone preview. Its controls and telemetry use **simulated
+data**, with no live guitar input or audio output; production wiring is pending.
+
+![Simulated Jam performance screen with tempo, confidence and musical controls](docs/screenshots/jam-shell-wide.png)
+
 ## Get started
 
 This is a **source-first development project**; no JamMate release binary is
@@ -99,6 +107,7 @@ verification for this fork. macOS has not been verified.
 | NAM LSTM repair | Measured per-sample allocations removed; tested numerical outputs byte-identical |
 | Analysis-worker foundation | Injected tracker, lifecycle, discontinuities and bounded evidence queue implemented and tested |
 | Musical Clock | Deterministic core implemented; live end-to-end evidence pending |
+| Jam UI shell | Simulated standalone preview built and resize/control checks pass; application wiring pending |
 | Tracker selection | BTrack and aubio evaluated; acquisition gate still unmet; no production backend selected |
 | Adaptive drummer | Live auto-join/follow, dynamics, fills and Jam UI pending |
 
@@ -108,7 +117,8 @@ Latest local verification, **8 October 2026**:
 
 - **20/20** core suites with both optional trackers enabled; **18/18** with them
   disabled. The core builds without JUCE or an audio device.
-- **5/5** JUCE drum suites pass; fresh Linux **Standalone + VST3** builds succeed.
+- **6/6** JUCE drum suites pass, including 12 new foundation regressions;
+  fresh Linux **Standalone + VST3** builds succeed.
 - **26** real-processor probe cases show zero detected heap allocation/free or
   lock/wait operations after the scoped LSTM repair, including eight NAM cases.
   These probes cover a bounded matrix, not every model, effect, host or device.

@@ -28,6 +28,12 @@ guards require `drums.foundation`. Scope excludes full processor migration,
 concurrent control edits and device timing. MOD-003 and TRACK-006 remain under
 review/execution; their returned handoffs are not accepted merely on worker claim.
 
+MOD-003 worker `34ab2cb3` is now accepted: engine-independent state/intent seam,
+clearly simulated controls and telemetry, seven screenshot artifacts. Independent
+main-source preview compilation and Xvfb checks reproduce all controls, silent
+refresh, timer telemetry, queued stopping and resize coverage down to580×480.
+This is a standalone silent preview; no production editor/processor wiring.
+
 ### Integrated since the original handoff
 
 - Standalone JUCE-free core: ring, deterministic MusicalClock, transport seam,

@@ -35,7 +35,7 @@ PARTIAL, never PASSED.
 |---|---|---|
 | **G0** fork/license/baseline | **PARTIAL** | current fork builds/tests on Linux; baseline audio/device and Windows evidence incomplete |
 | **G1** real-time foundation | **PARTIAL** | bounded dry/drum and repaired example-LSTM callbacks plus editor-absent scene delivery measured; other NAM architectures, full callback/device/hosted-plugin and remote CI coverage incomplete |
-| **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam tested; live analyzer, real DrumEngine integration and Jam UI incomplete |
+| **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam and simulated Jam shell verified; live analyzer, real DrumEngine/editor integration incomplete |
 | **G3** tracker selected | **IN PROGRESS (advanced early)** | comparison, robustness, sustain repair, version-aware silence coverage and partial BeatNet feasibility integrated; acquisition/BPM limitations and selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
 | **G5** adaptive drummer | not started | — |
@@ -277,7 +277,7 @@ and reports instead.
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | **DONE: bounded foundation coverage (D8)** | `wp/TEST-001-foundation`, `0cfc252b` → main | C — verification, Sol | G1 |50 actual JUCE cases; root rebuild and6/6 suites pass; processor migration/concurrent edits remain uncovered |
-| MOD-003 Jam UI shell | IN PROGRESS (D7) | `wp/MOD-003-jam-ui` | C — UI, Sol | G2 | isolated fake-data shell; live editor wiring pending |
+| MOD-003 Jam UI shell | **DONE: isolated simulation shell (D7)** | `wp/MOD-003-jam-ui`, `34ab2cb3` → main | C — UI, Sol | G2 | fresh actual JUCE preview build and Xvfb verification pass; seven screenshots; live editor wiring pending |
 | CI-003 GitHub verification | IN PROGRESS | main | orchestrator | G1 | portable four-config matrix, NAM checks and first Windows product build |
 
 ---
