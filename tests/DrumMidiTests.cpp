@@ -79,11 +79,15 @@ Result exercise (double rate, int block, std::size_t reservation)
         engine.swingPct.store ((i % 2 == 0) ? 0.0f : 60.0f);
         if (i + 1 == blocks) engine.playing.store (false);
 
+#if defined(DRUM_MIDI_HEAP_PROBE)
         drumprobe::beginMeasure();
+#endif
         engine.process (audio, block, &guest, midi);
+#if defined(DRUM_MIDI_HEAP_PROBE)
         drumprobe::endMeasure();
         result.heapAllocations += drumprobe::allocations();
         result.heapDeallocations += drumprobe::deallocations();
+#endif
         result.maxBytes = std::max (result.maxBytes, static_cast<std::size_t> (midi.data.size()));
         result.stableStorage &= storage == midi.data.begin();
     }

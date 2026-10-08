@@ -20,7 +20,7 @@ safety claim**.
 | Shared heap probe | `tests/DrumHeapProbe.h/.cpp` | one symbol definition of the malloc/new wrapper for ALL drum test TUs |
 | Portable tests | `tests/jam/DrumClockCommandTests.cpp` | device-free contract tests (queue/state/clock) in jam-core |
 | Integration tests | `tests/DrumClockBridgeTests.cpp` | actual `DrumEngine` + hosted MIDI sink + internal/fallback audio |
-| Driver | `tools/drum-clock-bridge/run.py` | fresh-compiles into ONE combined binary, reuses read-only JUCE objects, runs portable suite too |
+| Driver | `tools/drum-clock-bridge/run.py` | fresh-compiles into combined probe and no-probe binaries, reuses read-only JUCE objects, runs the portable suite |
 
 ## The boundary
 
@@ -57,6 +57,11 @@ MusicalClock (worker)            DrumClockBridge (worker)                 DrumEn
    by the worker with the same *floor-the-containing-beat* rule. The engine sets
    that exact step, so both grids agree on every later downbeat. (An earlier
    version rounded differently and produced a permanent one-beat/one-bar offset.)
+   When a tempo is staged for a boundary before the resync target, the phase is
+   computed **piecewise** (`beatsAtAccountingStaged`: old rate up to the staged
+   boundary, staged rate after), matching the engine, which applies that tempo
+   first. The tests pin the exact grid (kick 111000, snare 183000, kick 207000)
+   so the old ceil phase fails them.
 4. **Stop is a pending commitment.** `requestStopAtNextBar` does not flip the
    worker's `playing`; it stays true until the boundary is crossed, mirroring the
    engine which keeps rendering to the boundary. A dropped stop command does not
@@ -76,8 +81,9 @@ MusicalClock (worker)            DrumClockBridge (worker)                 DrumEn
 8. **Late commands apply at the block origin and are counted** (`injectedLateCount`),
    never silently dropped.
 9. **A re-prepare is a full reset.** `DrumClockBridge::prepare` clears anchors,
-   staged state, stop/snapshot bookkeeping and drains the queue; `DrumEngine::prepare`
-   resets transport runtime but **preserves a prepared groove** (patterns are
+   staged state, stop/snapshot bookkeeping, drains the queue and rebaselines the
+   per-session queue drop count; `DrumEngine::prepare` resets transport runtime and
+   its injected drop baseline but **preserves a prepared groove** (patterns are
    rate-independent), so a second prepare at a new rate keeps working.
 10. **Discontinuity / domain.** Backwards or implausibly large movement re-anchors
     and publishes `Clear`; samples above `maxExplicitSample` (2^53, where doubles
@@ -97,6 +103,13 @@ MusicalClock (worker)            DrumClockBridge (worker)                 DrumEn
 - `isAudible()` returns true while a bridge is attached, so `PluginProcessor`'s
   skip guard does not starve the injected transport before the first join on the
   internal-sampler path.
+- **Lifecycle is stop-the-world.** `attachClockBridge`, `detachClockBridge`,
+  `DrumEngine::prepare`, `DrumClockBridge::prepare` and `prepareInjectedGroove`
+  are only safe while the publisher, the audio callback and every reader are
+  stopped and joined. `isAudible()` and the getters read plain pointers/state, so
+  a live pointer swap or a concurrent getter is a data race; this is explicitly
+  not a thread-safe hot-swap. The product must perform this wiring once, before
+  the audio stream starts, and on session boundaries only.
 
 ## Evidence (actual engine, actual audio)
 
@@ -108,20 +121,27 @@ cd /home/mojo/projects/worktrees/INT-DRUM-001-clock-bridge
 python3 tools/drum-clock-bridge/run.py
 ```
 
-- **Combined JUCE binary** (new integration + all six existing drum suites in one
-  link, same `DRUM_MIDI_HEAP_PROBE` / `--wrap` flags — proves the shared probe has
-  a single definition): **72 cases, 0 failed**, build **0 warnings / 0 errors**.
+- **Combined JUCE binary WITH `DRUM_MIDI_HEAP_PROBE` / `--wrap`** (new
+  integration + all six existing drum suites in one link — proves the shared
+  probe has a single definition): **75 cases, 0 failed**.
+- **Combined JUCE binary WITHOUT the macro and without the wrap flags** (default
+  and Windows-style config; allocation checks explicitly skipped): **74 cases,
+  0 failed**.
+- Build logs: **observed 0 warnings / 0 errors / 0 duplicate definitions** in
+  both builds (an observation, not a `-Werror` guarantee).
   New cases include: exact next-bar join for blocks 333/700/1000; coherent tempo
   in both orders; phase-continuous boundary tempo change; exact stop + ordered
-  release; pending-stop position; resync worker/engine phase agreement then
-  stop and tempo at the same actual downbeat; resync bar/beat; Clear+Join
-  ordering; coalesced tempo snaps + counted overflow; pressure drops with asserted
-  counts; late command; **internal sampler** (embedded GMRockKit, `samplesLoaded`)
-  and **fallback synth** energy; processor skip guard; late attach at a nonzero
-  sample; second prepare at 96 kHz; 30-minute zero-drift; 30-minute **fractional
-  BPM (127) verified through actual MIDI events**; standalone manual regression;
-  measured allocation-free callback.
-- **Portable JUCE-free suite:** **16 tests, 140 checks, 0 failed**.
+  release; pending-stop position; **exact resync grid** (kick 111000, snare
+  183000, kick 207000, no bogus 183000 downbeat) then stop and tempo at the same
+  actual downbeat, for both `ResyncBeat` and `ResyncBar`; piecewise resync phase
+  across a staged tempo boundary; Clear+Join ordering; coalesced tempo snaps +
+  counted overflow; pressure drops with asserted counts and per-session
+  rebaselining; late command; **internal sampler** (embedded GMRockKit,
+  `samplesLoaded`) and **fallback synth** energy; processor skip guard; late
+  attach at a nonzero sample; second prepare at 96 kHz; 30-minute zero-drift;
+  30-minute **fractional BPM (127) verified through actual MIDI events**;
+  standalone manual regression; measured allocation-free callback.
+- **Portable JUCE-free suite:** **18 tests, 150 checks, 0 failed**.
 - **jam-core:** `jam.DrumClockBridge` passes; full ctest 21/21 with `TMPDIR` set.
 
 ## Honest limitations

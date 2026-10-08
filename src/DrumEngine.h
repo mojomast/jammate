@@ -377,6 +377,8 @@ private:
     std::uint64_t injCommands_ = 0;
     std::uint64_t injRejected_ = 0;
     std::uint64_t injLateCommandCount_ = 0;
+    // Shared queue drop count is cumulative; rebaselined per injected session.
+    std::uint64_t injDropBaseline_ = 0;
 
     InjectedEvent injEvents_[kMaxInjectedEvents] = {};
     int injEventCount_ = 0;

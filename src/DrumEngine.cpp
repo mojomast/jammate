@@ -558,7 +558,10 @@ bool DrumEngine::prepareInjectedGroove (jam::LibraryIndex index)
 
 std::uint64_t DrumEngine::injectedDropCount() const noexcept
 {
-    return clockQueue_ != nullptr ? clockQueue_->droppedCount() : 0;
+    if (clockQueue_ == nullptr)
+        return 0;
+    const std::uint64_t raw = clockQueue_->droppedCount();
+    return raw >= injDropBaseline_ ? raw - injDropBaseline_ : 0;
 }
 
 void DrumEngine::resetInjectedTransport() noexcept
@@ -576,6 +579,7 @@ void DrumEngine::resetInjectedTransport() noexcept
     injRejected_ = 0;
     injLateCommandCount_ = 0;
     injEventCount_ = 0;
+    injDropBaseline_ = clockQueue_ != nullptr ? clockQueue_->droppedCount() : 0;
 }
 
 void DrumEngine::resetInjectedState() noexcept

@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
 """Build and run the INT-DRUM-001 clock-bridge tests without touching the product build.
 
-Fresh-compiles, in ONE combined binary:
+Fresh-compiles the new integration suite, the shared heap probe and all six
+existing drum suites into ONE combined binary, TWICE:
+
+  * with the product's `DRUM_MIDI_HEAP_PROBE` + `-Wl,--wrap` recipe (allocation
+    checks active), and
+  * WITHOUT the macro and without the wrap flags (allocation checks explicitly
+    skipped), proving every test still compiles and runs on a default/Windows
+    style configuration.
+
+Sources in each combined binary:
 
    tests/TestMain.cpp                  (JUCE test harness)
    tests/DrumClockBridgeTests.cpp      (new: actual DrumEngine integration)
@@ -17,14 +26,11 @@ Fresh-compiles, in ONE combined binary:
    src/DrumGenerator.cpp               (unchanged, needed by the engine)
    src/jam/DrumClockBridge.cpp         (new: worker-side bridge)
 
-and reuses the read-only JUCE module objects + GuitarCompanionAssets archive from
-an existing product build. Putting the new suite and all six existing drum suites
-in ONE link with the same `DRUM_MIDI_HEAP_PROBE`/`--wrap` flags proves the shared
-probe has a single symbol definition. The portable, JUCE-free bridge suite is
-compiled separately with the bare compiler and the jam-core harness.
-
-The product Ninja build is read for its compile/link flags only; nothing in it is
-written. Usage:
+The read-only JUCE module objects + GuitarCompanionAssets archive are reused from
+an existing product build. The portable, JUCE-free bridge suite is compiled
+separately with the bare compiler and the jam-core harness. Artifacts are kept in
+per-mode subdirectories. The product Ninja build is only read for flags; nothing
+in it is written. Usage:
 
     export PATH=/tmp/opencode/venv/bin:$PATH
     export TMPDIR=/home/mojo/projects/build-INT-DRUM-001-worker/tmp
@@ -117,11 +123,10 @@ def main():
     source = args.source.resolve()
     product = args.product_build.resolve()
     output = args.output.resolve()
-    (output / "obj").mkdir(parents=True, exist_ok=True)
 
     cxx, product_flags, retained, reused = extract_recipe(product)
     # The worktree's own headers must win over the product's source include.
-    flags = [f"-I{source / 'src'}"] + product_flags
+    base_flags = [f"-I{source / 'src'}"] + product_flags
 
     all_sources = [
         source / "tests" / "TestMain.cpp",
@@ -143,46 +148,61 @@ def main():
             raise FileNotFoundError(f"Missing fresh source: {path}")
 
     executed = []
-    build_log = (output / "build.log").open("w")
-
-    def compile_one(src, obj):
-        cmd = [cxx, *flags, "-c", str(src), "-o", str(obj)]
-        executed.append(cmd)
-        subprocess.run(cmd, cwd=product, stdout=build_log, stderr=build_log, check=True)
-
-    try:
-        objects = []
-        for src in all_sources:
-            obj = output / "obj" / (src.stem + ".o")
-            compile_one(src, obj)
-            objects.append(str(obj))
-
-        combined_binary = output / "DrumAllTests"
-        link_cmd = [cxx, *objects, *retained, "-o", str(combined_binary)]
-        executed.append(link_cmd)
-        subprocess.run(link_cmd, cwd=product, stdout=build_log,
-                       stderr=build_log, check=True)
-    finally:
-        build_log.close()
-
     exit_code = 0
 
-    def run_binary(binary, title, filt=None):
+    def build_combined(name, flags, retained_flags):
+        """Compile + link one combined binary under output/<name>."""
+        mode_dir = output / name
+        (mode_dir / "obj").mkdir(parents=True, exist_ok=True)
+        log = (mode_dir / "build.log").open("w")
+        try:
+            objects = []
+            for src in all_sources:
+                obj = mode_dir / "obj" / (src.stem + ".o")
+                cmd = [cxx, *flags, "-c", str(src), "-o", str(obj)]
+                executed.append(cmd)
+                subprocess.run(cmd, cwd=product, stdout=log, stderr=log, check=True)
+                objects.append(str(obj))
+            binary = mode_dir / "DrumAllTests"
+            cmd = [cxx, *objects, *retained_flags, "-o", str(binary)]
+            executed.append(cmd)
+            subprocess.run(cmd, cwd=product, stdout=log, stderr=log, check=True)
+        finally:
+            log.close()
+        return binary
+
+    def run_binary(binary, title, mode_dir, filt=None):
         nonlocal exit_code
         argv = [str(binary)] + ([filt] if filt else [])
-        result = subprocess.run(argv, cwd=output, text=True,
+        result = subprocess.run(argv, cwd=mode_dir, text=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        (output / (binary.name + "-results.log")).write_text(result.stdout)
+        (mode_dir / (binary.name + "-results.log")).write_text(result.stdout)
         print(f"=== {title} ===")
         print(result.stdout, end="")
         exit_code = max(exit_code, result.returncode)
 
-    run_binary(combined_binary,
-               "combined: INT-DRUM-001 + all six existing drum suites (one link)")
+    # --- with the allocation probe (product recipe) -------------------------
+    probe_flags = base_flags
+    probe_retained = retained
+    probe_binary = build_combined("probe", probe_flags, probe_retained)
+    run_binary(probe_binary,
+               "combined WITH DRUM_MIDI_HEAP_PROBE + --wrap (all suites)",
+               output / "probe")
 
+    # --- WITHOUT the macro / wrap (default and Windows-style config) --------
+    nomacro_flags = [f for f in base_flags if not f.startswith("-DDRUM_MIDI_HEAP_PROBE")]
+    nomacro_retained = [a for a in retained if not a.startswith("-Wl,--wrap=")]
+    nomacro_binary = build_combined("no-probe", nomacro_flags, nomacro_retained)
+    run_binary(nomacro_binary,
+               "combined WITHOUT DRUM_MIDI_HEAP_PROBE (allocation checks skipped)",
+               output / "no-probe")
+
+    # --- portable JUCE-free suite -------------------------------------------
     portable_binary = None
     if not args.no_portable:
-        portable_binary = output / "DrumClockBridgePortableTests"
+        mode_dir = output / "portable"
+        mode_dir.mkdir(parents=True, exist_ok=True)
+        portable_binary = mode_dir / "DrumClockBridgePortableTests"
         portable_cmd = [
             cxx, "-std=c++17", "-O2", "-Wall", "-Wextra", "-Wpedantic",
             f"-I{source / 'src'}", f"-I{source / 'tests' / 'jam'}",
@@ -194,8 +214,9 @@ def main():
         ]
         executed.append(portable_cmd)
         subprocess.run(portable_cmd, check=True)
-        run_binary(portable_binary, "portable JUCE-free DrumClockBridge")
+        run_binary(portable_binary, "portable JUCE-free DrumClockBridge", mode_dir)
 
+    binaries = [probe_binary, nomacro_binary] + ([portable_binary] if portable_binary else [])
     manifest = {
         "source": str(source),
         "sourceHead": subprocess.check_output(
@@ -203,10 +224,7 @@ def main():
         "freshSources": {str(p): digest(p) for p in all_sources},
         "reusedInputs": {p: digest(p) for p in reused},
         "commands": executed,
-        "binaries": {
-            b.name: digest(b) for b in
-            [combined_binary] + ([portable_binary] if portable_binary else [])
-        },
+        "binaries": {b.name: digest(b) for b in binaries},
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 

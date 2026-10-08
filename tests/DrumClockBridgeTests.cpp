@@ -400,11 +400,12 @@ TEST_CASE (intdrum_stop_pending_keeps_position_until_boundary)
 }
 
 //==============================================================================
-// BLOCK2: after a ResyncBeat on a non-aligned target, the worker's next bar
-// boundary and the engine's next downbeat must be the SAME sample. Then a stop
-// and a tempo change at that boundary must land on that actual downbeat.
+// BLOCK2 / N3: after a ResyncBeat on a non-aligned target the engine must be on
+// the worker's absolute grid. The assertions pin the exact grid (including the
+// discriminating step at 183000 and the true downbeat at 207000), so the old
+// ceil-based engine phase (downbeat at 183000) fails them.
 //==============================================================================
-TEST_CASE (intdrum_resync_reconciles_worker_and_engine_phase)
+TEST_CASE (intdrum_resync_beat_phase_matches_worker_grid)
 {
     const LibraryIndex rock = rockGroove();
     REQUIRE (rock >= 0);
@@ -416,22 +417,25 @@ TEST_CASE (intdrum_resync_reconciles_worker_and_engine_phase)
     rig.render (100000u, 512);
 
     REQUIRE (rig.bridge.requestResyncNextBeat (111000));
-    rig.render (120000u, 512); // cross the resync target
+    rig.render (120000u, 512);
+    CHECK_EQ (rig.bridge.nextBarBoundarySample(), static_cast<std::uint64_t> (207000));
+    rig.render (220000u, 512);
 
-    // The containing beat of 111000 at 120 BPM is beat 4 (bar 2 beat 1), so the
-    // coherent next bar boundary is 111000 + 4 beats = 207000, not 183000.
-    const std::uint64_t nextBar = rig.bridge.nextBarBoundarySample();
-    CHECK_EQ (nextBar, static_cast<std::uint64_t> (207000));
-
-    // A stop at that boundary must stop exactly on it (engine downbeat == worker).
-    REQUIRE (rig.bridge.requestStopAtNextBar());
-    rig.render (nextBar + 4096u, 512);
-    for (const auto& hit : rig.hits)
-        CHECK (hit.sample < nextBar);
-    CHECK (countHitsIn (rig.noteOffs, nextBar, nextBar + 1, -1) >= 1);
+    // Exact 16-step grid from the resync target at 120 BPM (6000/step).
+    CHECK (countHitsIn (rig.hits, 111000, 111001, kKick) == 1);   // step 0
+    CHECK (countHitsIn (rig.hits, 135000, 135001, 38) == 1);      // step 4 snare
+    CHECK (countHitsIn (rig.hits, 159000, 159001, kKick) == 1);   // step 8
+    CHECK (countHitsIn (rig.hits, 171000, 171001, kKick) == 1);   // step 10
+    CHECK (countHitsIn (rig.hits, 183000, 183001, 38) == 1);      // step 12 snare
+    CHECK (countHitsIn (rig.hits, 183000, 183001, kKick) == 0);   // old ceil downbeat
+    CHECK (countHitsIn (rig.hits, 207000, 207001, kKick) == 1);   // true next downbeat
 }
 
-TEST_CASE (intdrum_resync_then_tempo_at_actual_downbeat)
+//==============================================================================
+// N3: the stop is exact AND the discriminating 183000 downbeat is absent, so
+// this fails under the old ceil engine phase.
+//==============================================================================
+TEST_CASE (intdrum_resync_beat_then_stop_at_actual_downbeat)
 {
     const LibraryIndex rock = rockGroove();
     REQUIRE (rock >= 0);
@@ -441,18 +445,103 @@ TEST_CASE (intdrum_resync_then_tempo_at_actual_downbeat)
     rig.block (512);
     REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
     rig.render (100000u, 512);
-    REQUIRE (rig.bridge.requestResyncNextBar (130000)); // non-aligned downbeat target
+    REQUIRE (rig.bridge.requestResyncNextBeat (111000));
+    rig.render (120000u, 512);
+
+    const std::uint64_t nextBar = rig.bridge.nextBarBoundarySample();
+    CHECK_EQ (nextBar, static_cast<std::uint64_t> (207000));
+    CHECK (countHitsIn (rig.hits, 111000, 111001, kKick) == 1);
+    CHECK (countHitsIn (rig.hits, 183000, 183001, kKick) == 0); // old ceil would kick
+
+    REQUIRE (rig.bridge.requestStopAtNextBar());
+    rig.render (nextBar + 4096u, 512);
+    for (const auto& hit : rig.hits)
+        CHECK (hit.sample < nextBar);
+    CHECK (countHitsIn (rig.noteOffs, nextBar, nextBar + 1, -1) >= 1);
+}
+
+//==============================================================================
+// N3: a tempo change after a ResyncBeat must take effect on the correct actual
+// downbeat (207000), not on the old ceil downbeat.
+//==============================================================================
+TEST_CASE (intdrum_resync_beat_then_tempo_at_actual_downbeat)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (100000u, 512);
+    REQUIRE (rig.bridge.requestResyncNextBeat (111000));
+    rig.render (120000u, 512);
+
+    const std::uint64_t nextBar = rig.bridge.nextBarBoundarySample();
+    CHECK_EQ (nextBar, static_cast<std::uint64_t> (207000));
+    rig.bridge.applySnapshot (lockedSnapshot (150.0, 1));
+    rig.render (nextBar + 16384u, 512);
+
+    CHECK (countHitsIn (rig.hits, nextBar, nextBar + 1, kKick) == 1);
+    CHECK (countHitsIn (rig.hits, nextBar + 1, nextBar + 9600, -1) == 0);
+    CHECK (countHitsIn (rig.hits, nextBar + 9600, nextBar + 9600 + 1, 42) == 1);
+    CHECK (countHitsIn (rig.hits, 183000, 183001, kKick) == 0);
+}
+
+//==============================================================================
+// Resync bar then tempo: the downbeat target is a non-aligned sample and the new
+// tempo must take effect there.
+//==============================================================================
+TEST_CASE (intdrum_resync_bar_then_tempo_at_actual_downbeat)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (100000u, 512);
+    REQUIRE (rig.bridge.requestResyncNextBar (130000));
     rig.render (140000u, 512);
 
     const std::uint64_t nextBar = rig.bridge.nextBarBoundarySample();
     rig.bridge.applySnapshot (lockedSnapshot (150.0, 1));
-    rig.render (nextBar + 16384u, 512); // past the new-tempo step 2 (nextBar + 9600)
+    rig.render (nextBar + 16384u, 512);
 
-    // The downbeat is exactly on the worker boundary and the next interval uses
-    // the new tempo (4800), proving the two roles share the absolute phase.
     CHECK (countHitsIn (rig.hits, nextBar, nextBar + 1, kKick) == 1);
     CHECK (countHitsIn (rig.hits, nextBar + 1, nextBar + 9600, -1) == 0);
     CHECK (countHitsIn (rig.hits, nextBar + 9600, nextBar + 9600 + 1, 42) == 1);
+}
+
+//==============================================================================
+// N5: a ResyncBeat whose target lies beyond a STAGED tempo boundary must use the
+// piecewise effective clock, so the engine's new-tempo grid is preserved. With
+// the old single-rate phase, the engine would put a downbeat (kick) at 192000
+// instead of the step-4 snare.
+//==============================================================================
+TEST_CASE (intdrum_piecewise_resync_phase_across_staged_tempo)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    rig.bridge.applySnapshot (lockedSnapshot (150.0, 1)); // staged at 96000
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));      // join carries 150
+    REQUIRE (rig.bridge.requestResyncNextBeat (192000));   // target > staged boundary
+
+    rig.render (200000u, 512);
+
+    CHECK (countHitsIn (rig.hits, 96000, 96001, kKick) == 1);   // join downbeat
+    CHECK (countHitsIn (rig.hits, 192000, 192001, 38) == 1);    // step 4 snare
+    CHECK (countHitsIn (rig.hits, 192000, 192001, kKick) == 0); // not a downbeat
+
+    const std::uint64_t nextBar = rig.bridge.nextBarBoundarySample();
+    CHECK_EQ (nextBar, static_cast<std::uint64_t> (249600));
+    rig.render (nextBar + 4096u, 512);
+    CHECK (countHitsIn (rig.hits, nextBar, nextBar + 1, kKick) == 1);
 }
 
 //==============================================================================
@@ -784,20 +873,29 @@ TEST_CASE (intdrum_second_prepare_at_new_rate_keeps_groove)
     CHECK (rig.engine.injectedGroove() == rock);
     CHECK (rig.bridge.samplePosition() > 0u);
 
-    // Quiescent re-prepare at 96 kHz. Patterns are rate-independent and survive;
-    // the bridge forgets its old grid and drains stale commands.
+    // N4: queue a stale command, then cause real queue drops, then prove
+    // prepare() drains the queue and rebaselines the per-session drop counters.
     DrumClockCommand junk;
     junk.type = DrumClockCommandType::SetTempo;
     junk.sampleTime = 5u;
     junk.bpm = 100.0;
     REQUIRE (rig.bridge.commandQueue().push (junk));
 
+    for (int i = 0; i < 40; ++i)
+        rig.bridge.requestJoinAtNextBar (rock);
+    CHECK (rig.bridge.queueDropCount() > 0u);
+    CHECK (rig.engine.injectedDropCount() > 0u);
+
+    // Quiescent re-prepare at 96 kHz. Patterns are rate-independent and survive;
+    // the bridge forgets its old grid and drains stale commands.
     rig.engine.prepare (96000.0, 512);
     rig.bridge.prepare (96000.0, 512);
     CHECK_EQ (rig.engine.injectedGroove(), rock);
     CHECK_EQ (rig.engine.injectedActive(), false);
     CHECK_EQ (rig.bridge.samplePosition(), static_cast<std::uint64_t> (0));
     CHECK_EQ (rig.bridge.playing(), false);
+    CHECK_EQ (rig.bridge.queueDropCount(), static_cast<std::uint64_t> (0));
+    CHECK_EQ (rig.engine.injectedDropCount(), static_cast<std::uint64_t> (0));
 
     // Old queued commands were drained by prepare().
     DrumClockCommand leftover;

@@ -439,3 +439,46 @@ JAM_TEST (DrumClockBridge, hugeExplicitSampleRejected)
     CHECK_EQ (bridge.setClockSample (1001), false);
     CHECK_GE (bridge.invalidRequestCount(), static_cast<std::uint64_t> (1));
 }
+
+//==============================================================================
+// N5: a resync target beyond a staged tempo boundary must use the piecewise
+// effective clock. At 150 BPM staged for 96000, the beat containing 192000 is
+// beat 9 (step 4), not beat 8 (step 0).
+//==============================================================================
+JAM_TEST (DrumClockBridge, resyncPhaseStepAccountsForStagedTempo)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    bridge.applySnapshot (lockedSnapshot (150.0, 1)); // staged at 96000
+    CHECK (bridge.requestResyncNextBeat (192000));    // target beyond the boundary
+
+    const DrumClockCommand tempo = popOne (bridge);
+    const DrumClockCommand resync = popOne (bridge);
+    CHECK_EQ (static_cast<int> (tempo.type),
+              static_cast<int> (DrumClockCommandType::SetTempo));
+    CHECK_EQ (tempo.sampleTime, static_cast<std::uint64_t> (96000));
+    CHECK_EQ (static_cast<int> (resync.type),
+              static_cast<int> (DrumClockCommandType::ResyncBeat));
+    CHECK_EQ (resync.sampleTime, static_cast<std::uint64_t> (192000));
+    CHECK_EQ (resync.phaseStep, 4); // piecewise; a single old-rate read would give 0
+}
+
+//==============================================================================
+// N4: prepare() rebaselines the per-session queue drop count.
+//==============================================================================
+JAM_TEST (DrumClockBridge, prepareRebaselinesQueueDrops)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    for (int i = 0; i < 20; ++i)
+        bridge.requestJoinAtNextBar (0);
+
+    CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (4));
+
+    bridge.prepare (kSr, 512);
+    CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (0));
+}

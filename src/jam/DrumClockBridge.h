@@ -237,7 +237,12 @@ public:
     std::uint64_t staleSnapshotCount() const noexcept { return staleSnapshotCount_; }
     std::uint64_t discontinuityCount() const noexcept { return discontinuityCount_; }
     std::uint64_t invalidRequestCount() const noexcept { return invalidRequestCount_; }
-    std::uint64_t queueDropCount() const noexcept { return queue_.droppedCount(); }
+    /** Drops since the current session began (prepare() rebaselines it). The
+     *  underlying queue is never reset, which is only safe while quiescent. */
+    std::uint64_t queueDropCount() const noexcept
+    {
+        return queue_.droppedCount() - dropBaseline_;
+    }
 
 private:
     void publish (DrumClockCommand command) noexcept;
@@ -249,6 +254,11 @@ private:
     double samplesPerBeat() const noexcept;
     double samplesPerBar() const noexcept;
     std::uint64_t boundaryForBeat (double targetBeat) const noexcept;
+    /** Beats at `sample` accounting for a tempo staged for a boundary at or
+     *  before it: the old rate up to that boundary, the staged rate after. This
+     *  keeps a resync phase statement correct when its target lies beyond a
+     *  pending tempo change. */
+    double beatsAtAccountingStaged (std::uint64_t sample) const noexcept;
 
     DrumClockBridgeConfig config_;
     DrumClockCommandQueue queue_;
@@ -298,6 +308,9 @@ private:
     std::uint64_t staleSnapshotCount_ = 0;
     std::uint64_t discontinuityCount_ = 0;
     std::uint64_t invalidRequestCount_ = 0;
+    // Queue drop count is cumulative in the shared primitive; this records the
+    // value at the start of the current session so queueDropCount() is per-session.
+    std::uint64_t dropBaseline_ = 0;
 };
 
 } // namespace jam

@@ -80,6 +80,9 @@ void DrumClockBridge::prepare (double sampleRate, int maximumBlockSize) noexcept
     while (queue_.pop (discarded))
     {
     }
+
+    // Rebaseline the cumulative queue drop counter for the new session.
+    dropBaseline_ = queue_.droppedCount();
 }
 
 double DrumClockBridge::clampBpm (double bpm) const noexcept
@@ -114,6 +117,16 @@ double DrumClockBridge::beatsAt (std::uint64_t sample) const noexcept
         static_cast<double> (sample) - static_cast<double> (anchorSample_);
     return anchorBeat_
          + deltaSamples * bpm_ / (kSecondsPerMinute * sampleRate_);
+}
+
+double DrumClockBridge::beatsAtAccountingStaged (std::uint64_t sample) const noexcept
+{
+    if (! haveStagedTempo_ || sample <= stagedBoundary_)
+        return beatsAt (sample);
+
+    const double atBoundary = beatsAt (stagedBoundary_);
+    const double delta = static_cast<double> (sample - stagedBoundary_);
+    return atBoundary + delta * stagedBpm_ / (kSecondsPerMinute * sampleRate_);
 }
 
 std::uint64_t DrumClockBridge::boundaryForBeat (double targetBeat) const noexcept
@@ -202,7 +215,7 @@ void DrumClockBridge::applyStagedResync (std::uint64_t atSample) noexcept
         return;
 
     const std::uint64_t target = stagedResyncTarget_;
-    double corrected = beatsAt (target);
+    double corrected = beatsAtAccountingStaged (target);
 
     if (stagedResyncBar_)
     {
@@ -408,7 +421,8 @@ bool DrumClockBridge::requestResyncNextBeat (std::uint64_t targetSample) noexcep
     // within the bar. The engine applies this exact phase, so both grids agree
     // on every later downbeat.
     {
-        long long within = static_cast<long long> (std::floor (beatsAt (targetSample)))
+        long long within = static_cast<long long> (
+                               std::floor (beatsAtAccountingStaged (targetSample)))
                            % beatsPerBar_;
         if (within < 0)
             within += beatsPerBar_;
