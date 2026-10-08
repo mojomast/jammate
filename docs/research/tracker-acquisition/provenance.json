@@ -1,0 +1,30 @@
+{
+  "adr": null,
+  "artifactBudgetBytes": 5242880,
+  "backendPlugins": {
+    "aubio": {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+      "sha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41"
+    },
+    "btrack": {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+      "sha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d"
+    }
+  },
+  "baseSha": "6287288843a43a65f66328fba58a7990d698f83e",
+  "baseSubject": "merge(EVAL-005): integrate corrected paired tracker robustness evidence",
+  "configExperiment": {
+    "evidenceClass": "NOT default evidence; adapter-config variant only",
+    "knob": "silenceRmsDbfs = -120 (gate effectively disabled)",
+    "tool": "tools/tracker-diagnostics/libtracker-diag-config-*.so"
+  },
+  "corpusManifest": "testdata/rhythm/manifest.json",
+  "corpusManifestSha256": "06fe2c4356dd411a90b5e4948ebeb00eeb68d82f42d26b5ad25f4797c530fab1",
+  "g3": "OPEN",
+  "kind": "diagnostic",
+  "pluginProvenance": "librhythm-eval-{btrack,aubio}.so from the EVAL-005 main-core build root; src/btrack, src/aubio, tools/rhythm-eval/*.cpp and third_party tracker sources are byte-identical to this base (git diff empty), so the build is behaviorally the current main adapter build.",
+  "schemaVersion": 1,
+  "selection": null,
+  "task": "TRACK-004",
+  "wavHashes": "wav-hashes.txt"
+}
