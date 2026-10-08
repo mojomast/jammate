@@ -49,12 +49,24 @@
 // forwarded base value whenever `ready` is false, so a consumer can always tell
 // a derived report from a fallback.
 //
-// BOUNDED / REAL-TIME
-// -------------------
-// The ring is a fixed std::array of 4 doubles; process() performs no heap
-// allocation, no locking and no I/O (the optional log callback is invoked with
-// an already-formed record). All operations are O(1) except a 4-element
-// insertion sort.
+// BOUNDED / REAL-TIME SCOPE
+// -------------------------
+// The WRAPPER's own arithmetic is fixed and bounded: a 4-element std::array
+// ring, no allocation, no locking, no I/O, O(1) except a 4-element insertion
+// sort. This describes the decorator ONLY. The wrapped backend runs on the
+// rhythm-analysis worker (never the audio callback) and may allocate; the
+// optional log callback is invoked synchronously from process(), so a callback
+// that performs I/O (the plugin's fstream logger) is a DIAGNOSTIC/offline path
+// and must never be used on a real-time thread.
+//
+// RESET CONTRACT
+// --------------
+// reset(sampleRate) forwards `sampleRate` to the wrapped backend unchanged (the
+// IRhythmTracker contract) and uses a finite positive value for the wrapper's
+// own interval arithmetic, falling back to 48000 for its OWN maths if the value
+// is non-finite or <= 0. A wrapper caller that needs a guaranteed feed rate
+// must supply a valid one; this is stated so the fallback is never mistaken for
+// a validation of the backend's rate.
 
 #pragma once
 
@@ -92,7 +104,8 @@ enum class IntervalState : int
     Accepted = 2,        // valid consecutive interval accepted into the ring
     MalformedReset = 3,  // non-finite / <=0 / sub-minimum -> ring reset
     GapReset = 4,        // interval > max (missing/suppressed beat) -> ring reset
-    OutOfOrderReset = 5  // non-monotonic sample time -> ring reset
+    OutOfOrderReset = 5, // duplicate/non-monotonic sample time -> ring reset
+    FrameInvalid = 6     // frame metadata invalid (overflow/oversize) -> ring reset
 };
 
 const char* toString (IntervalState s) noexcept;
@@ -109,7 +122,12 @@ struct MethodRecord
 
     bool   beatEvent = false;
     double eventSeconds = 0.0;         // emitted beat timestamp (base, unchanged)
-    double intervalSeconds = 0.0;      // consecutive interval (0 when none)
+    /** True only when a genuine positive consecutive interval was computed. A
+        missing interval (first beat, duplicate/non-monotonic, non-causal,
+        invalid frame) leaves this false and `intervalSeconds` at 0; the CSV
+        writes an EMPTY cell, never a fabricated number. */
+    bool   intervalMeasured = false;
+    double intervalSeconds = 0.0;      // consecutive interval (0 when not measured)
     IntervalState intervalState = IntervalState::NoBeat;
 
     std::size_t ringCount = 0;         // valid consecutive intervals held (0..4)

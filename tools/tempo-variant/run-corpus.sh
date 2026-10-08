@@ -49,6 +49,10 @@ python3 "$here/verify_hashes.py" "$artifact/wav-hashes.txt"
 
 echo "[2/9] unit + arithmetic tests"
 "$build/TempoVariantTests" | tee "$artifact/tests-TempoVariantTests.txt"
+python3 "$here/tests/test_click_lag.py" > "$artifact/tests-click-lag.txt" 2>&1 \
+    && echo "click-lag unit tests: OK" || { echo "click-lag unit tests FAILED" >&2; cat "$artifact/tests-click-lag.txt"; exit 1; }
+"$here/check_failclosed.sh" "$build" "$core" > "$artifact/tests-failclosed.txt" 2>&1 \
+    && echo "fail-closed checks: OK" || { echo "fail-closed checks FAILED" >&2; cat "$artifact/tests-failclosed.txt"; exit 1; }
 
 run_backend () { # corpus out backend label lib extra...
     local corpus="$1" out="$2" backend="$3" label="$4" lib="$5"; shift 5
@@ -114,7 +118,8 @@ compare_pair original 128
 compare_pair repaired 128
 compare_pair original 512
 for rate in 44100 48000; do
-    python3 "$here/click_lag.py" "$WORK/click/click_step_rate$rate.csv" "$rate" 126 132 12 \
+    python3 "$here/click_lag.py" "$WORK/click/click_step_rate$rate.csv" \
+        "$WORK/click/click_step_rate${rate}_info.csv" 126 132 \
         "$WORK/click/click_step_rate${rate}_beats.csv" "$WORK/click/click_step_rate${rate}_summary.csv"
 done
 
@@ -135,7 +140,9 @@ for kind in fixtures.csv acquisition.json summary.json; do
 done
 for f in "$WORK"/compare/*.csv "$WORK"/compare/*.md; do cp "$f" "$artifact/compare/"; done
 for f in "$WORK"/method-history/*.csv; do cp "$f" "$artifact/method-history/"; done
-for f in "$WORK"/click/click_sweep_*.csv "$WORK"/click/click_step_*_beats.csv "$WORK"/click/click_step_*_summary.csv; do
+for f in "$WORK"/click/click_sweep_*.csv "$WORK"/click/click_step_*_beats.csv \
+         "$WORK"/click/click_step_*_summary.csv "$WORK"/click/click_step_*_info.csv \
+         "$WORK"/click/click_step_*_truth.csv; do
     cp "$f" "$artifact/click/"
 done
 for f in "$WORK"/metrics/*.json; do cp "$f" "$artifact/metrics/"; done
@@ -222,9 +229,28 @@ prov = {
         "truthInputs": False,
     },
     "freezeHashes": {
+        "method": "median of last 4 positive finite consecutive emitted beat intervals; 5 events required (unchanged)",
+        "originalPreCorrectionCombinedSha256": "7fccdd7f2dc32d9bbaebb8a5ac0db6f7cc989c0b386403b77adc97a8dac4ba0b",
+        "correctedCombinedSha256": combined.hexdigest(),
         "files": algo_hashes,
-        "combinedSha256": combined.hexdigest(),
+        "correctionDisclosure": (
+            "The review corrections changed interval BOOKKEEPING only: a "
+            "missing-vs-measured interval flag (empty cell, never a fabricated "
+            "number), order-before-unsigned-subtraction, and frame-overflow "
+            "rejection. The 4-interval median method, its window and the "
+            "startup fallback are unchanged from the predeclared/frozen version."),
     },
+    "pins": {
+        "testBinary": sha(os.path.join(build, "TempoVariantTests")),
+        "clickCli": sha(os.path.join(build, "tempo-variant-click")),
+        "metricsCli": sha(os.path.join(build, "tempo-variant-metrics")),
+    },
+    "evidenceContract": (
+        "Base is bf61598. The later EVAL-007 silence-coverage correction is "
+        "merged on main SEPARATELY and is not rebased here; the primary gates, "
+        "acquisition and BPM metrics are unaffected by it. The orchestrator "
+        "verifies main-source-current metric consistency apart from the coverage "
+        "flags."),
     "binaries": {
         "variantPlugin": {"path": os.path.join(build, "libtempo-variant-btrack.so"),
                           "sha256": sha(os.path.join(build, "libtempo-variant-btrack.so"))},

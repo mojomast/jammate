@@ -1,0 +1,23 @@
+ok (exit 2): metrics block 0
+ok (exit 2): metrics block 2049
+ok (exit 2): metrics block 128x
+ok (exit 2): metrics block -1
+ok (exit 2): metrics block overflow
+ok (exit 2): metrics /dev/full
+ok (exit 2): click bad mode
+ok (exit 2): click block 0
+ok (exit 2): click block 128x
+ok (exit 2): click rate nan
+ok (exit 2): click rate 0
+ok (exit 2): click rate inf
+ok (exit 2): click rate out of range
+ok (exit 2): click seconds negative
+ok (exit 2): click seconds too big
+ok (exit 2): click sweep nan
+ok (exit 2): click sweep negative
+ok (exit 2): click step equal
+ok (exit 2): click step outside clip
+ok (exit 2): click step reversed window
+ok (exit 2): click missing backend
+ok (exit 2): click /dev/full out
+check_failclosed: 22 checks, 0 failures

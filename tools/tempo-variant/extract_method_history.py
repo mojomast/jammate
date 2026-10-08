@@ -37,8 +37,8 @@ def main() -> int:
         return 1
 
     beat_header = ["fixture", "instance", "blockIndex", "eventSeconds",
-                   "availabilitySeconds", "intervalSeconds", "intervalState",
-                   "ringCount", "ready", "baseBpm", "variantBpm"]
+                   "availabilitySeconds", "intervalMeasured", "intervalSeconds",
+                   "intervalState", "ringCount", "ready", "baseBpm", "variantBpm"]
     sum_header = ["fixture", "beats", "accepted", "gapReset", "malformedReset",
                   "outOfOrderReset", "firstReadyEventSeconds", "finalVariantBpm",
                   "finalReady"]
@@ -79,7 +79,8 @@ def main() -> int:
                     final_ready = row["ready"]
                     bw.writerow([
                         name, idx, row["blockIndex"], row["eventSeconds"],
-                        row["blockEndSeconds"], row["intervalSeconds"], state,
+                        row["blockEndSeconds"], row["intervalMeasured"],
+                        row["intervalSeconds"], state,
                         row["ringCount"], row["ready"], row["baseBpm"],
                         row["variantBpm"],
                     ])

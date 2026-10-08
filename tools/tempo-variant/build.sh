@@ -23,7 +23,7 @@ mkdir -p "$out/obj"
 
 cxx="${CXX:-c++}"
 std="-std=c++17 -O2 -fPIC -Wall -Wextra -Wpedantic"
-incs="-I$here -I$root/src -I$root/tools/rhythm-eval"
+incs="-I$here -I$root/src -I$root/tools/rhythm-eval -I$root/tools/tracker-diagnostics"
 
 echo "[build] variant objects"
 for src in TempoVariant MethodLog; do
@@ -41,7 +41,7 @@ $cxx -std=c++17 -O2 -fPIC -shared -o "$out/libtempo-variant-btrack.so" \
     -Wl,--end-group -lm -lpthread
 
 echo "[build] TempoVariantTests"
-$cxx $std $incs "$here/tests/TempoVariantTests.cpp" \
+$cxx $std $incs "$here/tests/TempoVariantTests.cpp" "$here/ClickTrain.cpp" \
     "$out/obj/TempoVariant.o" "$out/obj/MethodLog.o" \
     -o "$out/TempoVariantTests"
 

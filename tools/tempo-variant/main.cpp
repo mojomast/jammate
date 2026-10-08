@@ -11,10 +11,15 @@
 //
 // The method only reads intervals of beat events ALREADY emitted, so every
 // sample below is causally available at its block end by construction.
+//
+// All numeric arguments are validated strictly and in full BEFORE any output
+// directory, library load or audio allocation; a rejected argument exits 2.
 
 #include "ClickTrain.h"
 #include "MethodLog.h"
 #include "TempoVariant.h"
+
+#include "CliValidate.h"   // tracker_diag::parseBlockFrames (reused, unmodified)
 
 #include "jam/IRhythmTracker.h"
 
@@ -44,6 +49,14 @@ namespace
 
 using CreateFn = jam::IRhythmTracker* (*)();
 using DestroyFn = void (*) (jam::IRhythmTracker*);
+
+// Bounded numeric windows for the CLI (not tuned to any corpus).
+constexpr double kMinRate = 8000.0;
+constexpr double kMaxRate = 192000.0;
+constexpr double kMinCliBpm = 20.0;
+constexpr double kMaxCliBpm = 400.0;
+constexpr double kMaxSeconds = 120.0;
+constexpr double kMaxSamples = 24.0e6;   // rate * seconds cap (~96 MB of float)
 
 template <typename Fn>
 Fn loadSymbol (void* library, const char* name)
@@ -80,24 +93,35 @@ struct BackendLibrary
     Ptr makeOwned() const { return Ptr (create ? create() : nullptr, Deleter {destroy}); }
 };
 
-bool loadBackend (const std::string& path, BackendLibrary& lib)
+bool loadBackend (const std::string& path, BackendLibrary& lib, std::string& error)
 {
 #if CMD_HAVE_DLOPEN
     void* h = ::dlopen (path.c_str(), RTLD_NOW | RTLD_LOCAL);
-    if (h == nullptr)
-    { std::cerr << "dlopen failed for " << path << ": " << ::dlerror() << "\n"; return false; }
+    if (h == nullptr) { error = std::string ("dlopen failed for ") + path + ": " + ::dlerror(); return false; }
     lib.handle = h;
     lib.create = loadSymbol<CreateFn> (h, "jam_rhythm_create");
     lib.destroy = loadSymbol<DestroyFn> (h, "jam_rhythm_destroy");
     if (lib.create == nullptr || lib.destroy == nullptr)
-    { std::cerr << path << " lacks jam_rhythm_create/destroy\n"; return false; }
+    { error = path + " lacks jam_rhythm_create/destroy"; return false; }
     return true;
 #else
-    (void) path; (void) lib;
-    std::cerr << "dlopen unsupported\n";
-    return false;
+    (void) path; (void) lib; error = "dlopen unsupported"; return false;
 #endif
 }
+
+/** Strict full-string finite double parse; rejects trailing junk, NaN and Inf. */
+bool parseDoubleStrict (const std::string& text, double& out)
+{
+    if (text.empty()) return false;
+    char* end = nullptr;
+    const double v = std::strtod (text.c_str(), &end);
+    if (end == nullptr || end == text.c_str() || *end != '\0') return false;
+    if (! std::isfinite (v)) return false;
+    out = v;
+    return true;
+}
+
+bool inRange (double v, double lo, double hi) { return v >= lo && v <= hi; }
 
 struct Row
 {
@@ -111,16 +135,22 @@ struct Row
     bool silence = false;
 };
 
+/** Drives a backend with a fixed, validated block size. Returns false on an
+    invalid frame parameter (fail closed, never an infinite loop). */
 template <typename Backend>
-void runRows (Backend& backend, const rhythmeval::WavData& audio,
+bool runRows (Backend& backend, const rhythmeval::WavData& audio,
               std::size_t blockFrames, std::vector<Row>& rows)
 {
+    if (blockFrames == 0 || blockFrames > jam::kMaxAnalysisBlock)
+        return false;
     backend.reset (audio.sampleRate);
     std::uint64_t blockIndex = 0;
     for (std::size_t first = 0; first < audio.frames; first += blockFrames)
     {
         const std::size_t remaining = audio.frames - first;
         const std::size_t count = remaining < blockFrames ? remaining : blockFrames;
+        if (count > jam::kMaxAnalysisBlock)
+            return false;
 
         jam::AnalysisFrame frame;
         frame.sampleTime = static_cast<std::uint64_t> (first);
@@ -141,19 +171,7 @@ void runRows (Backend& backend, const rhythmeval::WavData& audio,
         r.silence = obs.silence;
         rows.push_back (r);
     }
-}
-
-std::vector<double> parseList (const std::string& text)
-{
-    std::vector<double> out;
-    std::stringstream ss (text);
-    std::string item;
-    while (std::getline (ss, item, ','))
-    {
-        if (item.empty()) continue;
-        out.push_back (std::strtod (item.c_str(), nullptr));
-    }
-    return out;
+    return true;
 }
 
 std::string label (double v)
@@ -162,11 +180,16 @@ std::string label (double v)
     return std::string (buf);
 }
 
+/** Write and verify flush/close; returns false on any write failure (e.g.
+    /dev/full), so the caller can fail closed. */
 bool writeFile (const std::string& path, const std::string& contents)
 {
-    std::ofstream out (path.c_str(), std::ios::binary);
+    std::ofstream out (path.c_str(), std::ios::binary | std::ios::trunc);
     if (! out.good()) return false;
     out << contents;
+    out.flush();
+    if (! out.good()) return false;
+    out.close();
     return out.good();
 }
 
@@ -181,51 +204,109 @@ double medianOf (std::vector<double> v)
 
 int main (int argc, char** argv)
 {
-    std::string backendLib;
-    std::string out;
-    std::string mode;
-    double rate = 48000.0;
-    double seconds = 24.0;
-    std::size_t blockFrames = 128;
-    std::vector<double> sweep;
-    double stepFrom = 126.0, stepTo = 132.0, stepSeconds = 12.0;
+    std::string backendLib, out, mode;
+    std::string rateText, secondsText, blockText, sweepText;
+    std::string stepFromText, stepToText, stepSecondsText;
+    std::string error;
 
     for (int i = 1; i < argc; ++i)
     {
         const std::string arg = argv[i];
-        auto next = [&] () -> std::string { return (i + 1 < argc) ? argv[++i] : std::string(); };
-        if (arg == "--backend-lib") backendLib = next();
-        else if (arg == "--out") out = next();
-        else if (arg == "--mode") mode = next();
-        else if (arg == "--rate") rate = std::strtod (next().c_str(), nullptr);
-        else if (arg == "--seconds") seconds = std::strtod (next().c_str(), nullptr);
-        else if (arg == "--block") blockFrames = static_cast<std::size_t> (std::strtoul (next().c_str(), nullptr, 10));
-        else if (arg == "--sweep") sweep = parseList (next());
-        else if (arg == "--step-from") stepFrom = std::strtod (next().c_str(), nullptr);
-        else if (arg == "--step-to") stepTo = std::strtod (next().c_str(), nullptr);
-        else if (arg == "--step-seconds") stepSeconds = std::strtod (next().c_str(), nullptr);
+        auto next = [&] (std::string& target) -> bool
+        {
+            if (i + 1 >= argc) { error = "option " + arg + " requires a value"; return false; }
+            target = argv[++i];
+            return true;
+        };
+        if (arg == "--backend-lib") { if (! next (backendLib)) break; }
+        else if (arg == "--out") { if (! next (out)) break; }
+        else if (arg == "--mode") { if (! next (mode)) break; }
+        else if (arg == "--rate") { if (! next (rateText)) break; }
+        else if (arg == "--seconds") { if (! next (secondsText)) break; }
+        else if (arg == "--block") { if (! next (blockText)) break; }
+        else if (arg == "--sweep") { if (! next (sweepText)) break; }
+        else if (arg == "--step-from") { if (! next (stepFromText)) break; }
+        else if (arg == "--step-to") { if (! next (stepToText)) break; }
+        else if (arg == "--step-seconds") { if (! next (stepSecondsText)) break; }
         else if (arg == "--help" || arg == "-h")
         {
             std::cout << "usage: tempo-variant-click --backend-lib <so> --out <dir> "
                          "--mode sweep|step [--rate hz] [--block n]\n";
             return 0;
         }
-        else { std::cerr << "unknown option: " << arg << "\n"; return 2; }
+        else { error = "unknown option: " + arg; break; }
     }
+    if (! error.empty()) { std::cerr << "tempo-variant-click: " << error << "\n"; return 2; }
 
+    // --- strict validation BEFORE any output dir, library load or allocation --
     if (backendLib.empty() || out.empty() || mode.empty())
     { std::cerr << "tempo-variant-click: --backend-lib, --out and --mode are required\n"; return 2; }
+    if (mode != "sweep" && mode != "step")
+    { std::cerr << "tempo-variant-click: --mode must be sweep|step\n"; return 2; }
 
+    double rate = 48000.0, seconds = 24.0;
+    std::size_t blockFrames = 128;
+    if (! rateText.empty() && (! parseDoubleStrict (rateText, rate) || ! inRange (rate, kMinRate, kMaxRate)))
+    { std::cerr << "tempo-variant-click: --rate must be finite in [8000,192000]\n"; return 2; }
+    if (! secondsText.empty() && (! parseDoubleStrict (secondsText, seconds) || seconds <= 0.0 || seconds > kMaxSeconds))
+    { std::cerr << "tempo-variant-click: --seconds must be finite in (0,120]\n"; return 2; }
+    if (rate * seconds > kMaxSamples)
+    { std::cerr << "tempo-variant-click: rate*seconds exceeds the bounded sample budget\n"; return 2; }
+    if (! blockText.empty() && ! tracker_diag::parseBlockFrames (blockText, jam::kMaxAnalysisBlock, blockFrames))
+    { std::cerr << "tempo-variant-click: --block must be an integer in [1,"
+                   << jam::kMaxAnalysisBlock << "]\n"; return 2; }
+
+    std::vector<double> sweep;
+    if (mode == "sweep")
+    {
+        if (sweepText.empty())
+            sweep = {118, 120, 122, 123, 124, 125, 126, 127, 128, 130, 132, 134};
+        else
+        {
+            std::stringstream ss (sweepText);
+            std::string item;
+            while (std::getline (ss, item, ','))
+            {
+                if (item.empty()) continue;
+                double v = 0.0;
+                if (! parseDoubleStrict (item, v) || ! inRange (v, kMinCliBpm, kMaxCliBpm))
+                { std::cerr << "tempo-variant-click: --sweep values must be finite in ["
+                               << kMinCliBpm << "," << kMaxCliBpm << "]\n"; return 2; }
+                sweep.push_back (v);
+            }
+            if (sweep.empty())
+            { std::cerr << "tempo-variant-click: --sweep has no values\n"; return 2; }
+        }
+    }
+
+    double stepFrom = 126.0, stepTo = 132.0, stepSeconds = 12.0;
+    if (mode == "step")
+    {
+        if (! stepFromText.empty() && (! parseDoubleStrict (stepFromText, stepFrom) || ! inRange (stepFrom, kMinCliBpm, kMaxCliBpm)))
+        { std::cerr << "tempo-variant-click: --step-from invalid\n"; return 2; }
+        if (! stepToText.empty() && (! parseDoubleStrict (stepToText, stepTo) || ! inRange (stepTo, kMinCliBpm, kMaxCliBpm)))
+        { std::cerr << "tempo-variant-click: --step-to invalid\n"; return 2; }
+        if (! stepSecondsText.empty() && (! parseDoubleStrict (stepSecondsText, stepSeconds) || stepSeconds <= 0.0))
+        { std::cerr << "tempo-variant-click: --step-seconds invalid\n"; return 2; }
+        if (std::fabs (stepTo - stepFrom) < 1e-9)
+        { std::cerr << "tempo-variant-click: --step-from and --step-to must differ\n"; return 2; }
+        // The step must fall inside the rendered clip, strictly after the first
+        // beat, so an anchor actually exists.
+        if (! (stepSeconds > 0.1 && stepSeconds < seconds))
+        { std::cerr << "tempo-variant-click: --step-seconds must be inside (0.1, seconds)\n"; return 2; }
+    }
+
+    // --- now it is safe to touch the filesystem / load the library ------------
     std::error_code ec;
     std::filesystem::create_directories (out, ec);
     if (ec) { std::cerr << "cannot create " << out << "\n"; return 2; }
 
     BackendLibrary lib;
-    if (! loadBackend (backendLib, lib)) return 2;
+    if (! loadBackend (backendLib, lib, error))
+    { std::cerr << "tempo-variant-click: " << error << "\n"; return 2; }
 
     if (mode == "sweep")
     {
-        if (sweep.empty()) sweep = {118, 120, 122, 123, 124, 125, 126, 127, 128, 130, 132, 134};
         std::string csv = "bpmRequested,baseBpmLast,baseBpmMedian,variantBpmLast,"
                           "variantBpmMedian,nBeats,meanIntervalSeconds,truthIntervalSeconds,"
                           "intervalRatio,variantRelError\n";
@@ -238,18 +319,19 @@ int main (int argc, char** argv)
             std::vector<Row> baseRows;
             {
                 BackendLibrary::Ptr base = lib.makeOwned();
-                if (base == nullptr) { std::cerr << "null factory\n"; return 2; }
-                runRows (*base, audio, blockFrames, baseRows);
+                if (base == nullptr) { std::cerr << "factory returned null\n"; return 2; }
+                if (! runRows (*base, audio, blockFrames, baseRows)) return 2;
             }
             std::vector<Row> varRows;
             {
-                std::vector<double> ignored;
-                tempo_variant::TempoVariantTracker variant (lib.makeOwned(), {});
-                runRows (variant, audio, blockFrames, varRows);
+                BackendLibrary::Ptr inner = lib.makeOwned();
+                if (inner == nullptr) { std::cerr << "factory returned null\n"; return 2; }
+                tempo_variant::TempoVariantTracker variant (std::move (inner), {});
+                if (! runRows (variant, audio, blockFrames, varRows)) return 2;
             }
 
             auto stats = [] (const std::vector<Row>& rows, std::vector<double>& bpms,
-                             double& meanInterval, int& nBeats)
+                             double& meanIntervalSamples, int& nBeats)
             {
                 for (const Row& r : rows)
                     if (r.phaseValid && r.bpm > 0.0f) bpms.push_back (r.bpm);
@@ -263,16 +345,14 @@ int main (int argc, char** argv)
                     if (prev >= 0.0) { sum += (ev - prev); ++n; }
                     prev = ev;
                 }
-                // Convert the accumulated SAMPLE sum to seconds below via caller.
-                meanInterval = (n > 0) ? sum / n : 0.0;
+                meanIntervalSamples = (n > 0) ? sum / n : 0.0;
             };
             std::vector<double> baseBpms, varBpms;
             double baseIntervalSamples = 0.0, varIntervalSamples = 0.0;
             int baseBeats = 0, varBeats = 0;
             stats (baseRows, baseBpms, baseIntervalSamples, baseBeats);
             stats (varRows, varBpms, varIntervalSamples, varBeats);
-            (void) baseIntervalSamples;
-            (void) baseBeats;
+            (void) baseIntervalSamples; (void) baseBeats;
             const double meanInterval = varIntervalSamples / rate;
             const double truthInterval = 60.0 / bpm;
             const double ratio = truthInterval > 0.0 && meanInterval > 0.0
@@ -293,41 +373,78 @@ int main (int argc, char** argv)
         return 0;
     }
 
-    if (mode == "step")
+    // mode == "step"
     {
         tempo_variant::ClickSpec spec;
         spec.sampleRate = rate; spec.seconds = seconds;
         spec.bpm = stepFrom; spec.stepToBpm = stepTo; spec.stepSeconds = stepSeconds;
         const rhythmeval::WavData audio = tempo_variant::makeClickTrain (spec);
 
-        std::vector<Row> varRows;
-        std::ofstream methodOut ((out + "/click_step_rate" + label (rate) + ".csv").c_str(),
-                                 std::ios::binary);
-        if (! methodOut.good()) { std::cerr << "cannot open method csv\n"; return 2; }
+        const std::string path = out + "/click_step_rate" + label (rate) + ".csv";
+        std::ofstream methodOut (path.c_str(), std::ios::binary | std::ios::trunc);
+        if (! methodOut.good()) { std::cerr << "cannot open " << path << "\n"; return 2; }
         methodOut << "blockIndex,blockStartSeconds,blockEndSeconds,beatEvent,"
-                     "eventSeconds,intervalSeconds,intervalState,ringCount,ready,"
-                     "baseBpm,variantBpm\n";
+                     "eventSeconds,intervalMeasured,intervalSeconds,intervalState,"
+                     "ringCount,ready,baseBpm,variantBpm\n";
         {
+            BackendLibrary::Ptr inner = lib.makeOwned();
+            if (inner == nullptr) { std::cerr << "factory returned null\n"; return 2; }
             tempo_variant::TempoVariantTracker variant (
-                lib.makeOwned(),
+                std::move (inner),
                 [&methodOut] (const tempo_variant::MethodRecord& m)
                 {
-                    char buf[256];
+                    char interval[32];
+                    if (m.intervalMeasured)
+                        std::snprintf (interval, sizeof interval, "%.9f", m.intervalSeconds);
+                    else
+                        interval[0] = '\0';
+                    char buf[320];
                     std::snprintf (buf, sizeof buf,
-                                   "%llu,%.9f,%.9f,%d,%.9f,%.9f,%s,%zu,%d,%.9f,%.9f\n",
+                                   "%llu,%.9f,%.9f,%d,%.9f,%d,%s,%s,%zu,%d,%.9f,%.9f\n",
                                    static_cast<unsigned long long> (m.blockIndex),
                                    m.blockStartSeconds, m.blockEndSeconds,
                                    m.beatEvent ? 1 : 0, m.eventSeconds,
-                                   m.intervalSeconds, tempo_variant::toString (m.intervalState),
+                                   m.intervalMeasured ? 1 : 0, interval,
+                                   tempo_variant::toString (m.intervalState),
                                    m.ringCount, m.ready ? 1 : 0, m.baseBpm, m.variantBpm);
                     methodOut << buf;
                 });
-            runRows (variant, audio, blockFrames, varRows);
+            std::vector<Row> varRows;
+            if (! runRows (variant, audio, blockFrames, varRows))
+            { std::cerr << "invalid run parameters\n"; return 2; }
         }
-        std::cout << "wrote " << out << "/click_step_rate" << label (rate) << ".csv\n";
+        methodOut.flush();
+        if (! methodOut.good()) { std::cerr << "write failed " << path << "\n"; return 2; }
+        methodOut.close();
+        if (! methodOut.good()) { std::cerr << "close failed " << path << "\n"; return 2; }
+
+        // Sidecars: the generator's actual truth anchor/periods and beat times,
+        // so the response lag can be measured from the real step, not the
+        // nominal instant.
+        const tempo_variant::ClickStepInfo info = tempo_variant::clickStepInfo (spec);
+        const std::vector<double> truthBeats = tempo_variant::clickBeatTimes (spec);
+        char ibuf[160];
+        std::snprintf (ibuf, sizeof ibuf, "%.9f,%.9f,%.9f,%.9f\n",
+                       info.nominalStepSeconds, info.anchorBeatSeconds,
+                       info.prePeriodSeconds, info.postPeriodSeconds);
+        const std::string infoPath = out + "/click_step_rate" + label (rate) + "_info.csv";
+        if (! writeFile (infoPath,
+                         "nominalStepSeconds,anchorBeatSeconds,prePeriodSeconds,postPeriodSeconds\n"
+                         + std::string (ibuf)))
+        { std::cerr << "write failed " << infoPath << "\n"; return 2; }
+
+        std::string truthCsv = "beatIndex,beatSeconds\n";
+        for (std::size_t i = 0; i < truthBeats.size(); ++i)
+        {
+            char b[48];
+            std::snprintf (b, sizeof b, "%zu,%.9f\n", i, truthBeats[i]);
+            truthCsv += b;
+        }
+        const std::string truthPath = out + "/click_step_rate" + label (rate) + "_truth.csv";
+        if (! writeFile (truthPath, truthCsv))
+        { std::cerr << "write failed " << truthPath << "\n"; return 2; }
+
+        std::cout << "wrote " << path << "\n";
         return 0;
     }
-
-    std::cerr << "unknown mode: " << mode << "\n";
-    return 2;
 }

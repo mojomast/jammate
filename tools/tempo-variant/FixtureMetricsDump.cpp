@@ -9,6 +9,7 @@
 // cross-checked against the diagnostic CLI's summary.json.
 
 #include "BackendRunner.h"
+#include "CliValidate.h"   // tracker_diag::parseBlockFrames (reused, unmodified)
 #include "Json.h"
 #include "Manifest.h"
 #include "Metrics.h"
@@ -69,6 +70,7 @@ int main (int argc, char** argv)
 {
     std::string corpus, out, backendLib, backendName;
     std::size_t blockFrames = 128;
+    std::string blockText;
     for (int i = 1; i < argc; ++i)
     {
         const std::string a = argv[i];
@@ -77,11 +79,18 @@ int main (int argc, char** argv)
         else if (a == "--out") out = next();
         else if (a == "--backend-lib") backendLib = next();
         else if (a == "--backend") backendName = next();
-        else if (a == "--block") blockFrames = static_cast<std::size_t> (std::strtoul (next().c_str(), nullptr, 10));
+        else if (a == "--block") blockText = next();
         else { std::cerr << "unknown option " << a << "\n"; return 2; }
     }
     if (corpus.empty() || out.empty() || backendLib.empty())
     { std::cerr << "usage: tempo-variant-metrics --corpus <dir> --backend-lib <so> --out <file> [--backend name] [--block n]\n"; return 2; }
+    if (! blockText.empty()
+        && ! tracker_diag::parseBlockFrames (blockText, jam::kMaxAnalysisBlock, blockFrames))
+    {
+        std::cerr << "tempo-variant-metrics: --block must be an integer in [1,"
+                  << jam::kMaxAnalysisBlock << "]\n";
+        return 2;
+    }
 
 #if FMD_HAVE_DLOPEN
     void* h = ::dlopen (backendLib.c_str(), RTLD_NOW | RTLD_LOCAL);
@@ -125,9 +134,13 @@ int main (int argc, char** argv)
     root.set ("aggregate",
               rhythmeval::aggregateMetricsToJson (rhythmeval::aggregateFixtures (all)));
 
-    std::ofstream f (out.c_str(), std::ios::binary);
+    std::ofstream f (out.c_str(), std::ios::binary | std::ios::trunc);
     if (! f.good()) { std::cerr << "cannot write " << out << "\n"; return 2; }
     f << root.dump() << "\n";
+    f.flush();
+    if (! f.good()) { std::cerr << "write failed " << out << "\n"; return 2; }
+    f.close();
+    if (! f.good()) { std::cerr << "close failed " << out << "\n"; return 2; }
     std::cout << "wrote " << out << "\n";
     return 0;
 }

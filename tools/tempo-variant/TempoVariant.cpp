@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 namespace tempo_variant
@@ -19,12 +20,17 @@ const char* toString (IntervalState s) noexcept
         case IntervalState::MalformedReset:  return "malformed_reset";
         case IntervalState::GapReset:        return "gap_reset";
         case IntervalState::OutOfOrderReset: return "out_of_order_reset";
+        case IntervalState::FrameInvalid:    return "frame_invalid_reset";
     }
     return "unknown";
 }
 
 void TempoVariantTracker::reset (double sampleRate)
 {
+    // The caller's rate is forwarded to the wrapped backend unchanged (the
+    // IRhythmTracker contract). Only the wrapper's OWN interval arithmetic uses
+    // the finite-positive fallback; this is documented in the header so the
+    // fallback is never mistaken for backend validation.
     if (inner_ != nullptr)
         inner_->reset (sampleRate);
     rate_ = (std::isfinite (sampleRate) && sampleRate > 0.0) ? sampleRate : 48000.0;
@@ -75,8 +81,13 @@ jam::RhythmObservation TempoVariantTracker::process (const jam::AnalysisFrame& f
 
     const double baseBpm = static_cast<double> (obs.bpmCandidate);
 
+    // Reject invalid frame metadata BEFORE it can wrap the unsigned clocks.
+    const bool frameInvalid =
+        frame.numSamples > jam::kMaxAnalysisBlock
+        || frame.sampleTime > std::numeric_limits<std::uint64_t>::max() - frame.numSamples;
     const std::uint64_t blockEndSample =
-        frame.sampleTime + static_cast<std::uint64_t> (frame.numSamples);
+        frameInvalid ? frame.sampleTime
+                     : frame.sampleTime + static_cast<std::uint64_t> (frame.numSamples);
 
     MethodRecord rec;
     rec.blockIndex = blockIndex_;
@@ -90,9 +101,13 @@ jam::RhythmObservation TempoVariantTracker::process (const jam::AnalysisFrame& f
         rec.beatEvent = true;
         rec.eventSeconds = static_cast<double> (ev) / rate_;
 
-        const bool causal = ev <= blockEndSample;
-
-        if (! causal)
+        if (frameInvalid)
+        {
+            resetRing();
+            havePrevBeat_ = false;
+            rec.intervalState = IntervalState::FrameInvalid;
+        }
+        else if (ev > blockEndSample)
         {
             // A beat the backend places after the audio it was given cannot
             // anchor a consecutive interval; treat as malformed and reset.
@@ -106,23 +121,27 @@ jam::RhythmObservation TempoVariantTracker::process (const jam::AnalysisFrame& f
             havePrevBeat_ = true;
             rec.intervalState = IntervalState::FirstBeat;
         }
+        else if (ev <= prevBeatSample_)
+        {
+            // Duplicate or non-monotonic sample time. This MUST be checked
+            // before the unsigned subtraction, which would otherwise wrap to a
+            // huge positive "interval". The interval is MISSING, not measured.
+            resetRing();
+            prevBeatSample_ = ev;
+            havePrevBeat_ = true;
+            rec.intervalState = IntervalState::OutOfOrderReset;
+        }
         else
         {
             const double interval =
                 static_cast<double> (ev - prevBeatSample_) / rate_;
+            rec.intervalMeasured = true;
             rec.intervalSeconds = interval;
 
-            if (! std::isfinite (interval) || interval <= 0.0)
+            if (! std::isfinite (interval))
             {
                 resetRing();
                 rec.intervalState = IntervalState::MalformedReset;
-            }
-            else if (ev <= prevBeatSample_)
-            {
-                // Redundant with interval <= 0 for unsigned arithmetic, kept as
-                // an explicit, separately-auditable non-monotonic branch.
-                resetRing();
-                rec.intervalState = IntervalState::OutOfOrderReset;
             }
             else if (interval > kMaxIntervalSeconds)
             {
@@ -143,6 +162,13 @@ jam::RhythmObservation TempoVariantTracker::process (const jam::AnalysisFrame& f
             prevBeatSample_ = ev;
             havePrevBeat_ = true;
         }
+    }
+    else if (frameInvalid)
+    {
+        // No beat, but the block metadata is unusable; be conservative and
+        // clear state rather than carry a potentially wrapped clock.
+        resetRing();
+        havePrevBeat_ = false;
     }
 
     // The single changed field. Everything else is the wrapped backend's value.

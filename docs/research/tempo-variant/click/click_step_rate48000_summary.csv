@@ -1,2 +1,2 @@
-rate,stepSeconds,stepFromBpm,stepToBpm,variantWithin2PctSeconds,variantLagSeconds,variantLagBeats,baseWithin2PctSeconds,baseLagSeconds,baseLagBeats,variantFinalBpm,baseFinalBpm
-48000,12.000000,126.000000,132.000000,13.850708333,1.850708,5,,,,132.514328003,129.199218750
+nominalStepSeconds,anchorBeatSeconds,prePeriodSeconds,postPeriodSeconds,stepFromBpm,stepToBpm,variantFirstWithinAvailabilitySeconds,variantLagSecondsFromNominal,variantExecLagBeatsFromNominal,variantFirstWithinEventSeconds,variantEventLagSecondsFromNominal,variantLagSecondsFromAnchor,variantLagBeatsFromAnchor,variantTrailingWithinToEnd,variantLastWithinAvailabilitySeconds,baseFirstWithinAvailabilitySeconds,baseLagSecondsFromNominal,baseLagBeatsFromNominal,baseFirstWithinEventSeconds
+12.000000000,12.004761905,0.476190476,0.454545455,126.000000,132.000000,13.864000000,1.864000000,5,13.850708333,1.850708333,1.859238095,4,True,23.837333333,,,,

@@ -40,6 +40,24 @@ std::vector<double> clickBeatTimes (const ClickSpec& spec)
     return beats;
 }
 
+ClickStepInfo clickStepInfo (const ClickSpec& spec)
+{
+    ClickStepInfo info;
+    info.nominalStepSeconds = spec.stepSeconds;
+    info.prePeriodSeconds = 60.0 / spec.bpm;
+    const bool hasStep = spec.stepToBpm > 0.0
+                         && std::fabs (spec.stepToBpm - spec.bpm) > 1e-9;
+    info.postPeriodSeconds = hasStep ? 60.0 / spec.stepToBpm : info.prePeriodSeconds;
+    info.anchorBeatSeconds = -1.0;
+    if (hasStep)
+    {
+        const std::vector<double> beats = clickBeatTimes (spec);
+        for (double t : beats)
+            if (t >= spec.stepSeconds) { info.anchorBeatSeconds = t; break; }
+    }
+    return info;
+}
+
 rhythmeval::WavData makeClickTrain (const ClickSpec& spec)
 {
     rhythmeval::WavData out;
