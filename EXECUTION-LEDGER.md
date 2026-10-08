@@ -84,6 +84,25 @@ PARTIAL, never PASSED.
     No production analyzer/clock/editor integration is authorised by this task;
     full DIAG-001 stays partial until that integration and overhead are measured.
 
+### Active build wave (base `677727c`, 2026-10-08)
+
+The user authorised three implementation workers on
+**`opencode-go/deepseek-v4.1-flash`**. Each owns an isolated branch and worktree:
+
+| Task | Session | Ownership |
+|---|---|---|
+| RT-005 NAM activation allocation repair | `ses_ee6748237ffehxD8TO1at7Tb1N` | `../worktrees/RT-005-nam-activations`; generated NAM overlay/patches, repair checks and new evidence |
+| TRACK-008 frozen tempo-stability candidate | `ses_ee67420b9ffexDdmhC9V6lUJKW` | `../worktrees/TRACK-008-tempo-stability`; new diagnostic candidate, frozen protocol and paired evidence |
+| INT-DRUM-001 actual clock-to-drum bridge | `ses_ee673b711ffeFAFwgDVHAN3Z1O` | `../worktrees/INT-DRUM-001-clock-bridge`; DrumEngine audio-owner seam, bounded bridge and actual-JUCE checks |
+
+RT-005 must retain original and LSTM-only positive controls and prove numerical
+equivalence. TRACK-008 must commit its protocol and candidate freeze before
+scoring, preserving all acquisition regressions and backend-specific windows.
+INT-DRUM-001 must demonstrate injected next-bar join, clock-owned tempo updates,
+stop and resync on the actual renderer. Shared build/CI, processor/editor wiring
+and current-facing documents remain orchestrator-owned. Committed handoffs need
+independent verification before integration. No new gate pass is claimed.
+
 ### Completed development wave (base `bcf540a`, 2026-10-08)
 
 The wave started on Haiku on OpenCode Go. The user's subsequent instruction
@@ -332,7 +351,7 @@ and reports instead.
 | CI execution evidence | **REMOTE GREEN: scoped builds/tests** | `0820bb5`, run37715897283 | C | G1 | all6 GitHub jobs pass; this is build/test coverage, not whole callback/device validation |
 | TEST-001 foundation tests | **DONE: bounded foundation coverage (D8)** | `wp/TEST-001-foundation`, `0cfc252b` → main | C — verification, Sol | G1 |50 actual JUCE cases; root rebuild and6/6 suites pass; processor migration/concurrent edits remain uncovered |
 | MOD-003 Jam UI shell | **DONE: isolated simulation shell (D7)** | `wp/MOD-003-jam-ui`, `34ab2cb3` → main | C — UI, Sol | G2 | fresh actual JUCE preview build and Xvfb verification pass; seven screenshots; live editor wiring pending |
-| CI-003 GitHub verification | **DONE: RT-004/DIAG-001 remote green** | main, `8348233` | orchestrator | G1 | run37720364067 core19/20/20/21, NAM5/5, Windows Standalone/VST3 +6/6 drums; receipt and downloaded-log hashes retained |
+| CI-003 GitHub verification | **DONE: final previous-wave remote green** | main, `677727c` | orchestrator | G1 | run37721981804 core20/21/21/22, NAM5/5, Windows Standalone/VST3 +6/6 drums; receipt and downloaded-log hashes retained |
 | TRACK-007 longer-window acquisition characterization | **DONE: corrected scoped evidence; G3 open** | `wp/TRACK-007-long-windows`, `65cd77d` → main | B — evidence, Haiku/Space Bunny/DeepSeek Go | G3 |48 research tests; independent16-fixture render/48 scores,7503 non-CPU fields exact; raw and corrected evidence preserved; core22/20 suites pass |
 | RT-004 NAM architecture callback coverage | **DONE: bounded evidence; A2 repair open** | `wp/RT-004-nam-architectures`, `337f4f3` → main | A — runtime evidence, Haiku + Space Bunny/Go | G1 |81 tests; independent260-case replay (80 NAM),6610 stable fields equal; A2 PReLU/blending allocations retained |
 | DIAG-001 portable diagnostics foundation | **FOUNDATION DONE (D10); full task PARTIAL** | `wp/DIAG-001-core`, `b5852a0` → main | C — core, Haiku + Space Bunny/Go | G4 | independent21/19 core suites,34 diagnostics cases,strict/TSan/ASan checks pass within receipt scope; live wiring/overhead pending |

@@ -102,6 +102,17 @@ Receipt and downloaded-log hashes:
 The same device, ASIO and callback-timing limits apply. The simulated Jam UI
 preview was verified locally; this run does not build that preview target.
 
+## Final RT-004 / DIAG-001 / TRACK-007 integrated-head pass
+
+[Run37721981804](https://github.com/mojomast/jammate/actions/runs/37721981804)
+at `677727cb770b03abb63d39fe05862e525ebce226` passed all six jobs:
+core **20/20 OFF, 21/21 BTrack-only, 21/21 aubio-only, 22/22 both**, NAM **5/5**,
+and Windows2022/MSVC **Standalone + VST3 with 6/6 drum suites**. This includes
+the newly required 48-test tempo characterization research suite in shallow
+checkouts. Receipt/log hashes:
+[`github-ci/run-37721981804.json`](github-ci/run-37721981804.json).
+Physical-device, ASIO and callback-deadline gates remain open.
+
 ## RT-004 / DIAG-001 integrated-head pass
 
 [Run37720364067](https://github.com/mojomast/jammate/actions/runs/37720364067)

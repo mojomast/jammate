@@ -13,21 +13,25 @@ source of truth. Do not rewrite them to match the code.
 `main` is the integration branch. `EXECUTION-LEDGER.md` holds current task/gate
 status; the rest of this older handoff describes the original checkout setup.
 The original uncommitted seams are long since integrated. The latest user
-instruction is **DeepSeek V4.1 Flash from now on**, exact model
-`opencode-go/deepseek-v4.1-flash`. All three active Haiku continuations were
-interrupted successfully and relaunched in the same sessions on DeepSeek Go.
-All three continuations were rejected before execution: the model requires Global
-regions in the workspace's Privacy settings. They are paused pending that change;
-the requested model is retained. The user then confirmed the model is enabled;
-all three continuations were retried and returned the same region rejection.
-They have now been continued on Space Bunny Go with user authorisation.
-RT-004 and DIAG-001 returned Space Bunny corrections. The user's latest switch
-back to DeepSeek interrupted the remaining TRACK-007 Space Bunny worker and
-relaunched it on DeepSeek Go; its interpretation corrections remain pending.
+instruction authorises **DeepSeek V4.1 Flash subagents**, exact model
+`opencode-go/deepseek-v4.1-flash`. The prior wave's DeepSeek corrections are
+complete. Earlier region rejections and temporary Space Bunny routing remain
+documented in EXECUTION-LEDGER's completed-wave history.
 
-New active wave starts at `bcf540a`: TRACK-007 longer paired acquisition evidence,
+**New active build wave at `677727c`:** RT-005 repairs NAM activation allocations;
+TRACK-008 builds and freezes a new tempo-stability diagnostic candidate;
+INT-DRUM-001 builds the bounded bridge to the actual DrumEngine with injected
+clock input. Three isolated worker sessions and ownership are in the ledger's
+Active build wave table. No handoff has yet been accepted. Orchestrator owns
+shared build/CI registration, processor/editor wiring and integration.
+
+Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
+NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
+`docs/research/github-ci/run-37721981804.json`.
+
+The completed preceding wave started at `bcf540a`: TRACK-007 longer paired acquisition evidence,
 RT-004 broader NAM architecture callback probes, and DIAG-001 portable diagnostics
-under D10. Sessions and exact ownership are in EXECUTION-LEDGER's Active development
+under D10. Sessions and exact ownership are in EXECUTION-LEDGER's Completed development
 table. All three handoffs are now integrated. The published merged-head run37716882463 at
 `bcf540a` passed all six jobs: core18/19/19/20, NAM5/5, and Windows
 Standalone/VST3 plus6/6 drum suites. Its receipt and downloaded-log hashes are
@@ -55,7 +59,8 @@ Its48-test research suite passes in a source archive and is required by both
 forge guards; integrated core22/22 both-enabled and20/20 OFF pass. Original raw
 evidence/protocol/fixtures remain immutable, with separate corrected evidence.
 Receipt: `docs/research/tempo-long-windows-integration.json`. G3 stays open.
-The Haiku/Space Bunny/DeepSeek Go wave is complete; no worker remains active.
+The preceding Haiku/Space Bunny/DeepSeek Go wave is complete; the new three
+Flash workers above are active.
 
 Worker sessions and path ownership are in EXECUTION-LEDGER's resumption table:
 TRACK-006 fixed paired robustness, MOD-003 isolated simulated Jam UI, and TEST-001

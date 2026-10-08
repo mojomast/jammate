@@ -13,15 +13,13 @@ Current delegated model: **`opencode-go/deepseek-v4.1-flash`**, per the user's l
 instruction. Earlier Flash/Sol/Haiku routing is historical. Offline G3/G4 work has
 advanced under recorded deviations; G0/G1 are still partial.
 
-The user superseded the queued next-wave switch with an immediate switch. All
-three Haiku continuations were stopped and relaunched on DeepSeek V4.1 Flash Go.
-All three continuations are paused after provider rejection: this model requires
-Global regions in the workspace's Privacy settings. The user then confirmed the
-model is enabled; all three retries returned the same region rejection. The
-user then authorised Space Bunny while waiting, and all three continuations
-were launched on `opencode-go/space-bunny`.
-The latest instruction switches back to DeepSeek V4.1 Flash Go from now on;
-the remaining TRACK-007 Space Bunny continuation was stopped and relaunched.
+The prior Haiku/Space Bunny/DeepSeek wave is integrated and remotely green at
+`677727c` (run37721981804). Earlier provider-region rejections are recorded in
+the ledger; TRACK-007's final DeepSeek corrections completed successfully.
+The user has now authorised a new three-worker Flash build wave at that base:
+RT-005 activation allocation repair, TRACK-008 frozen tempo-stability candidate,
+and INT-DRUM-001 actual clock-to-drum bridge. Ownership and sessions are in the
+ledger's Active build wave table. Hand-offs are pending independent review.
 
 ---
 
@@ -1484,7 +1482,7 @@ Keep this near the top of the live devplan during implementation.
 | TRACK-005 | DONE (diagnostic-only causal BPM-report variant) | main | 7b3a4d7 + framing corrections | G3 |
 | RT-003 | DONE (measured LSTM repair) | main | 401a6c1 + product/verifier fixes | G1 |
 | TRACK-006 | DONE: scoped paired diagnostics; variant gap/noise regressions retained | main | ce3c96e0 + independent replay | G3 |
-| CI-003 | DONE: RT-004/DIAG-001 remote green, all6 jobs | main | 8348233, run37720364067 | G1 |
+| CI-003 | DONE: previous-wave final remote green, all6 jobs | main | 677727c, run37721981804 | G1 |
 | TRACK-007 | DONE: corrected scoped evidence; G3 remains open | main | 65cd77d + independent replay; core22/20 suites | G3 |
 | RT-004 | DONE: bounded evidence; A2 activation repair open | main | 337f4f3 + independent260-case replay | G1 |
 | DIAG-001 | FOUNDATION DONE (D10); full live task PARTIAL | main | b5852a0 + independent21/19 suites | G4 |

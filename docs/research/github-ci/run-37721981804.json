@@ -1,0 +1,35 @@
+{
+  "runId": 37721981804,
+  "url": "https://github.com/mojomast/jammate/actions/runs/37721981804",
+  "testedSha": "677727cb770b03abb63d39fe05862e525ebce226",
+  "conclusion": "success",
+  "suiteCounts": {
+    "Core / aubio": 21,
+    "Core / both": 22,
+    "Core / btrack": 21,
+    "Core / depfree": 20,
+    "NAM / LSTM repair": 5,
+    "Windows / Standalone + VST3 + drums": 6
+  },
+  "jobs": [
+    {"name": "NAM / LSTM repair", "id": 113131487399, "conclusion": "success"},
+    {"name": "Core / both", "id": 113131487596, "conclusion": "success"},
+    {"name": "Windows / Standalone + VST3 + drums", "id": 113131487682, "conclusion": "success"},
+    {"name": "Core / depfree", "id": 113131487688, "conclusion": "success"},
+    {"name": "Core / aubio", "id": 113131487707, "conclusion": "success"},
+    {"name": "Core / btrack", "id": 113131487720, "conclusion": "success"}
+  ],
+  "logHashes": {
+    "/home/mojo/projects/build-TRACK-007-integration/github-core-aubio-green.log": "473c7eed0d8967a9f7cffc23a56d33ba019238e2773bced95aaf2f000dc0aa6c",
+    "/home/mojo/projects/build-TRACK-007-integration/github-core-both-green.log": "fdb8c7a49aebf37a32a1b5b37cfd57c29daf13fa69e0532ba8bf1102a0a5366a",
+    "/home/mojo/projects/build-TRACK-007-integration/github-core-btrack-green.log": "608813326cb0418b44abd69fc3e8405b0a2da52bafe07a1d3cbac35407b2a0c9",
+    "/home/mojo/projects/build-TRACK-007-integration/github-core-depfree-green.log": "df841133c9bcea63042e380fcd083b30cf65fc9dfead2c3fce3f2db7636146d0",
+    "/home/mojo/projects/build-TRACK-007-integration/github-nam-lstm-repair-green.log": "e997e3453e40d15c45024002e147b51af635e1d30d9fa866fc67b11a94a4fb62",
+    "/home/mojo/projects/build-TRACK-007-integration/github-windows-standalone-vst3-drums-green.log": "9acb2bc7f5422ae219253da07d3ddd415921da2718b902ef66857684cbb8eb77"
+  },
+  "limits": [
+    "Windows WASAPI/DirectSound Standalone/VST3 build and drum tests only",
+    "No ASIO, physical device or callback deadline validation",
+    "Processor probe replay and scoped diagnostics sanitizer evidence are local"
+  ]
+}
