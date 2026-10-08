@@ -95,3 +95,39 @@ selection.
 Handoff: implementation/evidence/report/note commit recorded as the final worker
 commit (`git log -1`); a commit cannot embed its own SHA. Protocol `492c5a8` and
 fixture identities `d21e2a6` are preserved separately and precede all inference.
+
+## Correction after independent review (2026-10-08)
+
+Independent review of `5098df9` required corrections before merge. The original raw
+run and evidence tree (`5098df9`), the protocol (`492c5a8`), the fixture identities
+(`d21e2a6`) and the generator are **preserved unchanged as historical**; the fix is
+additive.
+
+- Correction contract committed **before** recomputation: `4a89dc1`
+  (`docs/research/tempo-long-windows/CORRECTIONS.md`).
+- Corrected derived evidence (derived-only, 84 KiB, reuses the immutable raw):
+  `docs/research/tempo-long-windows/evidence-corrected/`, produced by the new
+  `tools/tempo-characterization/recompute_evidence.py`.
+- Corrections applied: **E1** the within-2-bar losses are post-ready estimator
+  excursions, not a readiness cost (verified: `variantBpm == baseBpm` on all pre-ready
+  blocks; lock needs a 4-consecutive-beat run within 2 %); **E2** the missed
+  `noise_126bpm_44100hz` regression (+2.2491 bars) added; **E3** not-acquired
+  `acquisitionBars` normalised to `null` with the raw sentinel preserved; **E4**
+  `lockedBpm`/`bpmRelativeError` relabelled as backend-specific steady-window medians
+  (D/V windows differ on 14/16 cells); **E5** the gap exemption applies only to the
+  `gap` control (aubio sparse 126 48k outliers 28 → 29); **E6** provenance.json's
+  own file sha256 `202714b1…` vs the mis-attributed combined freeze `cd8291e6…`;
+  **E7** disclosed process deviations.
+- 36 control-vs-regular paired records (12 perturbations × 3 backends) added
+  alongside the retained 16 default-vs-variant records.
+- Hard validation now uses the reviewed `paired.validate_results` (block 128, no
+  legacy stamps, uncompensated only) plus manifest-level truth checks; failure tests
+  cover wrong framing, legacy stamps, wrong backend and non-uncompensated input.
+- New tests: 19 corrected-evidence tests, independently re-deriving every corrected
+  field from the immutable raw (not mirroring the tool). Full suite **48 tests OK**.
+- The orchestrator independently replayed all 48 scores, 48 beat files and the
+  method log at `/home/mojo/projects/build-TRACK-007-integration`; every scored field
+  is byte-identical to the committed raw (only `cpuSeconds` and its aggregate differ).
+- No backend/candidate/default/scorer/adapter/shared-build/ledger/HANDOFF/DEVPLAN
+  change. G3 remains OPEN; the next contract is post-ready estimator stability as a
+  new named candidate, not a blind earlier-readiness change.
