@@ -4,7 +4,8 @@ Worktree: `/home/mojo/projects/worktrees/INT-LIVE-001-pipeline`
 Branch: `wp/INT-LIVE-001-pipeline`
 Base: `88893e24be328f131b5df673078ff934a46ed5ab`
 Handoff commit: `c561de31510bedb14d157178519d0dd90b725bf8` (initial implementation)
-Extension commit: `900afeddc278c193a0421e6f6028efca5cd51345`
+Extension 1 commit: `900afeddc278c193a0421e6f6028efca5cd51345`
+Extension 2 commit (P2 Lost spam + P3 stop-kind upgrade): `a5185d4c64b89b7656512285c0f6346266d43341`
 Frozen inputs: `docs/research/LIVE-JAM-CONTRACT.md`, `src/jam/JamLiveInterface.h`
 Research: `docs/research/LIVE-JAM-PIPELINE.md`
 
@@ -54,7 +55,29 @@ agents.
 `jam-core` and its tests pick the new sources up through the existing
 `CONFIGURE_DEPENDS` globs, so no shared CMake change is required.
 
-## P1/P3 fixes
+## P2/P3 second-review fixes
+
+- **P2 Lost spam.** A persistent `Lost` no longer re-issues a Clear every control
+  tick. The stop intent/sent state is preserved across Lost: exactly one accepted
+  stop (retried only while the bridge rejects it) until the stopped echo; after
+  that, while still Lost, no Clear and no Join. An idle Lost issues nothing. The
+  running intent may recover only once Locked again (join once after the stopped
+  echo). Regressions cover 10 Lost ticks -> one stop, 10 rejected ticks -> retry
+  then one, 20 post-ack Lost ticks -> none, idle Lost -> none, recovered join once.
+- **P3 stop-kind upgrade.** `StopNextBar -> StopNow` (or Reset) now publishes an
+  immediate bounded cancel/Clear even when a bar stop was already accepted, so
+  the engine drops its delayed bar event; `StopNow -> StopAtNextBar` is never
+  downgraded; repeated immediate Stops coalesce. `Start` respects an accepted
+  stop (waits for the stopped echo, then joins once) but abandons an unlanded
+  stop. `Reset` still publishes a Clear to flush even if silent.
+- **Staged-tempo dedupe (bridge `.cpp`).** The worker applies a fresh snapshot
+  every tick, so `stageTempo` now publishes a staged tempo once per target value
+  instead of every tick, preventing a bounded-queue flood. Header unchanged.
+- **Engine/allocation regressions:** bar-stop-then-clear cancels the delayed
+  StopAtBar (no stale voice flush at the old bar) and the Clear/StopAtBar
+  callbacks are covered by a new allocation probe.
+
+## P1/P3 fixes (first rework)
 
 - **Join/stop accept semantics.** The session no longer treats a bridge join/stop
   as applied before `requestJoinAtNextBar`/`requestStopNow`/`requestStopAtNextBar`
@@ -97,9 +120,9 @@ export PATH=/tmp/opencode/venv/bin:$PATH
 cmake -S jam-core -B /home/mojo/projects/build-INT-LIVE-001-worker/jamcore \
       -G Ninja -DCMAKE_BUILD_TYPE=Release -DJAM_CORE_BUILD_TESTS=ON
 cmake --build .../jamcore --target jamTests -j 2
-./jamTests                         # 250 tests, 212605 checks, 0 failed
-./jamTests jamjoinpolicy.          # 13 tests, 0 failed
-./jamTests livejamsession.         # 32 tests, 0 failed
+./jamTests                         # 260 tests, 212702 checks, 0 failed
+./jamTests jamjoinpolicy.          # 21 tests, 0 failed
+./jamTests livejamsession.         # 33 tests, 0 failed
 ctest -R 'jam\.(livejamsession|jamjoinpolicy|DrumClockBridge)'  # 100% passed
 
 # portable driver
@@ -111,7 +134,7 @@ g++ -std=c++17 -O2 -I src tools/live-jam-pipeline/live_jam_pipeline_driver.cpp \
 # (relink reused build-INT-DRUM-001-integration/product JUCE objs + assets,
 #  with DrumEngine/DrumLibrary/DrumGenerator/DrumClockBridgeTests recompiled from
 #  this worktree and jam-core replaced by the new build)
-./GuitarCompanionTests             # 79 cases, 0 failed (incl. intdrum_ + heap probe)
+./GuitarCompanionTests             # 81 cases, 0 failed (incl. intdrum_ + 2 heap probes)
 
 # processor syntax check against the INT-DRUM-001 prebuilt JUCE/NAM env
 #   src/PluginProcessor.cpp -fsyntax-only  -> 0 errors
