@@ -153,6 +153,13 @@ Standalone/VST3 builds,36/36 registered suites/linkage guards and accepted
 orchestrator review of the dropped-tempo latch fix. Replay worker is correcting
 runtime readiness and validator gates. No actual processor scoring yet.
 
+Additional accepted-code core matrix passes27/28/28/29 OFF/BTrack/aubio/both
+with strict linkage guards. Replay `566032f` fixes independent backend identity
+for a no-join outcome and timeout bounds; pre-measurement inspection found
+incorrect WAV advancement per channel and ignored device rate. Worker playback
+fix is active under `docs/research/LIVE-JAM-FIXTURE-TIMELINE.md`; original WAV
+bytes/protocols stay unchanged. Actual full replay is still unrun.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.

@@ -179,6 +179,14 @@ linkage guards; orchestrator review confirms staged tempo is latched only on
 accepted publication. Both handoffs are merged locally. Replay readiness/
 validator correction remains with the worker; actual scoring has not run.
 
+Fresh optional-backend verification passes core27/27 OFF,28/28 BTrack-only,
+28/28 aubio-only and29/29 both, including linkage guards (BTrack is covered by
+the36-suite product run). Replay `566032f` fixes nonjoining backend identity and
+the timeout bound. Pre-measurement inspection then found stereo WAV cursor
+advance and source/device-rate mapping errors; the fixture playback correction
+is active under `docs/research/LIVE-JAM-FIXTURE-TIMELINE.md`. Original fixture
+bytes/protocols remain preserved. No actual processor replay has run.
+
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The
 default BTrack adapter is experimental. Synthetic processor replay verifies
