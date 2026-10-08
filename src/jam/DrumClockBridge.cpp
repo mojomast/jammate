@@ -289,8 +289,26 @@ bool DrumClockBridge::setClockSample (std::uint64_t explicitSample) noexcept
         return false;
     }
 
-    applyStagedState (explicitSample);
-    applyStagedResync (explicitSample);
+    // Apply at most two staged transitions (one tempo, one resync) in
+    // chronological order. Fixed and bounded, no loop. Ordering matters when one
+    // update crosses BOTH targets: if the resync target precedes the staged
+    // tempo boundary, the resync must read the OLD-tempo region first; if the
+    // tempo boundary precedes the resync, the tempo re-anchors first so the
+    // resync reads the NEW grid. Getting this wrong extrapolates the old region
+    // at the new rate and drifts every later downbeat.
+    const bool tempoDue = haveStagedTempo_ && explicitSample >= stagedBoundary_;
+    const bool resyncDue = haveStagedResync_ && explicitSample >= stagedResyncTarget_;
+
+    if (tempoDue && resyncDue && stagedResyncTarget_ < stagedBoundary_)
+    {
+        applyStagedResync (explicitSample); // T first (old-tempo region)
+        applyStagedState (explicitSample);  // then B
+    }
+    else
+    {
+        applyStagedState (explicitSample);  // B first (or equal T/B)
+        applyStagedResync (explicitSample);
+    }
 
     // The stop only becomes real when its boundary is reached: until then the
     // engine is still rendering and the worker position must say so.
@@ -473,8 +491,16 @@ bool DrumClockBridge::requestResyncNextBar (std::uint64_t targetSample) noexcept
 
 void DrumClockBridge::resetForNewSession (double bpm) noexcept
 {
-    // The caller guarantees the audio consumer is quiescent: a lock-free queue
-    // cannot be drained from here.
+    // All roles (producer, audio consumer, readers) must be quiescent and
+    // joined: drain the queue here, then rebaseline the cumulative queue drop
+    // counter so the new session starts at zero. A Clear published below is
+    // counted against that baseline if (impossibly, for an empty queue) it drops.
+    DrumClockCommand discarded;
+    while (queue_.pop (discarded))
+    {
+    }
+    dropBaseline_ = queue_.droppedCount();
+
     playing_ = false;
     stopPending_ = false;
     stopBoundary_ = 0;
@@ -488,6 +514,12 @@ void DrumClockBridge::resetForNewSession (double bpm) noexcept
     now_ = 0;
     anchorSample_ = 0;
     anchorBeat_ = 0.0;
+
+    // Best-effort notification for a still-attached engine: lose the old grid.
+    DrumClockCommand clear;
+    clear.type = DrumClockCommandType::Clear;
+    clear.sampleTime = 0;
+    publish (clear);
 
     commandSeq_ = 0;
     publishedCount_ = 0;

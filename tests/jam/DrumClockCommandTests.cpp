@@ -482,3 +482,98 @@ JAM_TEST (DrumClockBridge, prepareRebaselinesQueueDrops)
     bridge.prepare (kSr, 512);
     CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (0));
 }
+
+//==============================================================================
+// Residual 1: resetForNewSession() drains the queue and rebaselines drops too.
+//==============================================================================
+JAM_TEST (DrumClockBridge, resetForNewSessionRebaselinesDrops)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    for (int i = 0; i < 20; ++i)
+        bridge.requestJoinAtNextBar (0); // 16 queued, 4 dropped
+
+    CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (4));
+
+    bridge.resetForNewSession (120.0);
+    CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (0));
+    CHECK_EQ (bridge.samplePosition(), static_cast<std::uint64_t> (0));
+    CHECK_EQ (bridge.playing(), false);
+
+    // The queue was drained and one Clear was published for a still-attached
+    // engine; nothing else survives.
+    DrumClockCommand command;
+    REQUIRE (bridge.popCommand (command));
+    CHECK_EQ (static_cast<int> (command.type),
+              static_cast<int> (DrumClockCommandType::Clear));
+    CHECK_EQ (bridge.popCommand (command), false);
+}
+
+//==============================================================================
+// Residual 2: a single setClockSample that overshoots BOTH a staged resync
+// target T and a staged tempo boundary B must end in the same grid as crossing
+// them stepwise, for T<B, B<T and T==B, with both resync kinds and a nonzero
+// origin. A wrong collision order drifts the later grid.
+//==============================================================================
+JAM_TEST (DrumClockBridge, overshootUpdateMatchesStepwise)
+{
+    struct State { double beats; std::uint64_t nextBar; double bpm; std::uint64_t pos; };
+
+    const auto build = [] (std::uint64_t origin, bool barResync, std::uint64_t target,
+                           bool overshoot)
+    {
+        DrumClockBridge bridge (config120());
+        bridge.prepare (kSr, 512);
+        bridge.setClockSample (origin);
+        bridge.applySnapshot (lockedSnapshot (150.0, 1)); // B = origin + 96000
+
+        if (barResync)
+            bridge.requestResyncNextBar (target);
+        else
+            bridge.requestResyncNextBeat (target);
+
+        const std::uint64_t boundary = origin + 96000;
+        const std::uint64_t end = origin + 200000;
+
+        if (overshoot)
+        {
+            bridge.setClockSample (end);
+        }
+        else
+        {
+            std::uint64_t steps[2] = { target, boundary };
+            if (steps[0] > steps[1]) std::swap (steps[0], steps[1]);
+            for (const std::uint64_t s : steps)
+                if (s > origin && s <= end)
+                    bridge.setClockSample (s);
+            bridge.setClockSample (end);
+        }
+
+        State state;
+        state.beats = bridge.beatsAt (end);
+        state.nextBar = bridge.nextBarBoundarySample();
+        state.bpm = bridge.bpm();
+        state.pos = bridge.samplePosition();
+        return state;
+    };
+
+    for (const std::uint64_t origin : { std::uint64_t (0), std::uint64_t (100000) })
+    {
+        const std::uint64_t below = origin + 48000;   // T < B
+        const std::uint64_t above = origin + 120000;  // B < T
+        const std::uint64_t equal = origin + 96000;   // T == B
+
+        for (const bool barResync : { true, false })
+            for (const std::uint64_t target : { below, above, equal })
+            {
+                const State oneShot = build (origin, barResync, target, true);
+                const State stepped = build (origin, barResync, target, false);
+                CHECK_NEAR (oneShot.beats, stepped.beats, 1e-9);
+                CHECK_EQ (oneShot.nextBar, stepped.nextBar);
+                CHECK_NEAR (oneShot.bpm, stepped.bpm, 0.0);
+                CHECK_EQ (oneShot.pos, stepped.pos);
+            }
+    }
+}

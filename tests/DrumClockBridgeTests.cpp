@@ -545,6 +545,45 @@ TEST_CASE (intdrum_piecewise_resync_phase_across_staged_tempo)
 }
 
 //==============================================================================
+// Residual 2: a ResyncBeat/Bar target T BEFORE a staged tempo boundary B, with
+// the worker's update crossing both, must still leave the engine on the worker's
+// grid: the engine's next downbeat equals bridge.nextBarBoundarySample(). Under
+// the old unconditional tempo-then-resync order the worker drifts (e.g. 226800)
+// while the engine renders at 196800.
+//==============================================================================
+TEST_CASE (intdrum_resync_before_staged_tempo_engine_agrees)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    const auto run = [&] (bool barResync, std::uint64_t expectedNextBar)
+    {
+        Rig rig;
+        REQUIRE (rig.setup (48000.0, 512, rock));
+        rig.block (512);
+        REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+        rig.render (100000u, 512);
+
+        rig.bridge.applySnapshot (lockedSnapshot (150.0, 1)); // B = 192000
+        if (barResync)
+            REQUIRE (rig.bridge.requestResyncNextBar (150000));  // T < B
+        else
+            REQUIRE (rig.bridge.requestResyncNextBeat (150000));
+
+        rig.render (193000u, 512); // crosses both T and B
+        const std::uint64_t nextBar = rig.bridge.nextBarBoundarySample();
+        CHECK_MSG (nextBar == expectedNextBar,
+                   "barResync=" + std::to_string (barResync ? 1 : 0));
+
+        rig.render (nextBar + 4096u, 512);
+        CHECK (countHitsIn (rig.hits, nextBar, nextBar + 1, kKick) == 1);
+    };
+
+    run (false, 196800u); // ResyncBeat
+    run (true, 235200u);  // ResyncBar
+}
+
+//==============================================================================
 // Resync bar: a downbeat lands exactly on an arbitrary target sample.
 //==============================================================================
 TEST_CASE (intdrum_resync_bar_places_downbeat_on_target)

@@ -198,11 +198,24 @@ public:
     /** [worker] Re-phase so the next beat onset lands exactly on `targetSample`. */
     bool requestResyncNextBeat (std::uint64_t targetSample) noexcept;
 
-    /** [worker] Re-phase so the next downbeat lands exactly on `targetSample`. */
+    /** [worker] Re-phase so the next downbeat lands exactly on `targetSample`.
+     *
+     *  COLLISION ORDER WITH A STAGED TEMPO. A resync may be requested while a
+     *  tempo is already staged for a future bar boundary B. The bridge resolves
+     *  the two staged transitions in chronological order when a later
+     *  setClockSample crosses both: if the resync target T precedes B, the
+     *  resync re-anchors in the old-tempo region first, then the tempo applies at
+     *  B; if B precedes T, the tempo re-anchors first and the resync reads the
+     *  new grid. One `setClockSample` crossing both therefore produces the same
+     *  grid as crossing them stepwise, and the engine (which applies the same
+     *  absolute-target commands in order) stays on the worker grid. The clock
+     *  remains the sole tempo authority; the resync never invents a tempo. */
     bool requestResyncNextBar (std::uint64_t targetSample) noexcept;
 
-    /** [worker] Session reset. Must only be called when the audio consumer is
-     *  quiescent (the lock-free queue cannot be drained safely otherwise). */
+    /** [worker] Session reset. All roles (producer, audio consumer and readers)
+     *  must be quiescent and joined: this drains the command queue, rebaselines
+     *  the per-session drop counter, clears the grid and publishes one Clear for
+     *  a still-attached engine. */
     void resetForNewSession (double bpm) noexcept;
 
     // --- audio side ----------------------------------------------------------

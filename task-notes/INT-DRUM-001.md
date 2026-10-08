@@ -69,19 +69,36 @@ cmake --build /home/mojo/projects/build-INT-DRUM-001-worker/jamcore -j 2
 ctest --test-dir /home/mojo/projects/build-INT-DRUM-001-worker/jamcore --output-on-failure
 ```
 
-## Results (final, commit `8146b15` + N1–N6)
+## Results (final residuals)
 - Driver build logs: **observed 0 warnings, 0 errors, 0 duplicate definitions**
-  in both combined builds (this is an observation, not a `-Werror` guarantee).
-- Combined JUCE binary **with** `DRUM_MIDI_HEAP_PROBE` + `--wrap`: **75 cases,
+  in both combined builds (an observation, not a `-Werror` guarantee).
+- Combined JUCE binary **with** `DRUM_MIDI_HEAP_PROBE` + `--wrap`: **76 cases,
   0 failed** (new integration + all six existing drum suites in ONE link, proving
   the shared probe `tests/DrumHeapProbe.cpp` has a single definition).
-- Combined JUCE binary **without** the macro and without the wrap flags: **74
+- Combined JUCE binary **without** the macro and without the wrap flags: **75
   cases, 0 failed** — every test compiles and runs on a default/Windows-style
   configuration with allocation checks explicitly skipped (`N1`).
-- Portable bridge suite: **18 tests, 150 checks, 0 failed**.
+- Portable bridge suite: **20 tests, 205 checks, 0 failed**.
 - `jam-core`: `jam.DrumClockBridge` **1/1 Passed**; full ctest **21/21** with
   `TMPDIR` set. (Without `TMPDIR`, `jam.RhythmDerivedGenerator` fails with
   `ENOSPC` because the environment's `/tmp` is a full tmpfs, unrelated.)
+
+## Residual correction (R1–R2, final)
+- **R1** `DrumClockBridge::resetForNewSession` now drains the (quiescent) queue
+  and rebaselines `dropBaseline_`, so `queueDropCount()` is a per-session count;
+  it publishes one `Clear` for a still-attached engine. Portable test
+  `resetForNewSessionRebaselinesDrops` (overflow → reset → 0, queue consistent).
+- **R2** When one `setClockSample` crosses BOTH a staged resync target T and a
+  staged tempo boundary B, the two transitions are applied in chronological order
+  (fixed, bounded, no loop) instead of always tempo-then-resync. This preserves
+  the old-tempo region when T<B and the new grid when B<T, and treats T==B
+  deterministically. Portable `overshootUpdateMatchesStepwise` (T<B, B<T, T==B ×
+  ResyncBeat/Bar × origin 0/nonzero) proves overshoot == stepwise; a red run
+  against the naive order fails 8 checks. Real-engine
+  `intdrum_resync_before_staged_tempo_engine_agrees` proves the engine's next
+  downbeat equals `bridge.nextBarBoundarySample()` (196800 beat / 235200 bar).
+  The tempo/resync collision order is documented in the header; the clock remains
+  the sole tempo authority and the resync never invents a tempo.
 
 ## Review correction N1–N6 (final narrow pass)
 - **N1** `tests/DrumMidiTests.cpp` guards the `drumprobe::` calls with

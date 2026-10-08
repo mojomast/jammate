@@ -60,7 +60,13 @@ MusicalClock (worker)            DrumClockBridge (worker)                 DrumEn
    When a tempo is staged for a boundary before the resync target, the phase is
    computed **piecewise** (`beatsAtAccountingStaged`: old rate up to the staged
    boundary, staged rate after), matching the engine, which applies that tempo
-   first. The tests pin the exact grid (kick 111000, snare 183000, kick 207000)
+   first. When a single `setClockSample` crosses BOTH the resync target T and a
+   later staged tempo boundary B, the two transitions are applied in
+   **chronological order** (fixed, bounded, no loop): T before B re-anchors in
+   the old-tempo region, then the tempo applies; B before T re-anchors the tempo
+   first so the resync reads the new grid. One overshooting update therefore
+   yields the same grid as crossing stepwise, and the engine stays on the worker
+   grid. The tests pin the exact grid (kick 111000, snare 183000, kick 207000)
    so the old ceil phase fails them.
 4. **Stop is a pending commitment.** `requestStopAtNextBar` does not flip the
    worker's `playing`; it stays true until the boundary is crossed, mirroring the
@@ -80,11 +86,13 @@ MusicalClock (worker)            DrumClockBridge (worker)                 DrumEn
    distance. The worker's first `setClockSample` uses the same absolute timeline.
 8. **Late commands apply at the block origin and are counted** (`injectedLateCount`),
    never silently dropped.
-9. **A re-prepare is a full reset.** `DrumClockBridge::prepare` clears anchors,
-   staged state, stop/snapshot bookkeeping, drains the queue and rebaselines the
-   per-session queue drop count; `DrumEngine::prepare` resets transport runtime and
-   its injected drop baseline but **preserves a prepared groove** (patterns are
-   rate-independent), so a second prepare at a new rate keeps working.
+9. **A re-prepare / reset is a full reset.** `DrumClockBridge::prepare` clears
+   anchors, staged state, stop/snapshot bookkeeping, drains the queue and
+   rebaselines the per-session queue drop count; `resetForNewSession` likewise
+   drains, rebaselines and publishes one `Clear`; `DrumEngine::prepare` resets
+   transport runtime and its injected drop baseline but **preserves a prepared
+   groove** (patterns are rate-independent), so a second prepare at a new rate
+   keeps working.
 10. **Discontinuity / domain.** Backwards or implausibly large movement re-anchors
     and publishes `Clear`; samples above `maxExplicitSample` (2^53, where doubles
     stop representing consecutive integers) are refused and counted. uint64 wrap
@@ -123,9 +131,9 @@ python3 tools/drum-clock-bridge/run.py
 
 - **Combined JUCE binary WITH `DRUM_MIDI_HEAP_PROBE` / `--wrap`** (new
   integration + all six existing drum suites in one link — proves the shared
-  probe has a single definition): **75 cases, 0 failed**.
+  probe has a single definition): **76 cases, 0 failed**.
 - **Combined JUCE binary WITHOUT the macro and without the wrap flags** (default
-  and Windows-style config; allocation checks explicitly skipped): **74 cases,
+  and Windows-style config; allocation checks explicitly skipped): **75 cases,
   0 failed**.
 - Build logs: **observed 0 warnings / 0 errors / 0 duplicate definitions** in
   both builds (an observation, not a `-Werror` guarantee).
@@ -134,14 +142,16 @@ python3 tools/drum-clock-bridge/run.py
   release; pending-stop position; **exact resync grid** (kick 111000, snare
   183000, kick 207000, no bogus 183000 downbeat) then stop and tempo at the same
   actual downbeat, for both `ResyncBeat` and `ResyncBar`; piecewise resync phase
-  across a staged tempo boundary; Clear+Join ordering; coalesced tempo snaps +
-  counted overflow; pressure drops with asserted counts and per-session
-  rebaselining; late command; **internal sampler** (embedded GMRockKit,
+  across a staged tempo boundary; **chronological tempo/resync collision order**
+  (T<B, B<T, T==B; overshoot == stepwise; engine next downbeat agrees);
+  Clear+Join ordering; coalesced tempo snaps + counted overflow; pressure drops
+  with asserted counts and per-session rebaselining (prepare and
+  resetForNewSession); late command; **internal sampler** (embedded GMRockKit,
   `samplesLoaded`) and **fallback synth** energy; processor skip guard; late
   attach at a nonzero sample; second prepare at 96 kHz; 30-minute zero-drift;
   30-minute **fractional BPM (127) verified through actual MIDI events**;
   standalone manual regression; measured allocation-free callback.
-- **Portable JUCE-free suite:** **18 tests, 150 checks, 0 failed**.
+- **Portable JUCE-free suite:** **20 tests, 205 checks, 0 failed**.
 - **jam-core:** `jam.DrumClockBridge` passes; full ctest 21/21 with `TMPDIR` set.
 
 ## Honest limitations
