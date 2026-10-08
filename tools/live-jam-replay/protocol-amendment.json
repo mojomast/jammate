@@ -1,0 +1,95 @@
+{
+  "schema": "live-jam-replay/protocol-amendment/1.0",
+  "task": "EVAL-LIVE-001",
+  "title": "Additive correction amendment to the frozen live-Jam replay protocol",
+  "base_commit": "88893e24be328f131b5df673078ff934a46ed5ab",
+  "frozen_before": "any reevaluation or measurement under the corrected tools",
+  "supersedes_original": {
+    "predeclared_json_sha256": "d29eeedf903aa9abb63e44ad4293f60e5bedfa2ef3c6f8033cb325b7348432fa",
+    "protocol_sha256_file": "fdc22bab2bc0154ddae2758766026a70e9db495655c73684013f31f09a6dba09",
+    "note": "The original predeclared.json, protocol.sha256 and every existing docs/research/live-jam-replay artifact are preserved byte-for-byte. This amendment is additive; it changes tool semantics and adds preregistered scopes/contracts, and never rewrites the frozen originals."
+  },
+  "reason": "Independent review BLOCKed 07021ae before actual measurement for concrete harness/validator semantics. The corrections below are producer-semantics fixes, not relaxations of any callback counter.",
+  "corrections": {
+    "C1_async_ui_coalescing": {
+      "defect": "The harness seeded the expected audio cursor from the asynchronous readJamLiveState and asserted state.audioSampleTime == expected + block after every callback. readJamLiveState is a worker-owned coherent latest-value slot: false leaves it unchanged and it is not a synchronous per-callback cursor.",
+      "correction": "Per-callback advancement is measured from the audio-owner plain engine getter DrumEngine::injectedSamplePosition(), read on the callback-owner thread immediately after processBlock, outside the instrumented region. The facade cursor is checked only for coalescing-tolerant monotonicity and must never exceed the produced audio-owner cursor. The expected cursor is never seeded from the async read.",
+      "distinct_metrics": [
+        "audio_owner_delta_mismatches: true audio-owner cursor did not advance by exactly one block",
+        "audio_owner_backward: audio-owner cursor moved backwards",
+        "reported_monotonic: facade cursor non-decreasing",
+        "reported_future: facade cursor exceeded the produced audio-owner cursor",
+        "skipped_publications: audio-owner advanced while the reported cursor did not",
+        "coalesced_reads: consecutive identical facade reads",
+        "worker_cursor_lag: produced_audio_cursor - reported_cursor"
+      ],
+      "pressure_rule": "For unpaced/pressure cells the facade snapshot may legitimately be unchanged and no receipt may exist. That is recorded as receipt_measured=false and null lag fields, never as a measured zero.",
+      "not_a_relaxation": "No callback allocation/free/lock counter is relaxed; only the cursor source changes."
+    },
+    "C2_link_and_backend": {
+      "link": "Link the actual default BTrack dependency closure extracted from the target's real link metadata, pinned by hash; use --start-group/--end-group with explicit nam-core, jam, jam-btrack, btrack, kiss_fft and samplerate archives. No whole-archive-everything and no unnecessary third-party global new collisions.",
+      "backend_identity": "Preflight detects the exact JAM_LIVE_BTRACK_AVAILABLE define/macro (not the substring 'Backend'). The default usable backend must be exactly experimentalBTrack after the session worker publishes readiness. injectedTest is only accepted in an explicit injection case and must be tagged as such. An invalid/unavailable backend yields status awaiting-backend, never a measured-clean claim."
+    },
+    "M5_smoke_scope": {
+      "defect": "smoke mode was parsed but had no effect.",
+      "correction": "smoke mode generates exactly the four preregistered smoke IDs and the evidence declares scope=smoke with its exact expected cell list. The validator enforces the smoke subset exactly (missing/extra fail) and the full matrix requires all 54 cells. A filtered run (--pipeline/--warm-blocks) declares scope=diagnostic with an explicit reason and never claims the full 54.",
+      "smoke_subset": [
+        "disabled_r48000_b128_silence",
+        "disabled_r48000_b128_noise",
+        "enabled_r48000_b128_clean",
+        "enabled_r48000_b128_silence"
+      ]
+    },
+    "M6_timeout": {
+      "correction": "The runner enforces a bounded overall subprocess timeout derived from the preregistered realtime budget plus explicit compile/runtime overhead (default hard cap 300 s). A signal timeout produces status=timed-out with invoked_binary=true and measured_partial=true, preserving any logs/counters, and terminates the child so no worker/backend destructor can hang unbounded.",
+      "budget": {"realtime_total_budget_s": 180, "overhead_allowance_s": 120, "hard_cap_s": 300}
+    },
+    "M7_synthetic_rejection": {
+      "defect": "A synthetic:true tree was accepted as status=measured by default.",
+      "correction": "Default validation rejects synthetic evidence. Synthetic evidence is only accepted under the explicit --allow-synthetic-selftest flag, and its report is labelled unmistakably as a synthetic self-test, never an actual clean run."
+    },
+    "M8_allocation_scope": {
+      "correction": "Allocation/free/lock counters are the CALLBACK-THREAD PATH ONLY (thread-local arming). Worker/analyzer allocations are explicitly unmeasured (null), and no pipeline-wide zero is claimed. Legitimate cold-callback allocations are recorded as a positive finding with status measured-findings, not as a measurement failure and not hidden.",
+      "fields": ["allocation_scope", "worker_allocations", "findings"]
+    },
+    "M9_lag_metrics": {
+      "defect": "The receipt lag metric was inverted/no-op.",
+      "correction": "receipt_availability_lag = lastReceiptSampleTime - lastInputHorizonSampleTime (exact uint64, negative/order violation rejected). event_delay = lastReceiptSampleTime - lastEventSampleTime. worker_cursor_lag = produced_audio_cursor - reported_cursor. All are null when no receipt is measured; a truly measured same-block zero is valid, not unknown. Repeated identical observations are not counted as new receipts (keyed by generation + event + horizon + receipt).",
+      "dedupe_key": ["clock.generation", "lastEventSampleTime", "lastInputHorizonSampleTime", "lastReceiptSampleTime"]
+    },
+    "M10_stop_contract": {
+      "decision": "Stop and Reset are a bounded stop at the next SERVICED audio block that cancels any future join and restores manual drum availability (bridge.requestStopNow()). StopAtNextBar remains a distinct deferred next-bar stop (bridge.requestStopAtNextBar()).",
+      "source_pin_impact": "The pipeline's new bounded bridge/engine API changes src/jam/DrumClockBridge.h and src/PluginProcessor.h hashes. The original immutable headers (JamLiveInterface.h, RhythmTypes.h, MusicalClock.h, JamConfig.h) must still match their original hashes.",
+      "source_pin_overrides": {
+        "schema": "live-jam-replay/source-pin-overrides/1.0",
+        "rule": "A preregistered JSON may supply exact new hashes for named changed files only. It MUST be frozen before measurement. Original immutable headers must still match. Arbitrary unknown sources may never skip the original pin.",
+        "immutable_headers": [
+          "src/jam/JamLiveInterface.h",
+          "src/jam/RhythmTypes.h",
+          "src/jam/MusicalClock.h",
+          "src/jam/JamConfig.h"
+        ],
+        "named_semantic_compat": "New Stop API is additive and semantically compatible with the frozen facade; the new hash is proven only once the pipeline handoff is available."
+      },
+      "no_immediate_claim": "The harness must not assert that Stop is immediate until actual audio-owner echo events verify it; the audio echo is asynchronous and a blocked worker must not be cross-read from inside the callback owner."
+    },
+    "count_correction": {
+      "old_claimed": 41,
+      "orchestrator_independent": 42,
+      "rule": "Current count is stated explicitly per run; historical claims are not reused."
+    },
+    "supplemental_scenarios": {
+      "rule": "The 54-cell matrix proves callback coverage only; it does not by itself prove join/stop/resync/reprepare/shutdown end-to-end. Supplemental scenarios are preregistered before measurement and are recorded separately.",
+      "scenarios": [
+        {"id": "default_clean_long", "input": "clean", "seconds": 16, "injected": false, "records": ["clock lock/join observation", "callback counters", "worker lag"], "note": "actual default backend; may legitimately fail to acquire a lock, which is recorded, never hidden"},
+        {"id": "injected_join_stop_resync", "injected": true, "backend_kind": "injectedTest", "records": ["join", "StopAtNextBar deferred", "StopNow bounded", "ResyncNextBar", "reprepare generation", "shutdown"], "note": "requires the pipeline setJamTrackerForTesting seam; if the seam is absent the scenario is recorded unmeasured"}
+      ]
+    }
+  },
+  "immutable_preserved": {
+    "predeclared_json_sha256": "d29eeedf903aa9abb63e44ad4293f60e5bedfa2ef3c6f8033cb325b7348432fa",
+    "protocol_sha256_file": "fdc22bab2bc0154ddae2758766026a70e9db495655c73684013f31f09a6dba09",
+    "existing_artifacts": ["synthetic-validation.json", "harness-ready.json", "protocol.sha256"],
+    "note": "Updated tool pins are recorded separately after the fix; the originals are never rewritten."
+  }
+}
