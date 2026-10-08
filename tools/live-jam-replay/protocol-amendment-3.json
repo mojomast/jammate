@@ -1,0 +1,31 @@
+{
+  "schema": "live-jam-replay/protocol-amendment/3.0",
+  "task": "EVAL-LIVE-001",
+  "title": "Narrow third amendment: default-scenario backend identity capture and bounded timeout input",
+  "base_commit": "88893e24be328f131b5df673078ff934a46ed5ab",
+  "frozen_before": "any reevaluation under the narrowly-corrected tools",
+  "supersedes": {
+    "previous_tools_commit": "852ddb6",
+    "note": "Additive and narrow. Original predeclared.json, protocol.sha256, amendment 1/2, both correction contracts and all prior receipts are preserved byte-for-byte."
+  },
+  "reason": "Final narrow review blocked 852ddb6 for one outcome-recording bug (default_clean_long backend_kind assigned only when a join occurred) and one input-validation gap (--timeout-s). All N1-N8 are otherwise accepted.",
+  "corrections": {
+    "default_backend_identity": {
+      "defect": "runDefaultCleanLong assigned backend_kind only inside `!joinObserved && drumsPlaying`, so a legitimate 16 s no-lock default run wrote an empty backend_kind and failed identity falsely.",
+      "correction": "Capture the actual default backend from the FIRST COHERENT PREPARED state after prepareToPlay (and each successful read), independent of join. Label experimentalBTrack only when the field actually is experimentalBTrack; preserve an unavailable/unknown/failure backend as recorded, never blind-copy the bootstrap signal. Track first-observed vs last-observed; a change of the actual backend tag within one prepared session is a fail-closed identity discrepancy, and the wrong identity is never overwritten by an eventual experimental value.",
+      "outcome_separation": "joinObserved, steps_fired and audio metrics remain separate measured outcomes. A default run that does not acquire a lock in 16 s is a legitimate DIAGNOSTIC quality outcome recorded exactly, not an identity failure and not tuned after the run. The first-slice join proof is the injected scenario; no >=95% claim is made."
+    },
+    "timeout_input": {
+      "defect": "run_replay --timeout-s accepted any float, including 0, negative, NaN, inf or >300.",
+      "correction": "Reject non-finite, <=0 or >300 before invoking any subprocess, returning exit 64 consistent with the preregistered cap; the default 300 is unchanged. A user override can never exceed the frozen bound."
+    }
+  },
+  "gates": {
+    "note": "structural AND rt_gate AND join_gate; default_clean_long no-lock is diagnostic, not a gate failure."
+  },
+  "immutable_preserved": {
+    "predeclared_json_sha256": "d29eeedf903aa9abb63e44ad4293f60e5bedfa2ef3c6f8033cb325b7348432fa",
+    "protocol_sha256_file": "fdc22bab2bc0154ddae2758766026a70e9db495655c73684013f31f09a6dba09",
+    "note": "New pins/receipt are recorded in new files; no historical hash is rewritten."
+  }
+}
