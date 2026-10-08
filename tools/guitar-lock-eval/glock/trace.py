@@ -154,8 +154,25 @@ def parse_trace(data: dict, path: str = "<dict>", sha: str = "") -> Trace:
     )
 
 
-def validate_trace(trace: Trace, rec: Recording) -> list[Finding]:
-    """Validate a trace against its recording and the timing rules. Hard = fail closed."""
+PLACEHOLDER_HASHES = frozenset({"0" * 64})
+
+
+def valid_tool_hash(value) -> bool:
+    """A declared producer hash must be 64-hex and not an all-zero placeholder."""
+    return is_hex64(value) and value not in PLACEHOLDER_HASHES
+
+
+def validate_trace(trace: Trace, rec: Recording,
+                   expected_backend: str | None = None,
+                   expected_kind: str | None = None,
+                   expected_parent: str | None = None) -> list[Finding]:
+    """Validate a trace against its recording and the timing rules. Hard = fail closed.
+
+    `expected_backend`/`expected_kind`/`expected_parent` bind a trace to the slot
+    it is being used in (so a mislabelled trace loaded from a directory cannot
+    stand in for a real backend). The gate also re-checks this so a direct call
+    cannot bypass it.
+    """
     findings: list[Finding] = []
 
     def hard(cond, code, detail):
@@ -163,6 +180,15 @@ def validate_trace(trace: Trace, rec: Recording) -> list[Finding]:
             findings.append(Finding("hard", code, detail))
 
     where = f"{trace.path}"
+    if expected_backend is not None:
+        hard(trace.backend == expected_backend, "trace_backend_mismatch",
+             f"{where}: backend {trace.backend!r} != expected {expected_backend!r}")
+    if expected_kind is not None:
+        hard(trace.backend_kind == expected_kind, "trace_backend_kind_mismatch",
+             f"{where}: backend_kind {trace.backend_kind!r} != expected {expected_kind!r}")
+    if expected_parent is not None:
+        hard(trace.parent_backend == expected_parent, "trace_parent_mismatch",
+             f"{where}: parent_backend {trace.parent_backend!r} != expected {expected_parent!r}")
     hard(trace.recording_id == rec.id, "trace_recording_mismatch",
          f"{where}: recording_id {trace.recording_id!r} != {rec.id!r}")
     hard(trace.audio_sha256 == rec.declared.get("audio_sha256"),
@@ -171,8 +197,13 @@ def validate_trace(trace: Trace, rec: Recording) -> list[Finding]:
     hard(abs(trace.sample_rate - float(rec.declared.get("sample_rate", -1))) <= 1e-6,
          "trace_rate_mismatch", f"{where}: sample_rate does not match the recording")
     hard(trace.block_frames > 0, "trace_block_missing", f"{where}: block_frames must be positive")
-    hard(is_hex64(trace.source.get("tool_sha256")) or trace.source.get("tool") == "synthetic-test",
-         "trace_tool_identity", f"{where}: source.tool_sha256 must be 64-hex")
+    tool_hash = trace.source.get("tool_sha256")
+    if not is_hex64(tool_hash):
+        hard(False, "trace_tool_identity",
+             f"{where}: source.tool_sha256 must be 64-hex")
+    elif tool_hash in PLACEHOLDER_HASHES:
+        hard(False, "trace_tool_identity_placeholder",
+             f"{where}: source.tool_sha256 is a placeholder; hash the actual producer")
 
     prev_event = None
     for i, b in enumerate(trace.beats):

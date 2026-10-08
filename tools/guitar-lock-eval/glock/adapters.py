@@ -27,9 +27,15 @@ from .integrity import IntegrityError, sha256_file, utc_now_iso
 from .manifest import ImportManifest, Recording
 from .trace import Beat, Receipt, TempoSample, Trace
 
-DEFAULT_TRACKER_DIAGNOSTICS = "/home/mojo/projects/build-EVAL-GUITAR-009/diag/tracker-diagnostics"
-DEFAULT_BTRACK_LIB = "/home/mojo/projects/build-EVAL-GUITAR-009/plugins/librhythm-eval-btrack.so"
-DEFAULT_AUBIO_LIB = "/home/mojo/projects/build-EVAL-GUITAR-009/plugins/librhythm-eval-aubio.so"
+DEFAULT_TRACKER_DIAGNOSTICS = os.environ.get(
+    "GLE_TRACKER_DIAGNOSTICS",
+    "/home/mojo/projects/build-EVAL-GUITAR-009/diag/tracker-diagnostics")
+DEFAULT_BTRACK_LIB = os.environ.get(
+    "GLE_BTRACK_LIB",
+    "/home/mojo/projects/build-EVAL-GUITAR-009/plugins/librhythm-eval-btrack.so")
+DEFAULT_AUBIO_LIB = os.environ.get(
+    "GLE_AUBIO_LIB",
+    "/home/mojo/projects/build-EVAL-GUITAR-009/plugins/librhythm-eval-aubio.so")
 
 BACKEND_LIBS = {
     "btrack": DEFAULT_BTRACK_LIB,
@@ -315,6 +321,15 @@ def reduce_trace(rec: Recording, backend: str, backend_kind: str,
     }
 
 
+def producer_sha256() -> str:
+    """sha256 of the implementation that produces a derived candidate trace.
+
+    Hashing the actual producer source means a placeholder cannot stand in for
+    provenance and a changed algorithm changes the recorded hash.
+    """
+    return sha256_file(os.path.abspath(__file__))
+
+
 def derive_beat_interval_trace(trace, rec: Recording, window: int = 4,
                                candidate_id: str = "diagnostic-beat-interval-bpm") -> dict:
     """Derive a causal beat-interval tempo candidate from another trace's beats.
@@ -368,7 +383,7 @@ def derive_beat_interval_trace(trace, rec: Recording, window: int = 4,
         "block_frames": trace.block_frames,
         "source": {
             "tool": "guitar-lock-eval derive-beat-interval",
-            "tool_sha256": "0" * 64,
+            "tool_sha256": producer_sha256(),
             "generated_utc": utc_now_iso(),
         },
         "receipt": {

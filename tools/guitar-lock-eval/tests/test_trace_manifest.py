@@ -29,7 +29,8 @@ class TempDir(unittest.TestCase):
         return path
 
     def make_wav_entry(self, rec_id="r1", classification="synthetic",
-                       annotation_kind="file", annotation_source="generated"):
+                       annotation_kind="file", annotation_source="generated",
+                       provenance="field recording (test fixture)"):
         wav = synth.write_silence_wav(os.path.join(self.dir, rec_id + ".wav"))
         info_sha = sha256_file(wav)
         ann = None
@@ -49,7 +50,7 @@ class TempDir(unittest.TestCase):
             "audio_sha256": info_sha, "sample_rate": 48000.0, "channels": 1,
             "sample_width_bytes": 2, "frames": 384000, "duration_seconds": 8.0,
             "classification": classification, "license": "test",
-            "ownership": "test", "provenance": "synthetic-test",
+            "ownership": "test", "provenance": provenance,
             "representative": True, "parent_id": None, "tags": ["core"],
             "annotation": ann,
         }

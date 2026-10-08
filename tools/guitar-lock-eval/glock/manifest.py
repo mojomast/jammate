@@ -25,6 +25,26 @@ ANNOTATION_SCHEMA = "guitar-lock-eval/annotation/1.0"
 
 CLASSIFICATIONS = ("real", "synthetic", "derived")
 
+# Declared provenance markers that contradict a `real` classification. These
+# are a DECLARATION CONSISTENCY check, not a proof about the audio bytes:
+# provenance/classification are a declared trust boundary and no offline check
+# can mathematically attest that a recording is a human performance.
+GENERATED_MARKERS = (
+    "synthes", "synthesi", "synthetic", "generated", "machine-generated",
+    "not a human performance", "not a human recording", "programmatic",
+    "karplus", "rendered by", "generated audio",
+)
+
+
+def provenance_contradiction(rec) -> str | None:
+    """Return the first generated/synthetic marker in a real recording's
+    declared provenance/tags, or None. Declaration consistency only."""
+    haystack = " ".join([rec.provenance or ""] + list(rec.tags or [])).lower()
+    for marker in GENERATED_MARKERS:
+        if marker in haystack:
+            return marker
+    return None
+
 
 @dataclass
 class Finding:
@@ -349,6 +369,14 @@ def validate_manifest(manifest: ImportManifest) -> list[Finding]:
                      f"{where}: a real recording requires explicit ownership", findings)
             _require(bool(rec.license.strip()), "real_without_license",
                      f"{where}: a real recording requires an explicit license", findings)
+            # A declared generated/synthetic provenance marker contradicts a
+            # real claim. This is a DECLARATION CONSISTENCY check, not proof of
+            # the audio's origin: provenance and classification are a declared
+            # trust boundary and cannot be verified from the bytes here.
+            marker = provenance_contradiction(rec)
+            _require(marker is None, "provenance_contradicts_real",
+                     f"{where}: real classification but provenance declares a "
+                     f"generated/synthetic source ({marker!r})", findings)
         elif rec.classification == "synthetic":
             _require(bool(rec.provenance.strip()), "synthetic_without_provenance",
                      f"{where}: synthetic recording requires a provenance note", findings)
@@ -407,6 +435,9 @@ def gate_eligibility(rec: Recording, criteria: dict) -> tuple[bool, str]:
         return False, "no annotation"
     if ann.source not in ("human", "manual"):
         return False, f"annotation source={ann.source}"
+    if provenance_contradiction(rec) is not None:
+        return False, ("provenance declares a generated/synthetic source "
+                       f"({provenance_contradiction(rec)!r})")
     if not rec.ownership.strip() or not rec.license.strip():
         return False, "missing ownership/license"
     if not (ann.tempo_profile == "constant"):

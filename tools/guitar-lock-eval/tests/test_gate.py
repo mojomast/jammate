@@ -22,9 +22,10 @@ def real_recs(n):
 def score_all(recs, n_useful):
     scores = {}
     for i, rec in enumerate(recs):
-        trace = (synth.perfect_trace(nominal_bpm=120.0, n_beats=16)
+        trace = (synth.perfect_trace(nominal_bpm=120.0, n_beats=16, backend="btrack")
                  if i < n_useful else synth.perfect_trace(nominal_bpm=120.0,
-                                                          n_beats=16, bpm=60.0))
+                                                          n_beats=16, bpm=60.0,
+                                                          backend="btrack"))
         scores[rec.id] = score_useful_lock(rec, trace, CRIT)
     return scores
 

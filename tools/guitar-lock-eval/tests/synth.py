@@ -44,11 +44,15 @@ def make_recording(rec_id: str = "synth", nominal_bpm: float = 120.0,
                    classification: str = "synthetic",
                    annotation: Annotation | None = None,
                    tags=None, representative: bool = True,
-                   license: str = "test", ownership: str = "test") -> Recording:
+                   license: str = "test", ownership: str = "test",
+                   provenance: str | None = None) -> Recording:
     ann = annotation or make_annotation(nominal_bpm)
+    if provenance is None:
+        provenance = ("field recording (test fixture)" if classification == "real"
+                      else "synthetic-test")
     return Recording(
         id=rec_id, audio_path="unused.wav", classification=classification,
-        license=license, ownership=ownership, provenance="synthetic-test",
+        license=license, ownership=ownership, provenance=provenance,
         representative=representative, tags=list(tags or []),
         annotation=ann,
         declared={"audio_sha256": "0" * 64, "sample_rate": 48000.0,

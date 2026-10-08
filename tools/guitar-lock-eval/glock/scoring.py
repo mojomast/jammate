@@ -411,15 +411,16 @@ def score_useful_lock(rec: Recording, trace: Trace, criteria: Criteria) -> Fixtu
         score.half_time_lock = 0.5 * (1 - b) <= ratio <= 0.5 * (1 + b)
         score.double_time_lock = 2.0 * (1 - b) <= ratio <= 2.0 * (1 + b)
 
-    # phase usability over the first acquisition window (two bars)
-    phase_end_index = min(len(beats) - 1, 2 * bpb)
-    phase_window_end = beats[phase_end_index] if beats else 0.0
+    # phase usability over the acquisition window (criteria-driven, not a
+    # hard-coded two bars): matched beats whose fractional beat position is
+    # within acquisition_window_bars bars of the first annotated beat.
+    phase_window_beats = criteria.acquisition_window_bars * bpb
     abs_ms = []
     for i, m in enumerate(matches):
         if m < 0:
             continue
         t = events[i]
-        if t > phase_window_end + 1e-9:
+        if beat_position_at(beats, t) > phase_window_beats + 1e-9:
             continue
         near = nearest_truth_index(beats, t)
         if near < 0:

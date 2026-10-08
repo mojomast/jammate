@@ -26,6 +26,15 @@ core="${JAM_GLE_CORE:-/home/mojo/projects/build-EVAL-005/main-core}"
 diag="$build_root/diag/tracker-diagnostics"
 mkdir -p "$build_root/plugins"
 
+# Preserve committed evidence: the original artifact tree is frozen. Refuse to
+# overwrite it unless explicitly forced; corrections go to run-correction.sh.
+if [ -f "$artifact/results.json" ] && [ "${JAM_GLE_FORCE:-0}" != "1" ]; then
+    echo "run-baseline.sh: $artifact already contains results.json (frozen evidence)." >&2
+    echo "  Use tools/guitar-lock-eval/run-correction.sh for additive corrections," >&2
+    echo "  or set JAM_GLE_FORCE=1 to regenerate the original tree in place." >&2
+    exit 2
+fi
+
 if [ ! -x "$diag" ]; then
     echo "[1/4] building tracker-diagnostics into $build_root/diag"
     JAM_DIAG_BUILD_CONFIG_PLUGINS=0 \

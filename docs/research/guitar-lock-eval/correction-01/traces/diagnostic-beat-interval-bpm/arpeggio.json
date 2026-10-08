@@ -1,0 +1,305 @@
+{
+  "audio_sha256": "be29f477b61b2e4fe9bfa3b4defa32fd257bc6894d757bd6f036d8936fe241d0",
+  "backend": "diagnostic-beat-interval-bpm",
+  "backend_kind": "derived",
+  "beats": [
+    {
+      "bpm_phase_valid": false,
+      "event_seconds": 0.476,
+      "horizon_seconds": 0.488,
+      "reported_bpm": null,
+      "reported_sample": 22848
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 0.835916667,
+      "horizon_seconds": 0.848,
+      "reported_bpm": 166.70525569186825,
+      "reported_sample": 40124
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 1.369979167,
+      "horizon_seconds": 1.384,
+      "reported_bpm": 134.2313159295355,
+      "reported_sample": 65759
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 1.845979167,
+      "horizon_seconds": 1.858666667,
+      "reported_bpm": 126.05042016806723,
+      "reported_sample": 88607
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 2.356833333,
+      "horizon_seconds": 2.370666667,
+      "reported_bpm": 121.59851387808806,
+      "reported_sample": 113128
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 2.8560625,
+      "horizon_seconds": 2.869333333,
+      "reported_bpm": 118.8020790755885,
+      "reported_sample": 137091
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 3.355291667,
+      "horizon_seconds": 3.368,
+      "reported_bpm": 120.1852855684612,
+      "reported_sample": 161054
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 3.854520833,
+      "horizon_seconds": 3.866666667,
+      "reported_bpm": 120.1852855684612,
+      "reported_sample": 185017
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 4.35375,
+      "horizon_seconds": 4.368,
+      "reported_bpm": 120.18528556846125,
+      "reported_sample": 208980
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 4.852979167,
+      "horizon_seconds": 4.866666667,
+      "reported_bpm": 120.18528556846125,
+      "reported_sample": 232943
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 5.352208333,
+      "horizon_seconds": 5.365333333,
+      "reported_bpm": 120.18528568883207,
+      "reported_sample": 256906
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 5.8514375,
+      "horizon_seconds": 5.864,
+      "reported_bpm": 120.1852855684612,
+      "reported_sample": 280869
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 6.350666667,
+      "horizon_seconds": 6.362666667,
+      "reported_bpm": 120.18528556846125,
+      "reported_sample": 304832
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 6.849895833,
+      "horizon_seconds": 6.864,
+      "reported_bpm": 120.18528568883211,
+      "reported_sample": 328795
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 7.349125,
+      "horizon_seconds": 7.362666667,
+      "reported_bpm": 120.18528556846125,
+      "reported_sample": 352758
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 7.859958333,
+      "horizon_seconds": 7.872,
+      "reported_bpm": 120.18528556846125,
+      "reported_sample": 377278
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 8.3591875,
+      "horizon_seconds": 8.373333333,
+      "reported_bpm": 120.18528556846103,
+      "reported_sample": 401241
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 8.858416667,
+      "horizon_seconds": 8.872,
+      "reported_bpm": 120.18528556846103,
+      "reported_sample": 425204
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 9.357645833,
+      "horizon_seconds": 9.370666667,
+      "reported_bpm": 120.18528556846114,
+      "reported_sample": 449167
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 9.856875,
+      "horizon_seconds": 9.869333333,
+      "reported_bpm": 120.18528556846114,
+      "reported_sample": 473130
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 10.356104167,
+      "horizon_seconds": 10.368,
+      "reported_bpm": 120.18528556846135,
+      "reported_sample": 497093
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 10.855333333,
+      "horizon_seconds": 10.869333333,
+      "reported_bpm": 120.18528568883201,
+      "reported_sample": 521056
+    }
+  ],
+  "block_frames": 128,
+  "derivation": "causal beat-interval BPM: 60 / median(last<=4 inter-beat intervals); trace-level only",
+  "parent_backend": "btrack",
+  "receipt": {
+    "audio_seconds": 11.35,
+    "measured": true,
+    "wall_utc": "2026-10-08T12:47:21Z"
+  },
+  "recording_id": "arpeggio",
+  "sample_rate": 48000.0,
+  "schema": "guitar-lock-eval/trace/1.0",
+  "source": {
+    "generated_utc": "2026-10-08T12:47:21Z",
+    "tool": "guitar-lock-eval derive-beat-interval",
+    "tool_sha256": "b7d0954be9c9dad1c72845b0c4e54006fe54e9ec7c4a1a4157251d5e2894f5b4"
+  },
+  "tempo_samples": [
+    {
+      "bpm": 166.70525569186825,
+      "event_seconds": 0.835916667,
+      "horizon_seconds": 0.848,
+      "phase_valid": true
+    },
+    {
+      "bpm": 134.2313159295355,
+      "event_seconds": 1.369979167,
+      "horizon_seconds": 1.384,
+      "phase_valid": true
+    },
+    {
+      "bpm": 126.05042016806723,
+      "event_seconds": 1.845979167,
+      "horizon_seconds": 1.858666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 121.59851387808806,
+      "event_seconds": 2.356833333,
+      "horizon_seconds": 2.370666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 118.8020790755885,
+      "event_seconds": 2.8560625,
+      "horizon_seconds": 2.869333333,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.1852855684612,
+      "event_seconds": 3.355291667,
+      "horizon_seconds": 3.368,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.1852855684612,
+      "event_seconds": 3.854520833,
+      "horizon_seconds": 3.866666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528556846125,
+      "event_seconds": 4.35375,
+      "horizon_seconds": 4.368,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528556846125,
+      "event_seconds": 4.852979167,
+      "horizon_seconds": 4.866666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528568883207,
+      "event_seconds": 5.352208333,
+      "horizon_seconds": 5.365333333,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.1852855684612,
+      "event_seconds": 5.8514375,
+      "horizon_seconds": 5.864,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528556846125,
+      "event_seconds": 6.350666667,
+      "horizon_seconds": 6.362666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528568883211,
+      "event_seconds": 6.849895833,
+      "horizon_seconds": 6.864,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528556846125,
+      "event_seconds": 7.349125,
+      "horizon_seconds": 7.362666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528556846125,
+      "event_seconds": 7.859958333,
+      "horizon_seconds": 7.872,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528556846103,
+      "event_seconds": 8.3591875,
+      "horizon_seconds": 8.373333333,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528556846103,
+      "event_seconds": 8.858416667,
+      "horizon_seconds": 8.872,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528556846114,
+      "event_seconds": 9.357645833,
+      "horizon_seconds": 9.370666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528556846114,
+      "event_seconds": 9.856875,
+      "horizon_seconds": 9.869333333,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528556846135,
+      "event_seconds": 10.356104167,
+      "horizon_seconds": 10.368,
+      "phase_valid": true
+    },
+    {
+      "bpm": 120.18528568883201,
+      "event_seconds": 10.855333333,
+      "horizon_seconds": 10.869333333,
+      "phase_valid": true
+    }
+  ]
+}

@@ -89,7 +89,35 @@ fails closed.
 `evaluate` derives a causal **beat-interval BPM** candidate from the BTrack
 trace (60 / median of the last ≤4 inter-beat intervals) entirely inside this new
 tool. It is labelled `derived`, scored beside the real backends, and is never a
-production promotion.
+production promotion. Its trace records the sha256 of the actual producer
+source; all-zero placeholder hashes are rejected.
+
+## Trust boundary
+
+Classification, ownership, licence and provenance are **declared** fields. A
+`real` recording whose declared provenance/tags contain a generated/synthetic
+marker is rejected (`provenance_contradicts_real`) and excluded from the gate,
+but this is a **declaration-consistency** rule: no offline byte check can
+mathematically attest that the audio is a human performance. The evaluator
+verifies what the bytes can establish — sha256, sample rate, channels, sample
+width, frame count, duration — and trusts the human-origin declaration.
+
+Trace identity is bound to the slot it is used in: a trace must declare the
+requested backend and a `real` backend kind to count for a real gate backend, and
+the derived candidate must declare `parent_backend == "btrack"`. This is enforced
+in the CLI and independently inside `evaluate_gate`.
+
+## Corrections
+
+Review of handoff `d64a598` returned FIX. The additive correction (protocol
+`protocol/correction-01.json`, evidence `docs/research/guitar-lock-eval/correction-01/`,
+tests `tests/test_review_fixes.py`) fixes provenance-marker consistency (F1),
+backend/kind binding (F2), the candidate producer hash (F3) and the
+criteria-driven phase window (F4). The original frozen protocol and evidence are
+never rewritten; `run-correction.sh` asserts they are unchanged.
+
+Host-absolute defaults can be overridden with `GLE_TRACKER_DIAGNOSTICS`,
+`GLE_BTRACK_LIB`, `GLE_AUBIO_LIB`, `GLE_PROTOCOL`, `GLE_WORKDIR`.
 
 ## Layout
 
@@ -98,9 +126,11 @@ tools/guitar-lock-eval/
   guitar-lock-eval          executable shim
   glock/                    the package (wav, integrity, manifest, trace,
                             scoring, gate, adapters, report, cli)
-  protocol/                 frozen useful-lock criteria
+  protocol/                 frozen useful-lock criteria + additive correction-01.json
   tests/                    synthetic-only unit tests (scorer demonstrably)
   run-baseline.sh           one-command baseline + evidence regeneration
+  run-correction.sh         additive corrected baseline (originals preserved)
   run-tests.sh              test runner
 docs/research/guitar-lock-eval/   protocol, evidence, baseline results
+docs/research/guitar-lock-eval/correction-01/   corrected (additive) evidence
 ```

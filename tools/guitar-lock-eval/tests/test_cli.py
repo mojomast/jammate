@@ -30,7 +30,7 @@ def trace_dict(rec, bpm, backend="btrack"):
         "backend": backend, "backend_kind": "real", "parent_backend": None,
         "derivation": None, "audio_sha256": rec.declared["audio_sha256"],
         "sample_rate": rec.declared["sample_rate"], "block_frames": 128,
-        "source": {"tool": "synthetic-test", "tool_sha256": "0" * 64},
+        "source": {"tool": "synthetic-test", "tool_sha256": "ab" * 32},
         "receipt": {"measured": True, "wall_utc": "2026-01-01T00:00:00Z",
                     "audio_seconds": ann.beats[-1] + 0.01},
         "beats": beats, "tempo_samples": tempo,

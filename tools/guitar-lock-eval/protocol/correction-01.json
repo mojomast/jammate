@@ -1,0 +1,65 @@
+{
+  "schema": "guitar-lock-eval/useful-lock-protocol-correction/1.0",
+  "task": "EVAL-GUITAR-009",
+  "correction": "EF-01",
+  "title": "Additive correction to the useful-lock evaluator after review of d64a598",
+  "frozen_before": "any corrected measurement or corrected evidence generation",
+  "reviewed_commit": "d64a598aeb1bb731ad41ec75f38adae81c58460a",
+  "base_protocol": {
+    "path": "tools/guitar-lock-eval/protocol/useful-lock-protocol.json",
+    "sha256": "c92bbdf37ccfc85b4ebb63fa39cd6dfc4137dba4535a5a874f5fd3c6a28c5305",
+    "note": "The original frozen protocol is NOT edited. This correction is additive and only enforces what the original protocol already declares."
+  },
+  "original_evidence": {
+    "directory": "docs/research/guitar-lock-eval",
+    "note": "Original traces/results/provenance are preserved byte-for-byte; no corrected measurement overwrites them.",
+    "preserved_paths": [
+      "docs/research/guitar-lock-eval/baseline-import.json",
+      "docs/research/guitar-lock-eval/results.json",
+      "docs/research/guitar-lock-eval/per-fixture.csv",
+      "docs/research/guitar-lock-eval/summary.md",
+      "docs/research/guitar-lock-eval/provenance.json",
+      "docs/research/guitar-lock-eval/traces/**"
+    ]
+  },
+  "findings": {
+    "F1": "protocol declares a generated provenance marker must reject a real claim, but validate_manifest/gate_eligibility ignored provenance. A real-class recording with a generated provenance marker and a matching trace could pass the gate.",
+    "F2": "a trace loaded from the requested backend directory could declare a different backend or a derived kind and still count for the real gate.",
+    "F3": "the derived candidate recorded an all-zero placeholder tool_sha256 instead of hashing the actual producer implementation.",
+    "F4": "the phase window was hard-coded to two bars instead of using criteria.acquisition_window_bars."
+  },
+  "changes": [
+    {
+      "id": "F1",
+      "where": "glock/manifest.py",
+      "change": "validate_manifest emits hard provenance_contradicts_real and gate_eligibility excludes a real recording whose declared provenance/tags contain a generated/synthetic marker (synthes*, generated, synthetic, machine-generated, not a human performance/recording, programmatic, karplus, rendered by).",
+      "trust_boundary": "classification, ownership, license and provenance are DECLARED fields. The check is a declaration-consistency rule, not proof about the PCM: no offline byte check can mathematically attest that a recording is a human performance. Audio identity (sha256/rate/duration) is verified; human origin is trusted from the declaration."
+    },
+    {
+      "id": "F2",
+      "where": "glock/trace.py, glock/gate.py, glock/cli.py",
+      "change": "validate_trace binds expected_backend/expected_kind/expected_parent; the CLI requires real kind for a real backend and derived-from-btrack for the candidate; evaluate_gate independently fails closed unless every gate score has backend == the requested backend and backend_kind == 'real', so a direct call cannot bypass the binding."
+    },
+    {
+      "id": "F3",
+      "where": "glock/adapters.py, glock/trace.py",
+      "change": "derive_beat_interval_trace records sha256 of the actual producer source; validate_trace rejects all-zero placeholder tool hashes (not merely non-64-hex)."
+    },
+    {
+      "id": "F4",
+      "where": "glock/scoring.py",
+      "change": "the phase-usability window is computed from criteria.acquisition_window_bars * meter.beats_per_bar instead of a hard-coded 2 bars. With the frozen defaults this is numerically identical; the correction matters when the window is varied."
+    },
+    {
+      "id": "ENV",
+      "where": "glock/adapters.py, glock/cli.py",
+      "change": "host-absolute defaults (tracker-diagnostics binary, backend libs, protocol, workdir) can be overridden via GLE_TRACKER_DIAGNOSTICS, GLE_BTRACK_LIB, GLE_AUBIO_LIB, GLE_PROTOCOL, GLE_WORKDIR."
+    }
+  ],
+  "corrected_measurements": {
+    "directory": "docs/research/guitar-lock-eval/correction-01",
+    "command": "tools/guitar-lock-eval/run-correction.sh",
+    "evidence_class": "diagnostic synthetic baseline, corrected; real-guitar G3 gate still fails closed (no representative real recordings)",
+    "no_change_to_default_numbers": "F1/F2 do not apply to the all-synthetic baseline and F4 is a no-op at the frozen default window; the only expected artifact change is the candidate producer hash and wall-clock timestamps."
+  }
+}

@@ -84,9 +84,17 @@ def evaluate_gate(backend: str, recordings: list[Recording],
             res.fail_closed.append(
                 f"{backend}: gate recording {rec_id} classified {s.classification}")
             continue
+        # Identity binding, enforced here so a direct call cannot bypass the CLI
+        # binding: a gate backend must be exactly this backend and must be a
+        # real backend implementation (never a derived candidate).
+        identity_ok = (s.backend == backend and s.backend_kind == "real")
+        if not identity_ok:
+            res.fail_closed.append(
+                f"{backend}: gate recording {rec_id} has backend {s.backend!r} "
+                f"kind {s.backend_kind!r} (expected {backend!r}/real)")
         res.evaluated.append(rec_id)
         res.scores.append(s)
-        if s.useful_lock:
+        if s.useful_lock and identity_ok:
             res.useful_lock_count += 1
     if not res.population:
         res.fail_closed.append("empty gate population: no representative real annotated steady recording")

@@ -33,8 +33,10 @@ from .scoring import Criteria, score_useful_lock
 from .trace import load_trace, parse_trace, validate_trace
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_PROTOCOL = os.path.join(HERE, "protocol", "useful-lock-protocol.json")
-DEFAULT_WORKDIR = "/home/mojo/projects/build-EVAL-GUITAR-009/guitar-lock-eval"
+DEFAULT_PROTOCOL = os.environ.get(
+    "GLE_PROTOCOL", os.path.join(HERE, "protocol", "useful-lock-protocol.json"))
+DEFAULT_WORKDIR = os.environ.get(
+    "GLE_WORKDIR", "/home/mojo/projects/build-EVAL-GUITAR-009/guitar-lock-eval")
 
 
 def _git_head() -> str:
@@ -305,7 +307,8 @@ def cmd_evaluate(args) -> int:
             if t is None:
                 continue
             t.sha256 = _trace_sha(t)
-            findings = validate_trace(t, rec)
+            findings = validate_trace(t, rec, expected_backend=backend,
+                                      expected_kind="real")
             hard = [f for f in findings if f.severity == "hard"]
             if hard:
                 for f in hard:
@@ -329,7 +332,8 @@ def cmd_evaluate(args) -> int:
                 os.makedirs(dest_dir, exist_ok=True)
                 dump_json_strict(cdict, os.path.join(dest_dir, rec.id + ".json"))
             ct.sha256 = _trace_sha(ct)
-            findings = validate_trace(ct, rec)
+            findings = validate_trace(ct, rec, expected_backend=candidate_id,
+                                      expected_kind="derived", expected_parent="btrack")
             if any(f.severity == "hard" for f in findings):
                 continue
             candidate_traces[rec.id] = ct
