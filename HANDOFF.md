@@ -123,6 +123,19 @@ its StopNow header is preregistered in
 Do not treat the initial candidate's passing tests as acceptance of the reviewed
 defects or as actual processor replay evidence.
 
+Latest corrections: pipeline `ba9748a` passes fresh full-product/36 suites but
+needs one more policy pass for persistent-Lost stop spam and bar-stop→immediate
+upgrade. UI `49cbc76` passes fresh product builds and14 UI cases; re-review active.
+Replay `a3ecf1f` is re-reviewing; fresh67-unit/harness-link checks are running.
+Exact processor/bridge pins are preregistered in
+`docs/research/live-jam-replay-source-pins.json`. No actual replay run yet.
+
+Fresh corrected harness links successfully to the actual product;67 validator
+tests and all three self-checks pass. Binary:
+`/home/mojo/projects/build-EVAL-LIVE-001-integration/corrected-harness-link/live_jam_replay`.
+This is build/self-check evidence only. Rebuild after final policy corrections
+and await focused review acceptance before actual measurement.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.

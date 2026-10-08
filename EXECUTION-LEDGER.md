@@ -145,6 +145,21 @@ re-review. Its StopNow bridge header is pinned pre-measurement in
 `docs/research/live-jam-bridge-pin-amendment.json`; pinning is not acceptance.
 UI/replay corrections remain active and actual live processor scoring has not run.
 
+Corrected pipeline `ba9748a` independently rebuilds Linux Standalone/VST3 and
+passes36/36 registered suites, but focused re-review found repeated stop commands
+on persistent Lost and an unhandled Stop-next-bar→Stop upgrade. Those policy
+fixes are back with the worker. Corrected UI `49cbc76` independently rebuilds
+the product and passes14/14 JUCE cases; its re-review is active. Corrected replay
+`a3ecf1f` preserves the original freeze/raw, adds a preregistered amendment and
+reports67 validator tests; fresh validator/harness-link verification and
+re-review are running. Exact bridge/processor pins are committed in
+`docs/research/live-jam-replay-source-pins.json` before actual measurements.
+
+Fresh corrected replay verification passes67 validator units, instrumentation/
+support/facade self-checks and actual-product harness linking. Preflight reports
+LIVE-READY and detects the injected test seam; the real measurement binary was
+not invoked. Policy/UI/replay focused reviews still gate scoring and acceptance.
+
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The
 default BTrack adapter is experimental. Synthetic processor replay verifies
