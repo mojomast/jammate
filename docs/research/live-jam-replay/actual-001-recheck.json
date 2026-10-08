@@ -1,0 +1,20 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "actual-001-recheck",
+  "note": "The corrected validator re-evaluated the PRESERVED actual-full-001 evidence read-only. It remains a truthful failure; the evidence was not modified.",
+  "actual_001_evidence_sha256": "284d265bf157b2a8eeb1add41aee65d33e1cbad25888ed13cfa16900ffd5e0ba",
+  "status": "measured",
+  "hard_failures": 166,
+  "gate_failures": 2,
+  "gates": {
+    "rt_gate": true,
+    "scenario_default_clean_long_gate": false,
+    "join_gate": false
+  },
+  "hard_pass": false,
+  "pass": false,
+  "defects_confirmed": [
+    "state_end.prepared=false/sampleRate=0 on all 54 cells (Defect A)",
+    "join_gate=false (Defect B)"
+  ]
+}

@@ -337,6 +337,44 @@ int main (int argc, char** argv)
         }
     }
 
+    {
+        // Fifth correction: coherent state latch (Defect A).
+        replay::StateLatch latch;
+        jam::JamLiveState good {};
+        good.prepared = true; good.sampleRate = 48000.0; good.audioSampleTime = 128;
+        latch.updateFrom (true, good);
+        check (latch.have && latch.last.prepared && latch.last.sampleRate == 48000.0,
+               "latch must store a valid prepared state");
+        const bool updated = latch.updateFrom (false, jam::JamLiveState {});
+        check (! updated && latch.last.prepared && latch.last.sampleRate == 48000.0,
+               "a false read must retain the last coherent state");
+
+        int n = 0;
+        replay::StateLatch p;
+        jam::JamLiveState s1 {}; s1.prepared = false; s1.sampleRate = 0.0;
+        jam::JamLiveState s2 {}; s2.prepared = true; s2.sampleRate = 44100.0;
+        const bool okPoll = p.pollPrepared (
+            [&] (jam::JamLiveState& out) { ++n; out = (n < 2) ? s1 : s2; return true; }, 5, [] {});
+        check (okPoll && p.last.prepared && p.last.sampleRate == 44100.0,
+               "pollPrepared must wait for a coherent prepared state");
+
+        replay::StateLatch q;
+        const bool okNever = q.pollPrepared ([] (jam::JamLiveState&) { return false; }, 3, [] {});
+        check (! okNever && ! q.have, "pollPrepared must fail explicitly when never read");
+
+        replay::StateLatch rl;
+        jam::JamLiveState rel {}; rel.prepared = false; rel.drumsPlaying = false;
+        const bool okRel = rl.pollReleased (
+            [&] (jam::JamLiveState& out) { out = rel; return true; }, 3, [] {});
+        check (okRel && ! rl.last.prepared && ! rl.last.drumsPlaying,
+               "pollReleased must accept a coherent released payload");
+        replay::StateLatch rp;
+        jam::JamLiveState pl {}; pl.prepared = false; pl.drumsPlaying = true;
+        const bool okPlay = rp.pollReleased (
+            [&] (jam::JamLiveState& out) { out = pl; return true; }, 3, [] {});
+        check (! okPlay, "a still-playing payload must not count as released");
+    }
+
     if (failures == 0)
     {
         std::fprintf (stdout, "\nREPLAY SUPPORT SELF-TEST PASS\n");

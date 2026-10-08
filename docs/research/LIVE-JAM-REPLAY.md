@@ -336,6 +336,37 @@ full closure and all self-checks; the runtime was **not** invoked
 (`link-receipt-actual-4.json`, `fixture-timeline-receipt.json`). Validator unit
 tests **107/107**.
 
+## Fifth correction (observed in actual-full-001)
+
+The first actual full run (preserved read-only at
+`/home/mojo/projects/build-EVAL-LIVE-001-integration/actual-full-001`) exposed
+two harness defects; the evidence was **not** edited. The corrected validator
+still reports the preserved actual-001 evidence as a truthful failure
+(`actual-001-recheck.json`).
+
+- **Defect A — coherent state latch.** All 54 cells reported
+  `state_end.prepared=false`/`sampleRate=0` because the final
+  `readJamLiveState` result was used even when it returned false (no new
+  publication / sequence race). Fix: a `StateLatch` helper obtains a baseline
+  prepared state with a bounded off-callback poll before the cold callback and
+  initializes `state_start`/`state_end` from it; `state_end` is updated only on
+  a true read and never reset on false; the final read is a temp that replaces
+  only on true. `baseline_prepared` is required per cell.
+- **Defect B — real injected proof.** The injected scenario ran unpaced, so the
+  workers could not track the timeline and never joined; StopNow "passed"
+  without a join, resync was accepted without servicing, and the reprepare
+  generations were not a real session change. Fix: real-time pacing
+  (`sleep_until` outside the callback); require a first and a **second** actual
+  join (engine `injectedPlaying` + steps grow), a deferred StopAtNextBar that
+  actually persists, a StopNow measured in serviced blocks, a real resync
+  effect, a session-generation change via prepare cold state, and a coherent
+  released payload on shutdown. Command acceptance alone is never proof. The
+  injected gate uses engine steps/playing, not output RMS.
+
+Semantics unchanged (`structural AND rt_gate AND join_gate`; default no-lock
+diagnostic). Link-only against the actual product is LIVE-READY; runtime **not**
+invoked. Validator unit tests **113/113**.
+
 ## Limitations (not claimed)
 
 - Not a whole-program allocation-safety proof. It is a bounded matrix over the

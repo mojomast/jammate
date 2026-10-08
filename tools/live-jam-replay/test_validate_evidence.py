@@ -460,10 +460,57 @@ class CorrectedValidatorTests(unittest.TestCase):
         ev = self.fresh()
         for s in ev["scenarios"]:
             if s["id"] == "injected_join_stop_resync":
+                s["first_join_observed"] = False
                 s["join_observed"] = False
         ok, _, checks = hard_pass(ev)
         self.assertTrue(ok, "structural validity is independent of the join gate")
         self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_injected_second_join_required(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["second_join_observed"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_injected_resync_effect_required(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["resync_effect_observed"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_injected_session_gen_required(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["session_generation_changed"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_injected_release_required(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["released_confirmed"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_scenario_not_paced_fails(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["paced"] = False
+        ok, errors, _ = hard_pass(ev)
+        self.assertFalse(ok)
+
+    def test_cell_baseline_prepared_required(self):
+        ev = self.fresh()
+        self.enabled_clean(ev)["baseline_prepared"] = False
+        ok, _, _ = hard_pass(ev)
+        self.assertFalse(ok, "a measured cell must latch a baseline prepared state")
 
     def test_full_injected_steps_zero_gate(self):
         ev = self.fresh()

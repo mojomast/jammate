@@ -343,6 +343,8 @@ def validate_measured(ev, predeclared, local, errors, checks, allow_synthetic):
         add(f"{cid}.input_source_rate", "hard",
             (src_is_wav and finite(sr) and sr > 0) or ((not src_is_wav) and sr in (0, 0.0)),
             "input_source_rate must be positive for a WAV and zero for builtin")
+        add(f"{cid}.baseline_prepared", "hard", c.get("baseline_prepared") is True,
+            "a coherent baseline prepared state must be latched before the callback")
 
         prog = c.get("progression", {})
         for key in PROGRESSION_NUMERIC:
@@ -615,9 +617,15 @@ def validate_scenarios(ev, scope, add):
                     add(f"scenario_{sid}_backend_first_label", "hard",
                         s.get("backend_kind") == s.get("backend_first"),
                         "backend_kind must equal the first observed backend label")
+                    add(f"scenario_{sid}_paced", "hard", s.get("paced") is True,
+                        "the scenario must be real-time paced")
+                    add(f"scenario_{sid}_wall_seconds", "hard",
+                        finite(s.get("wall_seconds")) and s.get("wall_seconds", -1) > 0,
+                        "the scenario wall time must be a positive number")
         d = by_id.get("default_clean_long", {}) or {}
         d_ok = (d.get("ran") is True and d.get("backend_kind") == "experimentalBTrack"
                 and d.get("start_accepted") is True and d.get("audio_owner_delta_ok") is True
+                and d.get("paced") is True
                 and isinstance(d.get("audio_owner_observed_s"), (int, float))
                 and d.get("audio_owner_observed_s", 0) > 0
                 and d.get("callbacks", 0) > 0 and d.get("output_nonzero_blocks", 0) > 0)
@@ -625,18 +633,25 @@ def validate_scenarios(ev, scope, add):
             "default_clean_long must run with the actual experimentalBTrack backend and real audio-owner advancement")
         inj = by_id.get("injected_join_stop_resync", {}) or {}
         inj_ok = (inj.get("ran") is True and inj.get("backend_kind") == "injectedTest"
-                  and inj.get("start_accepted") is True and inj.get("join_observed") is True
-                  and inj.get("steps_fired", 0) > 0 and inj.get("stop_now_stopped") is True
+                  and inj.get("start_accepted") is True
+                  and inj.get("first_join_observed") is True
+                  and inj.get("second_join_observed") is True
+                  and inj.get("steps_fired", 0) > 0
+                  and inj.get("engine_playing_observed") is True
+                  and inj.get("stop_now_stopped") is True
                   and inj.get("resync_accepted") is True
-                  and inj.get("generation_changed_on_reprepare") is True
-                  and inj.get("shutdown_released") is True
-                  and inj.get("callbacks", 0) > 0 and inj.get("output_nonzero_blocks", 0) > 0)
+                  and inj.get("resync_effect_observed") is True
+                  and inj.get("session_generation_changed") is True
+                  and inj.get("released_confirmed") is True
+                  and inj.get("paced") is True
+                  and inj.get("callbacks", 0) > 0)
         if inj.get("ran") is not True:
             add("join_gate", "gate", False,
                 f"join proof unavailable: {inj.get('unmeasured_reason_code')}")
         else:
             add("join_gate", "gate", inj_ok,
-                "injected join/stop/resync scenario must show real join, steps, StopNow, resync, reprepare and shutdown")
+                "injected scenario must prove a first and second actual join, engine steps, "
+                "StopNow, a resync effect, a session-generation change and a coherent release")
     else:
         add("join_gate", "gate", False,
             f"scope {scope} is partial; the first-audible join gate is only required for full scope")
