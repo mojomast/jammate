@@ -136,6 +136,15 @@ tests and all three self-checks pass. Binary:
 This is build/self-check evidence only. Rebuild after final policy corrections
 and await focused review acceptance before actual measurement.
 
+Latest focused findings: UI recreation sends Start from a STOP-labelled button
+because the local intent latch is cold; worker reconciliation fix is active.
+Pipeline `976250e` fixes Lost spam/stop upgrades, but dropped staged tempo must
+not latch and suppress retry; worker fix is active. Replay readiness currently
+probes before prepare, and scenario/measurement/finding/timeout validator gates
+need tightening; worker fix is active. No accepted implementation merge or
+actual processor measurement yet; preserved source pins still match the pipeline
+processor and bridge headers.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.

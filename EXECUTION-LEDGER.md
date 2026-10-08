@@ -160,6 +160,16 @@ support/facade self-checks and actual-product harness linking. Preflight reports
 LIVE-READY and detects the injected test seam; the real measurement binary was
 not invoked. Policy/UI/replay focused reviews still gate scoring and acceptance.
 
+Further focused review: UI `49cbc76` layout and legacy preview are accepted, but
+the cold local intent latch sends Start from a STOP-labelled button after editor
+recreation; reconciliation is being corrected. Pipeline `976250e` resolves loss
+spam and stop upgrades; its new staged-tempo dedupe exposed acceptance-before-
+latch handling on a full queue, which is being corrected. Replay `a3ecf1f` fixes
+the initial ten findings and links to the product, but runtime backend probing
+must occur after prepare, and validators must gate scenarios, measured counters
+and complete findings/timeout semantics. Those fixes are active. All original
+protocol/raw artifacts remain preserved; no actual processor measurement has run.
+
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The
 default BTrack adapter is experimental. Synthetic processor replay verifies
