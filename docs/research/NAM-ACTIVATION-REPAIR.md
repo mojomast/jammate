@@ -136,7 +136,11 @@ values, `all_finite=false`, metadata/count mismatch, patched allocation/free,
 missing positive control, wrong flag/kind, out-of-budget value).
 
 The LSTM differential test, comparator tests and probe-evidence check from
-RT-003 are retained unchanged and still pass.
+RT-003 are retained unchanged and still pass. Of the 7 standalone ctest targets,
+**5 are retained** (4 unchanged — `nam_rt_diff`, `nam_rt_probe_verifier_unit`,
+`nam_rt_probe_repair`, `nam_rt_compare_unit` — plus `nam_rt_patch_checks`
+extended to both patches) and **2 are new** (`nam_rt_activation_diff`,
+`nam_rt_activation_compare_unit`).
 
 ## 5. Actual-processor three-archive comparison
 
@@ -158,31 +162,71 @@ Every `new` NAM case (8 per model: 48/96 kHz × 128/512 × `nam`/`nam+drums`) ha
 **zero warm and cold allocations, frees and lock/trylock/cond/unlock
 operations**, and every dry/built-in case is zero in all three variants. The
 `lstm_only` variant retains the a2 finding (491520 = 2.0/sample at 48 kHz),
-confirming the RT-003 LSTM repair did not cover the activation path. Warm free
-totals equal the warm allocation totals in the positive controls; the repaired
-cases have zero of both. Mean warm `out_rms` is **identical** across all three
-archives for every model and case, so the repair does not change the processor
-output level.
+confirming the RT-003 LSTM repair did not cover the activation path. The
+authoritative warm split is model-specific: the LSTM allocation is C `malloc`
+(`warm_alloc_c_total = 491520`, `warm_alloc_cxx_total = 0`) while the a2 PReLU
+allocation is C++ `new` (`warm_alloc_cxx_total = 491520`, `warm_alloc_c_total =
+0`). Warm free totals equal the warm allocation totals in the positive controls;
+the repaired cases have zero of both. Mean warm `out_rms` is **identical** across
+all three archives for every model and case, so the repair does not change the
+processor output level.
 
-`check_activation_probe.py` validates every run fail-closed (exit status, exact
-case matrix, protocol budget, model/binary/archive identity and on-disk hashes,
-self-check, dry-all-zero, finite values, capture overflow) and asserts the exact
-expected allocation matrix above. `test_check_activation_probe.py` adds 10
-evidence/adversarial tests (zero-expected positive, missing positive control,
-missing run, non-zero exit, dry non-zero, `out_rms` mismatch, capture overflow
-in a clean run, wrong identity). The committed artifacts are under
-`docs/research/nam-activation-repair/` with a `manifest.sha256`.
+`check_activation_probe.py` validates every run fail-closed. Allocation
+accounting uses the **authoritative** warm totals
+(`warm_alloc_cxx_total`/`warm_alloc_c_total`, which fold the nothrow/aligned
+`new` forms that have no plain column); the plain `cxxnew`/`malloc`/... columns
+are only a required lower bound (`regular <= total`). Cold has no authoritative
+total column, so its zero test sums the known forms **and** the cold overflow
+counters. For a zero-expected run, warm and cold frees, lock/trylock/cond/unlock,
+and all four alloc/lock overflow counters must also be zero; a missing
+authoritative/pinned column is a hard failure, so an unknown schema can never be
+reported clean. `noopfree` (`free(NULL)`) is deliberately excluded — it is not a
+heap operation and the probe reports it separately. The validator also fails
+closed on any unexpected/stale run or model directory or extra file under the
+runs tree, and requires the exact 15-directory / 26-row matrix with no run
+excluded. `test_check_activation_probe.py` adds **31** evidence/adversarial
+tests, including authoritative-only (nothrow/aligned) allocations, cold
+alloc/lock overflow, cold free/lock counters, regular>total inconsistency,
+missing/malformed columns, deliberate noopfree acceptance, and runs-tree
+hygiene. The committed artifacts are under `docs/research/nam-activation-repair/`
+with a `manifest.sha256`.
 
 ## 6. Preserved RT-003 evidence
 
 - `patches/nam/lstm-rt-alloc.patch` and its SHA pin are unchanged.
 - The module still verifies the pinned LSTM inputs, the LSTM patch, and the
   generated LSTM bytes with the original hashes.
-- All RT-003 standalone tests are retained: `nam_rt_diff`, `nam_rt_compare_unit`,
-  `nam_rt_probe_repair`, `nam_rt_probe_verifier_unit`, and the patch checks now
-  cover both patches. The RT-003 real-processor probe artifacts under
-  `docs/research/nam-rt-repair/**` are untouched.
+- Of the 7 standalone ctest targets, **5 are retained** (4 unchanged:
+  `nam_rt_diff`, `nam_rt_compare_unit`, `nam_rt_probe_repair`,
+  `nam_rt_probe_verifier_unit`; plus `nam_rt_patch_checks`, extended to both
+  patches) and **2 are new** (`nam_rt_activation_diff`,
+  `nam_rt_activation_compare_unit`). The RT-003 real-processor probe artifacts
+  under `docs/research/nam-rt-repair/**` are untouched.
 - `third_party/NeuralAmpModelerCore` bytes were not modified.
+
+### Probe provenance scope
+
+`tools/nam-activation-repair/run_activation_probe.sh` executes each variant's
+**prebuilt static probe binary**; the NAM archive is linked in at build time and
+there is **no runtime archive substitution**. The worker-local proof is the
+identity-pinned binaries/archives plus the 15 recorded runs. The orchestrator
+independently rebuilt the production archive and the linked probe and obtained
+the same hashes (`ad0ffbb3…` / `faa79a4f…`), which strengthens provenance
+without changing the recorded evidence.
+
+`predeclared.json`'s `source_pin.revision` (`677ce9f`) is the **processor source
+revision the probe archives were compiled from**; those `src/` bytes are
+identical to the RT-005 base `677727c`. It is not the RT-005 worktree HEAD and is
+kept immutable with the other predeclared pins.
+
+### Overlay newline scope
+
+The overlay module always writes generated files with LF newlines, so the
+post-condition bytes are platform-independent **for the accepted inputs only**.
+All declared SHA256 pins are over LF bytes: a CRLF (or otherwise altered)
+upstream source or tracked patch fails the input/patch SHA check closed before
+generation; `check_patch.sh` exercises the CRLF case. `.gitattributes` pins
+`patches/nam/*.patch text eol=lf`.
 
 ## 7. Provenance and licensing
 
@@ -192,7 +236,7 @@ in a clean run, wrong identity). The committed artifacts are under
 - Pinned upstream: `activations.h` `83531762249acd73e97ac7247a5ebb482b0ba127bf261a8a74ee19576b983576`,
   `gating_activations.h` `e004bda49503acc21ab42a66bab847dec2d6d55461807b0de707cd1ad1bdb060`.
 - Activation patch `dfa247d59387e7f6c042bbf91c265debd90c66d503a5570d8f8b3a46711681e5`;
-  module `309568accdafaa7f10c9ffb23ef469f70fbd196f5ab72bd20117cee0928e7d40`.
+  module `add07d78a69d27149176b6d22c37cf3e0bf11ee1a02574ca7f482017d4915e4f`.
 - New production `libnam_core.a` `ad0ffbb37434a860a5084831ef7514f7e0146318cf98a743c14e2d24b68b5579`;
   new probe binary `faa79a4feee138836b9fce8d77cfbbce6557603ccce7090a195cfc0cb5c7e379`.
 - RT-003 archives: LSTM-only `libnam_core.a` `dbd11fb2c63b69e00b78a559cff0cb1fbe14ece214dba73326b4232014498507`,

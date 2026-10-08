@@ -13,6 +13,8 @@
 #      copy, and deleting it removes the generated file.
 #   4. A mutated pinned source fails closed (input SHA guard) for both the LSTM
 #      and the activation inputs.
+#   4a. A CRLF pinned source fails closed: the overlay SHA pins are over LF bytes,
+#      so only LF inputs are accepted (the scope of the byte-identity claim).
 #   5. A mutated tracked patch fails closed while the pinned sources are clean
 #      (patch SHA guard, independent of the input hashes) for both patches.
 #
@@ -150,6 +152,28 @@ if [ "$mut_rc" -ne 0 ] && grep -q "pinned upstream lstm.cpp SHA256 mismatch" "$W
 else
     bad "mutated pinned lstm.cpp did not fail closed (rc=$mut_rc)"
     tail -8 "$WORKDIR/mut.log" || true
+fi
+
+# --- 4a. CRLF upstream input fails closed (LF-only accepted) ------------------
+# The overlay SHA pins are over LF bytes; a CRLF checkout must abort before
+# generation. This is the binary property the "platform-independent overlay"
+# claim is scoped to.
+CRLF="$WORKDIR/crlf"
+mkdir -p "$CRLF/NAM"
+cp "$NAM_CORE_DIR/NAM/lstm.h" "$CRLF/NAM/lstm.h"
+cp "$NAM_CORE_DIR/NAM/activations.h" "$CRLF/NAM/activations.h"
+cp "$NAM_CORE_DIR/NAM/gating_activations.h" "$CRLF/NAM/gating_activations.h"
+sed 's/$/\r/' "$NAM_CORE_DIR/NAM/lstm.cpp" > "$CRLF/NAM/lstm.cpp"
+make_proj "$WORKDIR/crlf-src" "$MODULE" "$CRLF"
+set +e
+"$CMAKE_BIN" -S "$WORKDIR/crlf-src" -B "$WORKDIR/crlf-b" > "$WORKDIR/crlf.log" 2>&1
+crlf_rc=$?
+set -e
+if [ "$crlf_rc" -ne 0 ] && grep -q "pinned upstream lstm.cpp SHA256 mismatch" "$WORKDIR/crlf.log"; then
+    ok "CRLF pinned lstm.cpp fails closed (LF-only overlay inputs)"
+else
+    bad "CRLF pinned lstm.cpp did not fail closed (rc=$crlf_rc)"
+    tail -8 "$WORKDIR/crlf.log" || true
 fi
 
 MUTA="$WORKDIR/mutated-act"

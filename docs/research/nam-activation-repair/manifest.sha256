@@ -60,3 +60,4 @@ bb6fd9154b30912123c1edc40ab3ecf49f71ce7c79697f98f19ae4e68ba1cb1e  ./runs/origina
 ce610511e5f82e336c85865564fa7db7cb5adacbd348eebbcab38258fa4b40ad  ./runs/original/slimmable_wavenet/findings.json
 44afc60818a2bd2b198a57342b7c0b96ced0d2ccb8cb3b1a9081a89abe4fafa3  ./runs/original/slimmable_wavenet/probe.log
 851aa6597b352ba4f6ed16c737703c68b3d28e0815b09861fbb187adfb62cd8a  ./summary.md
+01dad178a257011545da4c22c0cea5568be847a7a52ca24f04f6a3451d7ae3b8  ./validation-receipt-review.json

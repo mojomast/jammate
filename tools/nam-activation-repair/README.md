@@ -11,7 +11,17 @@ Bounded, read-only comparison of **three NAM archives** through the actual
 
 The `lstm_only` and `new` probes are linked against the **same** read-only
 shared/assets archives and the same `build.ninja`, so they differ only in
-`libnam_core.a`. `original` is the historical RT-004 control.
+`libnam_core.a`. `original` is the historical RT-004 control. The runner executes
+each variant's **prebuilt static probe binary**: the NAM archive is linked in at
+build time and there is **no runtime archive substitution** — the worker proof is
+the pinned binary/archive identities plus the recorded runs. The orchestrator
+independently rebuilt the archive and the linked probe and obtained the same
+hashes (`ad0ffbb3…` / `faa79a4f…`).
+
+`predeclared.json`'s `source_pin.revision` (`677ce9f`) is the processor source
+revision the probe archives were compiled from; those `src/` bytes are identical
+to the RT-005 base `677727c`. It is not the RT-005 worktree HEAD, and it (like the
+other predeclared pins) is kept immutable.
 
 The tooling does not rebuild the shared product, JUCE or assets, and does not
 edit the probe source (`tools/processor-probe/**` is read-only). Model files are
