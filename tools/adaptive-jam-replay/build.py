@@ -44,11 +44,13 @@ def main():
     if suppress not in ('ON', 'TRUE', 'YES', '1'):
         raise SystemExit('Configure the product with -DCMAKE_SUPPRESS_REGENERATION=ON and build it; '
                          'Ninja dry-run otherwise stops at the always-dirty CMake glob check')
-    pending = subprocess.check_output(['ninja', '-n', 'GuitarCompanion_Standalone',
-                                       'GuitarCompanion_VST3', 'GuitarCompanionTests'],
+    # The replay reuses the shared-code closure, not either plugin wrapper.
+    # JUCE's VST3 helper is an always-dirty custom target, and wrapper links can
+    # therefore remain pending even after a successful full product build.
+    pending = subprocess.check_output(['ninja', '-n', 'GuitarCompanion', 'GuitarCompanionTests'],
                                       cwd=product, text=True)
     if any(word in pending for word in ('Building ', 'Linking ', 'Re-running CMake')):
-        raise SystemExit('Product targets are not up-to-date; build them before reusing their closure')
+        raise SystemExit('Product shared-code/test targets are not up-to-date; build them before reusing their closure')
     closure = recipe.extract_link_closure(str(product))
     if not closure['ok']:
         raise SystemExit('No complete product link closure')

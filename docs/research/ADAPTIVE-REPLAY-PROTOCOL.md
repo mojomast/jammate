@@ -25,6 +25,9 @@ The same-source product must be configured with
 `-DCMAKE_SUPPRESS_REGENERATION=ON` and built before replay. This lets Ninja's
 dry-run check the actual product graph instead of stopping at CMake's
 always-dirty glob verification target. Reconfigure explicitly after CMake edits.
+The dry-run requires the shared-code and product-test targets to be current;
+Standalone/VST3 are built separately. Their wrappers are not reused by replay,
+and JUCE's always-dirty VST3 manifest helper must not invalidate a current closure.
 
 - All106 unique catalogue patterns prepared before processing callbacks.
 - Actual join within the declared 1400-block (~14.93 s audio-time) wiring window.
