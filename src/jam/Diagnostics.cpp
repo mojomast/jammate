@@ -1,10 +1,17 @@
 // Rhythm diagnostics and trace foundation. See Diagnostics.h for the thread roles,
-// the lossless provenance policy and the export policy.
+// the domain policy, the lossless provenance policy and the export policy.
 
 #include "Diagnostics.h"
 
-#include <cmath>
+#include <charconv>
 #include <cstdio>
+
+// Locale-independent floating-point formatting is a correctness requirement here:
+// a comma decimal point would produce invalid JSON and a broken CSV row. The
+// standard to_chars conversion never consults the C locale.
+#if ! defined(__cpp_lib_to_chars) || (__cpp_lib_to_chars < 201611L)
+#error "jam diagnostics export requires std::to_chars for floating point (locale independence)"
+#endif
 
 namespace jam::diagnostics
 {
@@ -12,23 +19,24 @@ namespace jam::diagnostics
 namespace
 {
 
-uint32_t bad (bool ok) noexcept
+void setInvalid (DiagnosticsEvent& e, DiagnosticsField f, bool invalid = true) noexcept
 {
-    return ok ? 0u : 1u;
+    const uint32_t bit = static_cast<uint32_t> (f);
+    if (invalid)
+        e.invalidFieldMask |= bit;
+    else
+        e.invalidFieldMask &= ~bit;
 }
 
-bool positiveFinite (double v) noexcept
+void badField (bool ok, DiagnosticsEvent& e, DiagnosticsField f) noexcept
 {
-    return std::isfinite (v) && v > 0.0;
+    if (! ok)
+        setInvalid (e, f);
 }
 
-bool nonNegativeFinite (double v) noexcept
-{
-    return std::isfinite (v) && v >= 0.0;
-}
-
-// One export value. Missing, and non-finite reals, are rendered as an empty CSV
-// cell and as JSON null, so the two formats cannot disagree about missingness.
+// One export value. Missing, and domain-invalid or non-finite reals, are rendered
+// as an empty CSV cell and as JSON null, so the two formats cannot disagree
+// about missingness.
 struct Cell
 {
     enum class Kind { missing, unsignedInt, signedInt, real32, real64, boolean, text };
@@ -92,6 +100,7 @@ constexpr const char* kColumnNames[kEventColumnCount] = {
     "block_start_sample_time",
     "input_horizon_sample_time",
     "source_sample_rate_hz",
+    "observation_source_sample_rate_hz",
     "availability_measured",
     "candidate_bpm",
     "candidate_confidence01",
@@ -102,7 +111,7 @@ constexpr const char* kColumnNames[kEventColumnCount] = {
     "beat_event",
     "silence",
     "phase_valid",
-    "invalid_fields",
+    "invalid_field_count",
     "live_receipt_sample_time",
     "live_receipt_measured",
     "callback_latency_seconds",
@@ -131,7 +140,19 @@ void fillCells (const DiagnosticsEvent& e, Cell* cells) noexcept
     const ObservationEnvelope& env = e.envelope;
     const RhythmObservation& o = env.observation;
     std::size_t n = 0;
+
+    // Plain column.
     auto put = [&] (Cell c) { cells[n++] = c; };
+
+    // Domain-validated column: the raw value is always what the record holds, and
+    // an invalid field is masked to missing here, never overwritten.
+    auto putField = [&] (Cell c, DiagnosticsField f) {
+        if (e.isInvalid (f))
+            cells[n] = missingCell();
+        else
+            cells[n] = c;
+        ++n;
+    };
 
     put (cellU (e.traceSession));
     put (cellU (env.sequence));
@@ -139,24 +160,25 @@ void fillCells (const DiagnosticsEvent& e, Cell* cells) noexcept
     put (cellU (o.inputSampleTime));
     put (cellU (env.blockStartSampleTime));
     put (cellU (env.inputHorizonSampleTime));
-    put (cellD (env.sourceSampleRate));
+    putField (cellD (env.sourceSampleRate), DiagnosticsField::envelopeRate);
+    putField (cellD (o.sourceSampleRate), DiagnosticsField::observationRate);
     put (cellB (env.availabilityMeasured));
-    put (cellF (o.bpmCandidate));
-    put (cellF (o.beatConfidence01));
-    put (cellF (o.beatPhase01));
-    put (cellF (o.onsetStrength01));
-    put (cellF (o.energyRmsDbfs));
-    put (cellF (o.transientDensity01));
+    putField (cellF (o.bpmCandidate), DiagnosticsField::candidateBpm);
+    putField (cellF (o.beatConfidence01), DiagnosticsField::observationConfidence01);
+    putField (cellF (o.beatPhase01), DiagnosticsField::observationBeatPhase01);
+    putField (cellF (o.onsetStrength01), DiagnosticsField::onsetStrength01);
+    putField (cellF (o.energyRmsDbfs), DiagnosticsField::energyRmsDbfs);
+    putField (cellF (o.transientDensity01), DiagnosticsField::transientDensity01);
     put (cellB (o.beatEvent));
     put (cellB (o.silence));
     put (cellB (o.phaseValid));
-    put (cellU (e.invalidFields));
+    put (cellU (e.invalidFieldCount()));
 
     put (cellMeasuredU (e.liveReceiptSampleTime));
     put (cellB (e.liveReceiptSampleTime.measured));
-    put (cellMeasuredD (e.callbackLatencySeconds));
+    putField (cellMeasuredD (e.callbackLatencySeconds), DiagnosticsField::callbackLatency);
     put (cellB (e.callbackLatencySeconds.measured));
-    put (cellMeasuredD (e.processingDurationSeconds));
+    putField (cellMeasuredD (e.processingDurationSeconds), DiagnosticsField::processingDuration);
     put (cellB (e.processingDurationSeconds.measured));
     put (cellMeasuredU (e.ringOverruns));
     put (cellB (e.ringOverruns.measured));
@@ -167,13 +189,13 @@ void fillCells (const DiagnosticsEvent& e, Cell* cells) noexcept
     if (e.clockKnown)
     {
         put (cellU (e.clock.generation));
-        put (cellD (e.clock.bpm));
-        put (cellD (e.clock.beatPhase01));
-        put (cellD (e.clock.barPhase01));
-        put (cellI (e.clock.beatInBar));
-        put (cellI (e.clock.beatsPerBar));
-        put (cellI (e.clock.beatUnit));
-        put (cellF (e.clock.confidence01));
+        putField (cellD (e.clock.bpm), DiagnosticsField::clockBpm);
+        putField (cellD (e.clock.beatPhase01), DiagnosticsField::clockBeatPhase01);
+        putField (cellD (e.clock.barPhase01), DiagnosticsField::clockBarPhase01);
+        putField (cellI (e.clock.beatInBar), DiagnosticsField::clockBeatInBar);
+        putField (cellI (e.clock.beatsPerBar), DiagnosticsField::clockBeatsPerBar);
+        putField (cellI (e.clock.beatUnit), DiagnosticsField::clockBeatUnit);
+        putField (cellF (e.clock.confidence01), DiagnosticsField::clockConfidence01);
         put (cellText (toString (e.clock.lockState)));
         put (cellB (e.clock.tempoFrozen));
     }
@@ -184,25 +206,46 @@ void fillCells (const DiagnosticsEvent& e, Cell* cells) noexcept
     }
 }
 
+// Locale-independent numeric conversion. std::to_chars never consults the C
+// locale, so the decimal point is always '.' and the output is valid JSON.
+template <typename T>
+bool appendNumber (std::string& out, T value)
+{
+    char buffer[48];
+    const auto result = std::to_chars (buffer, buffer + sizeof buffer, value);
+    if (result.ec != std::errc {})
+        return false;
+    out.append (buffer, static_cast<std::size_t> (result.ptr - buffer));
+    return true;
+}
+
 void appendU64 (std::string& out, uint64_t v)
 {
-    char buf[32];
-    const int n = std::snprintf (buf, sizeof buf, "%llu", static_cast<unsigned long long> (v));
-    out.append (buf, static_cast<std::size_t> (n));
+    appendNumber (out, v);
 }
 
 void appendI64 (std::string& out, int64_t v)
 {
-    char buf[32];
-    const int n = std::snprintf (buf, sizeof buf, "%lld", static_cast<long long> (v));
-    out.append (buf, static_cast<std::size_t> (n));
+    appendNumber (out, v);
 }
 
-void appendReal (std::string& out, double v, int digits)
+void appendReal32 (std::string& out, float v)
 {
-    char buf[40];
-    const int n = std::snprintf (buf, sizeof buf, "%.*g", digits, v);
-    out.append (buf, static_cast<std::size_t> (n));
+    appendNumber (out, v);
+}
+
+void appendReal64 (std::string& out, double v)
+{
+    appendNumber (out, v);
+}
+
+void appendMetadataLine (std::string& out, const char* key, uint64_t value)
+{
+    out += kCsvMetadataPrefix;
+    out += key;
+    out += '=';
+    appendU64 (out, value);
+    out += '\n';
 }
 
 void appendCsvCell (std::string& out, const Cell& c)
@@ -213,10 +256,10 @@ void appendCsvCell (std::string& out, const Cell& c)
         case Cell::Kind::unsignedInt:  appendU64 (out, c.u); break;
         case Cell::Kind::signedInt:    appendI64 (out, c.i); break;
         case Cell::Kind::real32:
-            if (std::isfinite (c.d)) appendReal (out, c.d, 9);
+            if (std::isfinite (c.d)) appendReal32 (out, static_cast<float> (c.d));
             break;
         case Cell::Kind::real64:
-            if (std::isfinite (c.d)) appendReal (out, c.d, 17);
+            if (std::isfinite (c.d)) appendReal64 (out, c.d);
             break;
         case Cell::Kind::boolean:      out += c.b ? "1" : "0"; break;
         case Cell::Kind::text:         out += csvEscape (c.t); break;
@@ -231,11 +274,11 @@ void appendJsonCell (std::string& out, const Cell& c)
         case Cell::Kind::unsignedInt:  appendU64 (out, c.u); break;
         case Cell::Kind::signedInt:    appendI64 (out, c.i); break;
         case Cell::Kind::real32:
-            if (std::isfinite (c.d)) appendReal (out, c.d, 9);
+            if (std::isfinite (c.d)) appendReal32 (out, static_cast<float> (c.d));
             else out += "null";
             break;
         case Cell::Kind::real64:
-            if (std::isfinite (c.d)) appendReal (out, c.d, 17);
+            if (std::isfinite (c.d)) appendReal64 (out, c.d);
             else out += "null";
             break;
         case Cell::Kind::boolean:      out += c.b ? "true" : "false"; break;
@@ -249,27 +292,43 @@ DiagnosticsEvent makeEvent (const ObservationEnvelope& envelope) noexcept
 {
     DiagnosticsEvent e;
     e.envelope = envelope;
-
-    const RhythmObservation& o = envelope.observation;
-    e.invalidFields = bad (std::isfinite (o.bpmCandidate))
-                    + bad (std::isfinite (o.beatPhase01))
-                    + bad (std::isfinite (o.beatConfidence01))
-                    + bad (std::isfinite (o.onsetStrength01))
-                    + bad (std::isfinite (o.energyRmsDbfs))
-                    + bad (std::isfinite (o.transientDensity01))
-                    + bad (positiveFinite (o.sourceSampleRate))
-                    + bad (positiveFinite (envelope.sourceSampleRate));
+    validate (e);
     return e;
+}
+
+void validate (DiagnosticsEvent& event) noexcept
+{
+    const RhythmObservation& o = event.envelope.observation;
+
+    badField (isPositiveRate (o.sourceSampleRate), event, DiagnosticsField::observationRate);
+    badField (isPositiveRate (event.envelope.sourceSampleRate), event, DiagnosticsField::envelopeRate);
+    badField (isTempoValue (o.bpmCandidate), event, DiagnosticsField::candidateBpm);
+    badField (isUnitInterval (o.beatConfidence01), event, DiagnosticsField::observationConfidence01);
+    badField (isUnitInterval (o.beatPhase01), event, DiagnosticsField::observationBeatPhase01);
+    badField (isUnitInterval (o.onsetStrength01), event, DiagnosticsField::onsetStrength01);
+    badField (isUnitInterval (o.transientDensity01), event, DiagnosticsField::transientDensity01);
+    badField (isDecibelFullScale (o.energyRmsDbfs), event, DiagnosticsField::energyRmsDbfs);
+
+    if (event.clockKnown)
+    {
+        const ClockSnapshot& c = event.clock;
+        badField (isTempoValue (c.bpm), event, DiagnosticsField::clockBpm);
+        badField (isUnitInterval (c.beatPhase01), event, DiagnosticsField::clockBeatPhase01);
+        badField (isUnitInterval (c.barPhase01), event, DiagnosticsField::clockBarPhase01);
+        badField (isUnitInterval (c.confidence01), event, DiagnosticsField::clockConfidence01);
+        badField (isPositiveMeter (c.beatsPerBar), event, DiagnosticsField::clockBeatsPerBar);
+        badField (isPositiveMeter (c.beatUnit), event, DiagnosticsField::clockBeatUnit);
+        // 0 means "not yet known" and is accepted as-is.
+        badField (isKnownBeatInBar (c.beatInBar, c.beatsPerBar < 1 ? 1 : c.beatsPerBar),
+                  event, DiagnosticsField::clockBeatInBar);
+    }
 }
 
 void attachClock (DiagnosticsEvent& event, const ClockSnapshot& clock) noexcept
 {
     event.clockKnown = true;
     event.clock = clock;
-    event.invalidFields += bad (std::isfinite (clock.bpm))
-                         + bad (std::isfinite (clock.beatPhase01))
-                         + bad (std::isfinite (clock.barPhase01))
-                         + bad (std::isfinite (clock.confidence01));
+    validate (event);
 }
 
 void attachRingOverruns (DiagnosticsEvent& event, uint64_t cumulativeOverruns) noexcept
@@ -289,18 +348,32 @@ void attachLiveReceipt (DiagnosticsEvent& event, uint64_t receiptSampleTime) noe
 
 void attachCallbackLatency (DiagnosticsEvent& event, double seconds) noexcept
 {
-    if (nonNegativeFinite (seconds))
+    if (isNonNegativeSeconds (seconds))
+    {
         event.callbackLatencySeconds = { seconds, true };
+        setInvalid (event, DiagnosticsField::callbackLatency, false);
+    }
     else
-        event.invalidFields += 1;
+    {
+        // Clear the measurement: a rejected value must never leave the previous
+        // valid reading in place, which would look like an accepted measurement.
+        event.callbackLatencySeconds = {};
+        setInvalid (event, DiagnosticsField::callbackLatency);
+    }
 }
 
 void attachProcessingDuration (DiagnosticsEvent& event, double seconds) noexcept
 {
-    if (nonNegativeFinite (seconds))
+    if (isNonNegativeSeconds (seconds))
+    {
         event.processingDurationSeconds = { seconds, true };
+        setInvalid (event, DiagnosticsField::processingDuration, false);
+    }
     else
-        event.invalidFields += 1;
+    {
+        event.processingDurationSeconds = {};
+        setInvalid (event, DiagnosticsField::processingDuration);
+    }
 }
 
 DiagnosticsTrace::DiagnosticsTrace() noexcept = default;
@@ -373,7 +446,8 @@ DiagnosticsCounters DiagnosticsTrace::counters() const noexcept
 
 std::size_t DiagnosticsTrace::reset() noexcept
 {
-    // Quiescent by contract, so at most kTraceCapacity events can be queued.
+    // Quiescent by contract: publisher, consumer, UI reader and counters readers
+    // must all be stopped, because dropBase_ and dropped_ are read independently.
     std::size_t discarded = 0;
     DiagnosticsEvent scratch;
     while (discarded < kTraceCapacity && queue_.pop (scratch))
@@ -419,6 +493,17 @@ void DiagnosticsCollector::clear() noexcept
 std::string toCsv (const DiagnosticsCollector& collector)
 {
     std::string out;
+
+    // Metadata preamble. Written before any row, and written even when nothing
+    // was retained, so a zero-event export still reports its losses.
+    out += kCsvMetadataPrefix;
+    out += "jam-diagnostics-csv\n";
+    appendMetadataLine (out, "schema_version", static_cast<uint64_t> (kSchemaVersion));
+    appendMetadataLine (out, "trace_capacity", static_cast<uint64_t> (kTraceCapacity));
+    appendMetadataLine (out, "events_retained", collector.events().size());
+    appendMetadataLine (out, "trace_dropped_at_drain", collector.traceDroppedAtDrain());
+    appendMetadataLine (out, "collector_dropped", collector.collectorDropped());
+
     for (std::size_t j = 0; j < kEventColumnCount; ++j)
     {
         if (j > 0)
