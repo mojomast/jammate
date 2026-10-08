@@ -152,6 +152,8 @@ def make_cells(predeclared, scope="full", realtime=True, target_seconds=4.0):
                     cells.append({
                         "id": cid, "rate": rate, "block": block, "pipeline": pipe,
                         "input": inp, "input_source": f"builtin:{inp}",
+                        "input_signal_kind": inp, "input_source_rate": 0,
+                        "device_rate": rate, "channel_mapping": "mono-replicated",
                         "warm_blocks": warm, "realtime_paced": paced,
                         "measured": True, "unmeasured_reason": None,
                         "cold": _snap(), "warm": _snap(),

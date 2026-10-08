@@ -274,6 +274,29 @@ all self-checks and facade tests green; the runtime was **not** invoked
 (full matrix, `default_clean_long`, `injected_join_stop_resync`) await the
 orchestrator.
 
+## Fourth correction — input timeline (observed before actual measurement)
+
+`InputGen::fill` advanced the shared WAV position inside the channel loop and
+ignored the WAV sample rate: stereo advanced the mono source twice per audio
+frame (doubled tempo, block discontinuity) and a 48 kHz fixture played fast on a
+96 kHz device. Fixed via the shared `src/ReplayInput.h` (one source position per
+audio frame; `sourcePosition = deviceFrame*wavSampleRate/deviceSampleRate`;
+coherent mono replication; advance `N` once; absolute device-frame clock;
+off-callback resampling; true 120 BPM builtin clean in device time; LCG once per
+frame for noise; invalid rates rejected). Cells/scenarios declare
+`input_signal_kind`/`input_source_rate`/`device_rate`/`channel_mapping`; the
+validator requires `device_rate == rate`. `make_synthetic_evidence.py` WAV bytes
+are unchanged.
+
+Executed: validator unit tests **107/107**; pure `ReplayInput` tests (ramp
+fs=4/device=8 wrapped sequence; mono/stereo phase; advance N not 2N; 48→96 step
+0.5; 44.1→48; repeated wrap; fs=48 beat at device frame 24000/48000; chunk
+invariance; builtin clean absolute-time phase; deterministic noise; zero-rate
+rejection). Link-only against the actual integrated product is **LIVE-READY**
+with the full closure and all self-checks; runtime **not** invoked
+(`link-receipt-actual-4.json`). Remaining: the actual runtime gates await the
+orchestrator.
+
 ## Limitations (not claimed)
 
 - The actual live measurement is pending the merged pipeline. Only the harness,

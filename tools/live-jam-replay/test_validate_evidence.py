@@ -421,6 +421,33 @@ class CorrectedValidatorTests(unittest.TestCase):
         c["audio_owner_end"] = 128
         ok, _, _ = hard_pass(ev); self.assertFalse(ok)
 
+    # -- fourth: input timeline metadata -------------------------------------
+    def test_device_rate_mismatch(self):
+        ev = self.fresh()
+        self.cell(ev, "enabled_r96000_b128_clean")["device_rate"] = 48000.0
+        ok, errors, _ = hard_pass(ev)
+        self.assertFalse(ok)
+        self.assertTrue(any("device_rate" in e for e in errors), errors)
+
+    def test_input_signal_kind_missing(self):
+        ev = self.fresh(); del self.enabled_clean(ev)["input_signal_kind"]
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_wav_source_rate_required(self):
+        ev = self.fresh()
+        c = self.enabled_clean(ev)
+        c["input_source"] = "wav:/tmp/strum_120.wav"
+        c["input_source_rate"] = 0
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_wav_source_rate_declared_ok(self):
+        ev = self.fresh()
+        c = self.enabled_clean(ev)
+        c["input_source"] = "wav:/tmp/strum_120.wav"
+        c["input_source_rate"] = 48000.0
+        ok, errors, _ = hard_pass(ev)
+        self.assertTrue(ok, f"a declared WAV source rate must pass: {errors}")
+
     # -- N3 scenarios / gates ------------------------------------------------
     def test_full_missing_injected_scenario(self):
         ev = self.fresh()

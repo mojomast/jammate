@@ -299,6 +299,43 @@ harness linked with the full real closure
 `samplerate`). The runtime was **not** invoked; no measurement is claimed
 (`link-receipt-actual.json`).
 
+## Fourth correction (input timeline; observed before actual measurement)
+
+A directly observed input-timeline bug: `InputGen::fill` advanced the shared WAV
+position inside the channel loop and ignored the WAV sample rate, so stereo
+advanced the mono source twice per audio frame (doubled tempo, block
+discontinuity) and a 48 kHz fixture played fast on a 96 kHz device. Fixed by the
+shared `src/ReplayInput.h`:
+
+- one source position per audio frame; advance by `N` **once**, after all
+  channels are filled;
+- `sourcePosition = deviceFrame * wavSampleRate / deviceSampleRate`;
+- bounded linear interpolation with wrap; mono replicated coherently (no
+  undisclosed channel gain);
+- absolute uint64 device frame from 0 across cold/warm, no reset;
+- resampling outside the armed callback; WAV loaded/hashed off-callback;
+- built-in clean is a true 120 BPM pulse/harmonic strum in device time
+  (`t=(deviceFrame+i)/deviceRate`, 0.5 s period, exponential decay) with no
+  per-block phase reset; noise advances the LCG once per frame and replicates;
+  silence is zero; invalid sample/device rates are rejected (no divide-by-zero).
+
+Each cell/scenario declares `input_signal_kind`, `input_source_rate`,
+`device_rate` and `channel_mapping`; the validator requires `device_rate == rate`
+and a declared WAV source rate. The original 54 expected ids and the nominal
+clean 120 truth are unchanged in meaning (playback now correct).
+
+Verification (`SupportSelfTest`, pure, JUCE-free): ramp fs=4/device=8 exact
+wrapped sequence; mono/stereo equal phase; source advance `N` not `2N`; 48→96
+index step 0.5; 44.1→48 noninteger; repeated wrap; realistic fs=48 beat lands at
+device frame 24000 (48k) and 48000 (96k); chunk invariance (128 vs 64+64);
+builtin clean absolute-time phase; deterministic noise per frame; zero-rate
+rejection. `make_synthetic_evidence.py` WAV bytes are unchanged.
+
+**Link-only** against the actual integrated product is **LIVE-READY** with the
+full closure and all self-checks; the runtime was **not** invoked
+(`link-receipt-actual-4.json`, `fixture-timeline-receipt.json`). Validator unit
+tests **107/107**.
+
 ## Limitations (not claimed)
 
 - Not a whole-program allocation-safety proof. It is a bounded matrix over the

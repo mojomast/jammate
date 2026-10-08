@@ -23,6 +23,7 @@
 // processor is created.
 #include "PluginProcessor.h"
 #include "LiveJamObserved.h"
+#include "ReplayInput.h"
 #include "ReplaySupport.h"
 #include "RtProbeInstrumentation.h"
 #include "jam/IRhythmTracker.h"
@@ -120,20 +121,12 @@ void writeState (std::FILE* f, const jam::JamLiveState& s)
 }
 
 //------------------------------------------------------------------------------
-// Synthetic input.
+// Synthetic input: the shared audio-frame timeline lives in ReplayInput.h.
 //------------------------------------------------------------------------------
-enum class InputKind { clean, noise, silence };
+using replay::InputKind;
+using replay::InputGen;
 
-const char* inputName (InputKind k)
-{
-    switch (k)
-    {
-        case InputKind::clean:   return "clean";
-        case InputKind::noise:   return "noise";
-        case InputKind::silence: return "silence";
-    }
-    return "unknown";
-}
+const char* inputName (InputKind k) { return replay::inputKindName (k); }
 
 struct InputSet
 {
@@ -141,53 +134,6 @@ struct InputSet
     const std::string* path[3] = { nullptr, nullptr, nullptr };
     const WavMono* wavFor (InputKind k) const { return wav[(int) k]; }
     const std::string* pathFor (InputKind k) const { return path[(int) k]; }
-};
-
-struct InputGen
-{
-    InputKind kind = InputKind::clean;
-    std::uint32_t cursor = 1u;
-    const WavMono* wav = nullptr;
-    std::size_t wpos = 0;
-
-    void reset (std::uint32_t seed) noexcept { cursor = seed ? seed : 1u; wpos = 0; }
-
-    void fill (juce::AudioBuffer<float>& buf, int n) noexcept
-    {
-        for (int ch = 0; ch < buf.getNumChannels(); ++ch)
-        {
-            auto* p = buf.getWritePointer (ch);
-            if (wav != nullptr && wav->ok && ! wav->samples.empty())
-            {
-                const std::size_t total = wav->samples.size();
-                for (int i = 0; i < n; ++i) { p[i] = wav->samples[wpos % total]; ++wpos; }
-                continue;
-            }
-            if (kind == InputKind::silence)
-            {
-                for (int i = 0; i < n; ++i) p[i] = 0.0f;
-                continue;
-            }
-            for (int i = 0; i < n; ++i)
-            {
-                cursor = cursor * 1664525u + 1013904223u;
-                const float u = (float) ((cursor >> 8) & 0xFFFFu) / 65535.0f;
-                if (kind == InputKind::noise)
-                {
-                    p[i] = (u * 0.5f - 0.25f) * (ch == 0 ? 1.0f : 0.7f);
-                }
-                else
-                {
-                    const int period = 6000;
-                    const int phase = (int) ((cursor >> 3) % (std::uint32_t) period);
-                    const float env = std::exp (-6.0f * (float) phase / (float) period);
-                    const float tone = std::sin (6.2831853f * 220.0f * (float) i / 48000.0f);
-                    p[i] = (0.05f + 0.35f * env * tone + 0.02f * (u - 0.5f))
-                           * (ch == 0 ? 1.0f : 0.7f);
-                }
-            }
-        }
-    }
 };
 
 //------------------------------------------------------------------------------
@@ -201,6 +147,10 @@ struct Cell
     std::string pipeline;
     InputKind input = InputKind::clean;
     std::string inputSource;
+    std::string inputSignalKind;
+    double inputSourceRate = 0.0;
+    double deviceRate = 0.0;
+    std::string channelMapping;
     int warmBlocks = 0;
     bool realtimePaced = false;
 
@@ -514,14 +464,20 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
     InputGen gen;
     gen.kind = c.input;
     gen.wav = inputs.wavFor (c.input);
+    gen.deviceRate = c.rate;
+    c.deviceRate = c.rate;
+    c.inputSignalKind = inputName (c.input);
+    c.channelMapping = "mono-replicated";
     if (gen.wav != nullptr && gen.wav->ok)
     {
         const std::string* p = inputs.pathFor (c.input);
         c.inputSource = std::string ("wav:") + (p != nullptr ? *p : "?");
+        c.inputSourceRate = gen.wav->rate;
     }
     else
     {
         c.inputSource = std::string ("builtin:") + inputName (c.input);
+        c.inputSourceRate = 0.0;
     }
     gen.reset (o.seed ^ (std::uint32_t) c.block ^ (std::uint32_t) (unsigned) c.rate);
 
@@ -530,7 +486,7 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
 
     // Cold callback (armed). The audio-owner cursor is read after the callback on
     // this same callback-owner thread, outside the armed region.
-    gen.fill (buf, c.block);
+    gen.fill (buf.getArrayOfWritePointers(), buf.getNumChannels(), c.block);
     rtprobe::resetAll();
     const auto c0 = rtprobe::snapshot();
     {
@@ -577,7 +533,7 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
 
     for (int i = 0; i < c.warmBlocks; ++i)
     {
-        gen.fill (buf, c.block);
+        gen.fill (buf.getArrayOfWritePointers(), buf.getNumChannels(), c.block);
 
         if (pace)
         {
@@ -809,7 +765,7 @@ void runDefaultCleanLong (GuitarCompanionProcessor& proc, const Options& o, Scen
     juce::AudioBuffer<float> buf (2, block);
     juce::MidiBuffer midi;
     midi.ensureSize (4096);
-    InputGen gen; gen.kind = InputKind::clean; gen.reset (4242);
+    InputGen gen; gen.kind = InputKind::clean; gen.deviceRate = rate; gen.reset (4242);
 
     // Capture the actual default backend from the first coherent prepared state,
     // independent of join. The backend identity is never derived from playback.
@@ -831,7 +787,7 @@ void runDefaultCleanLong (GuitarCompanionProcessor& proc, const Options& o, Scen
     const auto s0 = rtprobe::snapshot();
     for (std::uint64_t i = 0; i < totalBlocks; ++i)
     {
-        gen.fill (buf, block);
+        gen.fill (buf.getArrayOfWritePointers(), buf.getNumChannels(), block);
         nextDeadline += std::chrono::nanoseconds ((std::int64_t) (1e9 * (double) block / rate));
         if (nextDeadline > Clock::now()) std::this_thread::sleep_until (nextDeadline);
 
@@ -932,7 +888,7 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     juce::AudioBuffer<float> buf (2, block);
     juce::MidiBuffer midi;
     midi.ensureSize (4096);
-    InputGen gen; gen.kind = InputKind::clean; gen.reset (999);
+    InputGen gen; gen.kind = InputKind::clean; gen.deviceRate = rate; gen.reset (999);
 
     replay::BackendObservation backend;
     {
@@ -941,7 +897,7 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     }
 
     auto step = [&] {
-        gen.fill (buf, block);
+        gen.fill (buf.getArrayOfWritePointers(), buf.getNumChannels(), block);
         proc.processBlock (buf, midi);
         ++r.callbacks;
         const double rms = cellOutputRms (buf, block);
@@ -1229,6 +1185,10 @@ int main (int argc, char** argv)
         std::fprintf (f, ",\"pipeline\":\"%s\"", c.pipeline.c_str());
         std::fprintf (f, ",\"input\":\"%s\"", inputName (c.input));
         std::fprintf (f, ",\"input_source\":\"%s\"", c.inputSource.c_str());
+        std::fprintf (f, ",\"input_signal_kind\":\"%s\"", c.inputSignalKind.c_str());
+        std::fprintf (f, ",\"input_source_rate\":"); jsonNumber (f, c.inputSourceRate);
+        std::fprintf (f, ",\"device_rate\":"); jsonNumber (f, c.deviceRate);
+        std::fprintf (f, ",\"channel_mapping\":\"%s\"", c.channelMapping.c_str());
         std::fprintf (f, ",\"warm_blocks\":%d", c.warmBlocks);
         std::fprintf (f, ",\"realtime_paced\":"); jsonBool (f, c.realtimePaced);
         std::fprintf (f, ",\"measured\":"); jsonBool (f, c.measured);
@@ -1323,6 +1283,10 @@ int main (int argc, char** argv)
         std::fprintf (f, ",\"backend_first\":\"%s\"", r.backendFirst.c_str());
         std::fprintf (f, ",\"backend_last\":\"%s\"", r.backendLast.c_str());
         std::fprintf (f, ",\"backend_changed\":"); jsonBool (f, r.backendChanged);
+        std::fprintf (f, ",\"input_signal_kind\":\"clean\"");
+        std::fprintf (f, ",\"input_source_rate\":0");
+        std::fprintf (f, ",\"device_rate\":48000");
+        std::fprintf (f, ",\"channel_mapping\":\"mono-replicated\"");
         std::fprintf (f, ",\"unmeasured_reason\":");
         if (r.ran) std::fprintf (f, "null");
         else std::fprintf (f, "\"%s\"", r.unmeasuredReason.c_str());

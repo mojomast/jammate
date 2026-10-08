@@ -18,8 +18,9 @@ tools/live-jam-replay/
   build_replay.py                self-tests + smoke compile + gated full link
   run_replay.py                  fresh-output runner; awaiting receipts; merge + validate
   validate_evidence.py           standalone fail-closed evidence validator
-  test_validate_evidence.py      41 adversarial validator unit tests
+  test_validate_evidence.py      adversarial validator unit tests
   make_synthetic_evidence.py     deterministic synthetic evidence + fixture WAVs
+  src/ReplayInput.h              audio-frame input timeline + resampling (shared, JUCE-free)
   src/ReplaySupport.h            JSON serializer + 16-bit WAV reader (shared)
   src/LiveJamReplay.cpp          actual-processor replay harness
   src/InstrumentSelfCheck.cpp    instrumentation self-check (no processor)

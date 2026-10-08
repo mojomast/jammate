@@ -329,6 +329,21 @@ def validate_measured(ev, predeclared, local, errors, checks, allow_synthetic):
             add(f"{cid}.output.{key}", "hard", finite(output.get(key)),
                 f"output.{key} must be finite for a measured cell")
 
+        add(f"{cid}.device_rate", "hard",
+            finite(c.get("device_rate")) and c.get("device_rate") == c.get("rate"),
+            "device_rate must equal the cell rate (input timeline)")
+        add(f"{cid}.input_signal_kind", "hard",
+            isinstance(c.get("input_signal_kind"), str) and len(c.get("input_signal_kind")) > 0,
+            "input_signal_kind must be declared")
+        add(f"{cid}.channel_mapping", "hard",
+            isinstance(c.get("channel_mapping"), str) and len(c.get("channel_mapping")) > 0,
+            "channel_mapping must be declared")
+        src_is_wav = isinstance(c.get("input_source"), str) and c["input_source"].startswith("wav:")
+        sr = c.get("input_source_rate")
+        add(f"{cid}.input_source_rate", "hard",
+            (src_is_wav and finite(sr) and sr > 0) or ((not src_is_wav) and sr in (0, 0.0)),
+            "input_source_rate must be positive for a WAV and zero for builtin")
+
         prog = c.get("progression", {})
         for key in PROGRESSION_NUMERIC:
             add(f"{cid}.progression.{key}", "hard", nonneg_int(prog.get(key)),
