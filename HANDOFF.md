@@ -12,9 +12,10 @@ source of truth. Do not rewrite them to match the code.
 
 `main` is the integration branch. `EXECUTION-LEDGER.md` holds current task/gate
 status; the rest of this older handoff describes the original checkout setup.
-The original uncommitted seams are long since integrated. Flash launch attempts
-again failed with insufficient balance; the user explicitly authorised
-`openai/gpt-6.1-sol` workers for the current resumption wave.
+The original uncommitted seams are long since integrated. The latest user
+instruction is **Haiku subagents on OpenCode Go**, exact model
+`opencode-go/claude-haiku-5-5`. Prior Flash/Sol workers finished their tasks;
+new delegated work uses Haiku. Its read-only handoff audit completed successfully.
 
 Worker sessions and path ownership are in EXECUTION-LEDGER's resumption table:
 TRACK-006 fixed paired robustness, MOD-003 isolated simulated Jam UI, and TEST-001
@@ -39,6 +40,11 @@ exact;3168 non-CPU paired rows and coverage exact (3240 total). The manifest has
 22 perturbations plus2 matched baselines. Variant acquisition6→1 of24 clips,
 with6 losses/1 gain; gap error34.3751%, clean0dB-noise11.7945%, funk noise2.8568%.
 These are short-window diagnostics, not release-gate rates. G3 remains open.
+
+CI-003's first fully green remote run is37715897283 at `0820bb5`: core18/19/19/20,
+NAM5/5, Windows Standalone/VST3 and6/6 drum suites. The initial Windows CRLF
+failure was fixed without changing any expected NAM hash. Physical audio/ASIO,
+full callback timing and live join/follow remain unmeasured.
 
 ### Integrated since the original handoff
 
@@ -121,7 +127,11 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 `/home/mojo/projects/guitars-build-resume/`. CMake/Ninja still live in
 `/tmp/opencode/venv/bin` and must be added to PATH.
 
-### Flash lane continuations
+### Historical Flash lane continuations and dated execution log
+
+The following dated entries preserve earlier pending/staged states. They are
+superseded by the current resumption summary and EXECUTION-LEDGER task table.
+Do not use their old routing or blocker statements as present instructions.
 
 | Task | Branch / worktree | Session |
 |---|---|---|

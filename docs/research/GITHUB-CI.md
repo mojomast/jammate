@@ -66,4 +66,24 @@ for both patched files. Expected input/output hashes remain unchanged. Fresh
 local NAM rebuild passes **5/5 suites**, including numerical byte equality,
 idempotence and stale-hash rejection. Generated `lstm.cpp`/`.h` retain their
 original `82f25497…` / `4975a306…` pins. Logs: `lf-overlay-{0,1}.log` in the local
-CI integration scratch directory. Windows rerun remains necessary.
+CI integration scratch directory.
+
+## First complete remote pass
+
+[Run37715897283](https://github.com/mojomast/jammate/actions/runs/37715897283) at
+`0820bb59226a27994bfc9ba4e2003563fd136375` passed all six jobs:
+
+| Lane | Result |
+|---|---|
+| Core OFF / BTrack-only / aubio-only / both |18/18,19/19,19/19,20/20 suites |
+| NAM repair |5/5 suites |
+| Windows2022 / MSVC | Standalone and VST3 build;6/6 drum suites |
+
+The generated-byte pins pass on Windows with the explicit-LF correction.
+The tested Windows build uses WASAPI/DirectSound and disables the embedded
+browser. It does not execute physical audio, ASIO, latency or processor-probe
+instrumentation. Remote NAM validation rechecks committed callback artifacts.
+Evidence receipt and downloaded-log hashes:
+[`github-ci/run-37715897283.json`](github-ci/run-37715897283.json).
+The final merged UI/tracker head is published separately and will receive its
+own CI run; this receipt authenticates the stated tested SHA only.

@@ -22,7 +22,7 @@ task note + commit SHA + successful integration.
 | Lane | Buildable here | Verifies |
 |---|---|---|
 | **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **20/20 suites**; default-OFF **18/18** | deterministic seams, worker lifecycle, acquisition/tempo diagnostics, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
-| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **6/6 passed**; **Standalone and VST3 built on Linux** | Windows/ASIO, full callback and device measurements still required |
+| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **6/6 passed on Linux and Windows**; **Standalone and VST3 built on both** | ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
 PARTIAL, never PASSED.
@@ -33,8 +33,8 @@ PARTIAL, never PASSED.
 
 | Gate | State | Blocking items |
 |---|---|---|
-| **G0** fork/license/baseline | **PARTIAL** | current fork builds/tests on Linux; baseline audio/device and Windows evidence incomplete |
-| **G1** real-time foundation | **PARTIAL** | bounded dry/drum and repaired example-LSTM callbacks plus editor-absent scene delivery measured; other NAM architectures, full callback/device/hosted-plugin and remote CI coverage incomplete |
+| **G0** fork/license/baseline | **PARTIAL** | Linux/Windows formats and drum tests verified; baseline physical audio/device and ASIO evidence incomplete |
+| **G1** real-time foundation | **PARTIAL** | remote CI green; bounded Linux callbacks and editor-absent scene delivery measured; other NAM architectures, full callback/device/hosted-plugin and ASIO coverage incomplete |
 | **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam and simulated Jam shell verified; live analyzer, real DrumEngine/editor integration incomplete |
 | **G3** tracker selected | **IN PROGRESS (advanced early)** | comparison and fixed-variant paired robustness measured; acquisition unmet, variant gap/noise and early-readiness regressions, selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
@@ -95,7 +95,8 @@ All three workers have returned committed, clean handoffs; their accepted status
 and integration evidence are recorded in the task table below. CI-003's first
 remote run passed all core/NAM jobs; Windows stopped on generated CRLF bytes.
 The explicit-LF correction preserves every expected hash and passes5/5 local NAM
-suites. Remote rerun at `0820bb5` is pending.
+suites. Remote rerun37715897283 at `0820bb5` passed all6 jobs: core18/19/19/20,
+NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Device/ASIO evidence remains open.
 
 ---
 
@@ -222,16 +223,14 @@ continuation sessions remain in `HANDOFF.md`; no worker topics are duplicated.
 
 | Work class | Model |
 |---|---|
-| Bounded mechanical implementation, doc/evidence enumeration, checklist-driven tests | `deepseek/deepseek-flash` (user's resumption instruction) |
-| Substantive code or analysis needing real reasoning (call-graph tracing, musical-intelligence algorithm design) | `deepseek/deepseek-flash` |
-| Escalation only: central integration patches, cross-branch conflict resolution, real-time safety review, blocked-worker repair | `openai/gpt-6.1-sol#xhigh` |
+| Development, evidence, tests and reviews | **`opencode-go/claude-haiku-5-5`** (latest user instruction) |
+| Blocked delegated work | Retry/re-scope on Haiku; obtain user direction before changing model |
 
-Escalation is not the default. A worker that reports a blocked contract is
-reassigned at the same tier first; only a genuinely central, safety-critical, or
-cross-cutting problem goes to `gpt-6.1-sol#xhigh`.
-
-Current-wave override: **`openai/gpt-6.1-sol`** workers authorised by the user
-after repeated Flash balance failures; xhigh remains reserved for hard reviews.
+Historical routing: Flash was initially requested, then Sol workers were
+authorised after balance failures. Those workers completed the three packages
+above. The latest user instruction replaces Sol subagents with Haiku on OpenCode
+Go. Haiku audit `ses_ee6b95c28ffegXxn37dQR53e4e` completed successfully and its
+concrete current-facing documentation findings were reviewed and corrected.
 
 ## Controlled integration surfaces (orchestrator-only unless granted)
 
@@ -249,7 +248,7 @@ and reports instead.
 | Task | State | Branch | Owner lane | Gate | Notes |
 |---|---|---|---|---|---|
 | FND-001 provenance/dependency inventory | **DONE** | `wp/FND-001-deps` → merged `724e6d9` | C — evidence | G0 | verified; 2 corrections applied by orchestrator |
-| FND-002 baseline build record | PARTIAL:local build/tests verified | main, `677ce9f` | orchestrator | G0 | both Linux formats + 5 JUCE suites; device/Windows evidence outstanding |
+| FND-002 baseline build record | PARTIAL:Linux/Windows builds/tests verified | main, `677ce9f` + `0820bb5` | orchestrator | G0 | both formats and6/6 drum suites on Linux/Windows; device/ASIO baseline outstanding |
 | FND-003 RT reachability map | **DONE** | `wp/FND-003-rt-reach` → merged `931be23` | A — real-time | G0 | P0 `triggerAsyncUpdate` CONFIRMED reachable |
 | — ADR-0003 build environment | **DONE** | `48f301c` | orchestrator | G0 | two-lane verification split |
 | MOD-001 analysis ring tests | **DONE** | `wp/MOD-001-ring` → merged `89db28d` | B — intelligence | G2 | 19 tests / 95 236 checks; 2 header defects fixed in `efb820b` |
@@ -257,7 +256,7 @@ and reports instead.
 | — library-identity decision | **DONE** | `f04c055` | orchestrator | G5 | `LibraryIndex` positional, not string id |
 | RT-SIGNAL-001 RT-safe signal primitive | **DONE** | `wp/RT-SIGNAL-001` → merged `63259a3` | A — real-time | G1 | 14 tests / 110 090 checks |
 | MOD-002 drum transport adapter | **DONE** | `wp/MOD-002` → merged `86544f1` | B — intelligence | G2 | 13 tests / 129 checks; 3 extra probes |
-| **RT-001 scene signal (F1)** | COMPILED; runtime delivery open | orchestrator, `135b4b7` | A + orchestrator | G1 | real JUCE processor compilation succeeded; host/editor-closed delivery still unmeasured |
+| **RT-001 scene signal (F1)** | VERIFIED:bounded editor-absent delivery | orchestrator, `135b4b7` + RT-002 | A + orchestrator | G1 | real JUCE compilation; editor-absent Timer delivery measured30.5ms versus ~257ms no-audio fallback; other hosts open |
 | EVAL-001 guitar rhythm corpus | **DONE** | `wp/EVAL-001` → merged `f5f5a11` | C — evidence | G3 | 19 fixtures, 21 MB; hashes independently verified |
 | — BTrack vendored + licence seam | **DONE** | `a8da4f2` | orchestrator | G3 | 2 vendor defects found by smoke-build before delegating |
 | TRACK-001 BTrack backend | **DONE** | `wp/TRACK-001` → merged `c3dad10` | B — intelligence | G3 | 10 tests / 38 940 checks; required an orchestrator vendor fix |
@@ -280,10 +279,10 @@ and reports instead.
 | ANALYSIS-001 injected worker lifecycle subset | **DONE: lifecycle foundation (D6); full task PARTIAL** | `wp/ANALYSIS-001-worker`, corrected `5162e4d` → main | C — core implementation, Flash + local review completion | G4 |29 tests/1210 checks, limited synthetic TSAN and throughput verified; production tracker/processor-clock wiring still blocked |
 | TRACK-006 fixed variant paired robustness | **DONE: scoped paired diagnostics** | `wp/TRACK-006-variant-robustness`, `ce3c96e0` → main | B — evidence, Sol | G3 |72 scores and24 exact beat pairs independently reproduced;3240 paired rows; variant loses6 acquisitions/gains1, gap/noise regressions retained; no selection |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
-| CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
+| CI execution evidence | **REMOTE GREEN: scoped builds/tests** | `0820bb5`, run37715897283 | C | G1 | all6 GitHub jobs pass; this is build/test coverage, not whole callback/device validation |
 | TEST-001 foundation tests | **DONE: bounded foundation coverage (D8)** | `wp/TEST-001-foundation`, `0cfc252b` → main | C — verification, Sol | G1 |50 actual JUCE cases; root rebuild and6/6 suites pass; processor migration/concurrent edits remain uncovered |
 | MOD-003 Jam UI shell | **DONE: isolated simulation shell (D7)** | `wp/MOD-003-jam-ui`, `34ab2cb3` → main | C — UI, Sol | G2 | fresh actual JUCE preview build and Xvfb verification pass; seven screenshots; live editor wiring pending |
-| CI-003 GitHub verification | IN PROGRESS | main | orchestrator | G1 | portable four-config matrix, NAM checks and first Windows product build |
+| CI-003 GitHub verification | **DONE: definitions + first remote green** | main, `0820bb5` | orchestrator | G1 | run37715897283 core18/19/19/20, NAM5/5, Windows Standalone/VST3 +6/6 drums; final merged-head run follows publication |
 
 ---
 
@@ -332,6 +331,10 @@ Consequences for planning, not yet actioned:
    a groove's `bpm` as an authoritative tempo will produce wrong behaviour; the
    clock owns tempo (SPEC §10.3), so the catalogue must treat groove BPM as a
    suitability hint only.
+### Superseded early-wave blocker rows
+
+Historical planning states only; the current task table above is authoritative.
+
 | EVAL-001/002, TRACK-001 | BLOCKED:G2 | | | G3 | |
 | ANALYSIS-001, DIAG-001 | BLOCKED:G4 | | | G4 | |
 | STYLE-001, DIRECTOR-001, DRUM-001 | BLOCKED:G4 | | | G5 | |

@@ -96,20 +96,20 @@ For the six screens, controls, tone-store setup and data locations, see the
 
 ## Development status
 
-**Windows-first target; Linux builds and bounded runtime probes verified.**
-Windows/ASIO, physical-device timing and hosted-plugin coverage still need
-verification for this fork. macOS has not been verified.
+**Windows and Linux builds verified; bounded Linux runtime probes verified.**
+ASIO, physical-device timing and hosted-plugin coverage still need verification
+for this fork. macOS has not been verified.
 
 | Milestone | State |
 |---|---|
-| Application foundation | Linux Standalone and VST3 build; inherited rig/drums available |
+| Application foundation | Windows/Linux Standalone and VST3 build; inherited rig/drums available |
 | Real-time stabilization | Bounded callback probes, MIDI reservation and editor-absent scene delivery verified; full coverage remains partial |
 | NAM LSTM repair | Measured per-sample allocations removed; tested numerical outputs byte-identical |
 | Analysis-worker foundation | Injected tracker, lifecycle, discontinuities and bounded evidence queue implemented and tested |
 | Musical Clock | Deterministic core implemented; live end-to-end evidence pending |
 | Jam UI shell | Simulated standalone preview built and resize/control checks pass; application wiring pending |
 | Tracker selection | BTrack and aubio evaluated; acquisition gate still unmet; no production backend selected |
-| Adaptive drummer | Live auto-join/follow, dynamics, fills and Jam UI pending |
+| Adaptive drummer | Live auto-join/follow, dynamics, fills and production Jam controls pending |
 
 ### Verification
 
@@ -118,7 +118,9 @@ Latest local verification, **8 October 2026**:
 - **20/20** core suites with both optional trackers enabled; **18/18** with them
   disabled. The core builds without JUCE or an audio device.
 - **6/6** JUCE drum suites pass, including 12 new foundation regressions;
-  fresh Linux **Standalone + VST3** builds succeed.
+  **Standalone + VST3** builds succeed on Linux and Windows.
+- [GitHub verification](https://github.com/mojomast/jammate/actions/runs/37715897283)
+  passes the four core configurations, NAM repair checks, and Windows build/tests.
 - **26** real-processor probe cases show zero detected heap allocation/free or
   lock/wait operations after the scoped LSTM repair, including eight NAM cases.
   These probes cover a bounded matrix, not every model, effect, host or device.
@@ -202,8 +204,9 @@ ctest --test-dir build/windows -C Release -R '^drums\.' --output-on-failure
   Disable it with `-DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF` for the system-browser
   flow. The embedded flow requires the WebView2 Runtime on the user's machine.
 
-Windows commands are the supported build recipe; execution on this fork still
-needs verification. The current build artifacts keep the upstream names:
+The Windows recipe has passed on GitHub's Windows2022/MSVC runner with ASIO and
+the embedded browser disabled. Physical-device execution remains open.
+The current build artifacts keep the upstream names:
 
 ```text
 build/windows/GuitarCompanion_artefacts/Release/

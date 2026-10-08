@@ -1,0 +1,63 @@
+{
+  "conclusion": "success",
+  "jobs": [
+    {
+      "completedAt": "2026-10-08T02:11:28Z",
+      "conclusion": "success",
+      "id": 113112144155,
+      "name": "Windows / Standalone + VST3 + drums",
+      "startedAt": "2026-10-08T02:02:30Z"
+    },
+    {
+      "completedAt": "2026-10-08T02:03:26Z",
+      "conclusion": "success",
+      "id": 113112144285,
+      "name": "Core / depfree",
+      "startedAt": "2026-10-08T02:02:30Z"
+    },
+    {
+      "completedAt": "2026-10-08T02:03:31Z",
+      "conclusion": "success",
+      "id": 113112144296,
+      "name": "NAM / LSTM repair",
+      "startedAt": "2026-10-08T02:02:30Z"
+    },
+    {
+      "completedAt": "2026-10-08T02:03:36Z",
+      "conclusion": "success",
+      "id": 113112144317,
+      "name": "Core / both",
+      "startedAt": "2026-10-08T02:02:31Z"
+    },
+    {
+      "completedAt": "2026-10-08T02:04:16Z",
+      "conclusion": "success",
+      "id": 113112144342,
+      "name": "Core / aubio",
+      "startedAt": "2026-10-08T02:03:07Z"
+    },
+    {
+      "completedAt": "2026-10-08T02:03:09Z",
+      "conclusion": "success",
+      "id": 113112144403,
+      "name": "Core / btrack",
+      "startedAt": "2026-10-08T02:02:30Z"
+    }
+  ],
+  "limits": [
+    "Windows WASAPI/DirectSound build and drum tests only",
+    "No ASIO SDK, device latency or audible testing",
+    "NAM callback check validates committed artifacts, not a remote processor probe"
+  ],
+  "logHashes": {
+    "/home/mojo/projects/build-CI-003-integration/core-aubio-green.log": "c01da30aed2dcbd60cad5843bf0ebcf3a6050d78cb638ecfd99c21154a274ae6",
+    "/home/mojo/projects/build-CI-003-integration/core-both-green.log": "66515c16b7ebdc8cd436b7871fd098d149755ac0e2f537a9b3cc84dc97e9cff6",
+    "/home/mojo/projects/build-CI-003-integration/core-btrack-green.log": "35942532b4606a41592301883313d3d7bd71a50e8b2ce3d564b1c2004b0abc96",
+    "/home/mojo/projects/build-CI-003-integration/core-depfree-green.log": "c08cc41826999cd3e5b31200f3af6939f64244b0614fc4b2e91b3bcc87c511a8",
+    "/home/mojo/projects/build-CI-003-integration/nam-lstm-repair-green.log": "f845044cf5f9b263d5ff374974c0f7de0a41fb20e4bcd486fd8f13f7a94b767d",
+    "/home/mojo/projects/build-CI-003-integration/windows-standalone-vst3-drums-green.log": "dddb23fe764362985ac0c046c70aa047f71145e3baa0e756e77c3e33933610bd"
+  },
+  "runId": 37715897283,
+  "testedSha": "0820bb59226a27994bfc9ba4e2003563fd136375",
+  "url": "https://github.com/mojomast/jammate/actions/runs/37715897283"
+}

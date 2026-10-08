@@ -9,8 +9,9 @@
 This plan is intentionally structured for an orchestration agent directing **less-capable parallel subagents**. Work is decomposed so workers can execute bounded tasks with narrow file ownership and objective acceptance checks.
 
 **Live status:** [`EXECUTION-LEDGER.md`](EXECUTION-LEDGER.md) is authoritative.
-On resumption the user requested `deepseek/deepseek-flash` workers. Offline
-G3/G4 work has advanced under recorded deviations; G0/G1 are still partial.
+Current delegated model: **`opencode-go/claude-haiku-5-5`**, per the user's latest
+instruction. Earlier Flash/Sol routing is historical. Offline G3/G4 work has
+advanced under recorded deviations; G0/G1 are still partial.
 
 ---
 
@@ -1449,16 +1450,16 @@ Keep this near the top of the live devplan during implementation.
 | Task | State | Branch | SHA | Gate |
 |---|---|---|---|---|
 | FND-001 | DONE | main | 724e6d9 + corrections | G0 |
-| FND-002 | Linux formats/tests verified; hardware/Windows open | main | 677ce9f | G0 |
+| FND-002 | Linux/Windows formats/tests verified; hardware/ASIO open | main | 677ce9f + 0820bb5 | G0 |
 | FND-003 | DONE | main | 931be23 | G0 |
-| RT-001 | F1 JUCE-compiled; F2 engine heap bound verified; full runtime open | main | 135b4b7 + resumption fixes | G1 |
+| RT-001 | F1 bounded editor-absent delivery measured; F2 engine heap bound verified; broader runtime open | main | 135b4b7 + RT-002/003 | G1 |
 | CI-001 | definitions integrated; actual runner execution open | main | 4376672 | G1 |
 | TEST-001 | DONE: bounded foundation coverage (D8) | main | 0cfc252b + suite registration | G1 |
 | MOD-001 | DONE (offline seam) | main | 89db28d + efb820b | G2 |
 | MOD-002 | DONE (offline seam); real engine wiring open | main | 86544f1 | G2 |
 | MOD-003 | DONE: isolated simulated shell (D7); editor wiring pending | main | 34ab2cb3 + reviewed preview | G2 |
 | EVAL-001 | integrated historical corpus; versioned sustain repair + tapping audit in EVAL-006 | main | f5f5a11 + c68df60 + EVAL-006 | G3 |
-| EVAL-002 | integrated; timestamp/gate follow-up underway | main | 3e5bb7b + wp/EVAL-002R | G3 |
+| EVAL-002 | integrated; EVAL-002R superseded by EVAL-004 | main | 3e5bb7b + 64b39ee | G3 |
 | TRACK-001 | DONE (offline candidate) | main | c3dad10 | G3 |
 | TRACK-002 | DONE (offline candidate) | main | wp/TRACK-002 + eac59ba | G3 |
 | TRACK-003 | integrated feasibility; benchmark PARTIAL (no inference) | main | 1ef3d5c + integration corrections | G3 |
@@ -1473,7 +1474,7 @@ Keep this near the top of the live devplan during implementation.
 | TRACK-005 | DONE (diagnostic-only causal BPM-report variant) | main | 7b3a4d7 + framing corrections | G3 |
 | RT-003 | DONE (measured LSTM repair) | main | 401a6c1 + product/verifier fixes | G1 |
 | TRACK-006 | DONE: scoped paired diagnostics; variant gap/noise regressions retained | main | ce3c96e0 + independent replay | G3 |
-| CI-003 | GitHub workflow locally verified; scope authorised, remote execution pending | main | 8f18e03 | G1 |
+| CI-003 | DONE: first remote green, all6 jobs; final merged-head run follows publication | main | 0820bb5, run37715897283 | G1 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
 | ANALYSIS-001 | lifecycle foundation DONE (D6); full task PARTIAL / BLOCKED:G3 | main | 5162e4d + CMake/CI registration | G4 |
 | DIAG-001 | BLOCKED:G3 | | | G4 |
