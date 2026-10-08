@@ -1,0 +1,30 @@
+# UI-LIVE-001 live Jam UI harness verification
+# Generated 2026-10-08T05:26:08Z
+# binary: /home/mojo/projects/build-UI-LIVE-001-worker/LiveJamUiHarness
+
+$ LiveJamUiHarness
+  [ run  ] uiLive_coldDefaultIsUnavailable
+  [  ok   ] uiLive_coldDefaultIsUnavailable
+  [ run  ] uiLive_coherentReadMapsTelemetry
+  [  ok   ] uiLive_coherentReadMapsTelemetry
+  [ run  ] uiLive_failedReadRetainsWholePreviousState
+  [  ok   ] uiLive_failedReadRetainsWholePreviousState
+  [ run  ] uiLive_intentToFrozenCommand
+  [  ok   ] uiLive_intentToFrozenCommand
+  [ run  ] uiLive_submitRejectIsVisibleAndNotApplied
+  [  ok   ] uiLive_submitRejectIsVisibleAndNotApplied
+  [ run  ] uiLive_startStopFollowsAcceptedIntentEcho
+  [  ok   ] uiLive_startStopFollowsAcceptedIntentEcho
+  [ run  ] uiLive_overlayProductionPresentation
+  [  ok   ] uiLive_overlayProductionPresentation
+  [ run  ] uiLive_overlayPreviewOptInRestoresDemoControls
+  [  ok   ] uiLive_overlayPreviewOptInRestoresDemoControls
+  [ run  ] uiLive_overlayClicksDrivePresenter
+  [  ok   ] uiLive_overlayClicksDrivePresenter
+
+9 case(s) run in 4 ms, 0 failed case(s), 0 failed check(s)
+
+$ LiveJamUiHarness --snapshot docs/screenshots
+PASS snapshot /home/mojo/projects/worktrees/UI-LIVE-001-jam-screen/docs/screenshots/jam-live-testfixture.png 1060x920 (label: test fixture)
+PASS snapshot /home/mojo/projects/worktrees/UI-LIVE-001-jam-screen/docs/screenshots/jam-live-cold-testfixture.png 1060x920 (label: test fixture)
+PASS snapshot /home/mojo/projects/worktrees/UI-LIVE-001-jam-screen/docs/screenshots/jam-live-demo-testfixture.png 1060x920 (label: test fixture)

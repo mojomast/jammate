@@ -4,6 +4,8 @@
 #include "SongOverlay.h"
 #include "AudioOverlay.h"
 #include "PluginCatalog.h"
+#include "ui/JamOverlay.h"
+#include "ui/JamLivePresenter.h"
 
 #include <BinaryData.h>
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
@@ -3602,6 +3604,40 @@ RigContent::RigContent (GuitarCompanionProcessor& p)
     songButton.setMouseClickGrabsKeyboardFocus (false);
     addAndMakeVisible (songButton);
 
+    // Live Jam screen (UI-LIVE-001): lazily built overlay + message-thread
+    // presenter over the frozen jam::IJamLiveControl facade. The presenter owns
+    // the single UI reader cache; the overlay only renders and emits intents.
+    // No worker lifecycle, renderer setter or plain engine getter is touched.
+    jamButton.onClick = [this]
+    {
+        if (jamOverlay == nullptr)
+        {
+            jamPresenter = std::make_unique<JamLivePresenter> (processor);
+            jamOverlay = std::make_unique<JamOverlay>();
+            addChildComponent (*jamOverlay);
+            jamOverlay->setBounds (getLocalBounds());
+            jamOverlay->onIntent = [this] (const JamUiIntent& intent)
+            {
+                if (jamPresenter == nullptr || jamOverlay == nullptr)
+                    return;
+                jamPresenter->submit (intent);
+                jamOverlay->setViewState (jamPresenter->viewState());
+            };
+            jamOverlay->onClose = [this]
+            {
+                if (jamOverlay != nullptr)
+                    jamOverlay->setVisible (false);
+            };
+        }
+        jamPresenter->poll();
+        jamOverlay->setViewState (jamPresenter->viewState());
+        jamOverlay->open();   // takes keyboard focus so Escape/Tab stay in the screen
+    };
+    jamButton.setTooltip (juce::String (juce::CharPointer_UTF8 (
+        "Live Jam: play a real Rock groove locked to your guitar")));
+    jamButton.setMouseClickGrabsKeyboardFocus (false);
+    addAndMakeVisible (jamButton);
+
     // drum ribbon at the top (follow along without opening the module)
     drumRibbon = std::make_unique<DrumRibbon> (processor.drumEngine);
     drumRibbon->onOpen = [this] { drumOverlay->open(); };
@@ -3760,6 +3796,16 @@ RigContent::~RigContent()
 {
     processor.onExternalPluginWillChange = nullptr;
     processor.onDrumPluginWillChange = nullptr;
+    // Drop the Jam view before its presenter/state: closing the editor must not
+    // stop workers or reset any pipeline queue, and must leave no dangling UI
+    // callback (the presenter only ever reads the frozen facade).
+    if (jamOverlay != nullptr)
+    {
+        jamOverlay->onIntent = nullptr;
+        jamOverlay->onClose = nullptr;
+        jamOverlay.reset();
+    }
+    jamPresenter.reset();
     closeAllExtPluginWindows();
     closeDrumVstWindow();
     setLookAndFeel (nullptr);
@@ -3828,20 +3874,26 @@ void RigContent::resized()
     drumOverlay->setBounds (getLocalBounds());
     if (songOverlay != nullptr)
         songOverlay->setBounds (getLocalBounds());
+    if (jamOverlay != nullptr)
+        jamOverlay->setBounds (getLocalBounds());
 
-    // ---- top bar (60 px) - clean UI: ghost cluster left, meters, actions right
-    storeButton.setBounds (W - 18 - 134, 13, 134, 34);
-    audioButton.setBounds (storeButton.getX() - 8 - 82, 13, 82, 34);
-    drumButton.setBounds (audioButton.getX() - 8 - 78, 13, 78, 34);
-    songButton.setBounds (drumButton.getX() - 8 - 66, 13, 66, 34);
-    const int metersRight = songButton.getX() - 16;
-    const int meterW = 58, cpuW = 48;
+    // ---- top bar (60 px) - clean UI: ghost cluster left, meters, actions right.
+    // The Live Jam screen button joins the screen cluster; widths are tightened
+    // so the fixed 1100 canvas still fits cluster + meters + preset group with
+    // no overlap (the editor scales this fixed canvas, it never reflows it).
+    storeButton.setBounds (W - 18 - 112, 13, 112, 34);
+    audioButton.setBounds (storeButton.getX() - 8 - 74, 13, 74, 34);
+    drumButton.setBounds (audioButton.getX() - 8 - 70, 13, 70, 34);
+    songButton.setBounds (drumButton.getX() - 8 - 60, 13, 60, 34);
+    jamButton.setBounds (songButton.getX() - 8 - 54, 13, 54, 34);
+    const int metersRight = jamButton.getX() - 16;
+    const int meterW = 50, cpuW = 44;
     cpuMeter.setBounds (metersRight - cpuW, 34, cpuW, 7);
     inMeter.setBounds (metersRight - cpuW - 14 - meterW, 17, meterW, 7);
     outMeter.setBounds (metersRight - cpuW - 14 - meterW, 32, meterW, 7);
 
     {
-        const int pillW = 145, navW = 26, saveW = 52, gap = 4;
+        const int pillW = 108, navW = 26, saveW = 52, gap = 4;
         const int groupW = navW + gap + pillW + gap + navW + gap + saveW
                            + gap + 32 + 4 + 62; // + A/B + REC
         // shifted left so it clears the meters (reserve ~40px for IN/OUT labels)
@@ -4066,15 +4118,15 @@ void RigContent::paint (juce::Graphics& g)
                                   : juce::String ("CPU "))
                             + juce::String ((int) (cpu * 100.0f)) + "%",
                         cpuMeter.getX(), cpuMeter.getY() - 14,
-                        songButton.getX() - 12 - cpuMeter.getX(), 12,
+                        jamButton.getX() - 12 - cpuMeter.getX(), 12,
                         juce::Justification::centredLeft);
         }
 
         // divider between the meters/CPU group and the screen buttons. It has to
-        // sit BEFORE the first of them (Song) - anchored to Drums it landed 4 px
-        // inside the Song button and read as a stray border on it.
+        // sit BEFORE the first of them (Jam) - anchored to an inner button it
+        // landed 4 px inside that button and read as a stray border on it.
         g.setColour (juce::Colours::white.withAlpha (0.08f));
-        g.fillRect (songButton.getX() - 8, 16, 1, 28);
+        g.fillRect (jamButton.getX() - 8, 16, 1, 28);
     }
 
     // ---- rig workspace: fixed side cards + chain container frame (vNext R1)
@@ -4627,6 +4679,15 @@ void RigContent::timerCallback()
 
     const float cpu = processor.cpuLoad.load();
     cpuMeter.setFraction (cpu, cpu > 0.8f ? ui::red : cpu > 0.5f ? ui::yellow : ui::accent);
+
+    // Live Jam (UI-LIVE-001): exactly one coherent UI read per tick while the
+    // screen is open. A failed/unchanged read keeps the previous whole snapshot;
+    // the presenter never starts/joins workers or touches the renderer.
+    if (jamOverlay != nullptr && jamOverlay->isVisible() && jamPresenter != nullptr)
+    {
+        jamPresenter->poll();
+        jamOverlay->setViewState (jamPresenter->viewState());
+    }
 
     // the preset fingerprint is XML serialization - check at 2 Hz, not 30 Hz
     if (tunerTick % 15 == 0)
@@ -5258,6 +5319,12 @@ bool RigContent::keyPressed (const juce::KeyPress& key)
 {
     if (storeOverlay->isVisible())
         return false; // the overlay has its own shortcuts
+
+    // The Live Jam screen is a full-screen modal layer: Escape dismisses it and
+    // no global shortcut fires while it is open. Non-Escape keys fall through to
+    // the overlay (which returns false) so Tab focus traversal still works.
+    if (jamOverlay != nullptr && jamOverlay->isVisible())
+        return jamOverlay->keyPressed (key);
 
     // vNext: ESC closes the effect drawer first
     if (key == juce::KeyPress::escapeKey && fxDrawer != nullptr && fxDrawer->isVisible())

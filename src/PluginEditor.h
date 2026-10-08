@@ -379,6 +379,8 @@ private:
 class DrumOverlay;
 class SongOverlay;
 class AudioOverlay;
+class JamOverlay;
+class JamLivePresenter;
 class DrumRibbon;
 class ChainMinimap;   // footer minimap of the chain (defined in the .cpp)
 
@@ -486,6 +488,14 @@ private:
     std::unique_ptr<FxDrawer> fxDrawer;       // vNext: searchable effect browser
     juce::TextButton drumButton { "Drums" };
     std::unique_ptr<juce::DocumentWindow> drumVstWindow;
+
+    // Live Jam (UI-LIVE-001): the presenter owns the single UI-reader cache and
+    // maps intents to the frozen JamLiveCommand enum. The overlay is a dumb view.
+    // Presenter is declared first so the overlay is destroyed before it (the
+    // overlay never outlives the state it renders); both live only in the editor.
+    std::unique_ptr<JamLivePresenter> jamPresenter;
+    std::unique_ptr<JamOverlay> jamOverlay;
+    juce::TextButton jamButton { "Jam" };
 
     // floating windows with the hosted VST3 plugins' panels
     std::unique_ptr<juce::DocumentWindow> extWindow[GuitarCompanionProcessor::maxExtSlots];
