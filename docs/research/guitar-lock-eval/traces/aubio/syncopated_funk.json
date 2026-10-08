@@ -1,0 +1,271 @@
+{
+  "audio_sha256": "ee8ebb3c2f01c845cd53d4d2ea89d6aa145cafa17818f373366c91e1c94396b9",
+  "backend": "aubio",
+  "backend_kind": "real",
+  "beats": [
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 3.034104167,
+      "horizon_seconds": 3.04,
+      "reported_bpm": 112.898727,
+      "reported_sample": 145637
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 3.565541667,
+      "horizon_seconds": 3.573333333,
+      "reported_bpm": 112.898727,
+      "reported_sample": 171146
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 4.097,
+      "horizon_seconds": 4.106666667,
+      "reported_bpm": 112.898727,
+      "reported_sample": 196656
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 4.6284375,
+      "horizon_seconds": 4.629333333,
+      "reported_bpm": 112.898727,
+      "reported_sample": 222165
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 5.159895833,
+      "horizon_seconds": 5.162666667,
+      "reported_bpm": 112.898727,
+      "reported_sample": 247675
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 5.712979167,
+      "horizon_seconds": 5.717333333,
+      "reported_bpm": 113.0093,
+      "reported_sample": 274223
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 6.243916667,
+      "horizon_seconds": 6.250666667,
+      "reported_bpm": 113.0093,
+      "reported_sample": 299708
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 6.774833333,
+      "horizon_seconds": 6.784,
+      "reported_bpm": 113.0093,
+      "reported_sample": 325192
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 7.305770833,
+      "horizon_seconds": 7.306666667,
+      "reported_bpm": 113.0093,
+      "reported_sample": 350677
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 7.8366875,
+      "horizon_seconds": 7.84,
+      "reported_bpm": 113.0093,
+      "reported_sample": 376161
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 8.2544375,
+      "horizon_seconds": 8.256,
+      "reported_bpm": 113.016449,
+      "reported_sample": 396213
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 8.785333333,
+      "horizon_seconds": 8.789333333,
+      "reported_bpm": 113.016449,
+      "reported_sample": 421696
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 9.316229167,
+      "horizon_seconds": 9.322666667,
+      "reported_bpm": 113.016449,
+      "reported_sample": 447179
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 9.847125,
+      "horizon_seconds": 9.856,
+      "reported_bpm": 113.016449,
+      "reported_sample": 472662
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 10.378020833,
+      "horizon_seconds": 10.378666667,
+      "reported_bpm": 113.016449,
+      "reported_sample": 498145
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 10.908916667,
+      "horizon_seconds": 10.912,
+      "reported_bpm": 113.016449,
+      "reported_sample": 523628
+    },
+    {
+      "bpm_phase_valid": true,
+      "event_seconds": 11.3479375,
+      "horizon_seconds": 11.349333333,
+      "reported_bpm": 113.196289,
+      "reported_sample": 544701
+    }
+  ],
+  "block_frames": 128,
+  "derivation": null,
+  "parent_backend": null,
+  "receipt": {
+    "audio_seconds": 12.064291667,
+    "measured": true,
+    "wall_utc": "2026-10-08T12:35:47Z"
+  },
+  "recording_id": "syncopated_funk",
+  "sample_rate": 48000.0,
+  "schema": "guitar-lock-eval/trace/1.0",
+  "source": {
+    "backend_lib": "/home/mojo/projects/build-EVAL-GUITAR-009/plugins/librhythm-eval-aubio.so",
+    "backend_lib_sha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41",
+    "generated_utc": "2026-10-08T12:35:47Z",
+    "tool": "tracker-diagnostics",
+    "tool_sha256": "e3fd542f209b51737c5109edc039ddf485f50cdc0468a4af99e037085294923d"
+  },
+  "tempo_samples": [
+    {
+      "bpm": 0.0,
+      "event_seconds": 0.0,
+      "horizon_seconds": 0.002666667,
+      "phase_valid": false
+    },
+    {
+      "bpm": 112.898727,
+      "event_seconds": 3.037333333,
+      "horizon_seconds": 3.04,
+      "phase_valid": true
+    },
+    {
+      "bpm": 112.898727,
+      "event_seconds": 3.570666667,
+      "horizon_seconds": 3.573333333,
+      "phase_valid": true
+    },
+    {
+      "bpm": 112.898727,
+      "event_seconds": 4.104,
+      "horizon_seconds": 4.106666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 112.898727,
+      "event_seconds": 4.626666667,
+      "horizon_seconds": 4.629333333,
+      "phase_valid": true
+    },
+    {
+      "bpm": 112.898727,
+      "event_seconds": 5.16,
+      "horizon_seconds": 5.162666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.0093,
+      "event_seconds": 5.714666667,
+      "horizon_seconds": 5.717333333,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.0093,
+      "event_seconds": 6.248,
+      "horizon_seconds": 6.250666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.0093,
+      "event_seconds": 6.781333333,
+      "horizon_seconds": 6.784,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.0093,
+      "event_seconds": 7.304,
+      "horizon_seconds": 7.306666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.0093,
+      "event_seconds": 7.837333333,
+      "horizon_seconds": 7.84,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.016449,
+      "event_seconds": 8.253333333,
+      "horizon_seconds": 8.256,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.016449,
+      "event_seconds": 8.786666667,
+      "horizon_seconds": 8.789333333,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.016449,
+      "event_seconds": 9.32,
+      "horizon_seconds": 9.322666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.016449,
+      "event_seconds": 9.853333333,
+      "horizon_seconds": 9.856,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.016449,
+      "event_seconds": 10.376,
+      "horizon_seconds": 10.378666667,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.016449,
+      "event_seconds": 10.909333333,
+      "horizon_seconds": 10.912,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.196289,
+      "event_seconds": 11.346666667,
+      "horizon_seconds": 11.349333333,
+      "phase_valid": true
+    },
+    {
+      "bpm": 113.196289,
+      "event_seconds": 11.448,
+      "horizon_seconds": 11.450666667,
+      "phase_valid": false
+    },
+    {
+      "bpm": 113.196289,
+      "event_seconds": 12.064,
+      "horizon_seconds": 12.064291667,
+      "phase_valid": false
+    }
+  ],
+  "tempo_sampling": {
+    "compacted": true,
+    "note": "changes + nearest-to-beat + stride; all beats kept",
+    "stride_blocks": 16
+  }
+}

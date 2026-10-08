@@ -1,0 +1,422 @@
+{
+  "adapters": {
+    "aubio": {
+      "backend_lib": "/home/mojo/projects/build-EVAL-GUITAR-009/plugins/librhythm-eval-aubio.so",
+      "backend_lib_sha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41",
+      "binary": "/home/mojo/projects/build-EVAL-GUITAR-009/diag/tracker-diagnostics",
+      "binary_sha256": "e3fd542f209b51737c5109edc039ddf485f50cdc0468a4af99e037085294923d",
+      "returncode": 0
+    },
+    "btrack": {
+      "backend_lib": "/home/mojo/projects/build-EVAL-GUITAR-009/plugins/librhythm-eval-btrack.so",
+      "backend_lib_sha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d",
+      "binary": "/home/mojo/projects/build-EVAL-GUITAR-009/diag/tracker-diagnostics",
+      "binary_sha256": "e3fd542f209b51737c5109edc039ddf485f50cdc0468a4af99e037085294923d",
+      "returncode": 0
+    }
+  },
+  "audio_identities": [
+    {
+      "audio_path": "testdata/rhythm/wav/accelerando.wav",
+      "audio_sha256": "ad7548c2bc2daba75267f88b9b78c86c0875543dabb407f542e170b154a858c6",
+      "classification": "synthetic",
+      "duration_seconds": 12.627104166666667,
+      "id": "accelerando",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/arpeggio.wav",
+      "audio_sha256": "be29f477b61b2e4fe9bfa3b4defa32fd257bc6894d757bd6f036d8936fe241d0",
+      "classification": "synthetic",
+      "duration_seconds": 11.35,
+      "id": "arpeggio",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/blues_shuffle.wav",
+      "audio_sha256": "0d6840d2d761f707eefed67b1cad628baa7499d285b81cf4fbea272ba29c2598",
+      "classification": "synthetic",
+      "duration_seconds": 12.461104166666667,
+      "id": "blues_shuffle",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/clean_eighths.wav",
+      "audio_sha256": "7b2281c7cc02d05167ff3aba76a675e303153b403865df9954deefc453d6c402",
+      "classification": "synthetic",
+      "duration_seconds": 10.8738125,
+      "id": "clean_eighths",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/clean_sixteenths.wav",
+      "audio_sha256": "8a760276dbc41110e11a03e7c2ca6a81db0abea33203d7817415548f01be34a9",
+      "classification": "synthetic",
+      "duration_seconds": 10.8738125,
+      "id": "clean_sixteenths",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/compound_6_8.wav",
+      "audio_sha256": "a95db9aafdd2a12026bc0820f31094b453e40c31542c4d40a2b374165cb592bd",
+      "classification": "synthetic",
+      "duration_seconds": 8.85,
+      "id": "compound_6_8",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/line_input_clipping.wav",
+      "audio_sha256": "97c07ae951c1e71941bb0f11e6e5ac9671360a5021538fe854842a263da3bf23",
+      "classification": "synthetic",
+      "duration_seconds": 10.8738125,
+      "id": "line_input_clipping",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/line_input_low_level.wav",
+      "audio_sha256": "f98f2036d0ad6df6de9778a0dd923d3ad564b22bdc1b8884213e299c3b873b12",
+      "classification": "synthetic",
+      "duration_seconds": 10.8738125,
+      "id": "line_input_low_level",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/missing_downbeats.wav",
+      "audio_sha256": "5dfa999b03f77037760c3ee40bd5b5d4e5373bec1c6289ae125184bd65362d76",
+      "classification": "synthetic",
+      "duration_seconds": 11.35,
+      "id": "missing_downbeats",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/noisy_microphone.wav",
+      "audio_sha256": "d4d70266c0902a5524aef8d1729ea25087a98bc2ed0c985453af6cc778a0a9fe",
+      "classification": "synthetic",
+      "duration_seconds": 10.8738125,
+      "id": "noisy_microphone",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/palm_mute_metal.wav",
+      "audio_sha256": "9cc9cbb80762f23555a7bd92a1ed38b99f3e43cd554832431016398f81531eb3",
+      "classification": "synthetic",
+      "duration_seconds": 10.8738125,
+      "id": "palm_mute_metal",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/power_chords_distorted.wav",
+      "audio_sha256": "9fc83b4496cb18ff1c304c0cb75994bbfcd2af9b2a3cc36e4602907d3fea1d4a",
+      "classification": "synthetic",
+      "duration_seconds": 10.8738125,
+      "id": "power_chords_distorted",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/ritardando.wav",
+      "audio_sha256": "e8cf0485734549c33558386ed07511edda620bfef0f2da74be3e1732ccbef1ce",
+      "classification": "synthetic",
+      "duration_seconds": 12.902375,
+      "id": "ritardando",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/sparse_single_notes.wav",
+      "audio_sha256": "c4cec9d1e1b75b92b95ff55292639cd7ad057318565dde26a40bddee90f1bc6d",
+      "classification": "synthetic",
+      "duration_seconds": 12.064291666666668,
+      "id": "sparse_single_notes",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/stop_start.wav",
+      "audio_sha256": "74324931db424b8df842c63cf2add26afe62338e27da5c7664e5d0ed9b98ef31",
+      "classification": "synthetic",
+      "duration_seconds": 15.895458333333334,
+      "id": "stop_start",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/sustained_chords.wav",
+      "audio_sha256": "e4b9297fca341e70a639fc6a51fbd9e884c1321ee4fc802c5c3497feeefe6442",
+      "classification": "synthetic",
+      "duration_seconds": 11.35,
+      "id": "sustained_chords",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/syncopated_funk.wav",
+      "audio_sha256": "ee8ebb3c2f01c845cd53d4d2ea89d6aa145cafa17818f373366c91e1c94396b9",
+      "classification": "synthetic",
+      "duration_seconds": 12.064291666666668,
+      "id": "syncopated_funk",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/tapping_muting_only.wav",
+      "audio_sha256": "5e3b516af5c65315e9315f5e5d0e2d6cced2f9a45ed0cd9285226abc4a013cb0",
+      "classification": "synthetic",
+      "duration_seconds": 12.064291666666668,
+      "id": "tapping_muting_only",
+      "sample_rate": 48000.0
+    },
+    {
+      "audio_path": "testdata/rhythm/wav/waltz_3_4.wav",
+      "audio_sha256": "37c837c3bcc43bf6dc49aa00a44b69fe998175d4da72cf9c5551e7f63e247895",
+      "classification": "synthetic",
+      "duration_seconds": 9.176083333333333,
+      "id": "waltz_3_4",
+      "sample_rate": 48000.0
+    }
+  ],
+  "base_commit": "984ad1d32c44157ad2d4128c47b86dc932535918",
+  "block_frames": 128,
+  "evidence_class": "diagnostic baseline (synthetic corpus); real-guitar G3 gate cannot pass without representative real recordings",
+  "g3": "OPEN",
+  "gate_pass": false,
+  "gate_reasons": [
+    "empty gate population: no representative real annotated steady recording",
+    "empty gate population: no representative real annotated steady recording"
+  ],
+  "generated_utc": "2026-10-08T12:35:47Z",
+  "head": "984ad1d32c44157ad2d4128c47b86dc932535918",
+  "manifest_path": "/home/mojo/projects/worktrees/EVAL-GUITAR-009/docs/research/guitar-lock-eval/baseline-import.json",
+  "manifest_sha256": "a97a342dadfd5be0298f5b9a6d42ae2f9dbaaee322c05c1ad4ab2e4adb72be55",
+  "protocol_path": "/home/mojo/projects/worktrees/EVAL-GUITAR-009/tools/guitar-lock-eval/protocol/useful-lock-protocol.json",
+  "protocol_sha256": "c92bbdf37ccfc85b4ebb63fa39cd6dfc4137dba4535a5a874f5fd3c6a28c5305",
+  "protocol_unchanged": true,
+  "schema": "guitar-lock-eval/provenance/1.0",
+  "task": "EVAL-GUITAR-009",
+  "tool": "guitar-lock-eval",
+  "trace_files": [
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/accelerando.json",
+      "sha256": "0eb956c56eb3994faae298637b9452a5f38a459f09d81b4a36405166bbd6978b"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/arpeggio.json",
+      "sha256": "3c4b698cd99f2c4af5576f8c8f4caa142d50419c73013ead857ff0a469620beb"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/blues_shuffle.json",
+      "sha256": "dd3f87da1f7d137aee8376529cff8a86111124010b3a9a18065e5a7d7ffc622e"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/clean_eighths.json",
+      "sha256": "e3c6966c2b0dc139c0e3f82d4ffbd403c10dd77f52d98361e28666d81aeb7d3b"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/clean_sixteenths.json",
+      "sha256": "ed0560f9ea01abe69330cf18cd7440502427260419f57cb5103d75a53fe98d3c"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/compound_6_8.json",
+      "sha256": "89f23f9eafe2dbc2f5356581b5ae64b9efe8de84d07efa03cbf67125a6a7e0d8"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/line_input_clipping.json",
+      "sha256": "ade8b5a5877dbb230ebeadb7218e650e288ce6ac3c7d64a9186a7225c26125c7"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/line_input_low_level.json",
+      "sha256": "5b8dbdd76031910a2073ef21c264460c4104caab5991858a5d458f3a6aba54bd"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/missing_downbeats.json",
+      "sha256": "d50728656aa20343a49c4ce17db2cece0c8c89f28fbef1f6da056bda481fb5b6"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/noisy_microphone.json",
+      "sha256": "a1d61448d88dfcb99f661a4a9197a0f4cae84f25fe6b43a955dcb1526a0bba9e"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/palm_mute_metal.json",
+      "sha256": "f6294fd22fa94378ace21417d945e0ddaaa7a29157172064159056ba1a9a192e"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/power_chords_distorted.json",
+      "sha256": "0e0730fd4701c15764bef3abab3460667c8669906c0307db8861dac2584e857e"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/ritardando.json",
+      "sha256": "ec55372649600cc0aef0cf7458d2b5d91084c1270e06e6e8f2d4cfb2f10937d6"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/sparse_single_notes.json",
+      "sha256": "97154dcfa785dacf37942497963c88fd34d6d2cf356b2af3958d9591c9ee154a"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/stop_start.json",
+      "sha256": "cb39a83147a283b28098270087d205530ec46e350120999732832232ff49885b"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/sustained_chords.json",
+      "sha256": "68f48726386d7c0bb5c5272ec193a0805c82dd3a24b312111d84f6a29480e9b1"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/syncopated_funk.json",
+      "sha256": "f7e14c5dab6ced684dd5d9cbcfc0e71e6423e67ebec0678db4a392d9f4f03ba0"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/tapping_muting_only.json",
+      "sha256": "3c4791e7abb49c44aa969797a223e6b53d2fe4ce2327d7b1a62451f99ec64415"
+    },
+    {
+      "path": "traces/diagnostic-beat-interval-bpm/waltz_3_4.json",
+      "sha256": "d9e34aace03e78edfb5e22598003e3887a493f448ed652222e0f5bc353616c81"
+    },
+    {
+      "path": "traces/aubio/accelerando.json",
+      "sha256": "97b941cad3af1dbe2df381b00ce28d44ef1f2781c7324f88a256f030e2f76e62"
+    },
+    {
+      "path": "traces/aubio/arpeggio.json",
+      "sha256": "7d832a0d130715c89fc2a19a8850d3702e80737d38e8a57690b540283b845ae8"
+    },
+    {
+      "path": "traces/aubio/blues_shuffle.json",
+      "sha256": "ac4c7cc91659c29067a0b3ee8df7a2244f0b72a873ded4a7bffef0de105b1706"
+    },
+    {
+      "path": "traces/aubio/clean_eighths.json",
+      "sha256": "374cfe57d4a5a26a2cadb051403ca541ee588030d3a38553ca08401bec9069f6"
+    },
+    {
+      "path": "traces/aubio/clean_sixteenths.json",
+      "sha256": "60b612cded5bd66b16da3921bc6250b2a12f3954fa972e0a9ed683500c4dabb3"
+    },
+    {
+      "path": "traces/aubio/compound_6_8.json",
+      "sha256": "93d4838ba9c3f6ff7a8072a33867a839e287913644de9427d69aa2926c44565e"
+    },
+    {
+      "path": "traces/aubio/line_input_clipping.json",
+      "sha256": "3bfc391f619e4af1fb6d347ce2300d81be8f1f201463e8c87a2f001751fd89dd"
+    },
+    {
+      "path": "traces/aubio/line_input_low_level.json",
+      "sha256": "ca63d35cb757af15d7c4aac0085ea80a0abddbfc58c0c902de864f8a16e0ad71"
+    },
+    {
+      "path": "traces/aubio/missing_downbeats.json",
+      "sha256": "4a6cd9ca6941ff486be835a1689f848d3d566576ccd4356c4fb4e108b4bacd93"
+    },
+    {
+      "path": "traces/aubio/noisy_microphone.json",
+      "sha256": "4afa51027545f5686457e537224087a565c694f54f0e812765f7a5cfb31880b0"
+    },
+    {
+      "path": "traces/aubio/palm_mute_metal.json",
+      "sha256": "ebdf24224db860f1934ed0008ad0b8a7465c8068e95c09a352172c0ece5f6dfe"
+    },
+    {
+      "path": "traces/aubio/power_chords_distorted.json",
+      "sha256": "906c5be9c5cdea4e6a82e0334b5ae0cb9d9590789297561244398649a3658423"
+    },
+    {
+      "path": "traces/aubio/ritardando.json",
+      "sha256": "fb032153cacf6763099166e6d57f86a3032560ad402b00296d78edc0e2e9036c"
+    },
+    {
+      "path": "traces/aubio/sparse_single_notes.json",
+      "sha256": "0c2dc38bcc13939a50e1249f4467a607ed9f2488d1ee31c89dc313e4cdd72b6c"
+    },
+    {
+      "path": "traces/aubio/stop_start.json",
+      "sha256": "114ab3e4e93724d57465293d753306f9af2907612b9c88b317abbe8a5798b9f2"
+    },
+    {
+      "path": "traces/aubio/sustained_chords.json",
+      "sha256": "308d503b44fa6d1ad5f4dd377ed3205fac0c90f56d1979dea59d8c8bc468de72"
+    },
+    {
+      "path": "traces/aubio/syncopated_funk.json",
+      "sha256": "abb340f9a606fb3cd40d527d6d0d5a3e5b96791678cb477bf41fed2a45d057b1"
+    },
+    {
+      "path": "traces/aubio/tapping_muting_only.json",
+      "sha256": "c146f6b394b40ceb2b9ca40823b22ded34123e45b7d2ac95f6ccc0b720a19a63"
+    },
+    {
+      "path": "traces/aubio/waltz_3_4.json",
+      "sha256": "29b32bdc3ef69e21386cdc2f2df7ebbc883b761f363ddb60f7757909f9c31138"
+    },
+    {
+      "path": "traces/btrack/accelerando.json",
+      "sha256": "579e432a5af2c237d3473ecba3b7347685bf8ba803cf4a7041a1942892a37513"
+    },
+    {
+      "path": "traces/btrack/arpeggio.json",
+      "sha256": "2071873994fdf7fb3816ffa0491a3652ba26b8852440cdd61f3d35d36f80360f"
+    },
+    {
+      "path": "traces/btrack/blues_shuffle.json",
+      "sha256": "e4e8c74077f3ff9efce2c2f956e7c631dd01618a667c80f5f90781d93677185b"
+    },
+    {
+      "path": "traces/btrack/clean_eighths.json",
+      "sha256": "e3694aaafc5ccc9e803f96d1a1dd49e0b29df2faa0e9c11242816bd836928fe3"
+    },
+    {
+      "path": "traces/btrack/clean_sixteenths.json",
+      "sha256": "4c71c43423799086fa3543fcbacd16ca3c5f8d82c05594defa8545cff3c8a198"
+    },
+    {
+      "path": "traces/btrack/compound_6_8.json",
+      "sha256": "a681ce54cc1e00c48132ef2e5302ceec1ce74edf9456e7bc116d36e1917cf460"
+    },
+    {
+      "path": "traces/btrack/line_input_clipping.json",
+      "sha256": "d41a85b755da81da2146b8f2a9cf2df9ad8bbddf73d8cfdeeae7c4ac5904a232"
+    },
+    {
+      "path": "traces/btrack/line_input_low_level.json",
+      "sha256": "2ede0c41a8c40f1d5d13d194d8f4997d36030c45e8e20ef97bb39238f4257517"
+    },
+    {
+      "path": "traces/btrack/missing_downbeats.json",
+      "sha256": "5c6e48d2173f43d9c7bbd23822f3f6eb428be625872cff562e7ef4a0fbf528d6"
+    },
+    {
+      "path": "traces/btrack/noisy_microphone.json",
+      "sha256": "2f9506549b6becc8ea7a3d5a33eb314932514dd55a9f110560c2fb65025e7093"
+    },
+    {
+      "path": "traces/btrack/palm_mute_metal.json",
+      "sha256": "26b24a73dc41ee30cd83f039479ab349b74383bc02a24af0c827c0424d83955f"
+    },
+    {
+      "path": "traces/btrack/power_chords_distorted.json",
+      "sha256": "7f048b70a93c17915aaa7a7704f751da4c552d2e9745625aa6fe24e2e889a49c"
+    },
+    {
+      "path": "traces/btrack/ritardando.json",
+      "sha256": "805560aa8caa7caa48dd9b863b8c5026aaf4153e4d5e3c38a02fc57ee832309d"
+    },
+    {
+      "path": "traces/btrack/sparse_single_notes.json",
+      "sha256": "6c0cb928cedc136de13bfb445a500c75d22b9e08fab6c0919e6c9e76db45bf4e"
+    },
+    {
+      "path": "traces/btrack/stop_start.json",
+      "sha256": "9bdcf596d23a6da02ac0ec2e34d2a84c95c8321de8be47ec93019357b9514069"
+    },
+    {
+      "path": "traces/btrack/sustained_chords.json",
+      "sha256": "00fcd6d45ec43a2587a63a48a32f8f0d8d1a7a7e397870ff7937e32ac10cf2fe"
+    },
+    {
+      "path": "traces/btrack/syncopated_funk.json",
+      "sha256": "9bd7a4de14759f0a4b59deefea777b53cef7b9278ad790f5f62071d72aca4ed0"
+    },
+    {
+      "path": "traces/btrack/tapping_muting_only.json",
+      "sha256": "9d642deba8cd7496738147a3979584c6d4a1392bfade3843698e869a7f40aed4"
+    },
+    {
+      "path": "traces/btrack/waltz_3_4.json",
+      "sha256": "a760bff2c08a03b54b6499bb7b45dff191cedaf93f6f343a4c894f95558fff94"
+    }
+  ],
+  "version": "1.0.0"
+}

@@ -1,0 +1,66 @@
+{
+  "schema": "guitar-lock-eval/useful-lock-protocol/1.0",
+  "task": "EVAL-GUITAR-009",
+  "title": "Representative-guitar useful-lock evaluator criteria",
+  "frozen_before": "any trace generation, adapter invocation or measurement",
+  "base_commit": "984ad1d32c44157ad2d4128c47b86dc932535918",
+  "authority": "SPEC.md 19; docs/research/ADAPTIVE-WAVE-CONTRACT.md; docs/research/TRACKER-ACQUISITION.md",
+  "definitions": {
+    "event_clock": "device time of the audio a beat/tempo report is about; a backend-reported sub-block device time when causal, else the block start",
+    "horizon_clock": "device time at which the backend returned the evidence (block end); causal availability",
+    "receipt_clock": "wall-clock time at which the evaluator published/received the evidence; block-resolution audio receipt is the last processed block end and is never mixed with event or horizon",
+    "lock_run": "consecutive predicted beats, each within beat_tolerance_seconds of a distinct forward-advancing ground-truth beat, each accompanied by a phase-valid tempo within bpm_agreement_fraction of the local ground-truth BPM",
+    "lock_acquisition_bars": "beat position of the first beat of the first lock run (event clock) divided by meter.beats_per_bar; mirrors EVAL-002/TRACK-004 (no lock-run semantics are redefined)",
+    "useful_lock": "a lock_run of exactly lock_run_bars acquired within acquisition_window_bars AND correct BPM AND usable phase; a Locked label alone is not sufficient"
+  },
+  "criteria": {
+    "bpm_agreement_fraction": 0.02,
+    "beat_tolerance_seconds": 0.07,
+    "lock_run_bars": 1,
+    "acquisition_window_bars": 2.0,
+    "phase_usable_mean_abs_ms": 70.0,
+    "phase_usable_p95_abs_ms": 150.0,
+    "half_double_band_fraction": 0.10,
+    "min_gate_fraction": 0.95
+  },
+  "gate": {
+    "population": "recordings classified real, marked representative, with a human/licensed annotation, a steady 4/4 meter, at least min_annotated_beats annotated beats, a valid trace from every required backend, and matching audio sha256/rate",
+    "rule": "useful_lock fraction over the gate population >= min_gate_fraction",
+    "min_annotated_beats": 8,
+    "fail_closed": [
+      "no representative real annotated steady recording: GATE FAIL, empty population is never a pass",
+      "any gate recording lacks a trace or annotation: GATE FAIL",
+      "any trace/annotation/audio identity mismatch or malformed: GATE FAIL",
+      "any NaN/Infinity or non-monotonic clock: GATE FAIL",
+      "synthetic or derived recordings never count toward the gate"
+    ]
+  },
+  "separate_labels": [
+    "acquiredWithinWindow",
+    "tempoCorrect",
+    "phaseUsable",
+    "holdover",
+    "halfTimeLock",
+    "doubleTimeLock",
+    "falseLockPhaseOkTempoWrong",
+    "falseLockTempoOkPhaseWrong",
+    "noLock"
+  ],
+  "classification_rules": {
+    "real": "an external human performance; requires human annotation and explicit ownership/license; cannot be fabricated",
+    "synthetic": "generated audio (for example the committed testdata/rhythm corpus); diagnostic only, never a G3 gate recording",
+    "derived": "a transform of another recording or a trace-level candidate; requires parent identity; never a G3 gate recording",
+    "synthetic_mislabelled_real": "classification real without human-sourced annotation or with a generated provenance marker is invalid and fails closed"
+  },
+  "trace_timing_rules": [
+    "event_seconds <= horizon_seconds for every beat and tempo sample that reports a horizon",
+    "receipt.audio_seconds >= max(horizon) when receipt is measured",
+    "receipt is block-resolution only; no sub-block or measured device latency claim",
+    "missing timing is explicit null with a measured=false flag, never a fabricated zero"
+  ],
+  "evidence_policy": {
+    "wav_commit": "private real recordings are never committed; the import manifest stores path + sha256 + rate + duration and supports non-repo locations",
+    "preserve": "existing evidence and corpora are read-only; this tool writes only new paths under tools/guitar-lock-eval and docs/research/guitar-lock-eval",
+    "diagnostic_candidate": "any tuning (for example a beat-interval-derived tempo) is a derived trace-level candidate scored beside the real backends; it is never a production promotion and performs no src/ change"
+  }
+}
