@@ -568,6 +568,41 @@ class CorrectedValidatorTests(unittest.TestCase):
         self.assertTrue([c for c in checks if c.id == "scenario_default_clean_long_gate"][0].pass_,
                         "default-long gate is identity + audio-owner only")
 
+    # -- seventh: drum-only zero-input window --------------------------------
+    def test_drum_only_window_required(self):
+        ev = self.fresh(); del self._inj(ev)["drum_only_window"]
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_drum_only_window_all_zero_output_fails(self):
+        ev = self.fresh(); self._inj(ev)["drum_only_window"]["rms"] = 0.0
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_drum_only_window_steps_none_fails(self):
+        ev = self.fresh(); self._inj(ev)["drum_only_window"]["steps_delta"] = 0
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_drum_only_window_hosted_kit_fails(self):
+        ev = self.fresh()
+        self._inj(ev)["drum_only_window"]["use_vst"] = True
+        self._inj(ev)["drum_only_window"]["sampler_loaded"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_,
+                         "a hosted kit does not prove internal-kit output")
+
+    def test_drum_only_window_allocator_coverage_must_be_unmeasured(self):
+        ev = self.fresh()
+        self._inj(ev)["drum_only_window"]["allocator_coverage"] = "measured-zero"
+        ok, _, _ = hard_pass(ev)
+        self.assertFalse(ok, "the unarmed window must not report measured allocator zeros")
+
+    def test_drum_only_window_zero_input_declared_required(self):
+        ev = self.fresh()
+        self._inj(ev)["drum_only_window"]["zero_input_declared"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
     def test_full_injected_steps_zero_gate(self):
         ev = self.fresh()
         for s in ev["scenarios"]:

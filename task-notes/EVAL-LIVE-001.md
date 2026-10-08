@@ -334,6 +334,18 @@ audio-owner only.
 Executed: validator unit tests **121/121**; link-only against the actual product
 LIVE-READY (runtime not invoked); preserved actual-001 still fails truthfully.
 
+## Seventh correction — drum-only zero-input window
+
+Added a declared zero-input window after the resync proof (silence written
+exact-zero by the caller; 0.5 s wash + 1.0 s measured) that records the real
+processor output RMS/peak/nonzero blocks, steps delta, engine playing,
+`samplesLoaded()==true`, `useVst==false` and `allocator_coverage=unmeasured`.
+The injected gate requires the window proof. INJECTED CONTRACT evidence, not a
+real-guitar/physical claim. WAV bytes and source phase metadata unchanged.
+
+Executed: validator unit tests **127/127**; link-only against the actual product
+LIVE-READY (runtime not invoked); preserved actual-001 still fails truthfully.
+
 ## Limitations (not claimed)
 
 - The actual live measurement is pending the merged pipeline. Only the harness,

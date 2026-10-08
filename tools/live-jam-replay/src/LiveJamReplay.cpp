@@ -769,6 +769,21 @@ struct ScenarioResult
     std::uint64_t resyncSubmitCursor = 0;
     std::uint64_t resyncObservedEnd = 0;
     std::uint64_t resyncOwnerCommandDelta = 0;
+    // Drum-only zero-input window (seventh correction)
+    std::string drumOnlyInputKind = "silence";
+    double drumOnlyWarmupSeconds = 0.0;
+    double drumOnlyMeasuredSeconds = 0.0;
+    std::uint64_t drumOnlySampleCount = 0;
+    double drumOnlySampleRate = 0.0;
+    double drumOnlyRms = 0.0;
+    double drumOnlyPeak = 0.0;
+    std::uint64_t drumOnlyNonzeroBlocks = 0;
+    std::uint64_t drumOnlyStepsDelta = 0;
+    bool drumOnlyEnginePlaying = false;
+    bool drumOnlySamplerLoaded = false;
+    bool drumOnlyUseVst = true;
+    bool drumOnlyZeroInput = false;
+    std::string drumOnlyAllocatorCoverage = "unmeasured";
     std::uint64_t generationBeforeReprepare = 0;
     std::uint64_t generationAfterReprepare = 0;
     bool generationChangedOnReprepare = false;
@@ -1067,6 +1082,46 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
         && r.resyncOwnerCommandDelta >= 1
         && r.resyncStepSample >= r.resyncSubmitCursor
         && r.resyncStepSample < r.resyncObservedEnd;
+    r.stepsFired = stepsFired();
+
+    // Seventh correction: drum-only zero-input window on the actual processor
+    // output. Every callback buffer is written exact-zero by the caller; the
+    // embedded kit (use_vst=false, samplesLoaded=true) is the only source.
+    gen.kind = InputKind::silence;
+    gen.wav = nullptr;
+    r.drumOnlyInputKind = "silence";
+    r.drumOnlyWarmupSeconds = 0.5;
+    r.drumOnlyMeasuredSeconds = 1.0;
+    r.drumOnlySampleRate = rate;
+    r.drumOnlyZeroInput = true;
+    r.drumOnlyAllocatorCoverage = "unmeasured";
+    const int warmupBlocks = (int) (r.drumOnlyWarmupSeconds * rate / block);
+    for (int i = 0; i < warmupBlocks; ++i) pacedStep();
+    const std::uint64_t winStepsBefore = stepsFired();
+    const int measureBlocks = (int) (r.drumOnlyMeasuredSeconds * rate / block);
+    double winRmsSum = 0.0;
+    double winPeak = 0.0;
+    std::uint64_t winNonzero = 0;
+    for (int i = 0; i < measureBlocks; ++i)
+    {
+        pacedStep();
+        const double rms = cellOutputRms (buf, block);
+        winRmsSum += rms;
+        for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+        {
+            const float m = buf.getMagnitude (ch, 0, block);
+            if (m > winPeak) winPeak = m;
+        }
+        if (rms > 1.0e-7) ++winNonzero;
+    }
+    r.drumOnlySampleCount = (std::uint64_t) measureBlocks * (std::uint64_t) block;
+    r.drumOnlyRms = measureBlocks > 0 ? winRmsSum / (double) measureBlocks : 0.0;
+    r.drumOnlyPeak = winPeak;
+    r.drumOnlyNonzeroBlocks = winNonzero;
+    r.drumOnlyStepsDelta = stepsFired() - winStepsBefore;
+    r.drumOnlyEnginePlaying = enginePlaying();
+    r.drumOnlySamplerLoaded = proc.drumEngine.samplesLoaded();
+    r.drumOnlyUseVst = proc.drumEngine.useVst.load();
     r.stepsFired = stepsFired();
 
     // Session generation via prepare cold state (not the per-tick clock gen).
@@ -1448,6 +1503,22 @@ int main (int argc, char** argv)
         std::fprintf (f, ",\"resync_submit_cursor\":"); jsonU64 (f, r.resyncSubmitCursor);
         std::fprintf (f, ",\"resync_observed_end\":"); jsonU64 (f, r.resyncObservedEnd);
         std::fprintf (f, ",\"resync_owner_command_delta\":"); jsonU64 (f, r.resyncOwnerCommandDelta);
+        std::fprintf (f, ",\"drum_only_window\":{");
+        std::fprintf (f, "\"input_kind\":\"%s\"", r.drumOnlyInputKind.c_str());
+        std::fprintf (f, ",\"warmup_seconds\":"); jsonNumber (f, r.drumOnlyWarmupSeconds);
+        std::fprintf (f, ",\"measured_seconds\":"); jsonNumber (f, r.drumOnlyMeasuredSeconds);
+        std::fprintf (f, ",\"sample_count\":"); jsonU64 (f, r.drumOnlySampleCount);
+        std::fprintf (f, ",\"sample_rate\":"); jsonNumber (f, r.drumOnlySampleRate);
+        std::fprintf (f, ",\"rms\":"); jsonNumber (f, r.drumOnlyRms);
+        std::fprintf (f, ",\"peak\":"); jsonNumber (f, r.drumOnlyPeak);
+        std::fprintf (f, ",\"nonzero_blocks\":"); jsonU64 (f, r.drumOnlyNonzeroBlocks);
+        std::fprintf (f, ",\"steps_delta\":"); jsonU64 (f, r.drumOnlyStepsDelta);
+        std::fprintf (f, ",\"engine_playing\":"); jsonBool (f, r.drumOnlyEnginePlaying);
+        std::fprintf (f, ",\"sampler_loaded\":"); jsonBool (f, r.drumOnlySamplerLoaded);
+        std::fprintf (f, ",\"use_vst\":"); jsonBool (f, r.drumOnlyUseVst);
+        std::fprintf (f, ",\"zero_input_declared\":"); jsonBool (f, r.drumOnlyZeroInput);
+        std::fprintf (f, ",\"allocator_coverage\":\"%s\"", r.drumOnlyAllocatorCoverage.c_str());
+        std::fprintf (f, "}");
         std::fprintf (f, ",\"session_generation_changed\":"); jsonBool (f, r.sessionGenerationChanged);
         std::fprintf (f, ",\"released_confirmed\":"); jsonBool (f, r.releasedConfirmed);
         std::fprintf (f, ",\"paced\":"); jsonBool (f, r.paced);

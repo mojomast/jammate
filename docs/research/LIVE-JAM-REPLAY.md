@@ -385,6 +385,26 @@ Validator unit tests **121/121**; link-only against the actual product is
 LIVE-READY (runtime not invoked); the preserved actual-001 evidence still fails
 truthfully (`actual-001-recheck-6.json`).
 
+## Seventh correction (drum-only zero-input window)
+
+The injected scenario proved transport wiring via engine getters, but not that
+the actual processor output carries internal-kit drums. Added a declared
+zero-input window after the resync proof: switch the input generator to silence
+so every callback buffer is written exact-zero by the caller, run 0.5 s of paced
+wash, then measure 1.0 s of paced callbacks. The window records the real
+processor output RMS/peak/nonzero blocks, the injected steps delta, engine
+playing, internal-kit `samplesLoaded()==true` and `useVst.load()==false`, with
+`allocator_coverage=unmeasured` (the window is unarmed; the 54-cell RT gate is
+unchanged). The injected gate requires `zero_input_declared`, `sampler_loaded`,
+`use_vst=false`, `sample_count>=sample_rate`, nonzero output, `steps_delta>0` and
+`engine_playing`. This is INJECTED CONTRACT evidence, not a real-guitar or
+physical-device claim. `make_synthetic_evidence.py` WAV bytes and the selected
+source WAVs/absolute-frame phase metadata are unchanged.
+
+Validator unit tests **127/127**; link-only against the actual product is
+LIVE-READY (runtime not invoked); preserved actual-001 still fails truthfully
+(`actual-001-recheck-7.json`).
+
 ## Limitations (not claimed)
 
 - Not a whole-program allocation-safety proof. It is a bounded matrix over the

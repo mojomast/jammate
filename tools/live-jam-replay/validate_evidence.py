@@ -635,6 +635,29 @@ def validate_scenarios(ev, scope, add):
                             add(f"scenario_{sid}_{key}", "hard",
                                 isinstance(s.get(key), int) and s.get(key) >= 0,
                                 f"{key} must be a non-negative integer")
+                        win = s.get("drum_only_window")
+                        add(f"scenario_{sid}_window", "hard", isinstance(win, dict),
+                            "the drum-only zero-input window must be declared")
+                        if isinstance(win, dict):
+                            add(f"scenario_{sid}_window_zero_input", "hard",
+                                win.get("zero_input_declared") is True,
+                                "the window must declare zero input")
+                            add(f"scenario_{sid}_window_allocator_coverage", "hard",
+                                win.get("allocator_coverage") == "unmeasured",
+                                "the unarmed window must declare allocator coverage unmeasured")
+                            for key in ("sample_count", "nonzero_blocks", "steps_delta"):
+                                add(f"scenario_{sid}_window_{key}", "hard",
+                                    isinstance(win.get(key), int) and win.get(key) >= 0,
+                                    f"window.{key} must be a non-negative integer")
+                            for key in ("warmup_seconds", "measured_seconds", "sample_rate",
+                                        "rms", "peak"):
+                                add(f"scenario_{sid}_window_{key}", "hard",
+                                    finite(win.get(key)) and win.get(key) >= 0,
+                                    f"window.{key} must be a non-negative finite number")
+                            for key in ("engine_playing", "sampler_loaded", "use_vst"):
+                                add(f"scenario_{sid}_window_{key}", "hard",
+                                    isinstance(win.get(key), bool),
+                                    f"window.{key} must be boolean")
         d = by_id.get("default_clean_long", {}) or {}
         d_ok = (d.get("ran") is True and d.get("backend_kind") == "experimentalBTrack"
                 and d.get("start_accepted") is True and d.get("audio_owner_delta_ok") is True
@@ -665,6 +688,18 @@ def validate_scenarios(ev, scope, add):
                   and inj.get("session_generation_changed") is True
                   and inj.get("released_confirmed") is True
                   and inj.get("paced") is True
+                  and isinstance(inj.get("drum_only_window"), dict)
+                  and inj["drum_only_window"].get("zero_input_declared") is True
+                  and inj["drum_only_window"].get("sampler_loaded") is True
+                  and inj["drum_only_window"].get("use_vst") is False
+                  and inj["drum_only_window"].get("sample_count", 0)
+                      >= inj["drum_only_window"].get("sample_rate", 0)
+                  and inj["drum_only_window"].get("rms", 0) > 1.0e-7
+                  and inj["drum_only_window"].get("peak", 0) > 1.0e-7
+                  and inj["drum_only_window"].get("nonzero_blocks", 0) > 0
+                  and inj["drum_only_window"].get("steps_delta", 0) > 0
+                  and inj["drum_only_window"].get("engine_playing") is True
+                  and inj["drum_only_window"].get("allocator_coverage") == "unmeasured"
                   and inj.get("callbacks", 0) > 0)
         if inj.get("ran") is not True:
             add("join_gate", "gate", False,
