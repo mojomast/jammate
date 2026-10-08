@@ -1,5 +1,7 @@
-# UI-LIVE-001 live Jam UI harness verification
-# Generated 2026-10-08T05:26:08Z
+# UI-LIVE-001 live Jam UI harness verification (corrected)
+# Generated 2026-10-08T05:59:20Z
+# Source base: 88893e2 (frozen contract). Harness: tools/live-jam-ui.
+# Reuse deps: /home/mojo/projects/build-INT-DRUM-001-integration/product (read-only JUCE objects)
 # binary: /home/mojo/projects/build-UI-LIVE-001-worker/LiveJamUiHarness
 
 $ LiveJamUiHarness
@@ -9,22 +11,34 @@ $ LiveJamUiHarness
   [  ok   ] uiLive_coherentReadMapsTelemetry
   [ run  ] uiLive_failedReadRetainsWholePreviousState
   [  ok   ] uiLive_failedReadRetainsWholePreviousState
+  [ run  ] uiLive_statusStringsSeparateIntentFromEcho
+  [  ok   ] uiLive_statusStringsSeparateIntentFromEcho
   [ run  ] uiLive_intentToFrozenCommand
   [  ok   ] uiLive_intentToFrozenCommand
   [ run  ] uiLive_submitRejectIsVisibleAndNotApplied
   [  ok   ] uiLive_submitRejectIsVisibleAndNotApplied
-  [ run  ] uiLive_startStopFollowsAcceptedIntentEcho
-  [  ok   ] uiLive_startStopFollowsAcceptedIntentEcho
+  [ run  ] uiLive_fastDoubleClickCancelsPendingStart
+  [  ok   ] uiLive_fastDoubleClickCancelsPendingStart
+  [ run  ] uiLive_rejectedStartIsNotPretendedAccepted
+  [  ok   ] uiLive_rejectedStartIsNotPretendedAccepted
+  [ run  ] uiLive_generationResetReleasesPendingLatch
+  [  ok   ] uiLive_generationResetReleasesPendingLatch
+  [ run  ] uiLive_primaryControlsVisibleAtRealCanvas
+  [  ok   ] uiLive_primaryControlsVisibleAtRealCanvas
   [ run  ] uiLive_overlayProductionPresentation
   [  ok   ] uiLive_overlayProductionPresentation
   [ run  ] uiLive_overlayPreviewOptInRestoresDemoControls
   [  ok   ] uiLive_overlayPreviewOptInRestoresDemoControls
+  [ run  ] uiLive_overlayEscapeClosesOnceTabFallsThrough
+  [  ok   ] uiLive_overlayEscapeClosesOnceTabFallsThrough
   [ run  ] uiLive_overlayClicksDrivePresenter
   [  ok   ] uiLive_overlayClicksDrivePresenter
 
-9 case(s) run in 4 ms, 0 failed case(s), 0 failed check(s)
+14 case(s) run in 5 ms, 0 failed case(s), 0 failed check(s)
+PASS async triggerClick: enabled fired, disabled ignored
 
-$ LiveJamUiHarness --snapshot docs/screenshots
-PASS snapshot /home/mojo/projects/worktrees/UI-LIVE-001-jam-screen/docs/screenshots/jam-live-testfixture.png 1060x920 (label: test fixture)
-PASS snapshot /home/mojo/projects/worktrees/UI-LIVE-001-jam-screen/docs/screenshots/jam-live-cold-testfixture.png 1060x920 (label: test fixture)
-PASS snapshot /home/mojo/projects/worktrees/UI-LIVE-001-jam-screen/docs/screenshots/jam-live-demo-testfixture.png 1060x920 (label: test fixture)
+$ LiveJamUiHarness --snapshot docs/screenshots   (1100x700 real canvas, mock fixture)
+PASS snapshot /home/mojo/projects/worktrees/UI-LIVE-001-jam-screen/docs/screenshots/jam-live-cold-testfixture.png 1100x700 (label: test fixture)
+PASS snapshot /home/mojo/projects/worktrees/UI-LIVE-001-jam-screen/docs/screenshots/jam-live-armed-testfixture.png 1100x700 (label: test fixture)
+PASS snapshot /home/mojo/projects/worktrees/UI-LIVE-001-jam-screen/docs/screenshots/jam-live-playing-testfixture.png 1100x700 (label: test fixture)
+PASS snapshot /home/mojo/projects/worktrees/UI-LIVE-001-jam-screen/docs/screenshots/jam-live-demo-testfixture.png 1100x700 (label: test fixture)

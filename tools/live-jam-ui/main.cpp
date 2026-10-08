@@ -74,21 +74,22 @@ public:
     jam::JamLiveCommand last {};
 };
 
-jam::JamLiveState fixtureState()
+jam::JamLiveState fixtureState (bool playing, bool joinPending)
 {
     jam::JamLiveState s;
     s.prepared = true;
     s.requestedRunning = true;
-    s.drumsPlaying = true;
-    s.backend = jam::JamLiveBackend::experimentalBTrack;
+    s.joinPending = joinPending;
+    s.drumsPlaying = playing;
+    s.backend = jam::JamLiveBackend::injectedTest;   // mock fixture, never real input
     s.mode = jam::TempoMode::Follow;
     s.candidateBpm = 118.4f;
     s.clock.bpm = 120.0;
     s.clock.confidence01 = 0.82f;
-    s.clock.lockState = jam::ClockLockState::Locked;
-    s.clock.beatInBar = 2;
+    s.clock.lockState = playing ? jam::ClockLockState::Locked : jam::ClockLockState::Acquiring;
+    s.clock.beatInBar = playing ? 2 : 0;
     s.clock.beatsPerBar = 4;
-    s.inputPeak = 0.42f;
+    s.inputPeak = playing ? 0.42f : 0.18f;
     s.sessionGeneration = 3;
     s.audioSampleTime = 100000;
     s.lastReceiptSampleTime = 98900;
@@ -96,12 +97,15 @@ jam::JamLiveState fixtureState()
     return s;
 }
 
-int writeOverlay (const juce::File& file, const JamViewState& s, bool simulated = false)
+int writeOverlay (const juce::File& file, const JamViewState& s,
+                  bool simulated = false, bool fixture = false)
 {
     JamOverlay overlay;
     overlay.setSimulatedPreview (simulated);   // only the demo fixture opts in
-    overlay.setViewState (s);
-    overlay.setSize (1060, 920);   // tall enough to show every control
+    auto view = s;
+    view.fixture = fixture;                    // visible "MOCK FIXTURE" tag
+    overlay.setViewState (view);
+    overlay.setSize (1100, 700);   // the real design canvas
     auto image = overlay.createComponentSnapshot (overlay.getLocalBounds());
     file.deleteFile();
     juce::FileOutputStream stream (file);
@@ -120,15 +124,20 @@ int renderFixtureSnapshots (const juce::File& dir)
     if (! dir.exists())
         dir.createDirectory();
 
-    FixtureControl mock;
-    mock.state = fixtureState();
-    JamLivePresenter armed (mock);
-    armed.poll();
-
     FixtureControl coldMock;
     coldMock.publish = false;
     JamLivePresenter cold (coldMock);
     cold.poll();
+
+    FixtureControl armedMock;
+    armedMock.state = fixtureState (false, true);
+    JamLivePresenter armed (armedMock);
+    armed.poll();
+
+    FixtureControl playingMock;
+    playingMock.state = fixtureState (true, false);
+    JamLivePresenter playing (playingMock);
+    playing.poll();
 
     // Explicit demo opt-in: the same component, loaded with a simulated state.
     JamViewState demo;
@@ -149,10 +158,64 @@ int renderFixtureSnapshots (const juce::File& dir)
     demo.nextIntent = "Playing (demo)";
 
     int rc = 0;
-    rc |= writeOverlay (dir.getChildFile ("jam-live-testfixture.png"), armed.viewState());
-    rc |= writeOverlay (dir.getChildFile ("jam-live-cold-testfixture.png"), cold.viewState());
+    rc |= writeOverlay (dir.getChildFile ("jam-live-cold-testfixture.png"), cold.viewState(), false, true);
+    rc |= writeOverlay (dir.getChildFile ("jam-live-armed-testfixture.png"), armed.viewState(), false, true);
+    rc |= writeOverlay (dir.getChildFile ("jam-live-playing-testfixture.png"), playing.viewState(), false, true);
     rc |= writeOverlay (dir.getChildFile ("jam-live-demo-testfixture.png"), demo, true);
     return rc;
+}
+
+// Real posted-click path (triggerClick + message pump). Kept in the isolated
+// harness: stopping the dispatch loop poisons callAsync for the rest of a
+// shared test binary.
+class AsyncMock final : public jam::IJamLiveControl
+{
+public:
+    bool submitJamCommand (const jam::JamLiveCommand& c) noexcept override
+    {
+        commands.push_back (c);
+        return true;
+    }
+    bool readJamLiveState (jam::JamLiveState&) const noexcept override { return false; }
+    std::vector<jam::JamLiveCommand> commands;
+};
+
+int runAsyncClickSelfCheck()
+{
+    AsyncMock mock;
+    JamLivePresenter p (mock);
+    JamOverlay o;
+    o.onIntent = [&p] (const JamUiIntent& i) { p.submit (i); };
+    o.setViewState (p.viewState());
+    o.setSize (1100, 700);
+
+    int tap = -1, fill = -1;
+    for (int i = 0; i < o.getNumActions(); ++i)
+    {
+        const auto n = o.getActionButton (i).getName();
+        if (n == "TAP") tap = i;
+        if (n == "FILL") fill = i;
+    }
+    if (tap < 0 || fill < 0)
+    {
+        std::printf ("FAIL async self-check: TAP/FILL missing\n");
+        return 1;
+    }
+
+    o.getActionButton (tap).triggerClick();     // enabled -> posts a real command
+    o.getActionButton (fill).triggerClick();    // disabled -> JUCE must ignore
+    auto* mm = juce::MessageManager::getInstance();
+    mm->callAsync ([] { juce::MessageManager::getInstance()->stopDispatchLoop(); });
+    mm->runDispatchLoop();
+
+    if (mock.commands.size() != 1
+        || mock.commands.back().type != jam::JamLiveCommandType::TapTempo)
+    {
+        std::printf ("FAIL async triggerClick self-check (cmds=%d)\n", (int) mock.commands.size());
+        return 1;
+    }
+    std::printf ("PASS async triggerClick: enabled fired, disabled ignored\n");
+    return 0;
 }
 }
 
@@ -193,5 +256,9 @@ int main (int argc, char** argv)
         std::printf ("ERROR: the filter matched no test case\n");
         return 1;
     }
-    return th::totalFailures == 0 ? 0 : 1;
+    if (th::totalFailures != 0)
+        return 1;
+
+    // Runs last: the pump below poisons callAsync, which would break later cases.
+    return runAsyncClickSelfCheck();
 }

@@ -30,6 +30,12 @@ public:
     const juce::String& lastFeedback() const noexcept { return feedback; }
     bool hasLiveState() const noexcept { return haveLive; }
 
+    // Local accepted-intent latch: selection/queued status only, never proof of
+    // sound. Lets a fast second click cancel a not-yet-echoed Start.
+    bool startIntentLatched() const noexcept { return intentRunning; }
+    bool startQueued() const noexcept { return startPending; }
+    bool stopQueued() const noexcept { return stopPending; }
+
     // Pure intent -> frozen command mapping (independently testable).
     static bool mapIntent (const JamUiIntent&, jam::JamLiveCommand& out) noexcept;
 
@@ -49,6 +55,7 @@ public:
 private:
     void present() noexcept;
     juce::String nextIntentText() const;
+    juce::String statusText() const;
     juce::String composeDiagnostics() const;
 
     jam::IJamLiveControl& control;
@@ -56,6 +63,12 @@ private:
     JamViewState view {};
     bool haveLive = false;
     bool lastAccepted = false;
+    // Accepted-intent latch, separate from the audio-owner echo. Reset only on a
+    // device generation change or prepared release, never on a stale/raced read.
+    bool intentRunning = false;
+    bool startPending = false, stopPending = false;
+    bool haveGeneration = false;
+    std::uint64_t lastSeenGeneration = 0;
     juce::String feedback;
     std::uint64_t polls = 0, readFailures = 0, submits = 0, rejects = 0;
     int lastCommand = -1;

@@ -23,6 +23,10 @@ struct JamViewState
     bool joinPending = false;
     bool drumsPlaying = false;       // latest audio-owner echo, not scheduled intent
     bool tempoFrozen = false;
+    // Local accepted-intent latch (selection only, never proof of sound) and the
+    // exact status line derived from it plus the audio-owner echo.
+    bool startQueued = false, stopQueued = false;
+    juce::String statusText;
     int backend = 0;                 // jam::JamLiveBackend
     int failure = 0;                 // jam::JamLiveFailure
     int modeId = 1;                  // jam::TempoMode
@@ -49,6 +53,7 @@ struct JamViewState
     juce::String availability;       // clear "not implemented" text, never silence
     juce::String commandFeedback;    // visible dropped/rejected feedback
     bool simulated = false;          // demo telemetry only (preview opt-in)
+    bool fixture = false;            // injected mock telemetry, not real input
 };
 
 // Typed intent emitted by the view. The production presenter maps only the
@@ -97,6 +102,21 @@ public:
     juce::TextButton& getActionButton (int index) { return actions[(size_t) index]; }
     juce::Slider& getAmountSlider (int index) { return amounts[(size_t) index]; }
     int getNumActions() const { return (int) actions.size(); }
+
+    // Geometry helpers for the layout/visibility tests (no pixel snapshots): the
+    // visible viewport area and a control's area translated into viewport space.
+    juce::Rectangle<int> viewportVisibleArea() const { return viewport.getLocalBounds(); }
+    juce::Rectangle<int> visibleControlArea (const juce::Component& c) const
+    {
+        return viewport.getLocalArea (&c, c.getLocalBounds());
+    }
+    juce::Rectangle<int> getHeaderArea() const { return headerArea; }
+    juce::Rectangle<int> getStatusArea() const { return statusArea; }
+    juce::Rectangle<int> getTelemetryArea() const { return telemetryArea; }
+    juce::Rectangle<int> getControlsArea() const { return controlsArea; }
+    juce::Rectangle<int> getActionArea() const { return actionArea; }
+    juce::Rectangle<int> getDiagnosticsArea() const { return diagnosticsArea; }
+    juce::TextButton& getDiagnosticsButton() { return diagnostics; }
 
 private:
     void emit (JamUiIntent::Kind, double = 0.0);

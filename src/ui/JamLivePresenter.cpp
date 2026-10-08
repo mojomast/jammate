@@ -88,6 +88,10 @@ void JamLivePresenter::resetCache() noexcept
     live = jam::JamLiveState {};
     haveLive = false;
     lastAccepted = false;
+    intentRunning = false;
+    startPending = stopPending = false;
+    haveGeneration = false;
+    lastSeenGeneration = 0;
     feedback.clear();
     present();
 }
@@ -141,11 +145,13 @@ bool JamLivePresenter::submit (const JamUiIntent& in) noexcept
         return false;
     }
 
-    // One button: the next start toggle is a stop once Start was accepted (or the
-    // audio owner echoes playback), so a scheduled stop is never re-armed.
-    if (in.kind == JamUiIntent::Kind::startStop
-        && (live.requestedRunning || live.drumsPlaying))
-        cmd.type = Cmd::Stop;
+    // One button, toggled from the LOCAL accepted-intent latch (not the stale
+    // audio echo): a fast second click after an accepted Start schedules a Stop
+    // before the worker echoes anything, so a pending join can be cancelled.
+    const bool isStartStop = in.kind == JamUiIntent::Kind::startStop;
+    const bool wantStart = isStartStop ? ! intentRunning : false;
+    if (isStartStop)
+        cmd.type = wantStart ? Cmd::Start : Cmd::Stop;
 
     lastCommand = (int) cmd.type;
     lastCommandValue_ = cmd.value;
@@ -153,11 +159,20 @@ bool JamLivePresenter::submit (const JamUiIntent& in) noexcept
     const bool ok = control.submitJamCommand (cmd);
     lastAccepted = ok;
     if (ok)
+    {
+        if (isStartStop)
+        {
+            intentRunning = wantStart;
+            startPending = wantStart;
+            stopPending = ! wantStart;
+        }
         feedback = juce::String (commandName (cmd.type))
                    + (cmd.type == Cmd::Stop ? " requested." : " accepted by the queue - not yet applied.");
+    }
     else
     {
         ++rejects;
+        // A rejected Start must never look accepted: the latch is unchanged.
         feedback = juce::String (commandName (cmd.type))
                    + " rejected: the live command queue is full or unavailable.";
     }
@@ -176,6 +191,22 @@ bool JamLivePresenter::poll() noexcept
     const bool ok = control.readJamLiveState (next);
     if (ok)
     {
+        // A device re-prepare / session reset releases the pending latch. A stale
+        // or raced read with the same generation does NOT: the accepted request
+        // stays selected until a newer start/stop or a reset.
+        if (! next.prepared
+            || (haveGeneration && next.sessionGeneration != lastSeenGeneration))
+        {
+            intentRunning = false;
+            startPending = stopPending = false;
+        }
+        haveGeneration = true;
+        lastSeenGeneration = next.sessionGeneration;
+
+        // Clear only the queued flag whose echo has arrived.
+        if (next.requestedRunning) startPending = false;
+        else                       stopPending = false;
+
         live = next;
         haveLive = true;
     }
@@ -193,13 +224,38 @@ juce::String JamLivePresenter::nextIntentText() const
         return failureName (live.failure);
     if (! live.prepared)
         return "Not prepared";
-    if (! live.requestedRunning)
-        return "Stopped";
     if (live.drumsPlaying)
         return "Playing";
-    if (live.joinPending)
+    if (startQueued() && ! live.requestedRunning)
+        return "Start queued";
+    if (stopQueued())
+        return "Stop queued";
+    if (live.requestedRunning && live.joinPending)
         return "Waiting for a usable clock lock";
-    return "Listening for the guitar";
+    if (live.requestedRunning)
+        return "Listening for the guitar";
+    return "Stopped";
+}
+
+juce::String JamLivePresenter::statusText() const
+{
+    if (! haveLive)
+        return live.failure != jam::JamLiveFailure::none ? "UNAVAILABLE" : "NOT CONNECTED";
+    if (live.failure != jam::JamLiveFailure::none)
+        return "UNAVAILABLE";
+    if (! live.prepared)
+        return "NOT PREPARED";
+    if (live.drumsPlaying)
+        return "PLAYING (AUDIO ECHO)";
+    if (startQueued() && ! live.requestedRunning)
+        return "START QUEUED - WAITING FOR THE ENGINE";
+    if (stopQueued())
+        return "STOP QUEUED - WAITING FOR THE ENGINE";
+    if (live.requestedRunning && live.joinPending)
+        return "ARMED - WAITING FOR THE CLOCK";
+    if (live.requestedRunning)
+        return "ARMED - LISTENING";
+    return "PREPARED - STOPPED";
 }
 
 juce::String JamLivePresenter::composeDiagnostics() const
@@ -269,7 +325,6 @@ void JamLivePresenter::present() noexcept
         v.beatPhase01 = (float) live.clock.beatPhase01;
         v.barPhase01 = (float) live.clock.barPhase01;
         v.bar = 0;                     // no bar counter is published; never invented
-        v.running = live.requestedRunning || live.drumsPlaying;
         v.nextIntent = nextIntentText();
         v.diagnostics = composeDiagnostics();
     }
@@ -279,6 +334,13 @@ void JamLivePresenter::present() noexcept
         v.nextIntent = "Waiting for the live pipeline";
     }
 
+    // Selection reflects the local accepted intent so a second click can cancel
+    // a pending Start; the status line uses the audio-owner echo so a scheduled
+    // command is never presented as sound.
+    v.startQueued = startPending;
+    v.stopQueued = stopPending;
+    v.running = intentRunning || live.requestedRunning || live.drumsPlaying;
+    v.statusText = statusText();
     v.commandFeedback = feedback;
     view = v;
 }
