@@ -572,12 +572,10 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
     float peak = 0.0f;
     std::uint64_t nonzero = 0;
 
-    bool haveReported = false;
-    std::uint64_t lastReported = 0;
-    std::uint64_t lastActualAtRead = 0;
-    std::uint64_t lastGeneration = 0;
     bool haveLastKey = false;
     std::uint64_t keyGen = 0, keyEvent = 0, keyHorizon = 0, keyReceipt = 0;
+    std::uint64_t lastGeneration = 0;
+    replay::CursorTracker cursors;
 
     const auto startWall = Clock::now();
     TimePoint nextDeadline = startWall;
@@ -629,17 +627,12 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
         if (! proc.readJamLiveState (s)) continue;
 
         const std::uint64_t reported = s.audioSampleTime;
-        if (haveReported && reported < lastReported) c.reportedMonotonic = false;
-        if (c.audioOwnerMeasured && reported > actual) ++c.reportedFuture;
-        if (haveReported && reported == lastReported) ++c.coalescedReads;
-        if (c.audioOwnerMeasured && haveReported && reported == lastReported
-            && actual > lastActualAtRead)
-            ++c.skippedPublications;
-        lastActualAtRead = actual;
-        lastReported = reported;
-        haveReported = true;
-
-        if (! haveReported) c.reportedCursorStart = reported;
+        cursors.observe (c.audioOwnerMeasured, actual, reported);
+        c.reportedMonotonic = cursors.monotonic;
+        c.reportedFuture = cursors.future;
+        c.coalescedReads = cursors.coalesced;
+        c.skippedPublications = cursors.skipped;
+        c.reportedCursorStart = cursors.first;
         c.reportedCursorEnd = reported;
 
         if (s.prepared) c.preparedSeen = true;
@@ -692,7 +685,7 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
             }
         }
 
-        if (c.audioOwnerMeasured && haveReported)
+        if (c.audioOwnerMeasured && cursors.have)
         {
             c.workerCursorLagMeasured = true;
             if (actual >= reported)
@@ -782,9 +775,14 @@ struct ScenarioResult
     bool injected = false;
     std::string backendKind;
     std::string unmeasuredReason;
+    std::string unmeasuredReasonCode;
     bool startAccepted = false;
     bool joinObserved = false;
     std::uint64_t blocksToJoin = 0;
+    std::uint64_t callbacks = 0;
+    std::uint64_t stepsFired = 0;
+    double outputRms = 0.0;
+    std::uint64_t outputNonzeroBlocks = 0;
     bool stopAtNextBarDeferred = false;
     std::uint64_t blocksToStopAtNextBar = 0;
     bool stopNowStopped = false;
@@ -832,6 +830,10 @@ void runDefaultCleanLong (GuitarCompanionProcessor& proc, const Options& o, Scen
         if (nextDeadline > Clock::now()) std::this_thread::sleep_until (nextDeadline);
 
         rtprobe::arm(); proc.processBlock (buf, midi); rtprobe::disarm();
+        ++r.callbacks;
+        const double rms = cellOutputRms (buf, block);
+        r.outputRms += rms;
+        if (rms > 1.0e-7) ++r.outputNonzeroBlocks;
 
         const std::uint64_t actual = proc.drumEngine.injectedSamplePosition();
         if (actual != 0) measured = true;
@@ -850,6 +852,8 @@ void runDefaultCleanLong (GuitarCompanionProcessor& proc, const Options& o, Scen
         }
     }
     r.audioOwnerObservedS = std::chrono::duration<double> (Clock::now() - startWall).count();
+    r.stepsFired = proc.drumEngine.injectedStepsFired();
+    r.outputRms = r.callbacks > 0 ? r.outputRms / (double) r.callbacks : 0.0;
     const auto s1 = rtprobe::snapshot();
     const auto d = rtprobe::delta (s0, s1);
     r.callbackAllocCxx = d.allocCalls[(std::size_t) rtprobe::Kind::cxxNew]
@@ -909,6 +913,7 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     {
         r.ran = false;
         r.unmeasuredReason = "setJamTrackerForTesting rejected (session prepared)";
+        r.unmeasuredReasonCode = "set_tracker_rejected";
         return;
     }
     const double rate = 48000.0;
@@ -920,7 +925,14 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     midi.ensureSize (4096);
     InputGen gen; gen.kind = InputKind::clean; gen.reset (999);
 
-    auto step = [&] { gen.fill (buf, block); proc.processBlock (buf, midi); };
+    auto step = [&] {
+        gen.fill (buf, block);
+        proc.processBlock (buf, midi);
+        ++r.callbacks;
+        const double rms = cellOutputRms (buf, block);
+        r.outputRms += rms;
+        if (rms > 1.0e-7) ++r.outputNonzeroBlocks;
+    };
 
     r.startAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
 
@@ -972,6 +984,8 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     proc.readJamLiveState (s);
     r.generationAfterReprepare = s.sessionGeneration;
     r.generationChangedOnReprepare = (r.generationAfterReprepare != r.generationBeforeReprepare);
+    r.stepsFired = proc.drumEngine.injectedStepsFired();
+    r.outputRms = r.callbacks > 0 ? r.outputRms / (double) r.callbacks : 0.0;
     proc.releaseResources();
     r.shutdownReleased = true;
     std::fprintf (log, "  scenario[%s] join=%d stopNow=%d resync=%d genChanged=%d\n",
@@ -980,6 +994,7 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
 #else
     r.ran = false;
     r.unmeasuredReason = "pipeline setJamTrackerForTesting seam absent at build time";
+    r.unmeasuredReasonCode = "seam_absent";
     (void) proc; (void) o; (void) log;
 #endif
 }
@@ -1061,10 +1076,37 @@ int main (int argc, char** argv)
         return 6;
     inputs.path[0] = pClean; inputs.path[1] = pNoise; inputs.path[2] = pSilence;
 
-    jam::JamLiveState probe {};
-    const bool probeOk = proc.readJamLiveState (probe);
-    const std::string backendKind = probeOk ? backendName (probe.backend) : "unknown";
-    const bool backendUsable = probeOk && probe.backend == jam::JamLiveBackend::experimentalBTrack;
+    // N1 readiness bootstrap: prepare FIRST (proper cold publish), then poll the
+    // latest-value slot off-callback for a coherent prepared tag. This avoids a
+    // single-sequence race that would falsely report awaiting-backend on a good
+    // product. Bootstrap is outside the armed region and excluded from counters.
+    jam::JamLiveState boot {};
+    bool bootstrapReady = false;
+    int bootstrapAttempts = 0;
+    {
+        proc.prepareToPlay (48000.0, 512);
+        const auto pr = replay::pollUntil (
+            [&]
+            {
+                jam::JamLiveState s {};
+                if (! proc.readJamLiveState (s)) return false;
+                if (! s.prepared) return false;
+                boot = s;
+                return true;
+            },
+            2000,
+            [] { std::this_thread::sleep_for (std::chrono::milliseconds (1)); });
+        bootstrapReady = pr.ready;
+        bootstrapAttempts = pr.attempts;
+        if (! bootstrapReady)
+        {
+            jam::JamLiveState s {};
+            if (proc.readJamLiveState (s)) boot = s;
+        }
+        proc.releaseResources();
+    }
+    const std::string backendKind = backendName (boot.backend);
+    const bool backendUsable = (boot.backend == jam::JamLiveBackend::experimentalBTrack);
 
     std::vector<Cell> results;
     results.reserve (matrix.size());
@@ -1087,17 +1129,17 @@ int main (int argc, char** argv)
         {
             const std::uint64_t a = rtprobe::allocCallTotal (s);
             const std::uint64_t fr = rtprobe::freeCallTotal (s);
-            const std::uint64_t lk = s.lockCalls + s.trylockCalls + s.condWaitCalls;
+            const std::uint64_t lk = s.lockCalls + s.trylockCalls + s.unlockCalls + s.condWaitCalls;
             if (a || fr || lk)
             {
-                char d[160];
+                char d[192];
                 std::snprintf (d, sizeof (d), "alloc=%llu free=%llu lock=%llu",
                                (unsigned long long) a, (unsigned long long) fr, (unsigned long long) lk);
-                findings.push_back ({ c.id, phase, d });
+                findings.push_back ({ c.id, std::string (phase) + "_callback_rt_ops", d });
             }
         };
-        add (c.cold, "cold_callback_alloc");
-        add (c.warm, "warm_callback_alloc");
+        add (c.cold, "cold");
+        add (c.warm, "warm");
     }
 
     std::vector<ScenarioResult> scenarios;
@@ -1135,7 +1177,12 @@ int main (int argc, char** argv)
     std::fprintf (f, "  \"backend_usable_at_start\": "); jsonBool (f, backendUsable);
     std::fprintf (f, ",\n  \"realtime_paced\": "); jsonBool (f, o.realtime);
     std::fprintf (f, ",\n  \"seed\": "); jsonU64 (f, o.seed);
-    std::fprintf (f, ",\n  \"initial_state\": "); writeState (f, probe);
+    std::fprintf (f, ",\n  \"bootstrap\": {\"attempts\":%d,\"ready\":", bootstrapAttempts);
+    jsonBool (f, bootstrapReady);
+    std::fprintf (f, ",\"backend_kind\":\"%s\"", backendKind.c_str());
+    std::fprintf (f, ",\"backend_usable\":"); jsonBool (f, backendUsable);
+    std::fprintf (f, "}");
+    std::fprintf (f, ",\n  \"initial_state\": "); writeState (f, boot);
     std::fprintf (f, ",\n  \"expected_cell_ids\": [");
     for (std::size_t i = 0; i < matrix.size(); ++i)
         std::fprintf (f, "%s\"%s\"", i ? "," : "", matrix[i].id.c_str());
@@ -1253,6 +1300,13 @@ int main (int argc, char** argv)
         std::fprintf (f, ",\"unmeasured_reason\":");
         if (r.ran) std::fprintf (f, "null");
         else std::fprintf (f, "\"%s\"", r.unmeasuredReason.c_str());
+        std::fprintf (f, ",\"unmeasured_reason_code\":");
+        if (r.ran) std::fprintf (f, "null");
+        else std::fprintf (f, "\"%s\"", r.unmeasuredReasonCode.c_str());
+        std::fprintf (f, ",\"callbacks\":"); jsonU64 (f, r.callbacks);
+        std::fprintf (f, ",\"steps_fired\":"); jsonU64 (f, r.stepsFired);
+        std::fprintf (f, ",\"output_rms\":"); jsonNumber (f, r.outputRms);
+        std::fprintf (f, ",\"output_nonzero_blocks\":"); jsonU64 (f, r.outputNonzeroBlocks);
         std::fprintf (f, ",\"start_accepted\":"); jsonBool (f, r.startAccepted);
         std::fprintf (f, ",\"join_observed\":"); jsonBool (f, r.joinObserved);
         std::fprintf (f, ",\"blocks_to_join\":"); jsonU64 (f, r.blocksToJoin);

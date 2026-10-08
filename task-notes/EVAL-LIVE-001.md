@@ -217,6 +217,43 @@ closed with `backend_macro` among the missing items.
 Counts are stated explicitly per run; the earlier "41" is historical and not
 reused.
 
+## Second correction pass — independent BLOCK on a3ecf1f
+
+The second review blocked `a3ecf1f`; the additive second contract was committed
+at `549d759` before any second-corrected tool was reevaluated. Originals remain
+byte-for-byte unchanged; new pins and a fresh labelled receipt are added
+separately.
+
+- **N1** readiness bootstrap: prepare first, bounded off-callback poll for a
+  coherent prepared tag, release before cells; bootstrap excluded from counters;
+  exact `experimentalBTrack` required; self-check failure fails closed before any
+  measurement (build and runner).
+- **N2** findings set: one finding per phase for ANY alloc/free/lock family, so
+  free-only/lock-only are consistent; findings are a real RT gate failure.
+- **N3** scenario gates: full scope requires both preregistered scenarios with
+  real backend/join/steps/StopNow/resync/reprepare/shutdown; absent seam is
+  `join_proof_unavailable` (gate FAIL, known reason code); smoke is partial.
+- **N4** override allowlist: exactly the three changed compile seams pinned to
+  their exact hashes; unknown/immutable/duplicate/non-preregistered/mismatch fail
+  closed. The orchestrator's `docs/research/live-jam-replay-source-pins.json`
+  (whose three hashes match the pipeline source exactly) is the conforming
+  input.
+- **N5** link metadata required; `missing_link_metadata_tool` fails closed.
+- **N6** reported-cursor start recorded before the have-flag via a tested helper.
+- **N7** truthful timeout: `measured_partial=false` with counters unmeasured is
+  valid; `true` requires preserved parsed cells + log hashes; deadline ≤300 s.
+- **N8** audio-owner gate: `audio_owner_start == block`,
+  `audio_owner_end == (warm_blocks+1)*block`, real advance, no
+  mismatches/backwards, `immutable_pins_ok`.
+
+Gates: structural AND rt_gate AND join_gate; the CLI passes only when all pass.
+Post-correction: validator unit tests **96/96**; labelled synthetic full tree
+passes all gates; smoke is structural-only; override allowlist and link-metadata
+fail-closed tests pass; harness smoke-compiles with and without the injected
+seam.
+
+Counts are stated explicitly per run.
+
 ## Limitations (not claimed)
 
 - The actual live measurement is pending the merged pipeline. Only the harness,

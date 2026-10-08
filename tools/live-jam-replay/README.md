@@ -84,6 +84,16 @@ Portable by default (recorded evidence only). Synthetic evidence is rejected
 unless `--allow-synthetic-selftest` is given, in which case it is labelled
 unmistakably as a synthetic self-test. Exits non-zero on any hard-check failure.
 
+## Gates
+
+The verdict reports three independent gates: `rt_gate` (no callback
+allocation/free/lock findings), `join_gate` (full scope requires the injected
+join/stop/resync scenario to pass) and the structural hard checks. The CLI
+passes only when all three pass. Smoke scope is structurally valid but does not
+pass the join gate (partial). The override allowlist is exactly the three
+changed pipeline compile seams pinned to their preregistered hashes; unknown,
+immutable, duplicate, non-preregistered or mismatching entries fail closed.
+
 ## Fixtures
 
 ```sh

@@ -134,6 +134,34 @@ int main (int argc, char** argv)
         std::remove (p3.c_str());
     }
 
+    {
+        // N6 cursor tracker: first reported recorded before the have-flag; a
+        // genuinely cold zero is valid, and coalescing/skip/future are distinct.
+        replay::CursorTracker t;
+        t.observe (true, 128, 0);
+        check (t.have && t.first == 0, "cold zero first cursor must be recorded");
+        t.observe (true, 256, 0);
+        check (t.coalesced == 1 && t.skipped == 1, "coalesced/skipped must count repeats");
+        t.observe (true, 384, 256);
+        check (t.monotonic && t.future == 0, "monotone advance must not be future");
+        t.observe (true, 400, 512);
+        check (t.future == 1, "reported beyond produced must be future");
+        t.observe (true, 500, 300);
+        check (! t.monotonic, "backwards report must clear monotonic");
+
+        replay::CursorTracker nz;
+        nz.observe (true, 128, 128);
+        check (nz.first == 128, "nonzero first cursor must be recorded");
+    }
+    {
+        // N1 bounded readiness poll: stops on first ready; reports attempts.
+        int n = 0;
+        auto pr = replay::pollUntil ([&] { ++n; return n >= 4; }, 10, [] {});
+        check (pr.ready && pr.attempts == 4, "pollUntil must stop on first ready");
+        auto pr2 = replay::pollUntil ([] { return false; }, 5, [] {});
+        check (! pr2.ready && pr2.attempts == 5, "pollUntil must report exhaustion");
+    }
+
     if (failures == 0)
     {
         std::fprintf (stdout, "\nREPLAY SUPPORT SELF-TEST PASS\n");

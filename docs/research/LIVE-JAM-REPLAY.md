@@ -225,6 +225,54 @@ support self-tests pass, the facade tests pass, the harness smoke-compiles
 (both with and without the injected seam), and preflight against the current
 non-live product fails closed with `backend_macro` among the missing items.
 
+## Second correction pass (independent BLOCK on a3ecf1f)
+
+The second review blocked `a3ecf1f`. The additive second contract
+(`docs/research/live-jam-replay/CORRECTION-CONTRACT-2.md`,
+`protocol-amendment-2.json`) was committed at `549d759` **before** any
+second-corrected tool was reevaluated. Originals remain byte-for-byte unchanged.
+
+- **N1 readiness bootstrap.** The harness prepares first (proper cold publish),
+  then polls `readJamLiveState` off-callback (≤2 s, 1 ms sleep) for a coherent
+  prepared tag, then releases before the cells; bootstrap is outside the armed
+  region and excluded from counters. The default actual backend must be exactly
+  `experimentalBTrack`. Instrument/support/facade self-check failure fails
+  closed in both build and runner before any measurement.
+- **N2 findings set.** One finding per phase when ANY allocator/free/lock family
+  occurred; free-only and lock-only runs are now consistent between harness and
+  validator. Findings are a real RT gate failure (`measured-findings`), reported
+  as such.
+- **N3 scenario gates.** Full scope requires `default_clean_long` (actual
+  experimentalBTrack + real audio-owner advancement) and
+  `injected_join_stop_resync` (injectedTest + join, steps, StopNow, resync,
+  reprepare, shutdown). A missing seam yields `join_proof_unavailable` (gate
+  FAIL with a known reason code), never a hard pass. Smoke is partial and does
+  not claim first-audible verified.
+- **N4 override allowlist.** Exactly three changed compile seams may be
+  overridden, pinned to their exact hashes; unknown/immutable/duplicate/
+  non-preregistered/mismatch all fail closed. The orchestrator's
+  `docs/research/live-jam-replay-source-pins.json` is the conforming input.
+- **N5 link metadata.** Complete real link metadata is required;
+  `missing_link_metadata_tool` fails closed; no static-list guess.
+- **N6 reported cursor start.** Recorded via a tested helper before the
+  have-flag.
+- **N7 timeout partial.** Truthful `measured_partial=false` with counters
+  unmeasured is accepted; `true` requires a preserved parsed cells hash and log
+  hash; deadline ≤300 s.
+- **N8 audio-owner gate.** Every measured cell must show `audio_owner_start ==
+  block`, `audio_owner_end == (warm_blocks+1)*block`, a real positive advance,
+  no mismatches/backwards; `immutable_pins_ok` must be true.
+
+Gates: `structural` AND `rt_gate` (no findings) AND `join_gate` (full scope
+requires the injected join scenario). The CLI passes only when all three pass.
+
+Post-second-correction self-tests: validator unit tests **96/96**; labelled
+synthetic full tree passes with all three gates; smoke is structurally valid but
+does not pass the join gate; the override allowlist accepts the orchestrator's
+conforming file and rejects unknown/immutable/duplicate/non-preregistered
+paths; link-metadata unavailability fails closed; the harness smoke-compiles
+both with and without the injected seam.
+
 ## Limitations (not claimed)
 
 - Not a whole-program allocation-safety proof. It is a bounded matrix over the

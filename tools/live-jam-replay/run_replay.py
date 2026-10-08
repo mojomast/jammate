@@ -92,6 +92,7 @@ def merge_evidence(predeclared_path, pf, build_manifest, cells, fixtures, scope,
         "worker_allocations": cells.get("worker_allocations",
                                         {"measured": False,
                                          "reason": "thread-local arming counts only the callback thread"}),
+        "bootstrap": cells.get("bootstrap", {}),
         "identity": identity,
         "protocol": protocol,
         "matrix": predeclared["matrix"],
@@ -130,13 +131,29 @@ def write_awaiting(out, status, pf, extra_missing=None):
     return path
 
 
-def write_timed_out(out, timeout_s, partial_path):
+def write_timed_out(out, timeout_s, partial_path, log_path):
+    partial = False
+    partial_sha = None
+    if os.path.isfile(partial_path):
+        try:
+            with open(partial_path, encoding="utf-8") as f:
+                parsed = json.load(f)
+            if isinstance(parsed.get("cells"), list) and parsed["cells"]:
+                partial = True
+                partial_sha = rl.sha256_file(partial_path)
+        except Exception:
+            partial = False
     ev = {
         "schema": "live-jam-replay/evidence/1.1",
         "task": "EVAL-LIVE-001",
         "status": "timed-out",
         "invoked_binary": True,
-        "measured_partial": os.path.isfile(partial_path),
+        "clean": False,
+        "measured_partial": partial,
+        "partial_cells_present": partial,
+        "partial_cells_sha256": partial_sha,
+        "counters_measured": partial,
+        "log_sha256": rl.sha256_file(log_path) if os.path.isfile(log_path) else None,
         "timeout_s": timeout_s,
         "notes": ["The replay exceeded the preregistered bounded timeout; the child was terminated."],
     }
@@ -144,7 +161,7 @@ def write_timed_out(out, timeout_s, partial_path):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(ev, f, indent=2)
         f.write("\n")
-    print(f"timed-out receipt: {path}")
+    print(f"timed-out receipt: {path} partial={partial}")
     return path
 
 
@@ -212,6 +229,15 @@ def main(argv=None):
 
     with open(os.path.join(build_dir, "build-manifest.json"), encoding="utf-8") as f:
         build_manifest = json.load(f)
+    facade_ok = (isinstance(build_manifest.get("facade_tests_run"), dict)
+                 and build_manifest["facade_tests_run"].get("exit") == 0)
+    if not (build_manifest.get("instrument_selfcheck_ok")
+            and build_manifest.get("support_selftest_ok") and facade_ok):
+        print("error: self-check failure; refusing to invoke any measurement "
+              f"(instrument={build_manifest.get('instrument_selfcheck_ok')} "
+              f"support={build_manifest.get('support_selftest_ok')} facade={facade_ok})",
+              file=sys.stderr)
+        return 2
     fixtures, fixture_paths = load_fixtures(args.fixtures_dir)
 
     harness_args = [harness, "--source", os.path.abspath(args.source),
@@ -254,7 +280,7 @@ def main(argv=None):
     print(f"harness exit={harness_rc} elapsed={run_seconds:.1f}s timeout={timed_out} log={log_path}")
 
     if timed_out:
-        write_timed_out(out, args.timeout_s, cells_path)
+        write_timed_out(out, args.timeout_s, cells_path, log_path)
         vr = subprocess.run([sys.executable, os.path.join(HERE, "validate_evidence.py"),
                              "--evidence", os.path.join(out, "evidence.json")],
                             text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

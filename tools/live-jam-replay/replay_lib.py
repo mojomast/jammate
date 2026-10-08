@@ -30,6 +30,15 @@ IMMUTABLE_HEADERS = (
     "src/jam/JamConfig.h",
 )
 
+# Canonical allowlist of the changed pipeline compile seams (N4). Exactly these
+# three paths may be overridden, pinned to these exact hashes; everything else
+# is rejected. Frozen interface/types/clock/config are never overridable.
+OVERRIDE_ALLOWLIST = {
+    "src/jam/DrumClockBridge.h": "c115eb8b24f0918f7a375f6507d094cf94d5a0fc99019bba6cf5b3b4459d1025",
+    "src/PluginProcessor.h": "3e1958e3eccc3892304f8a42c28a1c7cdf711c226e7ec91082211b0d80059930",
+    "src/PluginProcessor.cpp": "21e3d7ad2cb8a0d5f8fb4f068ee82ac3332a0bf8a4cdaaede062bca146e76e66",
+}
+
 
 def sha256_file(path):
     h = hashlib.sha256()
@@ -189,73 +198,76 @@ def detect_live_seams(source, archive):
 
 def extract_link_closure(product):
     """Extract the real link inputs (archives, shared objects, -l, -Wl) from the
-    Standalone target's link command, preserving order. Falls back to the known
-    set."""
-    archives, libs, wl_flags, inputs, source = [], [], [], [], "fallback"
+    Standalone target's link command, preserving order. Fails closed (N5) when
+    the metadata tool is unavailable; it never guesses a static list."""
+    archives, libs, wl_flags, inputs, source = [], [], [], [], "none"
     target = "GuitarCompanion_Standalone"
     try:
         rc, out = run(["ninja", "-t", "commands", target], cwd=product)
     except FileNotFoundError:
-        rc, out = 1, ""
-    if rc == 0 and out.strip():
-        line = out.strip().splitlines()[-1]
-        try:
-            args = shlex.split(line)
-        except ValueError:
-            args = line.split()
-        for a in args:
-            if a.endswith(".a"):
-                p = a if os.path.isabs(a) else os.path.join(product, a)
-                archives.append(p)
-                inputs.append(p)
-            elif a.endswith(".so"):
-                p = a if os.path.isabs(a) else os.path.join(product, a)
-                libs.append(p)
-                inputs.append(p)
-            elif re.match(r"^-l", a):
-                libs.append(a)
+        return {"ok": False, "missing": "missing_link_metadata_tool",
+                "source": "none", "archives": [], "libs": [], "wl_flags": [], "inputs": []}
+    if rc != 0 or not out.strip():
+        return {"ok": False, "missing": "missing_link_metadata_tool",
+                "source": "none", "archives": [], "libs": [], "wl_flags": [], "inputs": []}
+    line = out.strip().splitlines()[-1]
+    try:
+        args = shlex.split(line)
+    except ValueError:
+        args = line.split()
+    for a in args:
+        if a.endswith(".a"):
+            p = a if os.path.isabs(a) else os.path.join(product, a)
+            archives.append(p)
+            inputs.append(p)
+        elif a.endswith(".so"):
+            p = a if os.path.isabs(a) else os.path.join(product, a)
+            libs.append(p)
+            inputs.append(p)
+        elif re.match(r"^-l", a):
+            libs.append(a)
+            inputs.append(a)
+        elif a.startswith("-Wl,"):
+            wl_flags.append(a)
+            if not a.startswith("-Wl,--dependency-file"):
                 inputs.append(a)
-            elif a.startswith("-Wl,"):
-                wl_flags.append(a)
-                if not a.startswith("-Wl,--dependency-file"):
-                    inputs.append(a)
-        if archives:
-            source = f"ninja:{target}"
     if not archives:
-        shared = find_shared_archive(product)
-        for p in (shared, os.path.join(product, "libnam_core.a"),
-                  os.path.join(product, "libGuitarCompanionAssets.a"),
-                  os.path.join(product, "jam-core", "libjam-core.a")):
-            if p and os.path.isfile(p):
-                archives.append(p)
-        sysroot = "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu"
-        for lib in ("libasound.so", "libfontconfig.so", "libfreetype.so"):
-            p = os.path.join(sysroot, lib)
-            if os.path.isfile(p):
-                libs.append(p)
-        libs += ["-lrt", "-ldl", "-lpthread"]
-        inputs = list(archives) + list(libs)
-        source = "fallback"
-    return {"source": source, "archives": archives, "libs": libs,
-            "wl_flags": wl_flags, "inputs": inputs}
+        return {"ok": False, "missing": "missing_link_metadata_tool",
+                "source": "none", "archives": [], "libs": [], "wl_flags": [], "inputs": []}
+    return {"ok": True, "missing": None, "source": f"ninja:{target}",
+            "archives": archives, "libs": libs, "wl_flags": wl_flags, "inputs": inputs}
 
 
 def apply_source_pin_overrides(source, immutable_pins, overrides):
     """Return (ok, missing, detail). Immutable headers must match their original
-    pins; each override must match the file's actual hash exactly."""
+    pins. Override entries are validated against the canonical allowlist (N4):
+    only the three changed pipeline compile seams, only their preregistered
+    hashes, no duplicates, no traversal."""
     missing = []
     detail = {}
-    for rel, expected in (immutable_pins or {}).items():
-        p = os.path.join(source, rel)
-        if not os.path.isfile(p):
-            missing.append(f"immutable_pin_missing:{rel}")
+    seen = set()
+    for entry in (overrides or []):
+        rel = entry.get("path")
+        expected = entry.get("sha256")
+        if not isinstance(rel, str) or not isinstance(expected, str):
+            missing.append("override_malformed")
             continue
-        actual = sha256_file(p)
-        detail[rel] = actual
-        if actual != expected:
-            missing.append(f"immutable_pin_changed:{rel}")
-    for rel, expected in (overrides or {}).items():
-        if rel in (immutable_pins or {}):
+        canon = os.path.normpath(rel)
+        if canon != rel or canon.startswith("..") or os.path.isabs(canon):
+            missing.append(f"override_unknown_path:{rel}")
+            continue
+        if rel in seen:
+            missing.append(f"override_duplicate:{rel}")
+            continue
+        seen.add(rel)
+        if rel in IMMUTABLE_HEADERS:
+            missing.append(f"override_immutable:{rel}")
+            continue
+        if rel not in OVERRIDE_ALLOWLIST:
+            missing.append(f"override_unknown_path:{rel}")
+            continue
+        if expected != OVERRIDE_ALLOWLIST[rel]:
+            missing.append(f"override_hash_not_preregistered:{rel}")
             continue
         p = os.path.join(source, rel)
         if not os.path.isfile(p):
@@ -265,6 +277,15 @@ def apply_source_pin_overrides(source, immutable_pins, overrides):
         detail[rel] = actual
         if actual != expected:
             missing.append(f"override_mismatch:{rel}")
+    for rel, expected in (immutable_pins or {}).items():
+        p = os.path.join(source, rel)
+        if not os.path.isfile(p):
+            missing.append(f"immutable_pin_missing:{rel}")
+            continue
+        actual = sha256_file(p)
+        detail[rel] = actual
+        if actual != expected:
+            missing.append(f"immutable_pin_changed:{rel}")
     return (len(missing) == 0), missing, detail
 
 
@@ -339,6 +360,8 @@ def preflight(source, product, sysroot_lib=None, immutable_pins=None, source_pin
 
     seams = detect_live_seams(source, shared)
     closure = extract_link_closure(product)
+    if not closure.get("ok"):
+        result["missing"].append(closure.get("missing") or "missing_link_metadata_tool")
 
     imm_ok, imm_missing, imm_detail = apply_source_pin_overrides(
         source, immutable_pins, source_pin_overrides)

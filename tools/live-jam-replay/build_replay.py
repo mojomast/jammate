@@ -46,7 +46,11 @@ def load_overrides(path):
     data = json.load(open(path, encoding="utf-8"))
     if data.get("schema") != "live-jam-replay/source-pin-overrides/1.0":
         raise SystemExit(f"error: {path} is not a source-pin-overrides/1.0 file")
-    return {e["path"]: e["sha256"] for e in data.get("overrides", [])}
+    entries = data.get("overrides", [])
+    paths = [e.get("path") for e in entries]
+    if len(paths) != len(set(paths)):
+        raise SystemExit("error: duplicate override paths in the overrides file")
+    return entries
 
 
 def main(argv=None):
@@ -187,8 +191,13 @@ def main(argv=None):
         f.write("\n")
 
     print(f"\nbuild manifest: {os.path.join(out, 'build-manifest.json')}")
+    facade_ok = isinstance(facade_run, dict) and facade_run.get("exit") == 0
     if pf["ok"]:
         print("preflight: LIVE-READY")
+        if not (self_check_ok and support_ok and facade_ok):
+            print("self-check failure: refusing to report a linkable harness "
+                  f"(instrument={self_check_ok} support={support_ok} facade={facade_ok})", file=sys.stderr)
+            return 2
         if harness_bin:
             print(f"harness binary: {harness_bin}")
             return 0

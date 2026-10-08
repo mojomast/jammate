@@ -14,6 +14,65 @@
 namespace replay
 {
 
+//------------------------------------------------------------------------------
+// Coalescing-tolerant cursor tracker (N6). The facade cursor is a latest-value
+// report: it may repeat (coalesced) or lag the produced audio-owner cursor. The
+// first reported cursor is recorded BEFORE the have-flag is set so a genuinely
+// cold zero is distinguishable from a forged zero.
+//------------------------------------------------------------------------------
+struct CursorTracker
+{
+    bool have = false;
+    std::uint64_t first = 0;
+    std::uint64_t last = 0;
+    std::uint64_t lastActualAtRead = 0;
+    bool monotonic = true;
+    std::uint64_t coalesced = 0;
+    std::uint64_t skipped = 0;
+    std::uint64_t future = 0;
+
+    void observe (bool actualMeasured, std::uint64_t actual, std::uint64_t reported) noexcept
+    {
+        if (! have)
+        {
+            first = reported;
+            have = true;
+        }
+        else
+        {
+            if (reported < last) monotonic = false;
+            if (reported == last) ++coalesced;
+            if (actualMeasured && reported == last && actual > lastActualAtRead) ++skipped;
+        }
+        if (actualMeasured && reported > actual) ++future;
+        last = reported;
+        lastActualAtRead = actual;
+    }
+};
+
+//------------------------------------------------------------------------------
+// Bounded readiness poll (N1). The predicate is evaluated at most maxAttempts
+// times; the sleep callback runs between attempts (outside any RT region).
+//------------------------------------------------------------------------------
+struct PollResult
+{
+    int attempts = 0;
+    bool ready = false;
+};
+
+template <typename Predicate, typename SleepFn>
+PollResult pollUntil (Predicate&& predicate, int maxAttempts, SleepFn&& sleepFn)
+{
+    for (int i = 0; i < maxAttempts; ++i)
+    {
+        if (predicate())
+            return PollResult { i + 1, true };
+        if (i + 1 < maxAttempts)
+            sleepFn();
+    }
+    return PollResult { maxAttempts, false };
+}
+
 inline void jsonNumber (std::FILE* f, double v)
 {
     if (std::isfinite (v))

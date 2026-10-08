@@ -175,7 +175,7 @@ def make_cells(predeclared, scope="full", realtime=True, target_seconds=4.0):
                             "audio_owner_delta_ok": True,
                             "audio_owner_delta_mismatches": 0,
                             "audio_owner_backward": 0,
-                            "audio_owner_start": 0,
+                            "audio_owner_start": block,
                             "audio_owner_end": (warm + 1) * block,
                             "reported_monotonic": True,
                             "reported_future": 0,
@@ -213,6 +213,37 @@ def make_cells(predeclared, scope="full", realtime=True, target_seconds=4.0):
     return cells
 
 
+def _scenarios(scope):
+    if scope != "full":
+        return []
+    return [
+        {"id": "default_clean_long", "ran": True, "injected": False,
+         "backend_kind": "experimentalBTrack", "unmeasured_reason": None,
+         "unmeasured_reason_code": None, "start_accepted": True,
+         "join_observed": False, "blocks_to_join": 0, "callbacks": 1500,
+         "steps_fired": 0, "output_rms": 0.1, "output_nonzero_blocks": 1500,
+         "stop_at_next_bar_deferred": False, "blocks_to_stop_at_next_bar": 0,
+         "stop_now_stopped": False, "blocks_to_stop_now": 0, "resync_accepted": False,
+         "generation_before_reprepare": 1, "generation_after_reprepare": 1,
+         "generation_changed_on_reprepare": False, "shutdown_released": True,
+         "audio_owner_delta_ok": True, "audio_owner_delta_mismatches": 0,
+         "audio_owner_observed_s": 16.0, "callback_alloc_cxx": 0, "callback_alloc_c": 0,
+         "callback_free": 0, "callback_locks": 0},
+        {"id": "injected_join_stop_resync", "ran": True, "injected": True,
+         "backend_kind": "injectedTest", "unmeasured_reason": None,
+         "unmeasured_reason_code": None, "start_accepted": True,
+         "join_observed": True, "blocks_to_join": 4, "callbacks": 800,
+         "steps_fired": 64, "output_rms": 0.2, "output_nonzero_blocks": 800,
+         "stop_at_next_bar_deferred": True, "blocks_to_stop_at_next_bar": 8,
+         "stop_now_stopped": True, "blocks_to_stop_now": 1, "resync_accepted": True,
+         "generation_before_reprepare": 1, "generation_after_reprepare": 2,
+         "generation_changed_on_reprepare": True, "shutdown_released": True,
+         "audio_owner_delta_ok": True, "audio_owner_delta_mismatches": 0,
+         "audio_owner_observed_s": 8.0, "callback_alloc_cxx": 0, "callback_alloc_c": 0,
+         "callback_free": 0, "callback_locks": 0},
+    ]
+
+
 def make_evidence(predeclared_path, fixtures, scope="full", source_hash="a" * 64,
                   product_hash="b" * 64, synthetic=True):
     with open(predeclared_path, "rb") as f:
@@ -232,6 +263,8 @@ def make_evidence(predeclared_path, fixtures, scope="full", source_hash="a" * 64
         "allocation_scope": "callback-thread-path-only",
         "worker_allocations": {"measured": False,
                                "reason": "thread-local arming counts only the callback thread"},
+        "bootstrap": {"attempts": 1, "ready": True,
+                      "backend_kind": "experimentalBTrack", "backend_usable": True},
         "identity": {
             "generated_utc": "synthetic",
             "runner_git_head": "0" * 40,
@@ -240,7 +273,9 @@ def make_evidence(predeclared_path, fixtures, scope="full", source_hash="a" * 64
                        "plugin_processor_h_sha256": source_hash,
                        "plugin_processor_cpp_sha256": source_hash,
                        "jam_live_interface_h_sha256": source_hash,
-                       "facade_definitions_present": True},
+                       "facade_definitions_present": True,
+                       "immutable_pins_ok": True,
+                       "source_pin_overrides_applied": False},
             "product": {"path": "synthetic/product", "shared_archive": "synthetic.a",
                         "shared_archive_sha256": product_hash,
                         "nam_archive_sha256": product_hash,
@@ -266,7 +301,7 @@ def make_evidence(predeclared_path, fixtures, scope="full", source_hash="a" * 64
         "cells": cells,
         "expected_cell_ids": ids,
         "findings": findings,
-        "scenarios": [],
+        "scenarios": _scenarios(scope),
         "counts": {"cells": len(cells), "measured": len(cells),
                    "enabled_rejected": 0, "findings": len(findings)},
     }

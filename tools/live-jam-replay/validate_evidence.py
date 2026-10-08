@@ -189,6 +189,13 @@ def validate_measured(ev, predeclared, local, errors, checks, allow_synthetic):
         f"default usable backend must be exactly experimentalBTrack, got {backend.get('kind')!r}")
     add("backend_macro", "hard", backend.get("macro_defined") is True,
         "the product must define the exact JAM_LIVE_BTRACK_AVAILABLE backend macro")
+    boot = ev.get("bootstrap", {})
+    add("bootstrap_ready", "hard",
+        isinstance(boot, dict) and boot.get("ready") is True,
+        "readiness bootstrap must obtain a coherent prepared tag before the cells")
+    add("bootstrap_backend", "hard",
+        isinstance(boot, dict) and boot.get("backend_kind") == "experimentalBTrack",
+        "readiness bootstrap must report the actual experimentalBTrack backend")
 
     for key in ("shared_archive_sha256", "nam_archive_sha256",
                 "assets_archive_sha256", "build_ninja_sha256"):
@@ -198,6 +205,8 @@ def validate_measured(ev, predeclared, local, errors, checks, allow_synthetic):
                 "jam_live_interface_h_sha256", "src_tree_hash"):
         add(f"source_{key}", "hard", is_hex64(src.get(key)),
             f"source.{key} must be a 64-hex sha256")
+    add("source_immutable_pins", "hard", src.get("immutable_pins_ok") is True,
+        "identity.source.immutable_pins_ok must be true (frozen headers unchanged)")
 
     proto = ev.get("protocol", {})
     for key in ("predeclared_sha256", "validator_sha256", "harness_source_sha256"):
@@ -284,8 +293,11 @@ def validate_measured(ev, predeclared, local, errors, checks, allow_synthetic):
                 add(f"{cid}.{snap_name}.lock_overflow", "hard", snap.get("lock_overflow") == 0,
                     "lock record overflow means detail evidence was dropped")
                 if c.get("measured") is True:
-                    if any(snap.get(k, 0) for k in CXX_ALLOC + C_ALLOC):
-                        expected_findings.add((cid, f"{snap_name}_callback_alloc"))
+                    alloc = any(snap.get(k, 0) for k in CXX_ALLOC + C_ALLOC)
+                    freed = any(snap.get(k, 0) for k in FREE)
+                    locked = any(snap.get(k, 0) for k in ("lock", "trylock", "unlock", "cond"))
+                    if alloc or freed or locked:
+                        expected_findings.add((cid, f"{snap_name}_callback_rt_ops"))
             else:
                 errors.append(f"cell {cid}: {snap_name} snapshot missing")
 
@@ -330,11 +342,28 @@ def validate_measured(ev, predeclared, local, errors, checks, allow_synthetic):
                 f"progression.{key} must be a non-negative integer or explicit null")
 
         # C1: audio-owner vs reported cursor
+        block = c.get("block")
+        warm = c.get("warm_blocks")
+        add(f"{cid}.audio_owner_measured", "hard",
+            prog.get("audio_owner_measured") is True,
+            "the audio-owner cursor must be measured for every measured cell")
         add(f"{cid}.audio_owner_delta", "hard",
             prog.get("audio_owner_delta_ok") is True
             and prog.get("audio_owner_delta_mismatches") == 0
             and prog.get("audio_owner_backward") == 0,
             "audio-owner cursor must advance by exactly one block with no backwards move")
+        add(f"{cid}.audio_owner_start", "hard",
+            isinstance(block, int) and prog.get("audio_owner_start") == block,
+            "audio_owner_start must equal one block (the cold baseline)")
+        add(f"{cid}.audio_owner_end", "hard",
+            isinstance(block, int) and isinstance(warm, int)
+            and prog.get("audio_owner_end") == (warm + 1) * block,
+            "audio_owner_end must equal (warm_blocks+1)*block (exact engine position)")
+        add(f"{cid}.audio_owner_advance", "hard",
+            isinstance(prog.get("audio_owner_end"), int)
+            and isinstance(prog.get("audio_owner_start"), int)
+            and prog.get("audio_owner_end") > prog.get("audio_owner_start"),
+            "at least one real audio-owner delta must be observed (no forged zero)")
         add(f"{cid}.reported_monotonic", "hard", prog.get("reported_monotonic") is True,
             "facade cursor must be non-decreasing (coalescing tolerant)")
         add(f"{cid}.reported_future", "hard", prog.get("reported_future") == 0,
@@ -418,6 +447,10 @@ def validate_measured(ev, predeclared, local, errors, checks, allow_synthetic):
     add("status_matches_findings", "hard", status == want_status,
         f"status must be {want_status} for {len(expected_findings)} findings, got {status!r}")
 
+    add("rt_gate", "gate", len(expected_findings) == 0,
+        "the callback path must be allocation/free/lock free (RT gate)")
+    validate_scenarios(ev, scope, add)
+
     # ---- overhead contrast (advisory)
     def key_of(c):
         return (c.get("rate"), c.get("block"), c.get("input"))
@@ -479,16 +512,30 @@ def validate_timed_out(ev, errors, checks):
             errors.append(f"[{ident}] {detail}")
     add("schema", "hard", ev.get("schema") == SCHEMA_MEASURED,
         f"timed-out schema must be {SCHEMA_MEASURED}")
-    add("status", "hard", ev.get("status") == STATUS_TIMED_OUT,
-        "status must be timed-out")
+    add("status", "hard", ev.get("status") == STATUS_TIMED_OUT, "status must be timed-out")
     add("invoked_binary", "hard", ev.get("invoked_binary") is True,
         "a timed-out run must record that the binary was invoked")
-    add("measured_partial", "hard", ev.get("measured_partial") is True,
-        "a timed-out run must be flagged measured_partial")
-    add("timeout_s", "hard", finite(ev.get("timeout_s")) and ev.get("timeout_s") > 0,
-        "timeout_s must be a positive number")
+    add("clean_false", "hard", ev.get("clean") is False,
+        "a timed-out run must not claim clean")
+    add("timeout_s", "hard", finite(ev.get("timeout_s")) and 0 < ev.get("timeout_s") <= 300,
+        "timeout_s must be in (0, 300]")
+    add("log_sha256", "hard", is_hex64(ev.get("log_sha256")),
+        "the preserved log hash must be a 64-hex sha256")
     add("not_awaiting", "hard", ev.get("status") != STATUS_AWAITING_PRODUCT,
         "a timeout is not an awaiting-product receipt")
+    mp = ev.get("measured_partial")
+    add("measured_partial_bool", "hard", isinstance(mp, bool),
+        "measured_partial must be boolean")
+    if mp is True:
+        add("partial_cells_sha256", "hard", is_hex64(ev.get("partial_cells_sha256")),
+            "measured_partial=true requires a preserved parsed cells hash")
+        add("partial_cells_present", "hard", ev.get("partial_cells_present") is True,
+            "measured_partial=true requires partial_cells_present=true")
+    else:
+        add("counters_unmeasured", "hard", ev.get("counters_measured") is False,
+            "a timeout before any cells must report counters unmeasured (not zero)")
+        add("no_partial_hash", "hard", ev.get("partial_cells_sha256") in (None,),
+            "measured_partial=false must not carry a partial cells hash")
     return checks
 
 
@@ -515,6 +562,62 @@ def validate_awaiting(ev, errors, checks):
                   "backend_exact", "backend_macro"}.intersection(set(missing))),
             f"missing must include a facade/backend/identity gap; got {missing}")
     return checks
+
+
+SCENARIO_REASON_CODES = {"seam_absent", "set_tracker_rejected"}
+
+
+def validate_scenarios(ev, scope, add):
+    scenarios = ev.get("scenarios")
+    add("scenarios_is_list", "hard", isinstance(scenarios, list), "scenarios must be a list")
+    by_id = {}
+    dup = False
+    for s in scenarios if isinstance(scenarios, list) else []:
+        sid = s.get("id")
+        if sid in by_id:
+            dup = True
+        by_id[sid] = s
+    add("scenarios_unique", "hard", not dup, "scenario ids must be unique")
+
+    if scope == "full":
+        add("scenarios_full_default_present", "hard", "default_clean_long" in by_id,
+            "full scope requires default_clean_long")
+        add("scenarios_full_injected_present", "hard", "injected_join_stop_resync" in by_id,
+            "full scope requires injected_join_stop_resync")
+        for sid in ("default_clean_long", "injected_join_stop_resync"):
+            s = by_id.get(sid)
+            if isinstance(s, dict):
+                add(f"scenario_{sid}_ran_bool", "hard", isinstance(s.get("ran"), bool),
+                    "ran must be boolean")
+                if s.get("ran") is not True:
+                    add(f"scenario_{sid}_reason_code", "hard",
+                        s.get("unmeasured_reason_code") in SCENARIO_REASON_CODES,
+                        f"unmeasured scenario {sid} must carry a known reason code")
+        d = by_id.get("default_clean_long", {}) or {}
+        d_ok = (d.get("ran") is True and d.get("backend_kind") == "experimentalBTrack"
+                and d.get("start_accepted") is True and d.get("audio_owner_delta_ok") is True
+                and isinstance(d.get("audio_owner_observed_s"), (int, float))
+                and d.get("audio_owner_observed_s", 0) > 0
+                and d.get("callbacks", 0) > 0 and d.get("output_nonzero_blocks", 0) > 0)
+        add("scenario_default_clean_long_gate", "gate", d_ok,
+            "default_clean_long must run with the actual experimentalBTrack backend and real audio-owner advancement")
+        inj = by_id.get("injected_join_stop_resync", {}) or {}
+        inj_ok = (inj.get("ran") is True and inj.get("backend_kind") == "injectedTest"
+                  and inj.get("start_accepted") is True and inj.get("join_observed") is True
+                  and inj.get("steps_fired", 0) > 0 and inj.get("stop_now_stopped") is True
+                  and inj.get("resync_accepted") is True
+                  and inj.get("generation_changed_on_reprepare") is True
+                  and inj.get("shutdown_released") is True
+                  and inj.get("callbacks", 0) > 0 and inj.get("output_nonzero_blocks", 0) > 0)
+        if inj.get("ran") is not True:
+            add("join_gate", "gate", False,
+                f"join proof unavailable: {inj.get('unmeasured_reason_code')}")
+        else:
+            add("join_gate", "gate", inj_ok,
+                "injected join/stop/resync scenario must show real join, steps, StopNow, resync, reprepare and shutdown")
+    else:
+        add("join_gate", "gate", False,
+            f"scope {scope} is partial; the first-audible join gate is only required for full scope")
 
 
 def _cross_check_local(ev, predeclared, local, add, errors):
@@ -582,8 +685,11 @@ def main(argv=None):
 
     hard_fail = [c for c in checks if c.severity == "hard" and not c.pass_]
     adv_fail = [c for c in checks if c.severity == "advisory" and not c.pass_]
+    gate_fail = [c for c in checks if c.severity == "gate" and not c.pass_]
+    hard_pass = len(hard_fail) == 0 and not errors
+    overall_pass = hard_pass and not gate_fail and status in MEASURED_STATUSES
     verdict = {
-        "schema": "live-jam-replay/verdict/1.1",
+        "schema": "live-jam-replay/verdict/1.2",
         "evidence": os.path.basename(args.evidence),
         "status": status,
         "synthetic": ev.get("synthetic") is True,
@@ -591,7 +697,11 @@ def main(argv=None):
         "hard_failures": len(hard_fail),
         "advisory_checks": len([c for c in checks if c.severity == "advisory"]),
         "advisory_failures": len(adv_fail),
-        "hard_pass": len(hard_fail) == 0 and not errors,
+        "gate_checks": len([c for c in checks if c.severity == "gate"]),
+        "gate_failures": len(gate_fail),
+        "hard_pass": hard_pass,
+        "pass": overall_pass,
+        "gates": {c.id: c.pass_ for c in checks if c.severity == "gate"},
         "checks": [c.as_dict() for c in checks],
         "errors": errors,
     }
@@ -608,15 +718,19 @@ def main(argv=None):
                 f.write("- **SYNTHETIC SELF-TEST** (not an actual measurement)\n")
             f.write(f"- hard checks: {verdict['hard_checks']} (failures {verdict['hard_failures']})\n")
             f.write(f"- advisory checks: {verdict['advisory_checks']} (failures {verdict['advisory_failures']})\n")
-            f.write(f"- verdict: **{'PASS' if verdict['hard_pass'] else 'FAIL'}**\n\n")
+            f.write(f"- gate checks: {verdict['gate_checks']} (failures {verdict['gate_failures']})\n")
+            f.write(f"- verdict: **{'PASS' if verdict['pass'] else 'FAIL'}** "
+                    f"(hard_pass={verdict['hard_pass']}, gates={verdict['gates']})\n\n")
             for c in checks:
                 f.write(f"- [{'PASS' if c.pass_ else 'FAIL'}][{c.severity}] {c.id}: {c.detail}\n")
 
     for e in errors:
         print(f"FAIL: {e}", file=sys.stderr)
-    print(f"hard_pass={verdict['hard_pass']} hard_failures={verdict['hard_failures']} "
-          f"advisory_failures={verdict['advisory_failures']} synthetic={verdict['synthetic']}")
-    return 0 if verdict["hard_pass"] else 1
+    print(f"hard_pass={verdict['hard_pass']} pass={verdict['pass']} "
+          f"hard_failures={verdict['hard_failures']} gate_failures={verdict['gate_failures']} "
+          f"advisory_failures={verdict['advisory_failures']} synthetic={verdict['synthetic']} "
+          f"gates={verdict['gates']}")
+    return 0 if verdict["pass"] else 1
 
 
 NORMALIZED_PREDECLARED = {

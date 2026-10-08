@@ -325,7 +325,7 @@ class CorrectedValidatorTests(unittest.TestCase):
         c = self.enabled_clean(ev)
         c["warm"]["cxx_new"] = 1
         c["warm"]["alloc_cxx_total"] = 1
-        ev["findings"] = [{"cell": c["id"], "kind": "warm_callback_alloc", "detail": "alloc=1"}]
+        ev["findings"] = [{"cell": c["id"], "kind": "warm_callback_rt_ops", "detail": "alloc=1"}]
         ev["status"] = "measured"  # wrong: must be measured-findings
         ok, _, _ = hard_pass(ev)
         self.assertFalse(ok)
@@ -335,10 +335,37 @@ class CorrectedValidatorTests(unittest.TestCase):
         c = self.enabled_clean(ev)
         c["warm"]["cxx_new"] = 1
         c["warm"]["alloc_cxx_total"] = 1
-        ev["findings"] = [{"cell": c["id"], "kind": "warm_callback_alloc", "detail": "alloc=1"}]
+        ev["findings"] = [{"cell": c["id"], "kind": "warm_callback_rt_ops", "detail": "alloc=1"}]
         ev["status"] = "measured-findings"
         ok, errors, _ = hard_pass(ev)
         self.assertTrue(ok, f"errors={errors}")
+
+    def test_free_only_finding_set(self):
+        ev = self.fresh()
+        c = self.enabled_clean(ev)
+        c["warm"]["c_free"] = 1
+        c["warm"]["free_total"] = 1
+        ev["findings"] = [{"cell": c["id"], "kind": "warm_callback_rt_ops", "detail": "free=1"}]
+        ev["status"] = "measured-findings"
+        ok, errors, _ = hard_pass(ev)
+        self.assertTrue(ok, f"errors={errors}")
+
+    def test_lock_only_finding_set(self):
+        ev = self.fresh()
+        c = self.enabled_clean(ev)
+        c["cold"]["lock"] = 1
+        ev["findings"] = [{"cell": c["id"], "kind": "cold_callback_rt_ops", "detail": "lock=1"}]
+        ev["status"] = "measured-findings"
+        ok, errors, _ = hard_pass(ev)
+        self.assertTrue(ok, f"errors={errors}")
+
+    def test_free_only_finding_hidden_fails(self):
+        ev = self.fresh()
+        c = self.enabled_clean(ev)
+        c["warm"]["c_free"] = 1
+        c["warm"]["free_total"] = 1
+        ok, _, _ = hard_pass(ev)
+        self.assertFalse(ok, "a free-only finding must not be hidden")
 
     # -- fixtures ------------------------------------------------------------
     def test_fixture_local_hash_mismatch(self):
@@ -356,6 +383,102 @@ class CorrectedValidatorTests(unittest.TestCase):
     def test_fixture_not_marked_synthetic(self):
         ev = self.fresh(); ev["fixtures"]["entries"][0]["not_guitar_recording"] = False
         ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    # -- N1 bootstrap --------------------------------------------------------
+    def test_bootstrap_missing(self):
+        ev = self.fresh(); del ev["bootstrap"]
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_bootstrap_not_ready(self):
+        ev = self.fresh(); ev["bootstrap"]["ready"] = False
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_bootstrap_backend_wrong(self):
+        ev = self.fresh(); ev["bootstrap"]["backend_kind"] = "injectedTest"
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_immutable_pins_false(self):
+        ev = self.fresh(); ev["identity"]["source"]["immutable_pins_ok"] = False
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    # -- N8 audio-owner ------------------------------------------------------
+    def test_audio_owner_unmeasured(self):
+        ev = self.fresh(); self.enabled_clean(ev)["progression"]["audio_owner_measured"] = False
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_audio_owner_start_wrong(self):
+        ev = self.fresh(); self.enabled_clean(ev)["progression"]["audio_owner_start"] = 0
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_audio_owner_end_wrong(self):
+        ev = self.fresh(); self.enabled_clean(ev)["progression"]["audio_owner_end"] = 1
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_audio_owner_forged_no_advance(self):
+        ev = self.fresh()
+        c = self.enabled_clean(ev)["progression"]
+        c["audio_owner_start"] = 128
+        c["audio_owner_end"] = 128
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    # -- N3 scenarios / gates ------------------------------------------------
+    def test_full_missing_injected_scenario(self):
+        ev = self.fresh()
+        ev["scenarios"] = [s for s in ev["scenarios"] if s["id"] != "injected_join_stop_resync"]
+        ok, errors, _ = hard_pass(ev)
+        self.assertFalse(ok)
+        self.assertTrue(any("injected" in e for e in errors), errors)
+
+    def test_full_injected_not_joined_gate(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["join_observed"] = False
+        ok, _, checks = hard_pass(ev)
+        self.assertTrue(ok, "structural validity is independent of the join gate")
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_injected_steps_zero_gate(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["steps_fired"] = 0
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_default_bad_backend_gate(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "default_clean_long":
+                s["backend_kind"] = "injectedTest"
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "scenario_default_clean_long_gate"][0].pass_)
+
+    def test_full_injected_seam_absent_gate(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["ran"] = False
+                s["unmeasured_reason_code"] = "seam_absent"
+        ok, _, checks = hard_pass(ev)
+        self.assertTrue(ok)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_injected_ran_false_bad_reason_code(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["ran"] = False
+                s["unmeasured_reason_code"] = "whatever"
+        ok, _, _ = hard_pass(ev)
+        self.assertFalse(ok)
+
+    def test_smoke_join_gate_partial(self):
+        ev = self.fresh("smoke")
+        ok, _, checks = hard_pass(ev)
+        self.assertTrue(ok, "smoke is structurally valid")
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_,
+                         "smoke must not claim the full join gate")
 
     # -- status --------------------------------------------------------------
     def test_unknown_status(self):
@@ -407,22 +530,131 @@ class AwaitingAndTimeoutTests(unittest.TestCase):
         ev = self.base_awaiting(); ev["missing"] = ["something_else"]
         errors = []; ve.validate_awaiting(ev, errors, []); self.assertTrue(errors)
 
-    def test_timed_out_valid(self):
+    def test_timed_out_before_cells_valid(self):
         ev = {"schema": ve.SCHEMA_MEASURED, "status": "timed-out", "invoked_binary": True,
-              "measured_partial": True, "timeout_s": 300}
+              "clean": False, "measured_partial": False, "partial_cells_present": False,
+              "partial_cells_sha256": None, "counters_measured": False,
+              "log_sha256": "a" * 64, "timeout_s": 300}
         errors = []; checks = []
         ve.validate_timed_out(ev, errors, checks)
         self.assertFalse(errors, errors)
 
+    def test_timed_out_partial_valid(self):
+        ev = {"schema": ve.SCHEMA_MEASURED, "status": "timed-out", "invoked_binary": True,
+              "clean": False, "measured_partial": True, "partial_cells_present": True,
+              "partial_cells_sha256": "b" * 64, "counters_measured": True,
+              "log_sha256": "a" * 64, "timeout_s": 300}
+        errors = []; ve.validate_timed_out(ev, errors, [])
+        self.assertFalse(errors, errors)
+
+    def test_timed_out_partial_without_hash_fails(self):
+        ev = {"schema": ve.SCHEMA_MEASURED, "status": "timed-out", "invoked_binary": True,
+              "clean": False, "measured_partial": True, "partial_cells_present": True,
+              "partial_cells_sha256": None, "counters_measured": True,
+              "log_sha256": "a" * 64, "timeout_s": 300}
+        errors = []; ve.validate_timed_out(ev, errors, [])
+        self.assertTrue(errors)
+
     def test_timed_out_invoked_false_fails(self):
         ev = {"schema": ve.SCHEMA_MEASURED, "status": "timed-out", "invoked_binary": False,
-              "measured_partial": True, "timeout_s": 300}
+              "clean": False, "measured_partial": False, "partial_cells_present": False,
+              "partial_cells_sha256": None, "counters_measured": False,
+              "log_sha256": "a" * 64, "timeout_s": 300}
         errors = []; ve.validate_timed_out(ev, errors, []); self.assertTrue(errors)
 
-    def test_timed_out_partial_false_fails(self):
+    def test_timed_out_deadline_over_300_fails(self):
         ev = {"schema": ve.SCHEMA_MEASURED, "status": "timed-out", "invoked_binary": True,
-              "measured_partial": False, "timeout_s": 300}
+              "clean": False, "measured_partial": False, "partial_cells_present": False,
+              "partial_cells_sha256": None, "counters_measured": False,
+              "log_sha256": "a" * 64, "timeout_s": 301}
         errors = []; ve.validate_timed_out(ev, errors, []); self.assertTrue(errors)
+
+    def test_timed_out_missing_log_hash_fails(self):
+        ev = {"schema": ve.SCHEMA_MEASURED, "status": "timed-out", "invoked_binary": True,
+              "clean": False, "measured_partial": False, "partial_cells_present": False,
+              "partial_cells_sha256": None, "counters_measured": False,
+              "log_sha256": None, "timeout_s": 300}
+        errors = []; ve.validate_timed_out(ev, errors, []); self.assertTrue(errors)
+
+
+class OverrideAndLinkTests(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, HERE)
+        import replay_lib as rl
+        self.rl = rl
+        self.tmp = tempfile.mkdtemp(prefix="evallive001n4-")
+        self.source = self.tmp
+        os.makedirs(os.path.join(self.source, "src", "jam"), exist_ok=True)
+        os.makedirs(os.path.join(self.source, "src"), exist_ok=True)
+        # create the allowlisted files with arbitrary bytes
+        for rel in ("src/jam/DrumClockBridge.h", "src/jam/RhythmTypes.h",
+                    "src/PluginProcessor.h", "src/PluginProcessor.cpp"):
+            with open(os.path.join(self.source, rel), "wb") as f:
+                f.write(b"x")
+
+    def _entry(self, rel, sha):
+        return {"path": rel, "sha256": sha}
+
+    def test_unknown_path_rejected(self):
+        ok, missing, _ = self.rl.apply_source_pin_overrides(
+            self.source, {}, [self._entry("src/other.h", "a" * 64)])
+        self.assertFalse(ok)
+        self.assertTrue(any("override_unknown_path" in m for m in missing), missing)
+
+    def test_immutable_path_rejected(self):
+        ok, missing, _ = self.rl.apply_source_pin_overrides(
+            self.source, {}, [self._entry("src/jam/RhythmTypes.h", "a" * 64)])
+        self.assertFalse(ok)
+        self.assertTrue(any("override_immutable" in m for m in missing), missing)
+
+    def test_non_preregistered_hash_rejected(self):
+        ok, missing, _ = self.rl.apply_source_pin_overrides(
+            self.source, {}, [self._entry("src/jam/DrumClockBridge.h", "a" * 64)])
+        self.assertFalse(ok)
+        self.assertTrue(any("override_hash_not_preregistered" in m for m in missing), missing)
+
+    def test_duplicate_rejected(self):
+        e = self._entry("src/jam/DrumClockBridge.h",
+                        self.rl.OVERRIDE_ALLOWLIST["src/jam/DrumClockBridge.h"])
+        ok, missing, _ = self.rl.apply_source_pin_overrides(self.source, {}, [e, e])
+        self.assertFalse(ok)
+        self.assertTrue(any("override_duplicate" in m for m in missing), missing)
+
+    def test_path_traversal_rejected(self):
+        ok, missing, _ = self.rl.apply_source_pin_overrides(
+            self.source, {}, [self._entry("../src/jam/DrumClockBridge.h", "a" * 64)])
+        self.assertFalse(ok)
+        self.assertTrue(any("override_unknown_path" in m for m in missing), missing)
+
+    def test_preregistered_hash_but_file_mismatch(self):
+        e = self._entry("src/jam/DrumClockBridge.h",
+                        self.rl.OVERRIDE_ALLOWLIST["src/jam/DrumClockBridge.h"])
+        ok, missing, _ = self.rl.apply_source_pin_overrides(self.source, {}, [e])
+        self.assertFalse(ok)
+        self.assertTrue(any("override_mismatch" in m for m in missing), missing)
+
+    def test_immutable_pin_changed(self):
+        ok, missing, _ = self.rl.apply_source_pin_overrides(
+            self.source, {"src/jam/RhythmTypes.h": "0" * 64}, [])
+        self.assertFalse(ok)
+        self.assertTrue(any("immutable_pin_changed" in m for m in missing), missing)
+
+    def test_link_metadata_unavailable_fails_closed(self):
+        import subprocess as sp
+        orig = self.rl.run
+
+        def fake_run(cmd, cwd=None, timeout=600, env=None):
+            if cmd and cmd[0] == "ninja":
+                raise FileNotFoundError("ninja")
+            return orig(cmd, cwd=cwd, timeout=timeout, env=env)
+
+        self.rl.run = fake_run
+        try:
+            closure = self.rl.extract_link_closure(self.tmp)
+        finally:
+            self.rl.run = orig
+        self.assertFalse(closure["ok"])
+        self.assertEqual(closure["missing"], "missing_link_metadata_tool")
 
 
 if __name__ == "__main__":
