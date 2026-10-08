@@ -1,0 +1,11 @@
+variant=new
+architecture_id=a1_wavenet_standard
+model_file=wavenet_a1_standard.nam
+warm_blocks=128
+timeout_s=600
+binary=/home/mojo/projects/build-RT-005-worker/newprobe/build/processor_probe
+binary_sha256=faa79a4feee138836b9fce8d77cfbbce6557603ccce7090a195cfc0cb5c7e379
+nam_archive=/home/mojo/projects/build-RT-005-worker/product/libnam_core.a
+nam_archive_sha256=ad0ffbb37434a860a5084831ef7514f7e0146318cf98a743c14e2d24b68b5579
+model_sha256=ceb53469a19ce278e2235da982ae676cb8d5451a8de22a7ecc7a2617d07224d1
+exit=0

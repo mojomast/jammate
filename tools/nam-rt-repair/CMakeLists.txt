@@ -119,12 +119,34 @@ add_test(NAME nam_rt_probe_repair COMMAND "${RT003_PYTHON3}"
 add_test(NAME nam_rt_compare_unit COMMAND "${RT003_PYTHON3}"
   "${CMAKE_CURRENT_SOURCE_DIR}/test_compare_diff.py")
 
+# --- RT-005 activation differential test (one process per library) -----------
+# Same source compiled twice: pinned upstream vs generated patched overlay.
+add_executable(nam_activation_diff_original src/NamActivationDiffTest.cpp)
+target_link_libraries(nam_activation_diff_original PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,nam_core_original>")
+target_compile_options(nam_activation_diff_original PRIVATE -fvisibility=default -Wno-frame-address)
+
+add_executable(nam_activation_diff_patched src/NamActivationDiffTest.cpp)
+target_link_libraries(nam_activation_diff_patched PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,nam_core>")
+target_compile_options(nam_activation_diff_patched PRIVATE -fvisibility=default -Wno-frame-address)
+
+add_test(NAME nam_rt_activation_diff COMMAND
+  "${CMAKE_CURRENT_SOURCE_DIR}/run_activation_diff_test.sh"
+  --original "$<TARGET_FILE:nam_activation_diff_original>"
+  --patched  "$<TARGET_FILE:nam_activation_diff_patched>"
+  --model    "${NAM_CORE_DIR}/example_models/wavenet_a2_max.nam"
+  --out      "${CMAKE_BINARY_DIR}/activation-diff-artifacts")
+
+# --- RT-005 activation comparator acceptance unit tests ----------------------
+add_test(NAME nam_rt_activation_compare_unit COMMAND "${RT003_PYTHON3}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/test_compare_activation_diff.py")
+
 # --- patch idempotence / stale-hash checks -----------------------------------
 add_test(NAME nam_rt_patch_checks COMMAND
   "${CMAKE_CURRENT_SOURCE_DIR}/check_patch.sh"
   --nam-core-dir "${NAM_CORE_DIR}"
   --overlay-dir  "${NAM_RT_INCLUDE_ROOT}/NAM"
   --patch        "${CMAKE_CURRENT_SOURCE_DIR}/../../patches/nam/lstm-rt-alloc.patch"
+  --activation-patch "${CMAKE_CURRENT_SOURCE_DIR}/../../patches/nam/activation-rt-alloc.patch"
   --cmake        "${CMAKE_COMMAND}"
   --source-dir   "${CMAKE_CURRENT_SOURCE_DIR}"
   --workdir      "${CMAKE_BINARY_DIR}/patch-checks")

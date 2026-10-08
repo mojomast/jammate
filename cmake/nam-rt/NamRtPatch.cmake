@@ -56,6 +56,28 @@ set(NAM_RT_LSTM_CPP_PATCHED_SHA256
 set(NAM_RT_LSTM_H_PATCHED_SHA256
     "4975a3060d7a8108c1ba27e0b15cc57ad2f0f727448459c238093368f2641bc9")
 
+# ---------------------------------------------------------------------------
+# RT-005 pinned bytes: activation PReLU/blending allocation repair.
+# Applied on top of the RT-003 LSTM patch from the same pinned revision.
+# ---------------------------------------------------------------------------
+
+# Tracked activation patch bytes (zero-context unified diff, three logical
+# edits: one in activations.h, two in gating_activations.h).
+set(NAM_RT_ACTIVATION_PATCH_SHA256
+    "dfa247d59387e7f6c042bbf91c265debd90c66d503a5570d8f8b3a46711681e5")
+
+# Pinned upstream activation bytes (before patching).
+set(NAM_RT_ACTIVATIONS_H_SHA256
+    "83531762249acd73e97ac7247a5ebb482b0ba127bf261a8a74ee19576b983576")
+set(NAM_RT_GATING_ACTIVATIONS_H_SHA256
+    "e004bda49503acc21ab42a66bab847dec2d6d55461807b0de707cd1ad1bdb060")
+
+# Expected generated activation bytes (after patching) — patch-integrity pins.
+set(NAM_RT_ACTIVATIONS_H_PATCHED_SHA256
+    "7a43dc54bc47cace5fff7cdb5d3d132e00e2c8d9c49fecc4b113c8d550e4e283")
+set(NAM_RT_GATING_ACTIVATIONS_H_PATCHED_SHA256
+    "a0640cb69618f9cb43d40499aae697eb2b3bf068b44b93d3905cda6a6f6fcb42")
+
 function(_nam_rt_apply_replacements file)
   file(READ "${file}" _content)
 
@@ -147,14 +169,111 @@ function(_nam_rt_apply_replacements_h file)
   file(CONFIGURE OUTPUT "${file}" CONTENT "${_content}" @ONLY NEWLINE_STYLE UNIX)
 endfunction()
 
+# --- RT-005: activations.h --------------------------------------------------
+function(_nam_rt_apply_activation_replacements file)
+  file(READ "${file}" _content)
+
+  # Remove the per-call vector copy of `negative_slopes`.
+  set(_copy_old
+[==[    // Prepare the slopes for the current matrix size
+    std::vector<float> slopes_for_channels = negative_slopes;
+
+    // Fail loudly if input has more channels than activation]==])
+  set(_copy_new
+[==[    // Fail loudly if input has more channels than activation]==])
+  string(FIND "${_content}" "${_copy_old}" _pos)
+  if(_pos EQUAL -1)
+    message(FATAL_ERROR "RT-005: pinned activations.h PReLU slopes copy not found in ${file}")
+  endif()
+  string(REPLACE "${_copy_old}" "${_copy_new}" _content "${_content}")
+
+  set(_cmt_old
+[==[    // Apply each negative slope to its corresponding channel]==])
+  set(_cmt_new
+[==[    // Apply each negative slope to its corresponding channel.
+    //
+    // RT-005: read the slope straight out of the preallocated `negative_slopes`
+    // member. The previous `std::vector<float> slopes_for_channels =
+    // negative_slopes;` copied the vector on every call, which heap-allocated
+    // once per model sample inside the audio callback. Reading the member is
+    // bit-for-bit identical (the copy was read-only) and allocation-free.]==])
+  string(FIND "${_content}" "${_cmt_old}" _pos)
+  if(_pos EQUAL -1)
+    message(FATAL_ERROR "RT-005: pinned activations.h PReLU apply comment not found in ${file}")
+  endif()
+  string(REPLACE "${_cmt_old}" "${_cmt_new}" _content "${_content}")
+
+  set(_idx_old
+[==[        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), slopes_for_channels[channel]);]==])
+  set(_idx_new
+[==[        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), negative_slopes[channel]);]==])
+  string(FIND "${_content}" "${_idx_old}" _pos)
+  if(_pos EQUAL -1)
+    message(FATAL_ERROR "RT-005: pinned activations.h PReLU slope indexing not found in ${file}")
+  endif()
+  string(REPLACE "${_idx_old}" "${_idx_new}" _content "${_content}")
+
+  file(CONFIGURE OUTPUT "${file}" CONTENT "${_content}" @ONLY NEWLINE_STYLE UNIX)
+endfunction()
+
+# --- RT-005: gating_activations.h (non-inline-GEMM branch) ------------------
+function(_nam_rt_apply_gating_replacements file)
+  file(READ "${file}" _content)
+
+  # GatingActivation: explicit preallocated product loop.
+  set(_gating_old
+[==[      // Element-wise multiplication and store result
+      output.block(0, i, num_channels, 1) = input_buffer.array() * gating_buffer.array();]==])
+  set(_gating_new
+[==[      // Element-wise multiplication and store result.
+      //
+      // RT-005: explicit preallocated element-wise loop, matching the
+      // NAM_USE_INLINE_GEMM branch above. This is bit-identical to the Eigen
+      // array expression but never relies on Eigen evaluation temporaries.
+      for (int channel = 0; channel < num_channels; channel++)
+      {
+        output(channel, i) = input_buffer(channel, 0) * gating_buffer(channel, 0);
+      }]==])
+  string(FIND "${_content}" "${_gating_old}" _pos)
+  if(_pos EQUAL -1)
+    message(FATAL_ERROR "RT-005: pinned gating_activations.h gating expression not found in ${file}")
+  endif()
+  string(REPLACE "${_gating_old}" "${_gating_new}" _content "${_content}")
+
+  # BlendingActivation: explicit preallocated weighted-blend loop.
+  set(_blend_old
+[==[      // Weighted blending: alpha * activated_input + (1 - alpha) * pre_activation_input
+      output.block(0, i, num_channels, 1) =
+        blend_buffer.array() * input_buffer.array() + (1.0f - blend_buffer.array()) * pre_activation_buffer.array();]==])
+  set(_blend_new
+[==[      // Weighted blending: alpha * activated_input + (1 - alpha) * pre_activation_input.
+      //
+      // RT-005: explicit preallocated element-wise loop, matching the
+      // NAM_USE_INLINE_GEMM branch above. The original Eigen array expression
+      // is equivalent, but this form is guaranteed not to materialise a
+      // per-sample temporary.
+      for (int channel = 0; channel < num_channels; channel++)
+      {
+        const float alpha = blend_buffer(channel, 0);
+        output(channel, i) = alpha * input_buffer(channel, 0) + (1.0f - alpha) * pre_activation_buffer(channel, 0);
+      }]==])
+  string(FIND "${_content}" "${_blend_old}" _pos)
+  if(_pos EQUAL -1)
+    message(FATAL_ERROR "RT-005: pinned gating_activations.h blending expression not found in ${file}")
+  endif()
+  string(REPLACE "${_blend_old}" "${_blend_new}" _content "${_content}")
+
+  file(CONFIGURE OUTPUT "${file}" CONTENT "${_content}" @ONLY NEWLINE_STYLE UNIX)
+endfunction()
+
 function(_nam_rt_expect_sha256 file expected label)
   file(SHA256 "${file}" _got)
   if(NOT _got STREQUAL "${expected}")
     message(FATAL_ERROR
-      "RT-003: ${label} SHA256 mismatch for ${file}\n"
+      "NAM overlay: ${label} SHA256 mismatch for ${file}\n"
       "  expected ${expected}\n"
       "  got      ${_got}\n"
-      "The pinned NAM revision or the overlay patch changed; refusing to build.")
+      "The pinned NAM revision or an overlay patch changed; refusing to build.")
   endif()
 endfunction()
 
@@ -166,19 +285,26 @@ function(nam_rt_generate_overlay nam_core_dir)
   set(_root "${CMAKE_BINARY_DIR}/nam-rt/generated")
   set(_nam "${_root}/NAM")
   set(_patch "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../../patches/nam/lstm-rt-alloc.patch")
+  set(_act_patch "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../../patches/nam/activation-rt-alloc.patch")
 
   if(NOT EXISTS "${_patch}")
     message(FATAL_ERROR "RT-003: tracked patch not found at ${_patch}")
   endif()
-  # Verify the tracked patch itself. This is independent of the pinned-input
+  if(NOT EXISTS "${_act_patch}")
+    message(FATAL_ERROR "RT-005: tracked activation patch not found at ${_act_patch}")
+  endif()
+  # Verify the tracked patches themselves. This is independent of the pinned-input
   # hashes below, so an edited-but-unre-pinned patch fails closed even when the
   # pinned upstream bytes are clean.
   _nam_rt_expect_sha256("${_patch}" "${NAM_RT_PATCH_SHA256}"
                         "tracked overlay patch")
+  _nam_rt_expect_sha256("${_act_patch}" "${NAM_RT_ACTIVATION_PATCH_SHA256}"
+                        "RT-005 tracked activation overlay patch")
 
-  foreach(_f "${_src}/lstm.cpp" "${_src}/lstm.h")
+  foreach(_f "${_src}/lstm.cpp" "${_src}/lstm.h" "${_src}/activations.h"
+            "${_src}/gating_activations.h")
     if(NOT EXISTS "${_f}")
-      message(FATAL_ERROR "RT-003: missing pinned NAM file ${_f}")
+      message(FATAL_ERROR "NAM overlay: missing pinned NAM file ${_f}")
     endif()
   endforeach()
 
@@ -186,6 +312,10 @@ function(nam_rt_generate_overlay nam_core_dir)
                         "pinned upstream lstm.cpp")
   _nam_rt_expect_sha256("${_src}/lstm.h" "${NAM_RT_LSTM_H_SHA256}"
                         "pinned upstream lstm.h")
+  _nam_rt_expect_sha256("${_src}/activations.h" "${NAM_RT_ACTIVATIONS_H_SHA256}"
+                        "pinned upstream activations.h")
+  _nam_rt_expect_sha256("${_src}/gating_activations.h" "${NAM_RT_GATING_ACTIVATIONS_H_SHA256}"
+                        "pinned upstream gating_activations.h")
 
   # The generated tree is owned exclusively by this module. Wipe and re-seed it
   # every configure so that files removed upstream do not linger as stale
@@ -197,23 +327,32 @@ function(nam_rt_generate_overlay nam_core_dir)
                         "copied upstream lstm.cpp")
   _nam_rt_expect_sha256("${_nam}/lstm.h" "${NAM_RT_LSTM_H_SHA256}"
                         "copied upstream lstm.h")
+  _nam_rt_expect_sha256("${_nam}/activations.h" "${NAM_RT_ACTIVATIONS_H_SHA256}"
+                        "copied upstream activations.h")
+  _nam_rt_expect_sha256("${_nam}/gating_activations.h" "${NAM_RT_GATING_ACTIVATIONS_H_SHA256}"
+                        "copied upstream gating_activations.h")
 
   _nam_rt_apply_replacements("${_nam}/lstm.cpp")
   _nam_rt_apply_replacements_h("${_nam}/lstm.h")
+  _nam_rt_apply_activation_replacements("${_nam}/activations.h")
+  _nam_rt_apply_gating_replacements("${_nam}/gating_activations.h")
 
   _nam_rt_expect_sha256("${_nam}/lstm.cpp" "${NAM_RT_LSTM_CPP_PATCHED_SHA256}"
                         "generated patched lstm.cpp")
   _nam_rt_expect_sha256("${_nam}/lstm.h" "${NAM_RT_LSTM_H_PATCHED_SHA256}"
                         "generated patched lstm.h")
+  _nam_rt_expect_sha256("${_nam}/activations.h" "${NAM_RT_ACTIVATIONS_H_PATCHED_SHA256}"
+                        "generated patched activations.h")
+  _nam_rt_expect_sha256("${_nam}/gating_activations.h" "${NAM_RT_GATING_ACTIVATIONS_H_PATCHED_SHA256}"
+                        "generated patched gating_activations.h")
 
-  # Re-run configure when any copied NAM source/header, or the tracked patch,
-  # changes. The module itself is tracked automatically because it is
-  # include()d.
+  # Re-run configure when any copied NAM source/header, or either tracked patch,
+  # changes. The module itself is tracked automatically because it is include()d.
   file(GLOB_RECURSE _nam_tree CONFIGURE_DEPENDS "${_src}/*")
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    ${_nam_tree} "${_patch}")
+    ${_nam_tree} "${_patch}" "${_act_patch}")
 
   set(NAM_RT_INCLUDE_ROOT "${_root}" PARENT_SCOPE)
   set(NAM_RT_NAM_DIR "${_nam}" PARENT_SCOPE)
-  message(STATUS "RT-003: generated patched NAM overlay at ${_nam}")
+  message(STATUS "RT-005: generated patched NAM overlay (LSTM + activation) at ${_nam}")
 endfunction()

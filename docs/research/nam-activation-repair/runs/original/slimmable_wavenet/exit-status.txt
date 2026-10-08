@@ -1,0 +1,11 @@
+variant=original
+architecture_id=slimmable_wavenet
+model_file=slimmable_wavenet.nam
+warm_blocks=128
+timeout_s=600
+binary=/home/mojo/projects/build-RT-003-integration/probe-baseline/build/processor_probe
+binary_sha256=de089230f5c718641e5620376cc8b7a8e8932b527464042a9211f8f32aa302e7
+nam_archive=/home/mojo/projects/build-RT-003-integration/probe-baseline/plugin/libnam_core.a
+nam_archive_sha256=af023ffcafd198e7a09107b78f2c540d4d3dbdce3c717e9ea3f215097e412d1b
+model_sha256=735c1a86e18140b7cfe90c08427ca6a85f62c32d34cc4048997933652aa774b4
+exit=0

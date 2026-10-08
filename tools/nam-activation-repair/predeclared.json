@@ -1,0 +1,118 @@
+{
+  "task": "RT-005",
+  "purpose": "Actual-processor comparison of three NAM archives (pinned upstream, RT-003 LSTM-only, RT-005 LSTM+activation) on the RT-004 predeclared architecture set, to prove the activation repair removes the a2_wavenet_max PReLU/blending allocations while preserving the previously clean architectures.",
+  "nam_pin": "third_party/NeuralAmpModelerCore @ 1f42f88535884450104b8711d7595019afa0495b",
+  "models_dir": "third_party/NeuralAmpModelerCore/example_models",
+  "architectures": [
+    {
+      "id": "lstm_control",
+      "file": "lstm.nam",
+      "sha256": "df9f78c49f49c2bb32411df47e3f53746075adb206b92d017e06379d1e56234a",
+      "expected_architecture": "LSTM",
+      "expected_version": "0.5.4"
+    },
+    {
+      "id": "a1_wavenet_standard",
+      "file": "wavenet_a1_standard.nam",
+      "sha256": "ceb53469a19ce278e2235da982ae676cb8d5451a8de22a7ecc7a2617d07224d1",
+      "expected_architecture": "WaveNet",
+      "expected_version": "0.5.0"
+    },
+    {
+      "id": "a2_wavenet_max",
+      "file": "wavenet_a2_max.nam",
+      "sha256": "12384c6640e1126907b366584024c4abb129ac5920b3dc2d31b29e39315e820d",
+      "expected_architecture": "WaveNet",
+      "expected_version": "0.6.0"
+    },
+    {
+      "id": "slimmable_wavenet",
+      "file": "slimmable_wavenet.nam",
+      "sha256": "735c1a86e18140b7cfe90c08427ca6a85f62c32d34cc4048997933652aa774b4",
+      "expected_architecture": "WaveNet",
+      "expected_version": "0.7.0"
+    },
+    {
+      "id": "a2_slimmable_container",
+      "file": "A2.nam",
+      "sha256": "2d2d744516dc0197737a2c5001010429692d4cb20d72b08264781de626fcf4ca",
+      "expected_architecture": "SlimmableContainer",
+      "expected_version": "0.7.0"
+    }
+  ],
+  "variants": {
+    "original": {
+      "description": "pinned upstream NAM (no overlay patch); historical RT-004 control",
+      "binary": "/home/mojo/projects/build-RT-003-integration/probe-baseline/build/processor_probe",
+      "binary_sha256": "de089230f5c718641e5620376cc8b7a8e8932b527464042a9211f8f32aa302e7",
+      "nam_archive": "/home/mojo/projects/build-RT-003-integration/probe-baseline/plugin/libnam_core.a",
+      "nam_archive_sha256": "af023ffcafd198e7a09107b78f2c540d4d3dbdce3c717e9ea3f215097e412d1b",
+      "shared_archive": "/home/mojo/projects/build-RT-003-integration/probe-baseline/plugin/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+      "shared_archive_sha256": "46edfe5dcda44acf28c690b5a2a0eeb3401f6f7aff0f557d1863003d96f6b147"
+    },
+    "lstm_only": {
+      "description": "RT-003 integration product probe: overlay with the LSTM patch only (libnam_core dbd11fb2)",
+      "binary": "/home/mojo/projects/build-RT-003-integration/product-probe/build/processor_probe",
+      "binary_sha256": "f950d6d95ff2f02d3deaab25e807b15c8fe0ac208a59f07f0e961729e3761715",
+      "nam_archive": "/home/mojo/projects/build-RT-003-integration/product/libnam_core.a",
+      "nam_archive_sha256": "dbd11fb2c63b69e00b78a559cff0cb1fbe14ece214dba73326b4232014498507",
+      "shared_archive": "/home/mojo/projects/build-RT-003-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+      "shared_archive_sha256": "405ee59144ff7e72a02c51368e700962cefe0353606b0a1d3ae63c8115181b40"
+    },
+    "new": {
+      "description": "RT-005 production nam_core from the overlaid NAM (LSTM + activation patches); shared archive identical to lstm_only",
+      "binary": "/home/mojo/projects/build-RT-005-worker/newprobe/build/processor_probe",
+      "binary_sha256": "faa79a4feee138836b9fce8d77cfbbce6557603ccce7090a195cfc0cb5c7e379",
+      "nam_archive": "/home/mojo/projects/build-RT-005-worker/product/libnam_core.a",
+      "nam_archive_sha256": "ad0ffbb37434a860a5084831ef7514f7e0146318cf98a743c14e2d24b68b5579",
+      "shared_archive": "/home/mojo/projects/build-RT-003-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+      "shared_archive_sha256": "405ee59144ff7e72a02c51368e700962cefe0353606b0a1d3ae63c8115181b40"
+    }
+  },
+  "source_pin": {
+    "revision": "677ce9f",
+    "files": {
+      "src/PluginProcessor.cpp": "bb241d627af9c68943e299f25655c787dc103efd2d7cbe1ba6dddec744d3a7ca",
+      "src/PluginProcessor.h": "b1a1a41e117258402cd95fe4f95e8158ef74197a622b872e9e257d97b1367b4f",
+      "src/DrumEngine.cpp": "4c407bef2d5f36365e34547bba232ed5743cab468cecdbafd795a55995cbd650",
+      "src/DrumEngine.h": "331d0ecafd6edf02acb18f0ae8922ae3951f95de1f5296b748f32bd7faa8ec6c",
+      "src/rt/RtSignal.h": "9cb0fa0131d3f3b6419e7ca33c7870eb65e05b9f8292aa45ce19bde33af71e1d"
+    }
+  },
+  "matrix": {
+    "warm_blocks": 128,
+    "timeout_s": 600,
+    "num_drum_voices": 9,
+    "nam_cases_per_model": 8,
+    "rates": [48000, 96000],
+    "blocks": [128, 512],
+    "tags": ["nam", "nam+drums"],
+    "cold_and_warm": true,
+    "dry_cases": 18,
+    "variants": ["original", "lstm_only", "new"],
+    "one_process_per_model_and_variant": true
+  },
+  "expected": {
+    "positive_warm_alloc_total": 491520,
+    "positive_models": {
+      "a2_wavenet_max": ["original", "lstm_only"],
+      "lstm_control": ["original"]
+    },
+    "zero_models": {
+      "a1_wavenet_standard": ["original", "lstm_only", "new"],
+      "slimmable_wavenet": ["original", "lstm_only", "new"],
+      "a2_slimmable_container": ["original", "lstm_only", "new"],
+      "a2_wavenet_max": ["new"],
+      "lstm_control": ["lstm_only", "new"]
+    },
+    "note": "new must be zero on every model; lstm_only must retain the a2 finding (RT-003 did not cover it) and be zero on lstm; original must be positive on a2 and lstm."
+  },
+  "validity_rules": [
+    "exactly one independent process per (variant, model); missing/duplicate/extra rows fail closed",
+    "exit 0, selfcheck_pass, args_ok, dry_cases 18 with dry_all_zero, nam_cases 8, scene flags true",
+    "recorded variant/model/binary/archive hashes must equal the predeclared identity; actual files are hashed when present",
+    "warm_blocks 128 and timeout_s 600 are read from this protocol, never from a run's own exit status",
+    "a run with capture overflow is a finding, never clean",
+    "per-sample output is not dumped by the probe; only mean warm out_rms is checked for finiteness"
+  ]
+}

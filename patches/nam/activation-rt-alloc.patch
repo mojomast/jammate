@@ -1,0 +1,78 @@
+# RT-005 — allocation repair for the upstream NAM activation operations.
+#
+# Upstream pinned revision: third_party/NeuralAmpModelerCore @
+#   1f42f88535884450104b8711d7595019afa0495b (claimed v0.5.4)
+#
+# This is a *source* patch against upstream NAM. It is applied, after
+# patches/nam/lstm-rt-alloc.patch, to a configure-time generated copy of the
+# pinned NAM directory under the build tree; third_party/ is never modified
+# (see cmake/nam-rt/NamRtPatch.cmake). `patch -p1` inside a NAM checkout
+# reproduces the generated overlay.
+#
+# It makes three logical edits across two files (activations.h,
+# gating_activations.h) that remove the per-sample C++ heap allocation RT-004
+# measured on the real processor for an A2 WaveNet model with PReLU/blending
+# (wavenet_a2_max.nam; `nam::activations::ActivationPReLU::apply(Eigen::MatrixXf&)`
+# and `nam::gating_activations::BlendingActivation::apply`):
+#
+#   1. ActivationPReLU::apply(Eigen::MatrixXf&) copied `negative_slopes` into a
+#      fresh `std::vector<float>` on every call (one heap `new` per sample). It
+#      now reads the preallocated member directly; the copy was read-only, so the
+#      result is bit-for-bit identical.
+#   2. GatingActivation::apply and 3. BlendingActivation::apply (the non-
+#      NAM_USE_INLINE_GEMM branch) evaluated the channel combination with an
+#      Eigen array expression. They now use explicit preallocated element-wise
+#      loops identical to the existing NAM_USE_INLINE_GEMM branch, so no
+#      per-sample temporary can be materialised.
+#
+# Floating-point results are unchanged; see docs/research/NAM-ACTIVATION-REPAIR.md.
+#
+# Zero-context (-U0) on purpose: no context lines means no blank " " lines,
+# so the tracked patch passes `git diff --check`.
+--- a/NAM/activations.h
++++ b/NAM/activations.h
+@@ -305,3 +304,0 @@
+-    // Prepare the slopes for the current matrix size
+-    std::vector<float> slopes_for_channels = negative_slopes;
+-
+@@ -318 +315,7 @@
+-    // Apply each negative slope to its corresponding channel
++    // Apply each negative slope to its corresponding channel.
++    //
++    // RT-005: read the slope straight out of the preallocated `negative_slopes`
++    // member. The previous `std::vector<float> slopes_for_channels =
++    // negative_slopes;` copied the vector on every call, which heap-allocated
++    // once per model sample inside the audio callback. Reading the member is
++    // bit-for-bit identical (the copy was read-only) and allocation-free.
+@@ -324 +327 @@
+-        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), slopes_for_channels[channel]);
++        matrix(channel, time_step) = leaky_relu(matrix(channel, time_step), negative_slopes[channel]);
+--- a/NAM/gating_activations.h
++++ b/NAM/gating_activations.h
+@@ -110,2 +110,9 @@
+-      // Element-wise multiplication and store result
+-      output.block(0, i, num_channels, 1) = input_buffer.array() * gating_buffer.array();
++      // Element-wise multiplication and store result.
++      //
++      // RT-005: explicit preallocated element-wise loop, matching the
++      // NAM_USE_INLINE_GEMM branch above. This is bit-identical to the Eigen
++      // array expression but never relies on Eigen evaluation temporaries.
++      for (int channel = 0; channel < num_channels; channel++)
++      {
++        output(channel, i) = input_buffer(channel, 0) * gating_buffer(channel, 0);
++      }
+@@ -223,3 +230,11 @@
+-      // Weighted blending: alpha * activated_input + (1 - alpha) * pre_activation_input
+-      output.block(0, i, num_channels, 1) =
+-        blend_buffer.array() * input_buffer.array() + (1.0f - blend_buffer.array()) * pre_activation_buffer.array();
++      // Weighted blending: alpha * activated_input + (1 - alpha) * pre_activation_input.
++      //
++      // RT-005: explicit preallocated element-wise loop, matching the
++      // NAM_USE_INLINE_GEMM branch above. The original Eigen array expression
++      // is equivalent, but this form is guaranteed not to materialise a
++      // per-sample temporary.
++      for (int channel = 0; channel < num_channels; channel++)
++      {
++        const float alpha = blend_buffer(channel, 0);
++        output(channel, i) = alpha * input_buffer(channel, 0) + (1.0f - alpha) * pre_activation_buffer(channel, 0);
++      }
