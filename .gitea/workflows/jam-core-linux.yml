@@ -267,6 +267,9 @@ jobs:
           if [ -f tests/jam/RhythmAnalyzerTests.cpp ]; then
             expected="$expected jam.RhythmAnalyzer jam.AnalysisWorkerBenchmark"
           fi
+          if [ -f tests/jam/DiagnosticsTests.cpp ]; then
+            expected="$expected jam.Diagnostics"
+          fi
           if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
             expected="$expected jam.RhythmDerived"
           fi

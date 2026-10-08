@@ -1,0 +1,29 @@
+{
+  "task": "DIAG-001 foundation (D10)",
+  "workerHead": "b5852a04235f42f6df41397c5dbabc2f7c5813bc",
+  "scratch": "/home/mojo/projects/build-DIAG-001-integration",
+  "coreSuites": {"bothEnabled": 21, "bothDisabled": 19},
+  "ciGuardTests": 7,
+  "strictWarnings": "-Wall -Wextra -Wpedantic -Werror: clean",
+  "diagnostics": {
+    "strictWithCommaLocale": {"tests": 34, "checks": 1475, "failures": 0},
+    "tsanWithCommaLocale": {"tests": 34, "checks": 1469, "races": 0},
+    "asanUbsanWithoutCustomLocalePath": {"tests": 34, "checks": 1468, "errors": 0},
+    "asanWithCustomLocalePath": "83-byte glibc argz_add_sep leak; reproduced with only newlocale/uselocale/freelocale and no JamMate code"
+  },
+  "limits": [
+    "Injected-core only; no production analyzer, clock, processor or editor wiring",
+    "Net heap growth probe does not prove zero allocator calls",
+    "Custom comma-locale coverage passes strict and TSan checks; ASan locale fixture is skipped without LOCPATH",
+    "Real callback overhead and measured device timing remain unproven; G4 stays open"
+  ],
+  "logHashes": {
+    "4.log": "00779616deec61801df47ea4ec9aa5d8b1acfc064e65cfd6aee1425e84b89995",
+    "off-3.log": "4cba86817322aa9eed3cfee84a1f23efd9f77e521b8851222d2e4426e412788d",
+    "strict-run.log": "c3600ea6e3c6494c1733d153c68eaf043a5c110816bb8a07522cf397b2745885",
+    "tsan-run.log": "9065205749054322892a4382e7fccdbcb4b5fda0d8ebfcbe939fab20b26bbfcc",
+    "asan-ubsan-no-locpath-run.log": "9dd39e410972b157eb514ca3531e96a483db31953c92f05c2456aa870dba6ed6",
+    "asan-ubsan-run.log": "699888bb0578d33dec445672ed2dc820bbe80104640704534fc923dff0a72000",
+    "locale-reproducer.log": "6fbbf6889943213e81a47a22ee54ac42ea2a062dbdabad6834cd5049485ebb07"
+  }
+}

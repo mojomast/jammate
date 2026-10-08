@@ -13,14 +13,17 @@ source of truth. Do not rewrite them to match the code.
 `main` is the integration branch. `EXECUTION-LEDGER.md` holds current task/gate
 status; the rest of this older handoff describes the original checkout setup.
 The original uncommitted seams are long since integrated. The latest user
-instruction is **Space Bunny while waiting**, exact temporary model
-`opencode-go/space-bunny`. All three active Haiku continuations were
+instruction is **DeepSeek V4.1 Flash from now on**, exact model
+`opencode-go/deepseek-v4.1-flash`. All three active Haiku continuations were
 interrupted successfully and relaunched in the same sessions on DeepSeek Go.
 All three continuations were rejected before execution: the model requires Global
 regions in the workspace's Privacy settings. They are paused pending that change;
 the requested model is retained. The user then confirmed the model is enabled;
 all three continuations were retried and returned the same region rejection.
 They have now been continued on Space Bunny Go with user authorisation.
+RT-004 and DIAG-001 returned Space Bunny corrections. The user's latest switch
+back to DeepSeek interrupted the remaining TRACK-007 Space Bunny worker and
+relaunched it on DeepSeek Go; its interpretation corrections remain pending.
 
 New active wave starts at `bcf540a`: TRACK-007 longer paired acquisition evidence,
 RT-004 broader NAM architecture callback probes, and DIAG-001 portable diagnostics
@@ -36,7 +39,15 @@ were submitted for review corrections. RT-004 correction `337f4f3` is accepted:
 81 tests and an independent260-case replay (80 NAM) reproduced6610 stable fields.
 The A2/WaveNet PReLU/blending allocation finding remains open; G1 stays partial.
 Receipt: `docs/research/nam-architecture-probe-integration.json`.
-DIAG-001 corrections and TRACK-007 integration review are still pending.
+DIAG-001 final correction `b5852a0` is accepted: the portable diagnostics suite
+has34 cases; fresh integrated core21/21 both-enabled and19/19 OFF pass, with
+both-forge required-suite guards updated. Strict/TSan comma-locale checks pass;
+ASan/UBSan pass without the custom locale path, whose glibc leak is independently
+isolated. Receipt: `docs/research/jam-diagnostics-integration.json`. Live wiring
+and callback overhead remain pending; G4 stays open.
+TRACK-007 replay is byte-identical, but independent review found interpretation,
+missingness and comparison-contract defects. Its corrected handoff is pending
+on the latest requested DeepSeek Go route; original evidence is preserved.
 
 Worker sessions and path ownership are in EXECUTION-LEDGER's resumption table:
 TRACK-006 fixed paired robustness, MOD-003 isolated simulated Jam UI, and TEST-001

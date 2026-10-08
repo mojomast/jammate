@@ -9,7 +9,7 @@
 This plan is intentionally structured for an orchestration agent directing **less-capable parallel subagents**. Work is decomposed so workers can execute bounded tasks with narrow file ownership and objective acceptance checks.
 
 **Live status:** [`EXECUTION-LEDGER.md`](EXECUTION-LEDGER.md) is authoritative.
-Current delegated model: **`opencode-go/space-bunny`** temporarily, per the user's latest
+Current delegated model: **`opencode-go/deepseek-v4.1-flash`**, per the user's latest
 instruction. Earlier Flash/Sol/Haiku routing is historical. Offline G3/G4 work has
 advanced under recorded deviations; G0/G1 are still partial.
 
@@ -20,6 +20,8 @@ Global regions in the workspace's Privacy settings. The user then confirmed the
 model is enabled; all three retries returned the same region rejection. The
 user then authorised Space Bunny while waiting, and all three continuations
 were launched on `opencode-go/space-bunny`.
+The latest instruction switches back to DeepSeek V4.1 Flash Go from now on;
+the remaining TRACK-007 Space Bunny continuation was stopped and relaunched.
 
 ---
 
@@ -1483,9 +1485,9 @@ Keep this near the top of the live devplan during implementation.
 | RT-003 | DONE (measured LSTM repair) | main | 401a6c1 + product/verifier fixes | G1 |
 | TRACK-006 | DONE: scoped paired diagnostics; variant gap/noise regressions retained | main | ce3c96e0 + independent replay | G3 |
 | CI-003 | DONE: published merged-head remote green, all6 jobs | main | bcf540a, run37716882463 | G1 |
-| TRACK-007 | Space Bunny Go continuation launched | wp/TRACK-007-long-windows | protocol492c5a8 | G3 |
+| TRACK-007 | REVIEW CORRECTIONS: replay equal; interpretation/missingness fixes pending | wp/TRACK-007-long-windows | 5098df9; DeepSeek Go continuation | G3 |
 | RT-004 | DONE: bounded evidence; A2 activation repair open | main | 337f4f3 + independent260-case replay | G1 |
-| DIAG-001 | Space Bunny Go foundation review launched (D10) | wp/DIAG-001-core | 2a9a929 | G4 |
+| DIAG-001 | FOUNDATION DONE (D10); full live task PARTIAL | main | b5852a0 + independent21/19 suites | G4 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
 | ANALYSIS-001 | lifecycle foundation DONE (D6); full task PARTIAL / BLOCKED:G3 | main | 5162e4d + CMake/CI registration | G4 |
 | STYLE-001 | BLOCKED:G4 | | | G5 |

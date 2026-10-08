@@ -10,7 +10,7 @@ import subprocess
 
 CORE = {
     'jam.AnalysisAudioRing', 'jam.BackendRunner', 'jam.DrumTransportAdapter',
-    'jam.MusicalClock', 'jam.RhythmAnalyzer', 'jam.RhythmCorpus',
+    'jam.MusicalClock', 'jam.RhythmAnalyzer', 'jam.RhythmCorpus', 'jam.Diagnostics',
     'jam.RhythmDerived', 'jam.RhythmEvalMetrics', 'jam.RhythmSilenceCoverage',
     'jam.RtSignal', 'jam.AnalysisWorkerBenchmark', 'jam.TempoVariant',
     'jam.TempoVariantResearch', 'jam.TrackerDiagnostics',
