@@ -524,7 +524,10 @@ void LiveJamSession::updatePerformance (std::uint64_t cursor, bool discontinuity
     lastPerformanceCursor_ = cursor;
     havePerformanceCursor_ = true;
     if (proposal.hasBarChange && allowed && playing
-        && snapshot.lockState == ClockLockState::Locked && ! discontinuity)
+        && snapshot.lockState == ClockLockState::Locked && ! discontinuity
+        && snapshot.confidence01 >= (proposal.barChange.fill != kNoLibraryEntry
+                                      ? config_.director.fillConfidenceThreshold
+                                      : config_.director.joinConfidenceThreshold))
     {
         const auto target = bridge_.nextBarBoundarySample();
         if (director_.publishPending ([this] (const QueuedBarChange& c) { return bridge_.requestBarChange (c); }))

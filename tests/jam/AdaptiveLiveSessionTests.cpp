@@ -99,9 +99,31 @@ JAM_TEST (AdaptiveLiveSession, selectedStyleJoinsAndFillWaitsForActualPlayback)
     session.stepControlForTesting();
     REQUIRE (session.readState (state));
     CHECK (state.fillPlaying);
+    // A Locked label alone cannot authorize a fill after confidence decays.
+    // Keep fresh usable energy (no Holdover), but feed weak beat confidence.
+    evidence.observation.beatConfidence01 = 0.0f;
+    std::uint64_t cursor = joinSample + 512;
+    for (int i = 0; i < 20; ++i)
+    {
+        cursor += 512;
+        session.publishAudioCursor (cursor);
+        evidence.observation.inputSampleTime = evidence.inputHorizonSampleTime
+            = evidence.blockStartSampleTime = cursor;
+        session.injectObservationForTesting (evidence);
+        session.stepControlForTesting();
+        while (session.drumCommandQueue().pop (command)) {}
+    }
+    REQUIRE (session.readState (state));
+    REQUIRE (state.clock.lockState == jam::ClockLockState::Locked);
+    REQUIRE (state.clock.confidence01 < jam::DirectorConfig {}.fillConfidenceThreshold);
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::RequestFill, 0.0 }));
+    session.publishAudioCursor (++cursor);
+    session.stepControlForTesting();
+    while (session.drumCommandQueue().pop (command))
+        CHECK (command.type != jam::DrumClockCommandType::BarChange || command.fill < 0);
     REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::Stop, 0.0 }));
     REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::RequestFill, 0.0 }));
-    session.publishAudioCursor (joinSample + 1024);
+    session.publishAudioCursor (++cursor);
     session.stepControlForTesting();
     bool clear = false;
     while (session.drumCommandQueue().pop (command))
