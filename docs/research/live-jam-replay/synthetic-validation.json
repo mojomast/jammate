@@ -1,0 +1,13 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "synthetic-validation",
+  "note": "Validator verdict over a fully synthetic, internally consistent evidence tree. Proves the validator positive path; NOT an actual-processor measurement.",
+  "status": "measured",
+  "hard_checks": 2079,
+  "hard_failures": 0,
+  "advisory_checks": 36,
+  "advisory_failures": 0,
+  "hard_pass": true,
+  "failed_check_ids": [],
+  "errors": []
+}

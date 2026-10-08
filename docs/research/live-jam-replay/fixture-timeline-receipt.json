@@ -1,0 +1,10 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "fixture-timeline-receipt",
+  "note": "Corrected input playback mapping; recorded before any actual measurement. Follows docs/research/LIVE-JAM-FIXTURE-TIMELINE.md.",
+  "bug": "InputGen::fill advanced the shared WAV position inside the channel loop and ignored the WAV sample rate.",
+  "corrected_mapping": "one source position per audio frame; sourcePosition = deviceFrame*wavSampleRate/deviceSampleRate; mono replicated coherently; advance N once; absolute device frame clock; off-callback resampling.",
+  "default_fixture": "explicitly hashed synthetic 120 BPM fixture (or true 120 BPM builtin in device time), never a block-reset pseudo-random envelope.",
+  "preserved": "make_synthetic_evidence.py WAV bytes algorithm and generated manifest hashes unchanged.",
+  "no_actual_measurement": true
+}

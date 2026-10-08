@@ -1,0 +1,33 @@
+{
+  "schema": "live-jam-replay/protocol-amendment/4.0",
+  "task": "EVAL-LIVE-001",
+  "title": "Fourth amendment: audio-frame input timeline (channel-coherent mono playback at the device rate)",
+  "base_commit": "88893e24be328f131b5df673078ff934a46ed5ab",
+  "frozen_before": "any reevaluation or measurement under the corrected input timeline",
+  "supersedes": {"previous_tools_commit": "566032f",
+                 "note": "Additive. Original predeclared.json, protocol.sha256, amendments 1/2/3, all correction contracts, receipts and generated WAV bytes are preserved byte-for-byte."},
+  "reason": "Directly observed input-timeline bug: InputGen::fill advanced the shared WAV position inside the channel loop and ignored the WAV sample rate. Stereo advanced the mono source twice per audio frame, and a 48 kHz fixture played fast on a 96 kHz device. The default long scenario's nominal 120 BPM truth was therefore wrong and cannot be corrected after measurement.",
+  "required_mapping": {
+    "frame_position": "One source position per audio frame, independent of channel count. Advance by numSamples device frames ONCE, after all channels are filled.",
+    "source_position": "sourcePosition(deviceFrame) = deviceFrame * wavSampleRate / deviceSampleRate.",
+    "interpolation": "Fractional source positions use bounded deterministic linear interpolation with wrap; mono is replicated coherently into every channel. No undisclosed per-channel gain.",
+    "clock": "Absolute uint64 device frame begins at 0 and continues across cold and warm blocks without reset; source-clock advance is independent of channel count (1 or 2).",
+    "exactness": "48->48 is exact identity; 48->96 halves the source index step; a noninteger 48->44.1 ratio is supported and tested.",
+    "outside_rt": "Input generation and resampling run outside the armed processBlock region. WAV bytes are loaded and hashed off-callback; nothing is read from disk inside the armed region. The real processor still receives the full device-rate buffer.",
+    "default_fixture": "The long default-backend scenario uses the explicitly hashed synthetic 120 BPM fixture (or a true 120 BPM builtin in device time), never a block-reset pseudo-random envelope labelled as that rhythm.",
+    "builtin_clean": "Built-in clean is a true deterministic 120 BPM pulse/harmonic strum in device time t=(deviceFrame+i)/deviceRate with a 0.5 s period and exponential decay, shared across channels with no per-channel random advance and no per-block phase reset.",
+    "builtin_noise": "Noise advances the LCG once per FRAME and replicates the value across channels (declared); it is a uniform nonrhythmic control, not a tempo source.",
+    "builtin_silence": "Silence is all zero.",
+    "invalid_inputs": "A WAV with a non-positive/non-finite sample rate is rejected; an invalid device rate is rejected before playback (no divide-by-zero)."
+  },
+  "verification": {
+    "pure_tests": "ReplayInput.h is shared by the harness and the support self-test: mono/stereo equal phase; source advance is N not 2N; 48->48 and 48->96 index steps; noninteger 44.1 ratio; repeated wrap; a ramp WAV at fs=4/device=8 gives the exact wrapped interpolation sequence; a realistic fs=48 impulse every 24000 samples lands at device frame 24000 at 48 kHz and 48000 at 96 kHz; chunk invariance (128 vs 64+64); builtin clean absolute-time phase; deterministic noise per frame.",
+    "metadata": "Each cell/identity/scenario declares inputSignalKind, inputSourceRate, deviceRate and channelMapping additively; the original 54 expected cell ids and the nominal clean 120 truth are unchanged in meaning (playback now correct).",
+    "preserve": "make_synthetic_evidence.py WAV byte generation is unchanged; the generated canonical four-WAV manifest and hashes are preserved. Earlier tool pins are preserved; a new tool pin 4 and receipt are new files."
+  },
+  "gates": {"note": "structural AND rt_gate AND join_gate; default no-lock remains diagnostic."},
+  "immutable_preserved": {
+    "predeclared_json_sha256": "d29eeedf903aa9abb63e44ad4293f60e5bedfa2ef3c6f8033cb325b7348432fa",
+    "protocol_sha256_file": "fdc22bab2bc0154ddae2758766026a70e9db495655c73684013f31f09a6dba09"
+  }
+}

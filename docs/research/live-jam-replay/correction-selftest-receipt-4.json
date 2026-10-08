@@ -1,0 +1,39 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "correction-selftest-receipt-4",
+  "note": "Fourth-correction self-test receipt (input timeline). LABELLED SYNTHETIC; not an actual measurement. Earlier receipts preserved.",
+  "synthetic": true,
+  "status": "measured",
+  "hard_checks": 3850,
+  "hard_failures": 0,
+  "gate_checks": 3,
+  "gate_failures": 0,
+  "gates": {
+    "rt_gate": true,
+    "scenario_default_clean_long_gate": true,
+    "join_gate": true
+  },
+  "hard_pass": true,
+  "pass": true,
+  "validator_unit_tests": 107,
+  "validator_unit_tests_pass": true,
+  "input_timeline": {
+    "frame_position": "one source position per audio frame",
+    "source_position": "deviceFrame * wavSampleRate / deviceSampleRate",
+    "channel_mapping": "mono-replicated",
+    "advance": "N once, not 2N",
+    "tested_ratios": [
+      "48->48",
+      "48->96",
+      "44.1->48"
+    ],
+    "beat_positions_device_frames": {
+      "48k": 24000,
+      "96k": 48000
+    },
+    "chunk_invariance": true,
+    "builtin_clean": "true 120 BPM in device time"
+  },
+  "failed_check_ids": [],
+  "errors": []
+}

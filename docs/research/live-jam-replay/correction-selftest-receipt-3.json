@@ -1,0 +1,25 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "correction-selftest-receipt-3",
+  "note": "Narrow third-correction self-test receipt. LABELLED SYNTHETIC; not an actual measurement. Earlier receipts preserved.",
+  "synthetic": true,
+  "status": "measured",
+  "hard_checks": 3634,
+  "hard_failures": 0,
+  "gate_checks": 3,
+  "gate_failures": 0,
+  "gates": {
+    "rt_gate": true,
+    "scenario_default_clean_long_gate": true,
+    "join_gate": true
+  },
+  "hard_pass": true,
+  "pass": true,
+  "validator_unit_tests": 103,
+  "validator_unit_tests_pass": true,
+  "default_no_join_is_diagnostic": true,
+  "backend_change_fail_closed": true,
+  "timeout_input_bounded": true,
+  "failed_check_ids": [],
+  "errors": []
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "correction-selftest-receipt-2",
+  "note": "Second-correction self-test receipt. LABELLED SYNTHETIC (accepted only with --allow-synthetic-selftest); NOT an actual-processor measurement. The earlier correction-selftest-receipt.json is preserved.",
+  "synthetic": true,
+  "status": "measured",
+  "hard_checks": 3630,
+  "hard_failures": 0,
+  "gate_checks": 3,
+  "gate_failures": 0,
+  "gates": {
+    "rt_gate": true,
+    "scenario_default_clean_long_gate": true,
+    "join_gate": true
+  },
+  "hard_pass": true,
+  "pass": true,
+  "validator_unit_tests": 96,
+  "validator_unit_tests_pass": true,
+  "default_rejects_synthetic": true,
+  "override_allowlist": [
+    "src/jam/DrumClockBridge.h",
+    "src/PluginProcessor.h",
+    "src/PluginProcessor.cpp"
+  ],
+  "link_metadata_fail_closed": true,
+  "failed_check_ids": [],
+  "errors": []
+}

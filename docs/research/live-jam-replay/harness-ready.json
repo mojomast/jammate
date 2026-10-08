@@ -1,0 +1,37 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "harness-ready",
+  "base_commit": "88893e24be328f131b5df673078ff934a46ed5ab",
+  "status": "harness ready, awaiting actual product",
+  "preflight_ok": false,
+  "preflight_missing": [
+    "facade_definition",
+    "facade_symbol_submit",
+    "facade_symbol_read",
+    "source_matches_product"
+  ],
+  "instrument_selfcheck_ok": true,
+  "support_selftest_ok": true,
+  "harness_smoke_compile_ok": true,
+  "facade_tests_exit": 0,
+  "harness_binary": null,
+  "source_facade_definitions_present": false,
+  "source_head": "88893e24be328f131b5df673078ff934a46ed5ab",
+  "source_dirty": true,
+  "product_source_dir": "/home/mojo/projects/build-INT-DRUM-001-integration/product-source",
+  "source_matches_product": false,
+  "facade_symbols": {
+    "submitJamCommand": false,
+    "readJamLiveState": false
+  },
+  "backend_signals": [
+    "source:src/btrack/*.cpp",
+    "symbol:Backend"
+  ],
+  "checked_product": "/home/mojo/projects/build-INT-DRUM-001-integration/product",
+  "product_shared_archive_sha256": "14e9aa6f35c500b93ef1cae9eb90494665aa605cb2fe6f8e72800c6793173bef",
+  "jam_live_interface_h_sha256": "b24cf6c878e13ab2ce5fa1a3b56afeca31c14008e4e14e918528716f1cf56dc6",
+  "selfcheck_binary_sha256": "02bd98e1db7223c3189e6c8c22ff1e92347dcb609dc6b8edcf56a126144acb38",
+  "support_selftest_binary_sha256": "0c1d1373fd97f9325bbaac0654a656c58f6146226243bc01d9d3de2576a73eb7",
+  "harness_object_sha256": "f5b6c5fb6433e7b8a0c9712455bfed21ae8a5c66eb9d3e701b55d1135ebac4d7"
+}
