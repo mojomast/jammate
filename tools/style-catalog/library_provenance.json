@@ -1,0 +1,1949 @@
+{
+  "entries": [
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 0,
+      "meter": "4/4",
+      "name": "Basic",
+      "spec": "H:0-14/2,0!,8!|S:4!,12!|K:0,8,10",
+      "specHash": "0xB771340E"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 1,
+      "meter": "4/4",
+      "name": "Basic w/ crash",
+      "spec": "H:2-14/2|C:0!|S:4!,12!,7.|K:0,8,10",
+      "specHash": "0x23CDFCD3"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 2,
+      "meter": "4/4",
+      "name": "Half-time",
+      "spec": "H:0-14/2,0!|S:8!|K:0,10",
+      "specHash": "0xCA5BC6AD"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 3,
+      "meter": "4/4",
+      "name": "Half-time 16",
+      "spec": "H:0-15,0!,4!,8!,12!|S:8!|K:0,10,13",
+      "specHash": "0x63F1DEDD"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 5,
+      "meter": "4/4",
+      "name": "80s",
+      "spec": "H:0-14/2|S:4!,12!|K:0,6,8",
+      "specHash": "0x02992999"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 6,
+      "meter": "4/4",
+      "name": "Eighths on kick",
+      "spec": "H:0-14/2,0!,8!|S:4!,12!|K:0,2,8,10",
+      "specHash": "0x1C1074A0"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 8,
+      "meter": "4/4",
+      "name": "Power ballad",
+      "spec": "H:0-14/2|S:8!|K:0,6,10",
+      "specHash": "0x20A28638"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 9,
+      "meter": "4/4",
+      "name": "Shuffle rock",
+      "spec": "H:0-14/2,0!,4!,8!,12!|S:4!,12!|K:0,8,11",
+      "specHash": "0xCA6D59DC"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 11,
+      "meter": "4/4",
+      "name": "Four on the floor",
+      "spec": "H:0-14/2|S:4!,12!|K:0,4,8,12",
+      "specHash": "0x718ADE72"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 13,
+      "meter": "4/4",
+      "name": "Grunge",
+      "spec": "H:0-14/2|S:4!,12!|K:0,6,8,14",
+      "specHash": "0x777C60CA"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 14,
+      "meter": "4/4",
+      "name": "16 on ride",
+      "spec": "R:0-15|S:4!,12!|K:0,8,10",
+      "specHash": "0xEAAC41C0"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 16,
+      "meter": "4/4",
+      "name": "Driving 8ths",
+      "spec": "H:0-15|S:4!,12!|K:0,8",
+      "specHash": "0x1AFD80B9"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 17,
+      "meter": "4/4",
+      "name": "Broken rock",
+      "spec": "H:0-14/2,0!|S:4!,10,12!|K:0,6,8",
+      "specHash": "0x30A0D98F"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 18,
+      "meter": "4/4",
+      "name": "Half-time 16",
+      "spec": "H:0-15,0!,8!|S:8!|K:0,10,13",
+      "specHash": "0x3FDD40AA"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 19,
+      "meter": "4/4",
+      "name": "Arena",
+      "spec": "H:0-14/2|C:0|S:4!,12!|K:0,8,10,14",
+      "specHash": "0xE94F92CC"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 20,
+      "meter": "4/4",
+      "name": "Pop eighths",
+      "spec": "H:0-14/2,0!,8!|S:4!,12!|K:0,6,8",
+      "specHash": "0x6FFD1EAB"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 22,
+      "meter": "4/4",
+      "name": "Dance-pop 16",
+      "spec": "H:0-15,0!,8!|S:4!,12!|K:0,4,8,12",
+      "specHash": "0x0F4BC39E"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 23,
+      "meter": "4/4",
+      "name": "Pop ballad",
+      "spec": "H:0-14/2|S:8!|K:0,10",
+      "specHash": "0xE70D9E72"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 26,
+      "meter": "4/4",
+      "name": "Syncopated pop",
+      "spec": "H:0-14/2|S:4!,12!|K:0,7,10",
+      "specHash": "0x5D8B58C3"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 27,
+      "meter": "4/4",
+      "name": "Pop rock",
+      "spec": "H:0-14/2,0!,8!|S:4!,12!|K:0,8,10",
+      "specHash": "0xB771340E"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 28,
+      "meter": "4/4",
+      "name": "Electro pop",
+      "spec": "K:0,4,8,12|H:0-15|S:4!,12!",
+      "specHash": "0xCD40B5AE"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 29,
+      "meter": "4/4",
+      "name": "Handclap",
+      "spec": "S:4!,12!|H:0-14/2|K:0,8|P:2,6,10,14",
+      "specHash": "0xB0D33E99"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 30,
+      "meter": "4/4",
+      "name": "Modern (kick 7)",
+      "spec": "H:0-14/2,0!|S:4!,12!|K:0,7,8",
+      "specHash": "0x61CC8FE3"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 31,
+      "meter": "4/4",
+      "name": "Ballad 16",
+      "spec": "H:0-15,0!,8!|S:8!|K:0,10",
+      "specHash": "0x1B1AB2E6"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 32,
+      "meter": "4/4",
+      "name": "Four-floor pop",
+      "spec": "K:0,4,8,12|H:2!,6!,10!,14!|S:4,12",
+      "specHash": "0xEB001433"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 41,
+      "meter": "4/4",
+      "name": "Double kick",
+      "spec": "R:0-14/2,0!,4!,8!,12!|C:0!|S:4!,12!|K:0-15",
+      "specHash": "0x7A5678F1"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 42,
+      "meter": "4/4",
+      "name": "Thrash",
+      "spec": "H:0-14/2|S:2!,6!,10!,14!|K:0,4,8,12",
+      "specHash": "0x679EA4B1"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 43,
+      "meter": "4/4",
+      "name": "Heavy half-time",
+      "spec": "H:0-14/2,0!|S:8!|K:0,3,6,10,13",
+      "specHash": "0x7C4C2E54"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 46,
+      "meter": "4/4",
+      "name": "Groove metal",
+      "spec": "H:0-14/2,0!,4!,8!,12!|S:4!,12!|K:0,1,10,11",
+      "specHash": "0x6892933C"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 47,
+      "meter": "4/4",
+      "name": "Double gallop",
+      "spec": "K:0,3,4,7,8,11,12,15|R:0-12/4!|S:4!,12!",
+      "specHash": "0x6A0ECAB1"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 48,
+      "meter": "4/4",
+      "name": "Djent",
+      "spec": "R:0-14/2|S:4!,12!|K:0,1,6,8,9,14",
+      "specHash": "0x36A56100"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 50,
+      "meter": "4/4",
+      "name": "Doom",
+      "spec": "C:0,8|S:4!,12!|K:0,8|R:0-14/2",
+      "specHash": "0x6DDEFADA"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 51,
+      "meter": "4/4",
+      "name": "Metalcore",
+      "spec": "R:0-14/2,0!,8!|C:0|S:4!,12!|K:0,2,8,10,15",
+      "specHash": "0xBBD71E31"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 54,
+      "meter": "4/4",
+      "name": "Funk 16",
+      "spec": "H:0-15,0!,4!,8!,12!|S:4!,12!,7.,10.,15.|K:0,3,10",
+      "specHash": "0x8B9A3FC0"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 55,
+      "meter": "4/4",
+      "name": "Ghost groove",
+      "spec": "H:0-15,0!,8!|S:4!,12!,2.,7.,11.|K:0,5,10",
+      "specHash": "0xAF5C1CB6"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 56,
+      "meter": "4/4",
+      "name": "The One (JB)",
+      "spec": "H:0-14/2,0!|S:4!,12!,10.|K:0,2,11",
+      "specHash": "0x02B198D5"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 57,
+      "meter": "4/4",
+      "name": "Open hat",
+      "spec": "H:0-15,2!,6!,10!,14!|S:4!,12!|K:0,3,8,11",
+      "specHash": "0x70D8C188"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 59,
+      "meter": "4/4",
+      "name": "Boogaloo",
+      "spec": "R:0-14/2|S:4!,7.,12!|K:0,3,8,10",
+      "specHash": "0x46955AFE"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 60,
+      "meter": "4/4",
+      "name": "Funk rock",
+      "spec": "H:0-15,0!,4!,8!,12!|S:4!,12!,15.|K:0,2,7,10",
+      "specHash": "0x48030B2C"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 61,
+      "meter": "4/4",
+      "name": "Purdie shuffle",
+      "spec": "H:0-14/2,0!,8!|S:2.,4!,6.,10.,12!,14.|K:0,6,10",
+      "specHash": "0x10DC0C86"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 62,
+      "meter": "4/4",
+      "name": "Cold Sweat",
+      "spec": "H:0-15|S:4!,10.,12!|K:0,3,6,11",
+      "specHash": "0xD72BFEEF"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 63,
+      "meter": "4/4",
+      "name": "Linear funk",
+      "spec": "K:0|S:2.,4!|H:6|K:8|S:10.,12!|H:14",
+      "specHash": "0x57C44B4E"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 65,
+      "meter": "4/4",
+      "name": "Half-time funk",
+      "spec": "H:0-15,0!|S:8!,3.,11.|K:0,6,10",
+      "specHash": "0x5EA8CC60"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 66,
+      "meter": "4/4",
+      "name": "P-Funk",
+      "spec": "H:0-14/2|S:4!,12!,15.|K:0,3,8,10",
+      "specHash": "0x0FA805C3"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 67,
+      "meter": "4/4",
+      "name": "Shuffle",
+      "spec": "H:0-14/2,0!,4!,8!,12!|S:4!,12!|K:0,8",
+      "specHash": "0x6A403D9E"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 68,
+      "meter": "4/4",
+      "name": "Slow blues",
+      "spec": "R:0-14/2,0!,8!|S:4!,12!|K:0,10|P:4,12",
+      "specHash": "0x4EA4B17D"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 69,
+      "meter": "4/4",
+      "name": "Texas shuffle",
+      "spec": "R:0-14/2,0!,4!,8!,12!|S:4!,12!,2.,6.,10.,14.|K:0,4,8,12",
+      "specHash": "0xCC106873"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 70,
+      "meter": "4/4",
+      "name": "Rumba blues",
+      "spec": "K:0,3,8,11|S:4!,12!|H:0-14/2",
+      "specHash": "0x87D8CF5C"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 71,
+      "meter": "4/4",
+      "name": "Brushes",
+      "spec": "S:0.,2.,4.,6.,8.,10.,12.,14.|R:0,8|K:0.",
+      "specHash": "0xE1696164"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 72,
+      "meter": "4/4",
+      "name": "Chicago",
+      "spec": "R:0-14/2,0!,8!|S:4!,12!|K:0,8,11",
+      "specHash": "0xEE5B44C3"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 73,
+      "meter": "4/4",
+      "name": "12/8 slow",
+      "spec": "R:0-14/2|S:4!,12!|K:0,8",
+      "specHash": "0xB2814AC9"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 74,
+      "meter": "4/4",
+      "name": "Boogie shuffle",
+      "spec": "H:0-14/2,0!,4!,8!,12!|S:4!,12!|K:0,4,8,12",
+      "specHash": "0x0B7D3E9D"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 165,
+      "meter": "4/4",
+      "name": "Snare build",
+      "spec": "S:8,10,12,13,14,15!",
+      "specHash": "0xEA91737C"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 168,
+      "meter": "4/4",
+      "name": "Short roll",
+      "spec": "S:12.,13.,14.,15!",
+      "specHash": "0xDD8D0DA5"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 169,
+      "meter": "4/4",
+      "name": "Long roll",
+      "spec": "S:8.,9.,10.,11.,12.,13.,14.,15!",
+      "specHash": "0xA3BF63B9"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 170,
+      "meter": "4/4",
+      "name": "Press roll",
+      "spec": "S:0.,1.,2.,3.,4.,5.,6.,7.,8.,9.,10.,11.,12!,14!",
+      "specHash": "0x9007BD22"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 171,
+      "meter": "4/4",
+      "name": "Snare flam",
+      "spec": "S:0.,0,4.,4,8.,8,12.,12",
+      "specHash": "0xB77E5D64"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 172,
+      "meter": "4/4",
+      "name": "Herta",
+      "spec": "S:0,1,2,4,5,6,8,9,10,12!,13,14",
+      "specHash": "0xA8E96D4F"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 173,
+      "meter": "4/4",
+      "name": "Sextuplet",
+      "spec": "S:0,1,2,6,7,8,12,13,14",
+      "specHash": "0x54076B78"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 178,
+      "meter": "4/4",
+      "name": "Snare and toms",
+      "spec": "S:0,1,2,3,4,5,6,7|T:8,9,10,11|F:12,13,14,15!",
+      "specHash": "0xAF11D037"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 187,
+      "meter": "4/4",
+      "name": "Linear funk",
+      "spec": "K:0|S:1|H:2|K:3|S:4|F:5|K:6|S:7|H:8|K:9|S:10|F:11|K:12|S:13,14,15!",
+      "specHash": "0x562C9046"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 190,
+      "meter": "4/4",
+      "name": "Kick and snare",
+      "spec": "S:0,3,6,9,12!|K:1,2,4,5,7,8,10,11,13,14,15",
+      "specHash": "0x8CAFF3A8"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 191,
+      "meter": "4/4",
+      "name": "Alternating",
+      "spec": "S:0,2,4,6,8,10,12,14|K:1,3,5,7,9,11,13,15",
+      "specHash": "0x15C9520F"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 194,
+      "meter": "4/4",
+      "name": "Funk chop",
+      "spec": "S:0!,3,6.,7,9,10.,12!,14|K:1,8",
+      "specHash": "0x49750EAC"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 195,
+      "meter": "4/4",
+      "name": "Crescendo",
+      "spec": "S:0.,2.,4.,6.,8,10,12!,13!,14!,15!",
+      "specHash": "0x58E2C105"
+    },
+    {
+      "fill": true,
+      "genre": "BLUES",
+      "index": 196,
+      "meter": "4/4",
+      "name": "Shuffle fill",
+      "spec": "S:0,2,4!,8,10,12!|F:14,15",
+      "specHash": "0x99E34ED5"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 198,
+      "meter": "4/4",
+      "name": "Second line fill",
+      "spec": "S:0.,3,4!,7.,10,12!,14.|F:8,15",
+      "specHash": "0xD9D02353"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 202,
+      "meter": "4/4",
+      "name": "Metal gallop",
+      "spec": "K:0-11|S:12!,13,14,15|C:12",
+      "specHash": "0x1A80E201"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 203,
+      "meter": "4/4",
+      "name": "Double bass fill",
+      "spec": "K:0-15|S:0,4,8,12!|C:0",
+      "specHash": "0xEF015C1B"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 204,
+      "meter": "4/4",
+      "name": "Final blast",
+      "spec": "S:8-14/2!|K:9-15/2",
+      "specHash": "0x599BEA1E"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 207,
+      "meter": "4/4",
+      "name": "Purdie fill",
+      "spec": "S:2.,4!,6.,8.,10!,12,14.",
+      "specHash": "0x0B3171B5"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 260,
+      "meter": "4/4",
+      "name": "Groove 3",
+      "spec": "K:0.|S:0,3,6,9,10,12,13,14,15|H:0!,3!,6!|P:8.",
+      "specHash": "0x25C39666"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 263,
+      "meter": "4/4",
+      "name": "Fast 1",
+      "spec": "K:13|S:0.,8.,9.,10,11,12!,15.|P:4.,6.,8,10,12",
+      "specHash": "0x6ABFB561"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 265,
+      "meter": "4/4",
+      "name": "Funk 2",
+      "spec": "K:10,15.|S:4!,7.,8.,13,14!|H:10!|P:6,14",
+      "specHash": "0x9485E023"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 267,
+      "meter": "4/4",
+      "name": "Chacha",
+      "spec": "S:0,8!,12!,13,14,15.|P:0.,4,8.,12",
+      "specHash": "0xC1D58FA1"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 338,
+      "meter": "4/4",
+      "name": "Soft 1",
+      "spec": "K:6.,10.|S:4,12|H:4,6.,8,12",
+      "specHash": "0x9CE4244C"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 348,
+      "meter": "4/4",
+      "name": "Pop 6",
+      "spec": "K:9.,10|S:0,2,3!,5!,13!,14|T:0!,6!,7!|U:12!",
+      "specHash": "0x4450C7F6"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 349,
+      "meter": "4/4",
+      "name": "Soft 4",
+      "spec": "S:0.,2,4,8,9!,10!,11|H:13!|T:13!|U:12!|F:0.,2,4,6!,14,15",
+      "specHash": "0x5D5D06F3"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 350,
+      "meter": "4/4",
+      "name": "Pop 7",
+      "spec": "K:12,13|S:0!,3!,5,6.|T:8!,10|U:0,4!|F:1,9!,14!",
+      "specHash": "0xEF680669"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 351,
+      "meter": "4/4",
+      "name": "Soft 5",
+      "spec": "K:0.|S:2!,5.,6.,10!|H:11!|R:2!|T:8!,9,11!|U:12|F:13,14",
+      "specHash": "0x5E229B7D"
+    },
+    {
+      "fill": true,
+      "genre": "ROCK",
+      "index": 412,
+      "meter": "4/4",
+      "name": "Rock 3",
+      "spec": "S:0!,1.,3!,4,5!,6.,8!,9!|P:4,8,11|T:10!,12!|F:13!,14!",
+      "specHash": "0xD409D962"
+    },
+    {
+      "fill": true,
+      "genre": "ROCK",
+      "index": 413,
+      "meter": "4/4",
+      "name": "Indie 2",
+      "spec": "S:0!|T:1.,2|U:3|F:4,5,6!,7!",
+      "specHash": "0x888B4292"
+    },
+    {
+      "fill": true,
+      "genre": "ROCK",
+      "index": 415,
+      "meter": "4/4",
+      "name": "Rock 4",
+      "spec": "S:2.,4!,5.,6!,8.,9!,10!,13!|H:1!|P:4,8,12|T:12!",
+      "specHash": "0x8B4B3209"
+    },
+    {
+      "fill": true,
+      "genre": "ROCK",
+      "index": 416,
+      "meter": "4/4",
+      "name": "Indie 3",
+      "spec": "S:2!,7!|T:9,10|U:5!,11,12|F:13,14",
+      "specHash": "0xD6BAEA94"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 471,
+      "meter": "4/4",
+      "name": "Thrash gallop",
+      "spec": "H:0-14/2|S:4!,12!|K:0,3,4,7,8,11,12,15",
+      "specHash": "0x285A1F74"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 473,
+      "meter": "4/4",
+      "name": "Groove metal ride",
+      "spec": "R:0-14/2,0!,4!,8!,12!|S:4!,12!|K:0,1,7,10,11",
+      "specHash": "0x20CE931F"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 475,
+      "meter": "4/4",
+      "name": "Djent chug",
+      "spec": "R:0-14/2|S:4!,12!|K:0,1,3,6,8,9,11,14",
+      "specHash": "0x0E2B8B59"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 483,
+      "meter": "4/4",
+      "name": "Double bass roll",
+      "spec": "K:0-15|S:12!,13,14,15|C:0",
+      "specHash": "0x2AD4B842"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 484,
+      "meter": "4/4",
+      "name": "Toms + double kick",
+      "spec": "T:0,2|U:4,6|F:8,10|S:12,13,14,15!|K:1,3,5,7,9,11,13",
+      "specHash": "0x3F18DABB"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 485,
+      "meter": "4/4",
+      "name": "Blast fill",
+      "spec": "S:0-14/2!|K:1-15/2|C:0",
+      "specHash": "0x5B83740D"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 486,
+      "meter": "4/4",
+      "name": "Gallop fill",
+      "spec": "K:0,1,3,4,6,7,9,10|S:12!,13,14,15",
+      "specHash": "0x89120C17"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 487,
+      "meter": "4/4",
+      "name": "Gravity roll",
+      "spec": "S:0-15!|K:0,4,8,12",
+      "specHash": "0xD0C4526E"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 489,
+      "meter": "4/4",
+      "name": "Crash + double bass",
+      "spec": "C:0!,8!|K:0-15|S:4,12",
+      "specHash": "0xC986AEA0"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 490,
+      "meter": "4/4",
+      "name": "Herta metal",
+      "spec": "S:0,1,2,4,5,6,8,9,10,12!,13,14|K:0,4,8,12",
+      "specHash": "0xBB7D6E5F"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 493,
+      "meter": "4/4",
+      "name": "Double kick outro",
+      "spec": "K:0-15|C:0!|S:15!",
+      "specHash": "0x9EAB6C27"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 494,
+      "meter": "4/4",
+      "name": "Heavy verse",
+      "spec": "H:0-14/2|S:4,12|K:0,3,8",
+      "specHash": "0x6A667054"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 497,
+      "meter": "4/4",
+      "name": "Doom verse",
+      "spec": "R:0,4,8,12|H:4,12|S:4!,12!|K:0!,8!",
+      "specHash": "0x418AC338"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 501,
+      "meter": "4/4",
+      "name": "Doom chorus",
+      "spec": "R:0-14/2|H:4,12|C:0!|S:4!,12!|K:0!,6,8!,14",
+      "specHash": "0x9495ADAB"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 535,
+      "meter": "4/4",
+      "name": "Shuffle rock",
+      "spec": "H:0-15|S:4,12|K:0,8",
+      "specHash": "0x057D304F"
+    },
+    {
+      "fill": true,
+      "genre": "ROCK",
+      "index": 539,
+      "meter": "4/4",
+      "name": "Fill rock crescendo",
+      "spec": "S:0,2,4,6,8,10,12,14!|K:0,4,8,12|C:0",
+      "specHash": "0x2E13D4E5"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 540,
+      "meter": "4/4",
+      "name": "Four-on-the-floor",
+      "spec": "H:0-15|S:4,12|K:0,4,8,12",
+      "specHash": "0x585B2526"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 541,
+      "meter": "4/4",
+      "name": "Dance pop clap",
+      "spec": "H:0-14/2|S:4!,12!|P:0-14/2|K:0,4,8,12",
+      "specHash": "0x092B3821"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 544,
+      "meter": "4/4",
+      "name": "Simple pop fill",
+      "spec": "S:8,10,12,14!|K:0,4|C:0",
+      "specHash": "0x1F737078"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 545,
+      "meter": "4/4",
+      "name": "Funk 16th ghost",
+      "spec": "H:0-15|S:4!,12!,2.,6.,10.,14.|K:0,3,8,11",
+      "specHash": "0xBA1F8C5E"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 546,
+      "meter": "4/4",
+      "name": "Purdie shuffle",
+      "spec": "H:0-15|S:4!,12!,2.,6.,10.,14.|K:0,3,10",
+      "specHash": "0xA9EF26AD"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 549,
+      "meter": "4/4",
+      "name": "Fill funk 16th",
+      "spec": "S:0,1,2,3,8,9,10,11|K:4,12|C:0",
+      "specHash": "0x42DE0943"
+    }
+  ],
+  "libraryEntryCount": 570,
+  "referencedIndexCount": 106,
+  "references": [
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 2,
+      "meter": "4/4",
+      "name": "Half-time",
+      "specHash": "0xCA5BC6AD"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 3,
+      "meter": "4/4",
+      "name": "Half-time 16",
+      "specHash": "0x63F1DEDD"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 8,
+      "meter": "4/4",
+      "name": "Power ballad",
+      "specHash": "0x20A28638"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 0,
+      "meter": "4/4",
+      "name": "Basic",
+      "specHash": "0xB771340E"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 1,
+      "meter": "4/4",
+      "name": "Basic w/ crash",
+      "specHash": "0x23CDFCD3"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 5,
+      "meter": "4/4",
+      "name": "80s",
+      "specHash": "0x02992999"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 13,
+      "meter": "4/4",
+      "name": "Grunge",
+      "specHash": "0x777C60CA"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 17,
+      "meter": "4/4",
+      "name": "Broken rock",
+      "specHash": "0x30A0D98F"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 18,
+      "meter": "4/4",
+      "name": "Half-time 16",
+      "specHash": "0x3FDD40AA"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 6,
+      "meter": "4/4",
+      "name": "Eighths on kick",
+      "specHash": "0x1C1074A0"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 11,
+      "meter": "4/4",
+      "name": "Four on the floor",
+      "specHash": "0x718ADE72"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 14,
+      "meter": "4/4",
+      "name": "16 on ride",
+      "specHash": "0xEAAC41C0"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 16,
+      "meter": "4/4",
+      "name": "Driving 8ths",
+      "specHash": "0x1AFD80B9"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 19,
+      "meter": "4/4",
+      "name": "Arena",
+      "specHash": "0xE94F92CC"
+    },
+    {
+      "fill": true,
+      "genre": "ROCK",
+      "index": 412,
+      "meter": "4/4",
+      "name": "Rock 3",
+      "specHash": "0xD409D962"
+    },
+    {
+      "fill": true,
+      "genre": "ROCK",
+      "index": 415,
+      "meter": "4/4",
+      "name": "Rock 4",
+      "specHash": "0x8B4B3209"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 168,
+      "meter": "4/4",
+      "name": "Short roll",
+      "specHash": "0xDD8D0DA5"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 165,
+      "meter": "4/4",
+      "name": "Snare build",
+      "specHash": "0xEA91737C"
+    },
+    {
+      "fill": true,
+      "genre": "ROCK",
+      "index": 413,
+      "meter": "4/4",
+      "name": "Indie 2",
+      "specHash": "0x888B4292"
+    },
+    {
+      "fill": true,
+      "genre": "ROCK",
+      "index": 416,
+      "meter": "4/4",
+      "name": "Indie 3",
+      "specHash": "0xD6BAEA94"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 169,
+      "meter": "4/4",
+      "name": "Long roll",
+      "specHash": "0xA3BF63B9"
+    },
+    {
+      "fill": true,
+      "genre": "ROCK",
+      "index": 539,
+      "meter": "4/4",
+      "name": "Fill rock crescendo",
+      "specHash": "0x2E13D4E5"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 195,
+      "meter": "4/4",
+      "name": "Crescendo",
+      "specHash": "0x58E2C105"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 43,
+      "meter": "4/4",
+      "name": "Heavy half-time",
+      "specHash": "0x7C4C2E54"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 50,
+      "meter": "4/4",
+      "name": "Doom",
+      "specHash": "0x6DDEFADA"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 497,
+      "meter": "4/4",
+      "name": "Doom verse",
+      "specHash": "0x418AC338"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 501,
+      "meter": "4/4",
+      "name": "Doom chorus",
+      "specHash": "0x9495ADAB"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 46,
+      "meter": "4/4",
+      "name": "Groove metal",
+      "specHash": "0x6892933C"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 48,
+      "meter": "4/4",
+      "name": "Djent",
+      "specHash": "0x36A56100"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 51,
+      "meter": "4/4",
+      "name": "Metalcore",
+      "specHash": "0xBBD71E31"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 473,
+      "meter": "4/4",
+      "name": "Groove metal ride",
+      "specHash": "0x20CE931F"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 475,
+      "meter": "4/4",
+      "name": "Djent chug",
+      "specHash": "0x0E2B8B59"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 41,
+      "meter": "4/4",
+      "name": "Double kick",
+      "specHash": "0x7A5678F1"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 42,
+      "meter": "4/4",
+      "name": "Thrash",
+      "specHash": "0x679EA4B1"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 47,
+      "meter": "4/4",
+      "name": "Double gallop",
+      "specHash": "0x6A0ECAB1"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 471,
+      "meter": "4/4",
+      "name": "Thrash gallop",
+      "specHash": "0x285A1F74"
+    },
+    {
+      "fill": false,
+      "genre": "METAL",
+      "index": 494,
+      "meter": "4/4",
+      "name": "Heavy verse",
+      "specHash": "0x6A667054"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 483,
+      "meter": "4/4",
+      "name": "Double bass roll",
+      "specHash": "0x2AD4B842"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 486,
+      "meter": "4/4",
+      "name": "Gallop fill",
+      "specHash": "0x89120C17"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 490,
+      "meter": "4/4",
+      "name": "Herta metal",
+      "specHash": "0xBB7D6E5F"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 202,
+      "meter": "4/4",
+      "name": "Metal gallop",
+      "specHash": "0x1A80E201"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 484,
+      "meter": "4/4",
+      "name": "Toms + double kick",
+      "specHash": "0x3F18DABB"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 487,
+      "meter": "4/4",
+      "name": "Gravity roll",
+      "specHash": "0xD0C4526E"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 493,
+      "meter": "4/4",
+      "name": "Double kick outro",
+      "specHash": "0x9EAB6C27"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 203,
+      "meter": "4/4",
+      "name": "Double bass fill",
+      "specHash": "0xEF015C1B"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 485,
+      "meter": "4/4",
+      "name": "Blast fill",
+      "specHash": "0x5B83740D"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 489,
+      "meter": "4/4",
+      "name": "Crash + double bass",
+      "specHash": "0xC986AEA0"
+    },
+    {
+      "fill": true,
+      "genre": "METAL",
+      "index": 204,
+      "meter": "4/4",
+      "name": "Final blast",
+      "specHash": "0x599BEA1E"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 68,
+      "meter": "4/4",
+      "name": "Slow blues",
+      "specHash": "0x4EA4B17D"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 71,
+      "meter": "4/4",
+      "name": "Brushes",
+      "specHash": "0xE1696164"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 73,
+      "meter": "4/4",
+      "name": "12/8 slow",
+      "specHash": "0xB2814AC9"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 67,
+      "meter": "4/4",
+      "name": "Shuffle",
+      "specHash": "0x6A403D9E"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 70,
+      "meter": "4/4",
+      "name": "Rumba blues",
+      "specHash": "0x87D8CF5C"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 72,
+      "meter": "4/4",
+      "name": "Chicago",
+      "specHash": "0xEE5B44C3"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 69,
+      "meter": "4/4",
+      "name": "Texas shuffle",
+      "specHash": "0xCC106873"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 74,
+      "meter": "4/4",
+      "name": "Boogie shuffle",
+      "specHash": "0x0B7D3E9D"
+    },
+    {
+      "fill": true,
+      "genre": "BLUES",
+      "index": 196,
+      "meter": "4/4",
+      "name": "Shuffle fill",
+      "specHash": "0x99E34ED5"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 170,
+      "meter": "4/4",
+      "name": "Press roll",
+      "specHash": "0x9007BD22"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 171,
+      "meter": "4/4",
+      "name": "Snare flam",
+      "specHash": "0xB77E5D64"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 169,
+      "meter": "4/4",
+      "name": "Long roll",
+      "specHash": "0xA3BF63B9"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 173,
+      "meter": "4/4",
+      "name": "Sextuplet",
+      "specHash": "0x54076B78"
+    },
+    {
+      "fill": true,
+      "genre": "BLUES",
+      "index": 196,
+      "meter": "4/4",
+      "name": "Shuffle fill",
+      "specHash": "0x99E34ED5"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 178,
+      "meter": "4/4",
+      "name": "Snare and toms",
+      "specHash": "0xAF11D037"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 65,
+      "meter": "4/4",
+      "name": "Half-time funk",
+      "specHash": "0x5EA8CC60"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 55,
+      "meter": "4/4",
+      "name": "Ghost groove",
+      "specHash": "0xAF5C1CB6"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 260,
+      "meter": "4/4",
+      "name": "Groove 3",
+      "specHash": "0x25C39666"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 265,
+      "meter": "4/4",
+      "name": "Funk 2",
+      "specHash": "0x9485E023"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 54,
+      "meter": "4/4",
+      "name": "Funk 16",
+      "specHash": "0x8B9A3FC0"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 57,
+      "meter": "4/4",
+      "name": "Open hat",
+      "specHash": "0x70D8C188"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 59,
+      "meter": "4/4",
+      "name": "Boogaloo",
+      "specHash": "0x46955AFE"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 62,
+      "meter": "4/4",
+      "name": "Cold Sweat",
+      "specHash": "0xD72BFEEF"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 63,
+      "meter": "4/4",
+      "name": "Linear funk",
+      "specHash": "0x57C44B4E"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 545,
+      "meter": "4/4",
+      "name": "Funk 16th ghost",
+      "specHash": "0xBA1F8C5E"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 56,
+      "meter": "4/4",
+      "name": "The One (JB)",
+      "specHash": "0x02B198D5"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 60,
+      "meter": "4/4",
+      "name": "Funk rock",
+      "specHash": "0x48030B2C"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 66,
+      "meter": "4/4",
+      "name": "P-Funk",
+      "specHash": "0x0FA805C3"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 263,
+      "meter": "4/4",
+      "name": "Fast 1",
+      "specHash": "0x6ABFB561"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 267,
+      "meter": "4/4",
+      "name": "Chacha",
+      "specHash": "0xC1D58FA1"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 187,
+      "meter": "4/4",
+      "name": "Linear funk",
+      "specHash": "0x562C9046"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 194,
+      "meter": "4/4",
+      "name": "Funk chop",
+      "specHash": "0x49750EAC"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 549,
+      "meter": "4/4",
+      "name": "Fill funk 16th",
+      "specHash": "0x42DE0943"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 190,
+      "meter": "4/4",
+      "name": "Kick and snare",
+      "specHash": "0x8CAFF3A8"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 198,
+      "meter": "4/4",
+      "name": "Second line fill",
+      "specHash": "0xD9D02353"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 207,
+      "meter": "4/4",
+      "name": "Purdie fill",
+      "specHash": "0x0B3171B5"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 191,
+      "meter": "4/4",
+      "name": "Alternating",
+      "specHash": "0x15C9520F"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 195,
+      "meter": "4/4",
+      "name": "Crescendo",
+      "specHash": "0x58E2C105"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 198,
+      "meter": "4/4",
+      "name": "Second line fill",
+      "specHash": "0xD9D02353"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 23,
+      "meter": "4/4",
+      "name": "Pop ballad",
+      "specHash": "0xE70D9E72"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 31,
+      "meter": "4/4",
+      "name": "Ballad 16",
+      "specHash": "0x1B1AB2E6"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 338,
+      "meter": "4/4",
+      "name": "Soft 1",
+      "specHash": "0x9CE4244C"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 20,
+      "meter": "4/4",
+      "name": "Pop eighths",
+      "specHash": "0x6FFD1EAB"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 26,
+      "meter": "4/4",
+      "name": "Syncopated pop",
+      "specHash": "0x5D8B58C3"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 27,
+      "meter": "4/4",
+      "name": "Pop rock",
+      "specHash": "0xB771340E"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 29,
+      "meter": "4/4",
+      "name": "Handclap",
+      "specHash": "0xB0D33E99"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 30,
+      "meter": "4/4",
+      "name": "Modern (kick 7)",
+      "specHash": "0x61CC8FE3"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 22,
+      "meter": "4/4",
+      "name": "Dance-pop 16",
+      "specHash": "0x0F4BC39E"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 28,
+      "meter": "4/4",
+      "name": "Electro pop",
+      "specHash": "0xCD40B5AE"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 32,
+      "meter": "4/4",
+      "name": "Four-floor pop",
+      "specHash": "0xEB001433"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 540,
+      "meter": "4/4",
+      "name": "Four-on-the-floor",
+      "specHash": "0x585B2526"
+    },
+    {
+      "fill": false,
+      "genre": "POP",
+      "index": 541,
+      "meter": "4/4",
+      "name": "Dance pop clap",
+      "specHash": "0x092B3821"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 544,
+      "meter": "4/4",
+      "name": "Simple pop fill",
+      "specHash": "0x1F737078"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 348,
+      "meter": "4/4",
+      "name": "Pop 6",
+      "specHash": "0x4450C7F6"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 350,
+      "meter": "4/4",
+      "name": "Pop 7",
+      "specHash": "0xEF680669"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 349,
+      "meter": "4/4",
+      "name": "Soft 4",
+      "specHash": "0x5D5D06F3"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 351,
+      "meter": "4/4",
+      "name": "Soft 5",
+      "specHash": "0x5E229B7D"
+    },
+    {
+      "fill": true,
+      "genre": "POP",
+      "index": 544,
+      "meter": "4/4",
+      "name": "Simple pop fill",
+      "specHash": "0x1F737078"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 195,
+      "meter": "4/4",
+      "name": "Crescendo",
+      "specHash": "0x58E2C105"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 68,
+      "meter": "4/4",
+      "name": "Slow blues",
+      "specHash": "0x4EA4B17D"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 71,
+      "meter": "4/4",
+      "name": "Brushes",
+      "specHash": "0xE1696164"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 546,
+      "meter": "4/4",
+      "name": "Purdie shuffle",
+      "specHash": "0xA9EF26AD"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 67,
+      "meter": "4/4",
+      "name": "Shuffle",
+      "specHash": "0x6A403D9E"
+    },
+    {
+      "fill": false,
+      "genre": "FUNK",
+      "index": 61,
+      "meter": "4/4",
+      "name": "Purdie shuffle",
+      "specHash": "0x10DC0C86"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 9,
+      "meter": "4/4",
+      "name": "Shuffle rock",
+      "specHash": "0xCA6D59DC"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 69,
+      "meter": "4/4",
+      "name": "Texas shuffle",
+      "specHash": "0xCC106873"
+    },
+    {
+      "fill": false,
+      "genre": "BLUES",
+      "index": 74,
+      "meter": "4/4",
+      "name": "Boogie shuffle",
+      "specHash": "0x0B7D3E9D"
+    },
+    {
+      "fill": false,
+      "genre": "ROCK",
+      "index": 535,
+      "meter": "4/4",
+      "name": "Shuffle rock",
+      "specHash": "0x057D304F"
+    },
+    {
+      "fill": true,
+      "genre": "BLUES",
+      "index": 196,
+      "meter": "4/4",
+      "name": "Shuffle fill",
+      "specHash": "0x99E34ED5"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 207,
+      "meter": "4/4",
+      "name": "Purdie fill",
+      "specHash": "0x0B3171B5"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 172,
+      "meter": "4/4",
+      "name": "Herta",
+      "specHash": "0xA8E96D4F"
+    },
+    {
+      "fill": true,
+      "genre": "FUNK",
+      "index": 198,
+      "meter": "4/4",
+      "name": "Second line fill",
+      "specHash": "0xD9D02353"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 169,
+      "meter": "4/4",
+      "name": "Long roll",
+      "specHash": "0xA3BF63B9"
+    },
+    {
+      "fill": true,
+      "genre": "BLUES",
+      "index": 196,
+      "meter": "4/4",
+      "name": "Shuffle fill",
+      "specHash": "0x99E34ED5"
+    },
+    {
+      "fill": true,
+      "genre": "GENERAL",
+      "index": 195,
+      "meter": "4/4",
+      "name": "Crescendo",
+      "specHash": "0x58E2C105"
+    }
+  ],
+  "schemaVersion": 1,
+  "source": "src/DrumLibrary.cpp",
+  "sourceSha256": "68008b4b139750e337a6166f6881e5724eee577b196efd8f467bf9562153d636"
+}
