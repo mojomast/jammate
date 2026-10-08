@@ -108,5 +108,21 @@ Portable and JUCE binaries and the reused-input hashes are recorded in
   attached).
 - No `JamTypes.h` exists; the frozen core types are in `src/jam/RhythmTypes.h`.
 
+## Integration notes (orchestrator)
+- `src/jam/DrumClockBridge.cpp` is globbed into `jam-core` automatically, so the
+  portable suite and the library pick it up with no CMake edit.
+- The JUCE test target does not link `jam-core`; registering
+  `tests/DrumClockBridgeTests.cpp` therefore also requires adding
+  `src/jam/DrumClockBridge.cpp` to `tests/CMakeLists.txt` (or linking `jam-core`).
+- Production wiring additionally needs a `DrumClockBridge` instance owned
+  alongside `DrumEngine`, `engine.prepareInjectedGroove(rockIndex)` on the
+  message thread, `engine.attachClockBridge(&bridge.commandQueue())`, and a
+  worker that calls `bridge.setClockSample(deviceSample)` +
+  `bridge.applySnapshot(clock.snapshot())` and requests the join/stop/resync
+  from the director. The plugin currently links neither `jam-core` nor the
+  bridge, so this is net-new wiring, not a toggle.
+
 ## Final commit
-`<filled below>` on `wp/INT-DRUM-001-clock-bridge`.
+`8950873cb32a796590b730d7a7bf84a81459142d` on `wp/INT-DRUM-001-clock-bridge`.
+This note is finalized in the immediate follow-up commit; the worktree is clean
+after both.
