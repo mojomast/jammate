@@ -14,6 +14,7 @@ import gzip
 import hashlib
 import json
 import math
+import os
 import statistics
 import sys
 import unittest
@@ -248,11 +249,31 @@ class TestEvidence(unittest.TestCase):
                 assert not result['errors'], result['errors']
                 cls.raw[(label, backend)] = result['fixturesByName']
 
-    def test_freeze_matches_sources_and_binary(self):
+    def test_freeze_matches_sources_and_recorded_binary(self):
         freeze = load_json(FREEZE)
         for entry in freeze['sources']:
             self.assertEqual(sha(ROOT / entry['path']), entry['sha256'],
                              'source changed: ' + entry['path'])
+        records = ''.join(entry['path'] + '\0' + entry['sha256'] + '\n'
+                          for entry in sorted(freeze['sources'], key=lambda e: e['path']))
+        self.assertEqual(hashlib.sha256(records.encode()).hexdigest(),
+                         freeze['combinedSha256'])
+        # Authenticate the identities used for the retained run without requiring
+        # the original machine's binary/archive paths in a portable checkout.
+        provenance = load_json(EVID / 'provenance.json')
+        self.assertEqual(provenance['freeze'], freeze)
+        pins = {p['role']: p['sha256'] for p in provenance['pins']}
+        self.assertEqual(pins['btrack-tempo-stable'], freeze['binary']['sha256'])
+        for dep in freeze['binary']['embeddedDependencies']:
+            self.assertEqual(pins['embedded:' + Path(dep['path']).name], dep['sha256'])
+
+    def test_local_frozen_binary_and_embedded_archives(self):
+        # The integration replay separately rebuilt and verified this binary.
+        # Opt in explicitly for local artifact validation; a requested check
+        # must fail if any artifact is missing or differs from its frozen pin.
+        if os.environ.get('JAM_TEMPO_LOCAL_FREEZE') != '1':
+            self.skipTest('local binary/archive check requires JAM_TEMPO_LOCAL_FREEZE=1')
+        freeze = load_json(FREEZE)
         self.assertEqual(sha(freeze['binary']['path']), freeze['binary']['sha256'])
         for dep in freeze['binary']['embeddedDependencies']:
             self.assertEqual(sha(dep['path']), dep['sha256'], 'embedded dep changed')

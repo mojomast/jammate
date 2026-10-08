@@ -111,6 +111,19 @@ Receipt and downloaded-log hashes:
 The same device, ASIO and callback-timing limits apply. The simulated Jam UI
 preview was verified locally; this run does not build that preview target.
 
+## TRACK-008 initial CI failure and local correction
+
+[Run37726314737](https://github.com/mojomast/jammate/actions/runs/37726314737)
+at `1b05672b7540f7ec9f217276641a6c6a129cafb2` passed NAM and Windows but failed
+all four core lanes: `jam.TempoStableResearch` attempted to open a frozen plugin
+in an orchestrator-local scratch path. The corrected portable suite authenticates
+source/freeze/provenance records; the actual binary/archive check is an explicit
+local opt-in.27 tests pass with local validation;26 pass with local paths
+simulated unavailable and the one local check explicitly skipped. Candidate
+behavior and historical evidence remain unchanged. Remote rerun is pending.
+Failure and correction-check log hashes:
+[`github-ci/run-37726314737.json`](github-ci/run-37726314737.json).
+
 ## Final RT-004 / DIAG-001 / TRACK-007 integrated-head pass
 
 [Run37721981804](https://github.com/mojomast/jammate/actions/runs/37721981804)

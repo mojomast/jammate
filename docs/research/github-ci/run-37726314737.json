@@ -1,0 +1,35 @@
+{
+  "runId": 37726314737,
+  "url": "https://github.com/mojomast/jammate/actions/runs/37726314737",
+  "testedSha": "1b05672b7540f7ec9f217276641a6c6a129cafb2",
+  "conclusion": "failure",
+  "cause": "All four core lanes require a local frozen plugin path in the research test; Windows and NAM pass",
+  "correction": "Portable freeze/provenance checks always run; actual local binary/archive check explicitly opts in with JAM_TEMPO_LOCAL_FREEZE=1",
+  "jobs": [
+    {"name": "NAM / LSTM repair", "id": 113145179610, "conclusion": "success"},
+    {"name": "Core / both", "id": 113145179789, "conclusion": "failure"},
+    {"name": "Core / depfree", "id": 113145179814, "conclusion": "failure"},
+    {"name": "Core / aubio", "id": 113145179815, "conclusion": "failure"},
+    {"name": "Windows / Standalone + VST3 + drums", "id": 113145179840, "conclusion": "success"},
+    {"name": "Core / btrack", "id": 113145179928, "conclusion": "failure"}
+  ],
+  "localCorrectionChecks": {
+    "testsWithLocalPathsUnavailable": 27,
+    "explicitLocalArtifactCheckSkipped": 1,
+    "testsWithLocalArtifactsRequested": 27,
+    "registeredResearchSuite": "passes with both trackers enabled and disabled",
+    "behaviorFreezeAndHistoricalEvidence": "unchanged"
+  },
+  "logHashes": {
+    "/home/mojo/projects/build-TRACK-008-integration/github-nam-lstm-repair-success.log": "f4ebd451d8d6fbd53ec534d5ae12b63639eb6eec4dd3026250a58b8adc25eb66",
+    "/home/mojo/projects/build-TRACK-008-integration/github-core-both-failure.log": "a6010a6fc103247cdfcb216e4475a07c9669608f718568026c2e236b60b6c9ef",
+    "/home/mojo/projects/build-TRACK-008-integration/github-core-depfree-failure.log": "8d52b5694373f2f3d9aaf9bb4982fe1760c80f542422cc3cf7a0fb121bb3c2a9",
+    "/home/mojo/projects/build-TRACK-008-integration/github-core-aubio-failure.log": "d226229784507a417bf9f3122afa664546758a3b3888daf02d1fc4819f3db73e",
+    "/home/mojo/projects/build-TRACK-008-integration/github-windows-standalone-vst3-drums-success.log": "8d6124fd9e327ec8fe2a7ae2f8500dd132582b44e3639f8dadfd19a1e38ac49f",
+    "/home/mojo/projects/build-TRACK-008-integration/github-core-btrack-failure.log": "9900b028eba245944fe7583b9d5047120b6c0b7395d4de90f7558f45742ed170",
+    "/home/mojo/projects/build-TRACK-008-integration/ci-correction-portable-no-local-artifacts.log": "18bf488eb88e96eabb189c45032ce64bc1484c77eceaad0f36e07d8f3f77d44a",
+    "/home/mojo/projects/build-TRACK-008-integration/ci-correction-local-artifact-check.log": "8670ad6e423e7fe06115e7e23a800e557132a237a3635fbfaf3c3a8860bfe358",
+    "/home/mojo/projects/build-TRACK-008-integration/ci-correction-off-ctest.log": "c57be0999b54082846f3bde9b1aba1e58177015ef5923fcc507dae3e9cff644f",
+    "/home/mojo/projects/build-TRACK-008-integration/ci-correction-both-ctest.log": "4a9e079841771449ccff7482ba7843185ad95bfad7f1448ed3733abf1f0c771f"
+  }
+}

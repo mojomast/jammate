@@ -1,5 +1,18 @@
 # TRACK-008 errata and correction contract
 
+## Integration CI portability correction
+
+GitHub run37726314737 at `1b05672` passed Windows and NAM but all four core
+lanes failed because the research test attempted to open the local frozen
+plugin path `/home/mojo/projects/build-TRACK-008-worker/libtempo-stable-btrack.so`.
+The portable suite now authenticates the frozen sources, combined hash and
+recorded plugin/dependency identities against the preserved run provenance.
+The actual local binary/archive check is an explicit opt-in using
+`JAM_TEMPO_LOCAL_FREEZE=1`; requested local checks still fail on missing or
+mismatched artifacts. The independently rebuilt plugin and full replay receipt
+remain the executable-evidence check. Frozen behavior and historical raw results
+are unchanged. The updated test source hash is in `tooling-hashes.json`.
+
 Committed **before** the corrected derived evidence is recomputed. This file and
 `docs/research/tempo-stability/evidence-corrected/` are **additive**. The
 following are **immutable** and are not edited, re-rendered or overwritten:

@@ -41,6 +41,13 @@ fresh9/9 required NAM suites, fresh processor linking and15-process replay
 counter validation passes; all five repaired model runs are measured-clean.
 Receipt: `docs/research/nam-activation-repair-integration.json`. G1 stays partial.
 
+TRACK-008 published-head run37726314737 (`1b05672`) failed only the research
+test's local binary path in all four core lanes; NAM and Windows passed.
+The portable freeze/provenance checks and explicit local-artifact opt-in
+correction pass27 tests locally (one local check skipped when artifacts are
+unavailable). Both registered core research suites pass. Remote rerun pending;
+failure/log receipt: `docs/research/github-ci/run-37726314737.json`.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.
