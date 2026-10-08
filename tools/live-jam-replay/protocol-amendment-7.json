@@ -1,0 +1,30 @@
+{
+  "schema": "live-jam-replay/protocol-amendment/7.0",
+  "task": "EVAL-LIVE-001",
+  "title": "Seventh amendment: drum-only zero-input window proof on the actual processor output",
+  "base_commit": "88893e24be328f131b5df673078ff934a46ed5ab",
+  "frozen_before": "any reevaluation or actual-002 measurement under the corrected injected scenario",
+  "supersedes": {"previous_tools_commit": "201ba30",
+                 "note": "Additive. Amendments 1-6, their receipts, and the preserved actual-full-001 artifacts remain immutable history. Original predeclared.json, protocol.sha256 and all prior contracts/pins/receipts are preserved."},
+  "reason": "The injected scenario proves transport wiring via engine getters, but not that the actual processor output carries internal-kit drums. A generic output-nonzero check includes the guitar input and cannot attribute output to the kit. Add a declared zero-input window that measures the real processor output with the embedded kit.",
+  "corrections": {
+    "drum_only_window": {
+      "procedure": "After the third-join resync phase proof, while the engine is playing, switch the input generator to declared silence (input_kind=silence, wav=nullptr) so every callback buffer is written exact-zero by the caller. Run 0.5 s of paced callbacks as a wash (guitar/filter tails after the prior clean signal), then measure 1.0 s of paced callbacks. In the measured window record the actual processor output RMS/peak/nonzero blocks, the injected steps delta, engine playing, internal-kit samplesLoaded()==true and drumEngine.useVst.load()==false.",
+      "declared": ["drum_only_window.input_kind=silence", "drum_only_window.warmup_seconds=0.5",
+                   "drum_only_window.measured_seconds=1.0", "drum_only_window.sample_count",
+                   "drum_only_window.sample_rate", "drum_only_window.allocator_coverage=unmeasured"],
+      "rationale": "With zero input and the embedded kit loaded (use_vst=false), any nonzero output plus growing injected steps is internal-kit output from the real product chain, not the guitar input. This is INJECTED CONTRACT evidence, not a real-guitar or physical-device claim.",
+      "gate": "injected join gate requires zero_input_declared=true, sampler_loaded=true, use_vst=false, sample_count >= sample_rate, rms/peak > 1e-7, nonzero_blocks > 0, steps_delta > 0, engine_playing=true, allocator_coverage=unmeasured.",
+      "scope": "The window is unarmed, so callback allocator counters are not claimed for it; the 54-cell RT gate is unchanged. This window does not alter the 54-cell matrix coverage or expected ids."
+    }
+  },
+  "semantics_unchanged": "structural AND rt_gate AND join_gate; default no-lock diagnostic; the 54-cell matrix, pacing and expected ids are unchanged. Only the injected scenario gains the drum-only output proof.",
+  "preserve": {
+    "actual_full_001": "/home/mojo/projects/build-EVAL-LIVE-001-integration/actual-full-001 (read-only, never rewritten)",
+    "canonical_wav_bytes": "make_synthetic_evidence.py WAV generation unchanged; selected source WAVs and absolute-frame phase metadata unchanged"
+  },
+  "immutable_preserved": {
+    "predeclared_json_sha256": "d29eeedf903aa9abb63e44ad4293f60e5bedfa2ef3c6f8033cb325b7348432fa",
+    "protocol_sha256_file": "fdc22bab2bc0154ddae2758766026a70e9db495655c73684013f31f09a6dba09"
+  }
+}
