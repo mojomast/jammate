@@ -26,7 +26,11 @@ Flagship UI order is fixed by the integration contract and frozen by
 
 All supported meters are 4/4 (the only meter the compiled patterns use and the
 only one the engine currently prepares). Every tier and every fill role is
-non-empty for every style.
+non-empty for every style. `minRepetitionDistanceBars` is **consumed** by the
+Jam Director as the effective anti-repetition window. The BPM band and the
+swing min/max are **advisory hints for UI/tuning only, not runtime clamps**: the
+Musical Clock is the sole tempo authority and the director emits only
+`defaultSwing01`.
 
 ## References are indices + provenance
 

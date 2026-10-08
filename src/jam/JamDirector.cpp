@@ -146,6 +146,32 @@ void JamDirector::cancelPending() noexcept
     ++cancelledPublications_;
 }
 
+void JamDirector::notifyStopCompleted() noexcept
+{
+    if (state_ != DirectorState::Stopping)
+        return;
+
+    cancelPending();
+    userFillLatched_ = false;
+    userBreakLatched_ = false;
+    stopRequested_ = false;
+    sessionActive_ = false;
+    state_ = DirectorState::Idle;
+
+    // The transport is no longer playing our selection, so a later restart must
+    // propose a groove rather than assume the old one is sounding.
+    committedGroove_ = kNoLibraryEntry;
+    committedFill_ = kNoLibraryEntry;
+    committedTier_ = desiredTier_;
+    recentCount_ = 0;
+    recentHead_ = 0;
+    haveBarPhase_ = false;
+    haveTransportBar_ = false;
+    haveCursor_ = false;
+    barsObserved_ = 0;
+    barsSinceLastFill_ = 0;
+}
+
 void JamDirector::setSettings (const DirectorSettings& settings) noexcept
 {
     const DirectorSettings next = sanitize (settings);
@@ -210,7 +236,7 @@ double JamDirector::random01() noexcept
 
 bool JamDirector::recentContains (LibraryIndex index) const noexcept
 {
-    int window = config_.minimumRepetitionDistance;
+    int window = effectiveRepetitionWindowBars();
     if (window > kDirectorRepetitionHistory)
         window = kDirectorRepetitionHistory;
     if (window > recentCount_)
@@ -224,6 +250,15 @@ bool JamDirector::recentContains (LibraryIndex index) const noexcept
             return true;
     }
     return false;
+}
+
+int JamDirector::effectiveRepetitionWindowBars() const noexcept
+{
+    // The style overlay owns the window; DirectorConfig is the fallback/default
+    // for a style that does not specify one (SPEC.md 13.1).
+    const int styleWindow = activeStyle().minRepetitionDistanceBars;
+    const int window = styleWindow > 0 ? styleWindow : config_.minimumRepetitionDistance;
+    return window < 0 ? 0 : window;
 }
 
 void JamDirector::pushRecent (LibraryIndex index) noexcept
@@ -407,6 +442,32 @@ void JamDirector::applyStateMachine (const DirectorInputs& inputs) noexcept
         cancelPending();
 }
 
+void JamDirector::enforcePendingSafety (const DirectorInputs& inputs) noexcept
+{
+    if (! pendingAck_)
+        return;
+
+    // A lifecycle that is no longer running/stopping-safe, a clock that is not
+    // Locked (Holdover reduces confidence), or a fill proposed under a belief
+    // that has since dropped below the fill threshold must not stay alive. The
+    // proposal is forgotten; live queues are untouched.
+    if (! inputs.lifecycleAllowsPerformance)
+    {
+        cancelPending();
+        return;
+    }
+    if (inputs.clock.lockState != ClockLockState::Locked)
+    {
+        cancelPending();
+        return;
+    }
+    if (pendingFill_ != kNoLibraryEntry
+        && inputs.clock.confidence01 < config_.fillConfidenceThreshold)
+    {
+        cancelPending();
+    }
+}
+
 void JamDirector::updateEnvelopes (const DirectorInputs& inputs) noexcept
 {
     // Intensity: the user setting is the baseline, guitar energy nudges it
@@ -468,6 +529,11 @@ void JamDirector::detectBarBoundary (const DirectorInputs& inputs) noexcept
 {
     newBarThisTick_ = false;
 
+    // The Musical Clock's bar phase is the SINGLE authoritative bar-advance
+    // source. The explicit transport is a confirmation/re-anchor source only:
+    // it never adds a bar of its own, which is what previously caused one
+    // physical bar to be counted twice when a lagged transport.bar increment
+    // landed on the tick after the phase wrap.
     if (! haveBarPhase_)
     {
         haveBarPhase_ = true;
@@ -482,10 +548,25 @@ void JamDirector::detectBarBoundary (const DirectorInputs& inputs) noexcept
 
     if (inputs.transport.playing && inputs.transport.bar > 0)
     {
-        if (haveTransportBar_ && inputs.transport.bar > lastTransportBar_)
-            newBarThisTick_ = true;
+        if (haveTransportBar_)
+        {
+            const int delta = inputs.transport.bar - lastTransportBar_;
+
+            // A skip or a backward move is a resync/discontinuity in the rendered
+            // grid. Re-baseline the phase tracker so the next genuine wrap is
+            // measured from the transport's position, and never fabricate a bar
+            // count from the transport jump itself.
+            if (delta < 0 || delta > 1)
+                haveBarPhase_ = false;
+            // delta == 0: stall; delta == 1: confirmation of the same physical
+            // bar the clock already advances. Neither increments the counter.
+        }
         lastTransportBar_ = inputs.transport.bar;
         haveTransportBar_ = true;
+    }
+    else
+    {
+        haveTransportBar_ = false;
     }
 
     if (newBarThisTick_)
@@ -719,24 +800,30 @@ DirectorDecision JamDirector::update (const DirectorInputs& inputs) noexcept
 {
     applySessionResetIfNeeded (inputs);
 
-    // Idempotency across repeated control ticks for the SAME audio cursor: the
-    // envelope, phrase counter and RNG must not advance, and a committed bar
-    // must not be re-decided. A pending proposal is still re-emitted so an
-    // unacknowledged change keeps retrying.
-    if (inputs.audioCursor != 0 && haveCursor_ && inputs.audioCursor == lastCursor_)
+    newBarThisTick_ = false;
+
+    // Safety transitions run on EVERY tick, including a repeated audio cursor,
+    // so an idempotent tick can still observe Lost/Holdover/lifecycle and cancel
+    // a pending proposal. Only the energy envelope, phrase counter and RNG are
+    // held back for a repeated cursor.
+    applyStateMachine (inputs);
+    enforcePendingSafety (inputs);
+
+    const bool duplicateCursor = inputs.audioCursor != 0 && haveCursor_
+                                 && inputs.audioCursor == lastCursor_;
+    if (duplicateCursor)
     {
         DirectorDecision held;
         finalizeDecision (held);
         return held;
     }
+
     if (inputs.audioCursor != 0)
     {
         haveCursor_ = true;
         lastCursor_ = inputs.audioCursor;
     }
 
-    newBarThisTick_ = false;
-    applyStateMachine (inputs);
     updateEnvelopes (inputs);
     detectBarBoundary (inputs);
 
@@ -790,9 +877,12 @@ DirectorReport JamDirector::report() const noexcept
     r.pendingGroove = pendingAck_ ? pendingChange_.groove : kNoLibraryEntry;
     r.pendingFill = pendingAck_ ? pendingFill_ : kNoLibraryEntry;
     r.pendingAck = pendingAck_;
+    r.pendingBreak = pendingAck_ && pendingBreak_;
+    r.pendingCrash = pendingAck_ && pendingCrash_;
     r.pendingChange = pendingAck_ ? pendingChange_ : QueuedBarChange {};
     r.intensityEnvelope01 = intensityEnvelope_;
     r.complexityEnvelope01 = complexityEnvelope_;
+    r.repetitionWindowBars = effectiveRepetitionWindowBars();
     r.barsObserved = barsObserved_;
     r.acceptedPublications = acceptedPublications_;
     r.rejectedPublications = rejectedPublications_;
@@ -804,8 +894,12 @@ DirectorReport JamDirector::report() const noexcept
     r.intent.complexity01 = complexityEnvelope_;
     r.intent.fillAmount01 = settings_.fillAmount01;
     r.intent.swing01 = activeStyle().defaultSwing01;
-    r.intent.requestFill = pendingAck_ && pendingFill_ != kNoLibraryEntry;
-    r.intent.requestBreak = pendingAck_ && pendingBreak_;
+    r.intent.requestFill = (pendingAck_ && pendingFill_ != kNoLibraryEntry) || userFillLatched_;
+    r.intent.requestBreak = (pendingAck_ && pendingBreak_) || userBreakLatched_;
+    r.intent.requestCrash = pendingAck_ && pendingCrash_;
+    r.intent.requestStop = false;   // owned by JamJoinPolicy
+    r.intent.sectionIndex = static_cast<int> (barsObserved_
+                                              / static_cast<std::uint64_t> (kDirectorPhraseLengthBars));
     return r;
 }
 

@@ -44,10 +44,12 @@ namespace jam
 {
 
 // ---------------------------------------------------------------------------
-// Structural policy constants. These are structural (they define the shape of
-// the musical model), not tuned thresholds: `DirectorConfig` in JamConfig.h
-// still owns every tunable. TUNE-002 may promote these into the config; they
-// live here so `JamDirector.cpp` contains no unnamed magic numbers.
+// Policy defaults for quantities that do not yet have a home in
+// `DirectorConfig` (`src/jam/JamConfig.h`). These ARE musical tunables, not
+// structural constants; they live here only because STYLE-DIRECTOR-002 does not
+// own `JamConfig.h`. They are named and documented so TUNE-002 can promote them
+// into `DirectorConfig` via the orchestrator (recommended: tier edges, phrase
+// length, min fill gap, neutral fill amount, onset bonus, complexity gains).
 // ---------------------------------------------------------------------------
 
 /** Bars per phrase; fills are preferentially placed on phrase boundaries. */
@@ -198,9 +200,12 @@ struct DirectorReport
     LibraryIndex pendingGroove = kNoLibraryEntry;
     LibraryIndex pendingFill = kNoLibraryEntry;
     bool pendingAck = false;
+    bool pendingBreak = false;
+    bool pendingCrash = false;
     QueuedBarChange pendingChange {};
     float intensityEnvelope01 = 0.0f;
     float complexityEnvelope01 = 0.0f;
+    int repetitionWindowBars = 0;
     std::uint64_t barsObserved = 0;
     std::uint64_t acceptedPublications = 0;
     std::uint64_t rejectedPublications = 0;
@@ -236,6 +241,13 @@ public:
      *  user Reset. */
     void cancelPending() noexcept;
 
+    /** Documented exit from the terminal Stopping state. The parent calls this
+     *  when the actual stopped echo has arrived (`!playing && !policy.stopPending`)
+     *  and it is safe to return to Idle. It does not touch any transport or live
+     *  queue, so join/stop ownership stays with JamJoinPolicy. `reset()` also
+     *  exits Stopping. */
+    void notifyStopCompleted() noexcept;
+
     // --- settings ------------------------------------------------------------
 
     void setSettings (const DirectorSettings& settings) noexcept;
@@ -258,16 +270,22 @@ public:
     LibraryIndex committedFill() const noexcept { return committedFill_; }
     bool publicationPending() const noexcept { return pendingAck_; }
 
+    /** Effective anti-repetition window in bars: the active style's
+     *  `minRepetitionDistanceBars` when set, otherwise the global
+     *  `DirectorConfig::minimumRepetitionDistance`. */
+    int effectiveRepetitionWindowBars() const noexcept;
+
     DirectorReport report() const noexcept;
 
     /** Ergonomic publish helper: calls `publishFn(barChange)` only when a change
-     *  is pending, feeds the bool result back through acknowledgePublication and
-     *  returns whether it was accepted. The orchestrator wires this to
+     *  is pending and the director is still safely in Playing, feeds the bool
+     *  result back through acknowledgePublication and returns whether it was
+     *  accepted. The orchestrator wires this to
      *  `DrumClockBridge::requestBarChange`; tests wire it to a fake. */
     template <typename PublishFn>
     bool publishPending (PublishFn&& publishFn) noexcept
     {
-        if (! pendingAck_)
+        if (! pendingAck_ || state_ != DirectorState::Playing)
             return false;
         const bool accepted = static_cast<bool> (publishFn (pendingChange_));
         acknowledgePublication (accepted);
@@ -277,6 +295,7 @@ public:
 private:
     void applySessionResetIfNeeded (const DirectorInputs& inputs) noexcept;
     void applyStateMachine (const DirectorInputs& inputs) noexcept;
+    void enforcePendingSafety (const DirectorInputs& inputs) noexcept;
     void updateEnvelopes (const DirectorInputs& inputs) noexcept;
     void detectBarBoundary (const DirectorInputs& inputs) noexcept;
     bool buildProposal (const DirectorInputs& inputs, DirectorDecision& out) noexcept;

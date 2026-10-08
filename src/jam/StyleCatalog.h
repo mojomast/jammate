@@ -149,6 +149,9 @@ struct StyleDescriptor
     const char* name = "";       // display name, e.g. "Hard Rock / Metal"
     const char* shortName = "";  // persistence/UI token, e.g. "hard-rock-metal"
 
+    // BPM band. ADVISORY ONLY: the Musical Clock is the sole tempo authority
+    // (SPEC.md 10), so the Jam Director never clamps tempo to this band. It is
+    // metadata for UI/tuning and for choosing a style, not a tempo control.
     int minBpm = 0;
     int idealBpm = 0;
     int maxBpm = 0;
@@ -167,12 +170,16 @@ struct StyleDescriptor
     float humanizeTiming = 0.15f;
     float humanizeRoundRobin = 0.40f;
 
-    // Swing range and default (fraction of a step, 0..0.66). SPEC.md 13.1.
+    // Swing range and default (fraction of a step, 0..0.66). SPEC.md 13.1. The
+    // director emits `defaultSwing01`; min/max are ADVISORY hints for UI/tuning,
+    // not a runtime clamp.
     float defaultSwing01 = 0.0f;
     float minSwing01 = 0.0f;
     float maxSwing01 = 0.0f;
 
-    // Minimum bars before a committed groove may be selected again. SPEC.md 13.3.
+    // Bars before a committed groove may be selected again. CONSUMED by the Jam
+    // Director as the effective anti-repetition window (DirectorConfig's
+    // minimumRepetitionDistance is the fallback when this is <= 0). SPEC.md 13.3.
     int minRepetitionDistanceBars = 4;
 
     bool supportsMeter (const Meter& m) const noexcept
