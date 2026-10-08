@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "device-validation/functional/1.0",
+  "title": "Functional hardware-condition observation",
+  "type": "object",
+  "required": ["schema", "synthetic", "condition", "interface_id",
+               "generated_utc", "provenance", "measured", "outcome",
+               "identity", "receipt"],
+  "properties": {
+    "schema": {"const": "device-validation/functional/1.0"},
+    "synthetic": {"type": "boolean"},
+    "condition": {"type": "string"},
+    "interface_id": {"type": "string"},
+    "provenance": {"const": "instrumented-raw"},
+    "measured": {"const": true},
+    "outcome": {"enum": ["pass", "fail"]},
+    "receipt": {
+      "type": "object",
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "device-validation/latency/1.0",
+  "title": "Physical loop-back latency measurement",
+  "type": "object",
+  "required": ["schema", "synthetic", "condition", "interface_id",
+               "generated_utc", "provenance", "identity", "analysis"],
+  "properties": {
+    "schema": {"const": "device-validation/latency/1.0"},
+    "synthetic": {"type": "boolean"},
+    "condition": {"type": "string"},
+    "interface_id": {"type": "string"},
+    "provenance": {"enum": ["recorded-loopback"]},
+    "identity": {
+      "type": "object",
+      "required": ["raw_wav"],
+      "properties": {
+        "source_sha": {"type": ["string", "null"]},
+        "raw_wav": {
+          "type": "object",
+          "required": ["path", "sha256", "bytes"],
+          "properties": {
+            "path": {"type": "string"},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "bytes": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "required": ["method", "params", "wav", "quality", "onset", "valid",
+                   "reasons"],
+      "properties": {
+        "method": {"enum": ["two-channel", "single-channel"]},
+        "valid": {"type": "boolean"},
+        "physical_roundtrip_latency_ms": {"type": ["number", "null"]},
+        "target_ms": {"type": ["number", "null"]},
+        "target_met": {"type": ["boolean", "null"]},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "warnings": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

@@ -1,0 +1,249 @@
+{
+  "allow_synthetic_selftest": true,
+  "awaiting_physical_evidence": true,
+  "cells": {
+    "asio_48k_128": {
+      "kind": "latency",
+      "latency_ms": null,
+      "reasons": [],
+      "records": [],
+      "status": "missing",
+      "target_met": null,
+      "target_ms": null
+    },
+    "asio_48k_256": {
+      "kind": "latency",
+      "latency_ms": null,
+      "reasons": [],
+      "records": [],
+      "status": "missing",
+      "target_met": null,
+      "target_ms": null
+    },
+    "asio_48k_64": {
+      "kind": "latency",
+      "latency_ms": null,
+      "reasons": [],
+      "records": [],
+      "status": "missing",
+      "target_met": null,
+      "target_ms": null
+    },
+    "blues_shuffle": {
+      "kind": "play",
+      "records": [],
+      "status": "missing",
+      "verdict": null
+    },
+    "clean_strumming": {
+      "kind": "play",
+      "records": [],
+      "status": "missing",
+      "verdict": null
+    },
+    "clipped_input": {
+      "kind": "functional",
+      "latency_ms": null,
+      "reasons": [],
+      "records": [],
+      "status": "missing",
+      "target_met": null,
+      "target_ms": null
+    },
+    "device_disconnect_reconnect": {
+      "kind": "functional",
+      "latency_ms": null,
+      "reasons": [],
+      "records": [],
+      "status": "missing",
+      "target_met": null,
+      "target_ms": null
+    },
+    "distorted_rhythm": {
+      "kind": "play",
+      "records": [],
+      "status": "missing",
+      "verdict": null
+    },
+    "input_channel_change": {
+      "kind": "functional",
+      "latency_ms": null,
+      "reasons": [],
+      "records": [],
+      "status": "missing",
+      "target_met": null,
+      "target_ms": null
+    },
+    "palm_muted_metal": {
+      "kind": "play",
+      "records": [],
+      "status": "missing",
+      "verdict": null
+    },
+    "silent_input": {
+      "kind": "functional",
+      "latency_ms": null,
+      "reasons": [],
+      "records": [],
+      "status": "missing",
+      "target_met": null,
+      "target_ms": null
+    },
+    "sparse_single_note": {
+      "kind": "play",
+      "records": [],
+      "status": "missing",
+      "verdict": null
+    },
+    "syncopated_funk": {
+      "kind": "play",
+      "records": [],
+      "status": "missing",
+      "verdict": null
+    },
+    "wasapi_low_latency": {
+      "kind": "latency",
+      "latency_ms": null,
+      "reasons": [],
+      "records": [],
+      "status": "missing",
+      "target_met": null,
+      "target_ms": null
+    }
+  },
+  "gate_requested": "all",
+  "gates": {
+    "hardware_matrix": {
+      "empty": true,
+      "pass": false,
+      "required": [
+        "asio_48k_64",
+        "asio_48k_128",
+        "asio_48k_256",
+        "wasapi_low_latency",
+        "device_disconnect_reconnect",
+        "input_channel_change",
+        "silent_input",
+        "clipped_input"
+      ],
+      "statuses": {
+        "asio_48k_128": "missing",
+        "asio_48k_256": "missing",
+        "asio_48k_64": "missing",
+        "clipped_input": "missing",
+        "device_disconnect_reconnect": "missing",
+        "input_channel_change": "missing",
+        "silent_input": "missing",
+        "wasapi_low_latency": "missing"
+      }
+    },
+    "monitoring_latency": {
+      "condition": "asio_48k_128",
+      "measured_ms": null,
+      "pass": false,
+      "target_met": null,
+      "target_ms": 12.0
+    },
+    "play_trials": {
+      "pass": false,
+      "required": [
+        "clean_strumming",
+        "distorted_rhythm",
+        "palm_muted_metal",
+        "blues_shuffle",
+        "syncopated_funk",
+        "sparse_single_note"
+      ],
+      "statuses": {
+        "blues_shuffle": "missing",
+        "clean_strumming": "missing",
+        "distorted_rhythm": "missing",
+        "palm_muted_metal": "missing",
+        "sparse_single_note": "missing",
+        "syncopated_funk": "missing"
+      }
+    },
+    "synthetic_selftest": {
+      "loaded": 11,
+      "note": "proves tooling only; never counts toward a physical gate",
+      "pass": true
+    }
+  },
+  "generated_utc": "2026-10-08T12:40:48Z",
+  "hard_errors": [],
+  "matrix_empty": true,
+  "overall_pass": false,
+  "recheck_latency": true,
+  "records": [],
+  "schema": "device-validation/report/1.0",
+  "session_id": "synthetic-selftest",
+  "session_source_sha": "0000000000000000000000000000000000000000",
+  "synthetic_records": [
+    {
+      "condition": "clipped_input",
+      "kind": "functional",
+      "path": "measurements/functional-clipped_input.json",
+      "status": "pass"
+    },
+    {
+      "condition": "device_disconnect_reconnect",
+      "kind": "functional",
+      "path": "measurements/functional-device_disconnect_reconnect.json",
+      "status": "pass"
+    },
+    {
+      "condition": "input_channel_change",
+      "kind": "functional",
+      "path": "measurements/functional-input_channel_change.json",
+      "status": "pass"
+    },
+    {
+      "condition": "silent_input",
+      "kind": "functional",
+      "path": "measurements/functional-silent_input.json",
+      "status": "pass"
+    },
+    {
+      "condition": "asio_48k_128",
+      "kind": "latency",
+      "path": "measurements/latency-asio_48k_128.json",
+      "status": "pass"
+    },
+    {
+      "condition": "asio_48k_256",
+      "kind": "latency",
+      "path": "measurements/latency-asio_48k_256.json",
+      "status": "fail"
+    },
+    {
+      "condition": "asio_48k_64",
+      "kind": "latency",
+      "path": "measurements/latency-asio_48k_64.json",
+      "status": "fail"
+    },
+    {
+      "condition": "asio_48k_128",
+      "kind": "latency",
+      "path": "measurements/latency-nonfinite.json",
+      "status": "fail"
+    },
+    {
+      "condition": "asio_48k_128",
+      "kind": "latency",
+      "path": "measurements/latency-ratemismatch.json",
+      "status": "fail"
+    },
+    {
+      "condition": "wasapi_low_latency",
+      "kind": "latency",
+      "path": "measurements/latency-wasapi_low_latency.json",
+      "status": "fail"
+    },
+    {
+      "condition": "clean_strumming",
+      "kind": "play",
+      "path": "measurements/play-clean_strumming.json",
+      "status": "pass"
+    }
+  ]
+}

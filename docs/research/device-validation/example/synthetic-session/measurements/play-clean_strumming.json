@@ -1,0 +1,213 @@
+{
+  "callback": {
+    "analysis_overruns": {
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 34,
+        "path": "raw/diagnostics-trace.json",
+        "role": "callback",
+        "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+      },
+      "value": 0
+    },
+    "deadline_misses": {
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 34,
+        "path": "raw/diagnostics-trace.json",
+        "role": "callback",
+        "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+      },
+      "value": 0
+    },
+    "p50_ms": {
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 34,
+        "path": "raw/diagnostics-trace.json",
+        "role": "callback",
+        "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+      },
+      "value": 1.2
+    },
+    "p99_ms": {
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 34,
+        "path": "raw/diagnostics-trace.json",
+        "role": "callback",
+        "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+      },
+      "value": 2.4
+    },
+    "receipt": {
+      "bytes": 34,
+      "path": "raw/diagnostics-trace.json",
+      "role": "callback",
+      "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+    }
+  },
+  "condition": "clean_strumming",
+  "dropouts": {
+    "count": {
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 34,
+        "path": "raw/diagnostics-trace.json",
+        "role": "dropout",
+        "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+      },
+      "value": 0
+    },
+    "receipt": {
+      "bytes": 34,
+      "path": "raw/diagnostics-trace.json",
+      "role": "dropout",
+      "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+    }
+  },
+  "generated_utc": "2026-10-08T12:38:24Z",
+  "identity": {
+    "build_kind": "synthetic",
+    "interface": {
+      "backend": "asio",
+      "block_frames": 128,
+      "driver": "Synthetic ASIO Driver",
+      "monitoring": "software-app",
+      "os": "windows",
+      "sample_rate": 48000
+    },
+    "source_sha": "0000000000000000000000000000000000000000"
+  },
+  "interface_id": "iface-asio",
+  "judgements": {
+    "fills_musical_enough": "yes",
+    "join_sensible": "yes",
+    "overreacted": "no",
+    "push_pull_possible": "yes",
+    "recovered_tap_resync": "yes",
+    "stayed_stable": "yes"
+  },
+  "notes": [
+    "synthetic play trial"
+  ],
+  "operator": "synthetic",
+  "raw_files": [
+    {
+      "bytes": 34,
+      "path": "raw/diagnostics-trace.json",
+      "role": "timing",
+      "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+    },
+    {
+      "bytes": 34,
+      "path": "raw/diagnostics-trace.json",
+      "role": "lock",
+      "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+    },
+    {
+      "bytes": 34,
+      "path": "raw/diagnostics-trace.json",
+      "role": "callback",
+      "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+    },
+    {
+      "bytes": 34,
+      "path": "raw/diagnostics-trace.json",
+      "role": "dropout",
+      "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+    }
+  ],
+  "schema": "device-validation/play-trial/1.0",
+  "session_id": "synthetic-selftest",
+  "settings": {
+    "complexity": 0.4,
+    "fill_amount": 0.3,
+    "follow_tightness": 0.5,
+    "intensity": 0.5,
+    "jam_mode": "follow",
+    "meter": "4/4",
+    "style": "Rock",
+    "tempo_bpm": 120.0
+  },
+  "synthetic": true,
+  "timing": {
+    "join_heard_s": {
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 34,
+        "path": "raw/diagnostics-trace.json",
+        "role": "timing",
+        "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+      },
+      "value": 3.5
+    },
+    "receipt": {
+      "bytes": 34,
+      "path": "raw/diagnostics-trace.json",
+      "role": "timing",
+      "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+    },
+    "start_requested_s": {
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 34,
+        "path": "raw/diagnostics-trace.json",
+        "role": "timing",
+        "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+      },
+      "value": 1.0
+    },
+    "stop_s": {
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 34,
+        "path": "raw/diagnostics-trace.json",
+        "role": "timing",
+        "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+      },
+      "value": 12.0
+    }
+  },
+  "useful_lock": {
+    "provenance": "operator-report",
+    "receipt": {
+      "bytes": 34,
+      "path": "raw/diagnostics-trace.json",
+      "role": "lock",
+      "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+    },
+    "time_to_lock_s": {
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 34,
+        "path": "raw/diagnostics-trace.json",
+        "role": "lock",
+        "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+      },
+      "value": 1.8
+    },
+    "verdict": "yes",
+    "window_bars": {
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 34,
+        "path": "raw/diagnostics-trace.json",
+        "role": "lock",
+        "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+      },
+      "value": 2
+    }
+  },
+  "warnings": []
+}

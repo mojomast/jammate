@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "device-validation/play-trial/1.0",
+  "title": "Guitar Companion play-trial evidence",
+  "type": "object",
+  "required": ["schema", "synthetic", "condition", "interface_id",
+               "generated_utc", "identity", "settings", "timing",
+               "useful_lock", "dropouts", "callback", "judgements", "raw_files"],
+  "properties": {
+    "schema": {"const": "device-validation/play-trial/1.0"},
+    "synthetic": {"type": "boolean"},
+    "condition": {"type": "string"},
+    "interface_id": {"type": "string"},
+    "settings": {
+      "type": "object",
+      "required": ["style", "jam_mode", "intensity", "complexity",
+                   "fill_amount", "follow_tightness", "meter", "tempo_bpm"]
+    },
+    "timing": {
+      "type": "object",
+      "required": ["start_requested_s", "join_heard_s", "stop_s", "receipt"]
+    },
+    "useful_lock": {
+      "type": "object",
+      "required": ["verdict", "provenance", "window_bars", "time_to_lock_s",
+                   "receipt"],
+      "properties": {
+        "verdict": {"enum": ["yes", "no", "unknown"]},
+        "provenance": {"const": "operator-report"}
+      }
+    },
+    "dropouts": {"type": "object", "required": ["count", "receipt"]},
+    "callback": {
+      "type": "object",
+      "required": ["p50_ms", "p99_ms", "deadline_misses", "analysis_overruns",
+                   "receipt"]
+    },
+    "judgements": {
+      "type": "object",
+      "required": ["join_sensible", "stayed_stable", "overreacted",
+                   "fills_musical_enough", "push_pull_possible",
+                   "recovered_tap_resync"]
+    },
+    "raw_files": {"type": "array"}
+  }
+}

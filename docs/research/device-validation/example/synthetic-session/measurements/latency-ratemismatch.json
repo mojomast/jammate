@@ -1,0 +1,144 @@
+{
+  "analysis": {
+    "method": "two-channel",
+    "onset": {
+      "ambiguous": false,
+      "candidates": [
+        {
+          "correlation": 0.999999126045519,
+          "lag_samples": 96,
+          "latency_ms": 2.17687074829932
+        },
+        {
+          "correlation": 0.9999275147263924,
+          "lag_samples": 120,
+          "latency_ms": 2.7210884353741496
+        },
+        {
+          "correlation": 0.9998274007654471,
+          "lag_samples": 144,
+          "latency_ms": 3.2653061224489797
+        },
+        {
+          "correlation": 0.9996882360869725,
+          "lag_samples": 168,
+          "latency_ms": 3.8095238095238093
+        },
+        {
+          "correlation": 0.9994944903439665,
+          "lag_samples": 192,
+          "latency_ms": 4.35374149659864
+        }
+      ],
+      "correlation": 0.999999126045519,
+      "detected": true,
+      "dominance": null,
+      "lag_samples": 96,
+      "method": "two-channel",
+      "reference": {
+        "detected": true,
+        "event_count": 1,
+        "quality": {
+          "clipped_samples": 0,
+          "dc_offset": 0.0005174371931287977,
+          "frames": 5760,
+          "nonfinite_samples": 0,
+          "peak": 0.767333984375,
+          "peak_dbfs": -2.3003113390038865,
+          "rms": 0.0632108620211348,
+          "rms_dbfs": -23.984165741152573
+        },
+        "sample": 246,
+        "strength": 0.767333984375,
+        "time_ms": 5.578231292517007
+      },
+      "sample": 342,
+      "time_ms": 7.755102040816326
+    },
+    "params": {
+      "expected_channels": 2,
+      "expected_rate": 48000,
+      "loopback_channel": 0,
+      "method": "two-channel",
+      "min_correlation": 0.5,
+      "min_dominance": 1.05,
+      "onset_threshold_dbfs": -40.0,
+      "reference_channel": 1,
+      "reference_onset_ms": 0.0,
+      "reference_wav": null,
+      "search_end_ms": 250.0,
+      "search_start_ms": -10.0,
+      "silence_dbfs": -60.0,
+      "target_ms": 12.0,
+      "template_ms": 20.0
+    },
+    "physical_roundtrip_latency_ms": null,
+    "physical_roundtrip_latency_ms_unaccepted": 2.17687074829932,
+    "quality": {
+      "clipped_samples": 0,
+      "dc_offset": 0.00036198827955457897,
+      "frames": 5760,
+      "nonfinite_samples": 0,
+      "peak": 0.537017822265625,
+      "peak_dbfs": -5.400226018479013,
+      "rms": 0.04424484057029485,
+      "rms_dbfs": -27.08274730948869
+    },
+    "reasons": [
+      "sample-rate-mismatch"
+    ],
+    "target_met": null,
+    "target_ms": 12.0,
+    "valid": false,
+    "warnings": [],
+    "wav": {
+      "bits": 16,
+      "channels": 2,
+      "duration_s": 0.1306122448979592,
+      "format_code": 1,
+      "frames": 5760,
+      "sample_rate": 44100
+    }
+  },
+  "condition": "asio_48k_128",
+  "generated_utc": "2026-10-08T12:38:24Z",
+  "identity": {
+    "build_kind": "synthetic",
+    "condition_spec": {
+      "backend": "asio",
+      "block": 128,
+      "kind": "latency",
+      "os": "windows",
+      "rate": 48000,
+      "target_ms": 12.0
+    },
+    "interface": {
+      "backend": "asio",
+      "block_frames": 128,
+      "driver": "Synthetic ASIO Driver",
+      "input_device": "Synthetic In",
+      "monitoring": "software-app",
+      "os": "windows",
+      "output_device": "Synthetic Out",
+      "reported_input_latency_ms": null,
+      "reported_output_latency_ms": null,
+      "sample_rate": 48000
+    },
+    "raw_reference_wav": null,
+    "raw_wav": {
+      "bytes": 23084,
+      "path": "raw/rate-mismatch.wav",
+      "role": "loopback",
+      "sha256": "b6e055b674c4f5268aee3e1d3c40f49ae79773b8f90b7dbe7102f6517159416e"
+    },
+    "source_sha": "0000000000000000000000000000000000000000"
+  },
+  "interface_id": "iface-asio",
+  "notes": [
+    "synthetic rate mismatch"
+  ],
+  "provenance": "recorded-loopback",
+  "schema": "device-validation/latency/1.0",
+  "session_id": "synthetic-selftest",
+  "synthetic": true
+}

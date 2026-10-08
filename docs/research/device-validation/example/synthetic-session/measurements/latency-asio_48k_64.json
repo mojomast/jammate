@@ -1,0 +1,141 @@
+{
+  "analysis": {
+    "method": "two-channel",
+    "onset": {
+      "ambiguous": true,
+      "candidates": [
+        {
+          "correlation": 0.9999999971981386,
+          "lag_samples": 96,
+          "latency_ms": 2.0
+        },
+        {
+          "correlation": 0.9999999971981386,
+          "lag_samples": 1096,
+          "latency_ms": 22.833333333333332
+        },
+        {
+          "correlation": 0.9999288903942223,
+          "lag_samples": 120,
+          "latency_ms": 2.5
+        },
+        {
+          "correlation": 0.9999288903942223,
+          "lag_samples": 1120,
+          "latency_ms": 23.333333333333332
+        },
+        {
+          "correlation": 0.9998297101483676,
+          "lag_samples": 1144,
+          "latency_ms": 23.833333333333332
+        }
+      ],
+      "detected": false,
+      "dominance": 1.0,
+      "method": "two-channel",
+      "reference": {
+        "detected": true,
+        "event_count": 1,
+        "quality": {
+          "clipped_samples": 0,
+          "dc_offset": 0.0005174371931287977,
+          "frames": 5760,
+          "nonfinite_samples": 0,
+          "peak": 0.767333984375,
+          "peak_dbfs": -2.3003113390038865,
+          "rms": 0.0632108620211348,
+          "rms_dbfs": -23.984165741152573
+        },
+        "sample": 246,
+        "strength": 0.767333984375,
+        "time_ms": 5.125
+      },
+      "second_correlation": 0.9999999971981386
+    },
+    "params": {
+      "expected_channels": 2,
+      "expected_rate": 48000,
+      "loopback_channel": 0,
+      "method": "two-channel",
+      "min_correlation": 0.5,
+      "min_dominance": 1.05,
+      "onset_threshold_dbfs": -40.0,
+      "reference_channel": 1,
+      "reference_onset_ms": 0.0,
+      "reference_wav": null,
+      "search_end_ms": 250.0,
+      "search_start_ms": -10.0,
+      "silence_dbfs": -60.0,
+      "target_ms": null,
+      "template_ms": 20.0
+    },
+    "physical_roundtrip_latency_ms": null,
+    "quality": {
+      "clipped_samples": 0,
+      "dc_offset": 0.0007244004143608941,
+      "frames": 5760,
+      "nonfinite_samples": 0,
+      "peak": 0.537139892578125,
+      "peak_dbfs": -5.398251840474476,
+      "rms": 0.0625752287040745,
+      "rms_dbfs": -24.071951088574238
+    },
+    "reasons": [
+      "ambiguous-onset",
+      "interface-block-mismatch"
+    ],
+    "target_met": null,
+    "target_ms": null,
+    "valid": false,
+    "warnings": [],
+    "wav": {
+      "bits": 16,
+      "channels": 2,
+      "duration_s": 0.12,
+      "format_code": 1,
+      "frames": 5760,
+      "sample_rate": 48000
+    }
+  },
+  "condition": "asio_48k_64",
+  "generated_utc": "2026-10-08T12:38:21Z",
+  "identity": {
+    "build_kind": "synthetic",
+    "condition_spec": {
+      "backend": "asio",
+      "block": 64,
+      "kind": "latency",
+      "os": "windows",
+      "rate": 48000,
+      "target_ms": null
+    },
+    "interface": {
+      "backend": "asio",
+      "block_frames": 128,
+      "driver": "Synthetic ASIO Driver",
+      "input_device": "Synthetic In",
+      "monitoring": "software-app",
+      "os": "windows",
+      "output_device": "Synthetic Out",
+      "reported_input_latency_ms": null,
+      "reported_output_latency_ms": null,
+      "sample_rate": 48000
+    },
+    "raw_reference_wav": null,
+    "raw_wav": {
+      "bytes": 23084,
+      "path": "raw/ambiguous.wav",
+      "role": "loopback",
+      "sha256": "5243527b7d65957adcf2d4e26e2e4afdc8c2f194759c6f63bfd4bca9a3f9c1f5"
+    },
+    "source_sha": "0000000000000000000000000000000000000000"
+  },
+  "interface_id": "iface-asio",
+  "notes": [
+    "synthetic ambiguous pair"
+  ],
+  "provenance": "recorded-loopback",
+  "schema": "device-validation/latency/1.0",
+  "session_id": "synthetic-selftest",
+  "synthetic": true
+}

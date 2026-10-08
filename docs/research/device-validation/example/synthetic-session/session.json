@@ -1,0 +1,120 @@
+{
+  "generated_utc": "2026-10-08T12:38:19Z",
+  "host": {
+    "machine": "synthetic",
+    "os": "windows",
+    "python": "3.13.5"
+  },
+  "interfaces": [
+    {
+      "backend": "asio",
+      "block_frames": 128,
+      "driver": "Synthetic ASIO Driver",
+      "id": "iface-asio",
+      "input_channels": 2,
+      "input_device": "Synthetic In",
+      "monitoring": "software-app",
+      "os": "windows",
+      "output_channels": 2,
+      "output_device": "Synthetic Out",
+      "reported_input_latency_ms": null,
+      "reported_output_latency_ms": null,
+      "sample_rate": 48000
+    }
+  ],
+  "measurements": [
+    "functional-clipped_input.json",
+    "functional-device_disconnect_reconnect.json",
+    "functional-input_channel_change.json",
+    "functional-silent_input.json",
+    "latency-asio_48k_128.json",
+    "latency-asio_48k_256.json",
+    "latency-asio_48k_64.json",
+    "latency-nonfinite.json",
+    "latency-ratemismatch.json",
+    "latency-wasapi_low_latency.json",
+    "play-clean_strumming.json"
+  ],
+  "notes": [
+    "SYNTHETIC tooling fixture; never physical evidence"
+  ],
+  "product": {
+    "asio_cmake_option": "-DASIOSDK_DIR=<path containing common/iasiodrv.h>",
+    "bundle_id": "com.raphaelfukuda.GuitarCompanion",
+    "cmake_plugin_target": "GuitarCompanion",
+    "company": "Raphael Fukuda",
+    "name": "Guitar Companion",
+    "plugin_code": "Gtco",
+    "plugin_manufacturer_code": "Raph",
+    "reference_config": "48 kHz / 128 frames / ASIO USB interface / same-interface headphones",
+    "standalone_executable_windows": "Guitar Companion.exe",
+    "vst3_bundle": "Guitar Companion.vst3"
+  },
+  "raw_files": [
+    {
+      "bytes": 23084,
+      "path": "raw/ambiguous.wav",
+      "role": "raw",
+      "sha256": "5243527b7d65957adcf2d4e26e2e4afdc8c2f194759c6f63bfd4bca9a3f9c1f5"
+    },
+    {
+      "bytes": 23084,
+      "path": "raw/clean-two-channel.wav",
+      "role": "raw",
+      "sha256": "e2d3b82fb7cb6e62e327d831f6a3960b40e8196b0cca6b6f67a2c517109ef6d1"
+    },
+    {
+      "bytes": 23084,
+      "path": "raw/clipped.wav",
+      "role": "raw",
+      "sha256": "aa228bebcdb587feb35908a72e0b23ceaab7bbfab13653686445ca7bf9c36082"
+    },
+    {
+      "bytes": 42,
+      "path": "raw/device-log.txt",
+      "role": "raw",
+      "sha256": "ede7b0180e86c95ea497511b7f9cd7b336f912b4df2bcbd6fe848dd8d4a71946"
+    },
+    {
+      "bytes": 34,
+      "path": "raw/diagnostics-trace.json",
+      "role": "raw",
+      "sha256": "dfa003a5f66dd35284799b412e89810f4ae393a6cd0a92dc553f8506d1997a62"
+    },
+    {
+      "bytes": 46124,
+      "path": "raw/nonfinite.wav",
+      "role": "raw",
+      "sha256": "22ccce4c720aa7332f75f7d3bd1a7126fcaecb3e0edd4362ca71330c3db7d110"
+    },
+    {
+      "bytes": 23084,
+      "path": "raw/rate-mismatch.wav",
+      "role": "raw",
+      "sha256": "b6e055b674c4f5268aee3e1d3c40f49ae79773b8f90b7dbe7102f6517159416e"
+    },
+    {
+      "bytes": 23084,
+      "path": "raw/silent.wav",
+      "role": "raw",
+      "sha256": "da6b33dbd2366aa87dd46d8210acb3986ea8fad2c12448f1d68bf434b8a4738e"
+    }
+  ],
+  "schema": "device-validation/session/1.0",
+  "session_id": "synthetic-selftest",
+  "source": {
+    "build_kind": "synthetic",
+    "git_sha": "0000000000000000000000000000000000000000"
+  },
+  "synthetic": true,
+  "target_conditions": [
+    "asio_48k_64",
+    "asio_48k_128",
+    "asio_48k_256",
+    "wasapi_low_latency",
+    "device_disconnect_reconnect",
+    "input_channel_change",
+    "silent_input",
+    "clipped_input"
+  ]
+}

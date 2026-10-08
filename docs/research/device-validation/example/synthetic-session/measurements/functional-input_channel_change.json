@@ -1,0 +1,29 @@
+{
+  "condition": "input_channel_change",
+  "detail": null,
+  "generated_utc": "2026-10-08T12:38:24Z",
+  "identity": {
+    "interface": {
+      "backend": "asio",
+      "block_frames": 128,
+      "driver": "Synthetic ASIO Driver",
+      "os": "windows",
+      "sample_rate": 48000
+    },
+    "source_sha": "0000000000000000000000000000000000000000"
+  },
+  "interface_id": "iface-asio",
+  "measured": true,
+  "notes": [],
+  "outcome": "pass",
+  "provenance": "instrumented-raw",
+  "receipt": {
+    "bytes": 42,
+    "path": "raw/device-log.txt",
+    "role": "functional",
+    "sha256": "ede7b0180e86c95ea497511b7f9cd7b336f912b4df2bcbd6fe848dd8d4a71946"
+  },
+  "schema": "device-validation/functional/1.0",
+  "session_id": "synthetic-selftest",
+  "synthetic": true
+}
