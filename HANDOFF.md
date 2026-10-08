@@ -10,6 +10,17 @@ source of truth. Do not rewrite them to match the code.
 
 ## Current resumption state — read before the historical handoff below
 
+**Active wave:** the user authorised the first audible live loop. Three Flash Go
+workers launched from the frozen interface commit `88893e2`: INT-LIVE-001 owns
+processor/live-session integration, UI-LIVE-001 owns editor/Jam UI connection,
+and EVAL-LIVE-001 owns preregistered actual-processor replay/validation. Worktrees,
+sessions and exact ownership are in the ledger's Active live-Jam table.
+`docs/research/LIVE-JAM-CONTRACT.md` and `src/jam/JamLiveInterface.h` freeze the
+shared facade. No new handoff is accepted. Default BTrack is experimental;
+TRACK-008 stays diagnostic and G3 remains open. Shared CMake/CI are
+orchestrator-owned. Prior final head `b7e3be1` is published; run37729980845 is
+being watched in the background.
+
 `main` is the integration branch. `EXECUTION-LEDGER.md` holds current task/gate
 status; the rest of this older handoff describes the original checkout setup.
 The original uncommitted seams are long since integrated. The latest user
@@ -67,7 +78,8 @@ narrow-delta review. Merged independent checks pass76 instrumented/75 normal
 JUCE cases and20 portable tests/205 checks; core25/25 both-enabled and23/23 OFF
 pass. Shared tests link one heap-probe TU plus jam-core; the product links
 jam-core for the actual bridge. Both forge guards require the bridge suites.
-No worker remains active; live guitar analysis/processor/UI wiring is pending.
+That preceding wave's workers are complete; the new live-Jam workers above own
+the pending guitar analysis/processor/UI connection.
 The final-source Linux Standalone/VST3/test-target build and7/7 registered drum
 suites pass, as does the updated foundation driver's50 cases. Independent
 integration receipt: `docs/research/drum-clock-bridge-integration.json`.

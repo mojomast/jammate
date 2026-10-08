@@ -84,7 +84,34 @@ PARTIAL, never PASSED.
     No production analyzer/clock/editor integration is authorised by this task;
     full DIAG-001 stays partial until that integration and overhead are measured.
 
-### Active build wave (base `677727c`, 2026-10-08)
+### Active live-Jam wave (base `88893e2`, 2026-10-08)
+
+The user authorised the first audible live loop after the reviewed bridge wave.
+The orchestrator committed the JUCE-free command/telemetry facade and lifecycle
+contract before launching three **`opencode-go/deepseek-v4.1-flash`** workers:
+
+| Task | Session | Ownership |
+|---|---|---|
+| INT-LIVE-001 live processor pipeline | `ses_ee61b0353ffeSHR8l1MAWzTbHT` | `../worktrees/INT-LIVE-001-pipeline`; processor implementation, new live session/join policy and portable checks |
+| UI-LIVE-001 real Jam screen | `ses_ee61a7b1fffeYYPxryxjoq8po3` | `../worktrees/UI-LIVE-001-jam-screen`; editor/overlay, live-state presentation/intent mapping and JUCE checks |
+| EVAL-LIVE-001 actual processor replay | `ses_ee619cf9affebFyi8MbdHaUD1Y` | `../worktrees/EVAL-LIVE-001-replay`; new preregistered replay harness, evidence validator and checks |
+
+Contract: `docs/research/LIVE-JAM-CONTRACT.md` and
+`src/jam/JamLiveInterface.h`. Start/Stop do bounded command publication; lifecycle
+start/join happens off the callback. Observation event/horizon and observed audio
+cursor at receipt stay distinct. UI receives coherent telemetry and actual
+audio-owner playback echo. Default BTrack is experimental live wiring, not a G3
+selection or TRACK-008 promotion. Advanced style/fill controls are unavailable
+for the one-Rock-groove slice. Shared build/CI and integration remain
+orchestrator-owned. No handoff is accepted yet.
+
+**D11 — first audible live loop before full G1/G3 closure.** The user authorised
+live processor and UI connection after independent repair/bridge review. The
+default BTrack adapter is experimental. Synthetic processor replay verifies
+wiring and callback behavior; it does not select the production tracker or
+replace physical-device/real-guitar evidence.
+
+### Completed build wave (base `677727c`, 2026-10-08)
 
 The user authorised three implementation workers on
 **`opencode-go/deepseek-v4.1-flash`**. Each owns an isolated branch and worktree:

@@ -26,6 +26,13 @@ final `467603e` handoff is accepted: merged76 instrumented/75 normal JUCE cases,
 20 portable tests/205 checks and core25/23 suites pass. Production tracker
 selection and live processor wiring stay open.
 
+The user subsequently authorised the first audible live loop. The new
+INT-LIVE-001/UI-LIVE-001/EVAL-LIVE-001 Flash workers start from `88893e2` with
+the frozen facade in `src/jam/JamLiveInterface.h`; ownership and sessions are in
+the ledger. D11 records the experimental default-BTrack live backend while
+production selection and device/real-guitar gates remain open. One Rock groove
+and real correction controls are the scope; adaptive styles/fills follow later.
+
 ---
 
 # 1. Orchestration model

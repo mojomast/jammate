@@ -5,6 +5,15 @@ project(GuitarCompanion VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(GUITAR_COMPANION_LIVE_JAM
+    "Build the experimental live Jam backend (production tracker selection remains open)" ON)
+# A standalone jam-core build remains dependency-free by default. The product
+# enables the existing BTrack adapter for this experimental audible slice unless
+# the user explicitly chose an optional-backend configuration.
+if (GUITAR_COMPANION_LIVE_JAM AND NOT DEFINED JAM_ENABLE_BTRACK)
+    set(JAM_ENABLE_BTRACK ON CACHE BOOL "Build the experimental BTrack backend")
+endif()
+
 add_subdirectory(third_party/JUCE)
 
 # --- NeuralAmpModelerCore (Fase 1: integração de build) -----------------------
@@ -284,6 +293,12 @@ target_link_libraries(GuitarCompanion
 enable_testing()
 add_subdirectory(jam-core)
 target_link_libraries(GuitarCompanion PRIVATE jam-core)
+if (GUITAR_COMPANION_LIVE_JAM AND TARGET jam-btrack)
+    target_link_libraries(GuitarCompanion PRIVATE jam-btrack)
+    target_compile_definitions(GuitarCompanion PRIVATE JAM_LIVE_BTRACK_AVAILABLE=1)
+else()
+    message(STATUS "Live Jam backend unavailable in this product configuration")
+endif()
 
 # --- Unit tests (opt-in) ------------------------------------------------------
 # OFF by default: the normal build is untouched and the test target never even
