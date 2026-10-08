@@ -275,7 +275,8 @@ def stable_summary(rows, fixture, default_beats, nominal):
                 'method/diagnostic beat timeline mismatch')
     confirmed = [r for r in emitted if r['confirmed'] == '1']
     bpms = [float(r['emittedBpm']) for r in confirmed]
-    flags = [abs(v / nominal - 1.0) > PERSIST_BAND for v in bpms] if nominal else []
+    nominal_measured = bool(nominal) and nominal > 0.0
+    flags = [abs(v / nominal - 1.0) > PERSIST_BAND for v in bpms] if nominal_measured else []
     return {
         'fixture': fixture['name'], 'blocks': len(rows), 'beats': len(emitted),
         'fallbackBeats': sum(r['confirmed'] == '0' for r in emitted),
@@ -287,8 +288,9 @@ def stable_summary(rows, fixture, default_beats, nominal):
         'confirmedBpmMin': min(bpms) if bpms else None,
         'confirmedBpmMedian': statistics.median(bpms) if bpms else None,
         'confirmedBpmMax': max(bpms) if bpms else None,
-        'confirmedBeatsOutOfBand': sum(flags),
-        'longestOutOfBandConfirmedRun': longest_run(flags),
+        'confirmedBeatsOutOfBand': sum(flags) if nominal_measured else None,
+        'confirmedBeatsOutOfBandMeasured': nominal_measured,
+        'longestOutOfBandConfirmedRun': longest_run(flags) if nominal_measured else None,
         'intervalStatesAtBeats': {s: sum(r['intervalState'] == s for r in emitted)
                                   for s in sorted({r['intervalState'] for r in emitted})},
     }
@@ -314,7 +316,8 @@ def variant_summary(rows, fixture, default_beats, nominal):
                 'variant/diagnostic beat timeline mismatch')
     ready = [r for r in emitted if r['ready'] == '1']
     bpms = [float(r['variantBpm']) for r in ready]
-    flags = [abs(v / nominal - 1.0) > PERSIST_BAND for v in bpms] if nominal else []
+    nominal_measured = bool(nominal) and nominal > 0.0
+    flags = [abs(v / nominal - 1.0) > PERSIST_BAND for v in bpms] if nominal_measured else []
     return {
         'fixture': fixture['name'], 'blocks': len(rows), 'beats': len(emitted),
         'fallbackBeats': sum(r['ready'] == '0' for r in emitted),
@@ -324,8 +327,9 @@ def variant_summary(rows, fixture, default_beats, nominal):
         'readyBpmMin': min(bpms) if bpms else None,
         'readyBpmMedian': statistics.median(bpms) if bpms else None,
         'readyBpmMax': max(bpms) if bpms else None,
-        'readyBeatsOutOfBand': sum(flags),
-        'longestOutOfBandReadyRun': longest_run(flags),
+        'readyBeatsOutOfBand': sum(flags) if nominal_measured else None,
+        'readyBeatsOutOfBandMeasured': nominal_measured,
+        'longestOutOfBandReadyRun': longest_run(flags) if nominal_measured else None,
         'intervalStatesAtBeats': {s: sum(r['intervalState'] == s for r in emitted)
                                   for s in sorted({r['intervalState'] for r in emitted})},
     }

@@ -86,8 +86,9 @@ Full tables: `docs/research/tempo-stability/tables.md`. Evidence ~**5.22 MiB**
   1 / 1. Candidate vs default: **0 acquisition losses, 0 within-2 losses, 1 BPM
   gain, 0 BPM regressions**; the old variant's 6 acquisition losses and 4 BPM
   regressions (`noise_snr0db`, `silence_gap_1s` 34.38 %, funk-noise) are **absent**
-  under the candidate. On 5 s clips the gate rarely confirms, so the candidate is
-  pure fallback and cannot deliver derived-BPM gains there.
+  under the candidate. On 5 s clips the gate **usually** falls back, but it
+  confirms on seven short fixtures (six with a nominal BPM) and delivers one
+  derived BPM gain (`level_-40db` 2.344 %→0.036 %).
 - **Post-ready stability (long):** candidate confirmed-beat out-of-band counts
   are **0/0 on all eight 96 BPM cells** (old variant up to 3, run 3) and **1–2
   with longest run 1–2 on the 126 BPM cells** (old variant 1–9, run up to 7).
@@ -120,14 +121,38 @@ Full tables: `docs/research/tempo-stability/tables.md`. Evidence ~**5.22 MiB**
 
 ## Process disclosure
 
-Two **evaluation-tooling-only** fixes were made after the freeze and before the
-retained run, neither touching the candidate, bands or matrix: (a) a guard in
+Three **evaluation-tooling-only** fixes were made after the freeze and before the
+retained run, none touching the candidate, bands or matrix: (a) a guard in
 `run_stability.py` for the two short `tempo_step` fixtures that declare no
 `nominalBpm` (interval diagnostic only); (b) a beat-equality bookkeeping bug where
-the aubio digest leaked into the BTrack-family dict. The retained evidence was
+the aubio digest leaked into the BTrack-family dict; (c) a **test-only** fix in
+`tests/test_stability_evidence.py` that validated the concatenated method log with
+a global block index instead of per-fixture windows. The retained evidence was
 generated fresh after the fixes. `FREEZE.json` is the exact pre-run committed
-artifact; its `evaluation` hashes describe the pre-fix tooling and are not part of
-the enforced behaviour freeze (sources + binary + embedded dependencies).
+artifact; its `evaluation` hashes describe the pre-fix tooling and are a
+historical **pre-run snapshot**, **not** current-retained authentication. The
+current evaluation-tooling hashes and commands are in
+`docs/research/tempo-stability/tooling-hashes.json`; the correction contract is
+`docs/research/tempo-stability/ERRATA.md`.
+
+## Corrections and corpus availability (post-review)
+
+- `docs/research/tempo-stability/ERRATA.md` (committed before recomputation)
+  records E1–E5. The nominal-missing method-summary out-of-band fields are
+  corrected to `null` + `...Measured=false` for the two short `tempo_step`
+  fixtures in a separate `docs/research/tempo-stability/evidence-corrected/method-summary.json`
+  recomputed from the preserved gzipped raw method logs
+  (`tools/tempo-stability/recompute_method_summary.py`); the historical
+  `evidence/**` and its `artifact-hashes.txt` are byte-preserved, no scorer is
+  re-run, and no scored metric changes.
+- Report/note wording for short clips was corrected from "pure fallback / cannot
+  gain" to "**usually** fallback, confirming on seven short fixtures (six with a
+  nominal BPM) with the one `level_-40db` gain".
+- Corpus availability: `run_stability.py` **fails closed** if any expected WAV is
+  missing or its hash/size/framing differs from the committed manifest.
+  Re-rendering the long WAVs is an **explicit operator step** using the frozen
+  TRACK-007 generator outside git; it is not implemented automatically here and
+  no generator is changed.
 
 ## Commands
 
@@ -140,6 +165,7 @@ python3 tools/tempo-stability/tests/test_stability_method.py
 python3 tools/tempo-stability/freeze.py            # committed before scoring
 python3 tools/tempo-stability/run_stability.py
 python3 tools/tempo-stability/summarize.py
+python3 tools/tempo-stability/recompute_method_summary.py   # correction only; no re-score
 python3 tools/tempo-stability/tests/test_stability_evidence.py
 ```
 

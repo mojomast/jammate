@@ -26,7 +26,7 @@ of the current retained tooling. The **behaviour freeze** — `sources`,
 `8034e2d1fd8b6dc268084e24a75878fdfeda7888809e4386fbd18174660cbed3`,
 `binary` `791d36ecb4f2e9a7c8a4f045d13763d177d71c32257c174fb8f06fddffcff183`
 and the embedded EVAL-005 archives — is unchanged and is what `run_stability.py`
-and the evidence tests enforce. `FREEZE.json` is intentionally **not** rewritten.
+and the evidence tests enforce. `FREEZE.json` is intentionally not rewritten.
 
 The **current** evaluation tooling (`sources` and commands) is recorded
 separately in `docs/research/tempo-stability/tooling-hashes.json` and

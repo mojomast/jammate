@@ -131,8 +131,11 @@ Default-vs-backend flag counts (no pooled rate, no pass threshold):
   `syncopated_funk__noise_snr0db/10db` 1.82 %→2.86 %). The candidate has **no
   acquisition loss and no BPM regression** on any short clip: it matches the
   default acquisition/BPM on 20/24 and *gains* one BPM (`level_-40db`
-  2.34 %→0.036 %). On these 5 s windows the gate rarely confirms, so the candidate
-  is pure base-forwarding fallback — which is exactly why nothing regresses.
+  2.34 %→0.036 %). On these 5 s windows the gate **usually** forwards base, but it
+  is **not** pure fallback: it confirms on **seven** short fixtures (six with a
+  nominal BPM; `tempo_step_0.85` also confirms but declares no nominal — see
+  `ERRATA.md`). That confirmation is why the `level_-40db` gain is real and why
+  nothing regresses.
 - **Long within-2-bar losses recovered.** The old variant loses within-2 on
   `sparse_96bpm_48000hz` (2.001 bars), `noise_96bpm_48000hz` (2.006) and
   `sparse_96bpm_44100hz` (2.001). The candidate acquires at 1.002 / 0.775 / 1.253
@@ -200,8 +203,10 @@ false-beat-in-silence rate on the long matrix.
 - **Coverage gap and latency cost.** The confirmation gate means the derived
   estimate is used only after 3 agreeing updates (≥ 8 beat events). First
   confirmation on the long clips is **3.69–7.50 s** (7–14 fallback beats). On the
-  5 s short clips the gate usually never confirms, so the candidate cannot deliver
-  the derived-BPM improvement there and deliberately behaves as the base backend.
+  5 s short clips the gate **usually** falls back, but it does confirm on seven
+  short fixtures and delivers one derived BPM gain (`level_-40db`
+  2.344 %→0.036 %); elsewhere on short clips it deliberately behaves as the base
+  backend.
 - **Relative to the old variant**, two long 126 BPM @44.1 kHz cells are later:
   `gap_126bpm_44100hz` 2.004 bars (old variant 0.493, *within* 2 bars; default
   4.491) and `regular_126bpm_44100hz` 2.754 bars (old variant 2.004). Both remain
@@ -228,6 +233,7 @@ python3 tools/tempo-stability/tests/test_stability_method.py
 python3 tools/tempo-stability/freeze.py            # committed before scoring
 python3 tools/tempo-stability/run_stability.py
 python3 tools/tempo-stability/summarize.py
+python3 tools/tempo-stability/recompute_method_summary.py   # correction only; no re-score
 python3 tools/tempo-stability/tests/test_stability_evidence.py
 ```
 
@@ -237,6 +243,16 @@ BTrack-family beat series); **8** evidence tests OK. Evidence tree **5.22 MiB**
 (no WAVs in git; method logs losslessly gzipped with deterministic headers,
 original byte hashes retained).
 
+**Tooling authentication and errata.** `FREEZE.json`'s `evaluation` hashes are a
+historical **pre-run snapshot** of the evaluation tooling, not an authentication
+of the current retained tooling; the behaviour freeze (`sources` + `binary` +
+embedded dependencies) is unchanged and enforced. The current evaluation-tooling
+hashes and commands are in `docs/research/tempo-stability/tooling-hashes.json` and
+are authenticated by the evidence tests. The correction contract and the
+nominal-missing method-summary correction (with the historical `evidence/**`
+preserved byte-for-byte) are in `docs/research/tempo-stability/ERRATA.md` and
+`docs/research/tempo-stability/evidence-corrected/`.
+
 ## 9. Conclusion and non-promotion
 
 On these synthetic matrices the confirmation-gated median removes the measured
@@ -245,7 +261,9 @@ the default on every short clip (removing the old variant's 6 acquisition losses
 and 4 BPM regressions), matches the default's long acquisition/within-2 counts
 while recovering the old variant's 3 within-2-bar losses and the
 `noise_126bpm_44100hz` regression, and keeps the 126 BPM BPM gains. It buys this
-with a confirmation latency of 7–14 beats and no derived benefit on 5 s clips.
+with a confirmation latency of 7–14 beats; on 5 s clips it usually falls back
+(confirming on seven short fixtures, with the single `level_-40db` derived BPM
+gain).
 
 This is evidence on synthetic material only. **No backend is selected, no ADR, no
 guard, no gate and no default is changed; G3 remains OPEN.** Any production use,
