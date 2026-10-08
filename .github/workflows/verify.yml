@@ -119,3 +119,5 @@ jobs:
           path: |
             build/windows/Testing/Temporary/
             build/windows/CMakeFiles/CMakeConfigureLog.yaml
+            build/windows/nam-rt/generated/NAM/lstm.cpp
+            build/windows/nam-rt/generated/NAM/lstm.h

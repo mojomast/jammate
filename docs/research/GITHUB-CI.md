@@ -60,3 +60,10 @@ passed; the generator must explicitly retain LF output on Windows. The job log
 is retained in `/home/mojo/projects/build-CI-003-integration/windows-first-run.log`.
 No Windows product pass is claimed. A later green Windows build would establish
 MSVC/format compatibility, not ASIO or physical-audio behavior.
+
+The generator now writes through CMake `file(CONFIGURE ... NEWLINE_STYLE UNIX)`
+for both patched files. Expected input/output hashes remain unchanged. Fresh
+local NAM rebuild passes **5/5 suites**, including numerical byte equality,
+idempotence and stale-hash rejection. Generated `lstm.cpp`/`.h` retain their
+original `82f25497…` / `4975a306…` pins. Logs: `lf-overlay-{0,1}.log` in the local
+CI integration scratch directory. Windows rerun remains necessary.
