@@ -85,6 +85,54 @@ jobs:
             build/nam/diff-artifacts/
             build/nam/activation-diff-artifacts/
 
+  adaptive:
+    name: Linux / adaptive processor + callback probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Install the product build and headless UI dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config libasound2-dev libx11-dev \
+            libxcomposite-dev libxcursor-dev libxinerama-dev libxrandr-dev \
+            libxrender-dev libfreetype6-dev libfontconfig1-dev libgl1-mesa-dev xvfb xauth
+      - name: Initialize the pinned product dependencies
+        run: |
+          set -eu
+          git submodule update --init third_party/JUCE
+          git -c core.autocrlf=false submodule update --init --recursive third_party/NeuralAmpModelerCore
+          test -z "$(git submodule status --recursive third_party/JUCE third_party/NeuralAmpModelerCore | grep -E '^[+-U]' || true)"
+      - name: Build the live product and actual drum tests
+        run: |
+          cmake -S . -B build/adaptive-product -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DGUITAR_COMPANION_BUILD_TESTS=ON -DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF \
+            -DJAM_CORE_BUILD_TESTS=OFF -DJAM_ENABLE_BTRACK=ON
+          cmake --build build/adaptive-product --target GuitarCompanion_Standalone \
+            GuitarCompanion_VST3 GuitarCompanionTests --parallel 2
+          python3 -B tools/ci/verify_registration.py --lane drums --build build/adaptive-product
+          xvfb-run -a ctest --test-dir build/adaptive-product -R '^(drums\.|jam\.LiveUi$)' --output-on-failure
+      - name: Replay the actual processor with injected observations
+        run: |
+          python3 -B tools/adaptive-jam-replay/build.py --product-build build/adaptive-product --out build/adaptive-replay
+          set -o pipefail
+          xvfb-run -a build/adaptive-replay/adaptive_jam_replay build/adaptive-replay/trace.jsonl \
+            | tee build/adaptive-replay/replay.log
+      - name: Keep actual-processor evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: adaptive-processor-evidence
+          path: |
+            build/adaptive-product/Testing/Temporary/
+            build/adaptive-replay/build-manifest.json
+            build/adaptive-replay/build.log
+            build/adaptive-replay/replay.log
+            build/adaptive-replay/trace.jsonl
+
   windows:
     name: Windows / Standalone + VST3 + drums + Jam UI
     runs-on: windows-2022
