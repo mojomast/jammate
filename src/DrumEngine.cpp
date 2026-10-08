@@ -119,6 +119,11 @@ void DrumEngine::prepare (double sampleRate, int)
         p.store (0.0f);
     uiMixPeak.store (0.0f);
     uiMixFromVst.store (false);
+
+    // Injected clock state is audio-thread owned and starts clean; the queue
+    // pointer (if any) survives a re-prepare so the product can prepare before
+    // or after attaching.
+    resetInjectedState();
 }
 
 double DrumEngine::stepLenSamples (int stepIdx) const
@@ -270,10 +275,17 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
     out.clear (1, 0, n);
     midi.clear();
 
+    // Injected clock: consume the bounded worker -> audio command queue first.
+    // When injected mode is engaged it owns the timeline; the manual UI
+    // transport is ignored (but left untouched, so standalone use is unchanged
+    // until the first Join arrives).
+    serviceInjectedClock();
+    const bool injNow = injActive_;
+
     // AUDITION: while on, loop the audition pattern and pause (not stop) the
     // timeline - its bar/step position is preserved and resumes afterwards.
-    const bool audNow = auditionOn.load();
-    const bool playNow = playing.load() && ! audNow;
+    const bool audNow = ! injNow && auditionOn.load();
+    const bool playNow = ! injNow && playing.load() && ! audNow;
     if (! playing.load())
         pausedByAudition = false;   // user stopped: next play restarts from 0
 
@@ -374,6 +386,30 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
         }
     }
     wasAudition = audNow;
+
+    // Injected clock transport (independent of the manual timeline above).
+    if (injNow)
+        runInjectedLoop (n, vst, midi);
+
+    // A stop/Clear command asks for the hosted kit's notes to be released. The
+    // engine owns this so the worker never has to reach into UI/MIDI state.
+    if (injFlushRequested_)
+    {
+        const int flushOffset = juce::jlimit (0, n - 1, injFlushOffset_);
+        if (vst != nullptr)
+            for (int v = 0; v < drum::numVoices; ++v)
+                midi.addEvent (juce::MidiMessage::noteOff (10, drum::gmNote[v]), flushOffset);
+        for (auto& o : pendingOffs)
+            o.note = -1;
+        injFlushRequested_ = false;
+        injFlushOffset_ = 0;
+    }
+
+    // The injected timeline is absolute and advances every callback, whether or
+    // not the injected transport is playing, so command sampleTimes stay in the
+    // same timeline as the worker's explicit clock.
+    if (n > 0)
+        injSample_ += static_cast<std::uint64_t> (n);
 
     if (vst != nullptr)
         for (auto& o : pendingOffs)
@@ -484,6 +520,340 @@ void DrumEngine::process (juce::AudioBuffer<float>& out, int n,
     if (mixPk > 0.0f)
         publishPeak (uiMixPeak, mixPk);
     uiMixFromVst.store (vst != nullptr);
+}
+
+//==============================================================================
+// Injected musical clock (INT-DRUM-001)
+//==============================================================================
+void DrumEngine::attachClockBridge (jam::DrumClockCommandQueue* queue) noexcept
+{
+    // Preserve any pattern already prepared on the message thread; only the
+    // audio-thread transport runtime is reset.
+    clockQueue_ = queue;
+    injActive_ = false;
+    injPlaying_ = false;
+    injFlushRequested_ = false;
+    injFlushOffset_ = 0;
+    injNextStep_ = 0;
+    injPlayBar_ = 0;
+    injSamplesToNext_ = 0.0;
+    injSample_ = 0;
+    injLastStepSample_ = 0;
+    injEventCount_ = 0;
+    injStepsFired_ = 0;
+    injCommands_ = 0;
+    injRejected_ = 0;
+}
+
+void DrumEngine::detachClockBridge() noexcept
+{
+    clockQueue_ = nullptr;
+    resetInjectedState();
+}
+
+bool DrumEngine::prepareInjectedGroove (jam::LibraryIndex index)
+{
+    if (index < 0)
+        return false;
+
+    const auto& lib = drum::library();
+    if (index >= static_cast<jam::LibraryIndex> (lib.size()))
+        return false;
+
+    const auto& g = lib[static_cast<std::size_t> (index)];
+    // This task renders exactly one 4/4 Rock groove. A different meter would
+    // reinterpret the grid the bridge assumes, so it is refused rather than
+    // silently mistimed.
+    if (g.num != 4 || g.den != 4)
+        return false;
+
+    juce::uint8 parsed[drum::numVoices][drum::maxStepsPerBar];
+    drum::parseSpec (g, parsed);
+    for (int v = 0; v < drum::numVoices; ++v)
+        for (int s = 0; s < drum::maxStepsPerBar; ++s)
+            injPattern_[v][s] = parsed[v][s];
+
+    injBarSteps_ = drum::stepsPerBar;   // 16 for 4/4
+    injPatternBars_ = 1;                // one-bar groove, looped every bar
+    injGroove_ = index;
+    injPatternReady_ = true;
+    return true;
+}
+
+std::uint64_t DrumEngine::injectedDropCount() const noexcept
+{
+    return clockQueue_ != nullptr ? clockQueue_->droppedCount() : 0;
+}
+
+void DrumEngine::resetInjectedState() noexcept
+{
+    injPatternReady_ = false;
+    injGroove_ = jam::kNoLibraryEntry;
+    for (int v = 0; v < drum::numVoices; ++v)
+        for (int s = 0; s < drum::maxStepsPerBar; ++s)
+            injPattern_[v][s] = 0;
+
+    injBarSteps_ = drum::stepsPerBar;
+    injPatternBars_ = 1;
+    injActive_ = false;
+    injPlaying_ = false;
+    injFlushRequested_ = false;
+    injFlushOffset_ = 0;
+    injBpm_ = 100.0;
+    injNextStep_ = 0;
+    injPlayBar_ = 0;
+    injSamplesToNext_ = 0.0;
+    injSample_ = 0;
+    injLastStepSample_ = 0;
+    injStepsFired_ = 0;
+    injCommands_ = 0;
+    injRejected_ = 0;
+    injEventCount_ = 0;
+}
+
+int DrumEngine::serviceInjectedClock() noexcept
+{
+    if (clockQueue_ == nullptr)
+        return 0;
+
+    int applied = 0;
+    jam::DrumClockCommand command;
+    for (int i = 0; i < kMaxInjectedCommandsPerBlock; ++i)
+    {
+        if (! clockQueue_->pop (command))
+            break;
+
+        if (applyInjectedCommand (command))
+        {
+            ++applied;
+            ++injCommands_;
+        }
+        else
+        {
+            ++injRejected_; // rejected whole, counted, never partially applied
+        }
+    }
+    return applied;
+}
+
+bool DrumEngine::applyInjectedCommand (const jam::DrumClockCommand& command) noexcept
+{
+    switch (command.type)
+    {
+        case jam::DrumClockCommandType::JoinAtBar:
+        {
+            if (! injPatternReady_)
+                return false;
+            if (command.groove >= 0 && command.groove != injGroove_)
+                return false; // a different groove was never prepared
+            if (! (command.bpm > 0.0) || ! std::isfinite (command.bpm))
+                return false;
+
+            injActive_ = true;
+            injPlaying_ = true;
+            injBpm_ = command.bpm;
+            injNextStep_ = 0;
+            injPlayBar_ = 0;
+            injEventCount_ = 0; // a fresh join supersedes scheduled events
+            injSamplesToNext_ = command.sampleTime > injSample_
+                ? static_cast<double> (command.sampleTime - injSample_)
+                : 0.0;          // late join: start at the block origin
+            return true;
+        }
+
+        case jam::DrumClockCommandType::SetTempo:
+            if (! (command.bpm > 0.0) || ! std::isfinite (command.bpm))
+                return false;
+            return insertInjectedEvent (command.type, command.sampleTime, command.bpm);
+
+        case jam::DrumClockCommandType::StopAtBar:
+        case jam::DrumClockCommandType::ResyncBeat:
+        case jam::DrumClockCommandType::ResyncBar:
+            return insertInjectedEvent (command.type, command.sampleTime, command.bpm);
+
+        case jam::DrumClockCommandType::Clear:
+            // Discontinuity/lifecycle: lose the injected transport, keep the
+            // prepared pattern so a later Join can restart without a message
+            // thread round-trip.
+            injPlaying_ = false;
+            injEventCount_ = 0;
+            injSamplesToNext_ = 0.0;
+            injFlushRequested_ = true;
+            injFlushOffset_ = 0; // a Clear applies at the block origin
+            return true;
+
+        case jam::DrumClockCommandType::None:
+        default:
+            return false;
+    }
+}
+
+bool DrumEngine::insertInjectedEvent (jam::DrumClockCommandType type,
+                                      std::uint64_t target, double bpm) noexcept
+{
+    if (injEventCount_ >= kMaxInjectedEvents)
+        return false; // reject the whole command rather than drop half of it
+
+    // A late target is applied at the current block origin, counted as late by
+    // the caller through injectedLastStepSample_, but never truncated.
+    if (target < injSample_)
+        target = injSample_;
+
+    // Insertion sort by target. Equal targets keep insertion order, so the last
+    // command written for a boundary wins when applied in sequence.
+    int pos = injEventCount_;
+    while (pos > 0 && injEvents_[pos - 1].target > target)
+    {
+        injEvents_[pos] = injEvents_[pos - 1];
+        --pos;
+    }
+
+    injEvents_[pos].type = type;
+    injEvents_[pos].target = target;
+    injEvents_[pos].bpm = bpm;
+    ++injEventCount_;
+    return true;
+}
+
+void DrumEngine::applyInjectedEvent (std::uint64_t nowSample, int offset) noexcept
+{
+    if (injEventCount_ <= 0)
+        return;
+
+    const InjectedEvent ev = injEvents_[0];
+    for (int i = 1; i < injEventCount_; ++i)
+        injEvents_[i - 1] = injEvents_[i];
+    --injEventCount_;
+
+    switch (ev.type)
+    {
+        case jam::DrumClockCommandType::SetTempo:
+            // Applied exactly at the (bar) boundary, before the downbeat step
+            // schedules its next interval, so already-elapsed time is untouched.
+            injBpm_ = ev.bpm;
+            break;
+
+        case jam::DrumClockCommandType::StopAtBar:
+            injPlaying_ = false;
+            injFlushRequested_ = true;
+            injFlushOffset_ = offset; // release exactly on the stop sample
+            break;
+
+        case jam::DrumClockCommandType::ResyncBar:
+            injNextStep_ = 0; // a downbeat lands on the target
+            injSamplesToNext_ = ev.target > nowSample
+                ? static_cast<double> (ev.target - nowSample) : 0.0;
+            break;
+
+        case jam::DrumClockCommandType::ResyncBeat:
+        {
+            // Preserve forward motion: the next beat boundary at or after the
+            // current step (0/4/8/12), never a rewind.
+            int beatStep = ((injNextStep_ + 3) / 4) * 4;
+            if (beatStep >= injBarSteps_)
+            {
+                beatStep = 0;
+                injPlayBar_ = (injPlayBar_ + 1) % injPatternBars_;
+            }
+            injNextStep_ = beatStep;
+            injSamplesToNext_ = ev.target > nowSample
+                ? static_cast<double> (ev.target - nowSample) : 0.0;
+            break;
+        }
+
+        default:
+            break;
+    }
+}
+
+void DrumEngine::runInjectedLoop (int n, juce::AudioPluginInstance* vst,
+                                  juce::MidiBuffer& midi) noexcept
+{
+    const std::uint64_t blockStart = injSample_;
+    double pos = 0.0;
+
+    while (pos < static_cast<double> (n))
+    {
+        const std::uint64_t abs = blockStart + static_cast<std::uint64_t> (pos);
+
+        // Apply every event that is due at (or before) the current sample before
+        // firing the step, so a tempo change at a downbeat takes effect on that
+        // downbeat's next interval.
+        while (injEventCount_ > 0 && injEvents_[0].target <= abs)
+            applyInjectedEvent (abs, juce::jlimit (0, n - 1, static_cast<int> (pos)));
+
+        if (! injPlaying_)
+        {
+            if (injEventCount_ == 0)
+                break;
+            const std::uint64_t nextTarget = injEvents_[0].target;
+            double advance = nextTarget > abs
+                ? static_cast<double> (nextTarget - abs) : 0.0;
+            advance = juce::jmin (advance, static_cast<double> (n) - pos);
+            if (advance <= 0.0)
+            {
+                applyInjectedEvent (abs, juce::jlimit (0, n - 1, static_cast<int> (pos)));
+                continue;
+            }
+            pos += advance;
+            continue;
+        }
+
+        if (injSamplesToNext_ <= 0.5)
+        {
+            const int offset = juce::jlimit (0, n - 1, static_cast<int> (pos));
+            fireInjectedStep (injNextStep_, offset, vst, midi);
+            injLastStepSample_ = abs;
+            ++injStepsFired_;
+
+            injSamplesToNext_ += injectedStepLen (injNextStep_);
+            if (++injNextStep_ >= injBarSteps_)
+            {
+                injNextStep_ = 0;
+                injPlayBar_ = (injPlayBar_ + 1) % injPatternBars_;
+            }
+            continue;
+        }
+
+        const double blockRemaining = static_cast<double> (n) - pos;
+        double advance = juce::jmin (injSamplesToNext_, blockRemaining);
+
+        // Do not step over an event that falls before the next step deadline:
+        // a resync target is not necessarily on the step grid, and applying it
+        // at the next step instead of at the target would mistime it.
+        if (injEventCount_ > 0 && injEvents_[0].target > abs)
+        {
+            const double toEvent = static_cast<double> (injEvents_[0].target - abs);
+            if (advance > toEvent)
+                advance = toEvent;
+        }
+
+        if (advance <= 0.0)
+        {
+            applyInjectedEvent (abs, juce::jlimit (0, n - 1, static_cast<int> (pos)));
+            continue;
+        }
+
+        injSamplesToNext_ -= advance;
+        pos += advance;
+    }
+}
+
+void DrumEngine::fireInjectedStep (int step, int sampleOffset,
+                                   juce::AudioPluginInstance* vst,
+                                   juce::MidiBuffer& midi) noexcept
+{
+    for (int v = 0; v < drum::numVoices; ++v)
+        fireHit (v, injPattern_[v][step], sampleOffset, vst, midi);
+}
+
+double DrumEngine::injectedStepLen (int stepIdx) const noexcept
+{
+    (void) stepIdx;
+    // Injected grid: no swing authority here (the bridge carries tempo only), so
+    // every sixteenth is the same length. The clamp matches the manual engine.
+    const double b = juce::jlimit (40.0f, 260.0f, static_cast<float> (injBpm_));
+    return 60.0 / b / 4.0 * sr;
 }
 
 //==============================================================================
