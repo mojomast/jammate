@@ -81,9 +81,14 @@ jobs:
           git remote add origin "${CI_REPO_URL}"
           if ! git -c protocol.version=2 fetch -q --no-tags --depth 1 origin "${CI_COMMIT_SHA}"; then
             echo "Direct fetch by SHA refused; retrying via ref tips."
+            # Branch tips AND both pull-request refs (head and merge). A glob
+            # refspec that matches no ref is tolerated by git, so requesting
+            # refs/pull/*/merge is safe even on a server that does not expose
+            # it; the exact-SHA hard-fail below still prevents a wrong tree.
             git -c protocol.version=2 fetch -q --no-tags --depth 1 origin \
               '+refs/heads/*:refs/remotes/origin/*' \
-              '+refs/pull/*/head:refs/remotes/pull/*'
+              '+refs/pull/*/head:refs/remotes/pull/*' \
+              '+refs/pull/*/merge:refs/remotes/pull-merge/*'
           fi
           git checkout -q --detach "${CI_COMMIT_SHA}"
 
@@ -100,7 +105,7 @@ jobs:
             exit 1
           fi
 
-      - name: Toolchain — cmake + ninja
+      - name: Toolchain — cmake + ninja + binutils + python3
         run: |
           set -eu
           # ASSUMED: the runner is root, or has passwordless sudo. If neither,
@@ -115,19 +120,25 @@ jobs:
           elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
             APT="sudo -n apt-get"
           else
-            echo "::error::cannot install cmake/ninja: this runner is neither root nor"
-            echo "::error::passwordless-sudo. Install cmake, ninja-build and binutils on the"
-            echo "::error::runner image, or grant NOPASSWD in its sudoers."
+            echo "::error::cannot install cmake/ninja/python3: this runner is neither root nor"
+            echo "::error::passwordless-sudo. Install cmake, ninja-build, binutils and python3"
+            echo "::error::on the runner image, or grant NOPASSWD in its sudoers."
             exit 1
           fi
           # cmake is required by this lane's CMakeLists (floor 3.16, see
           # jam-core/CMakeLists.txt line 1). ninja-build is the Debian/Ubuntu
           # package name for ninja. binutils supplies nm, which the licence
           # boundary assertion uses.
+          #
+          # python3 is REQUIRED: current main registers jam.RhythmDerivedGenerator
+          # only when find_package(Python3) succeeds and otherwise silently omits
+          # it. See the suite requirement in the ctest step.
           $APT update -qq
-          $APT install -y -qq --no-install-recommends cmake ninja-build binutils
+          $APT install -y -qq --no-install-recommends cmake ninja-build binutils python3
 
           command -v ninja
+          command -v python3
+          python3 --version
           want_major=3 want_minor=16
           have="$(cmake --version | head -1 | sed -n 's/^cmake version \([0-9]*\)\.\([0-9]*\)\..*/\1 \2/p')"
           set -- ${have}
@@ -143,11 +154,19 @@ jobs:
           ninja --version
           cc --version | head -1
 
-      - name: "Configure jam-core (default: JAM_ENABLE_BTRACK=OFF)"
+      - name: "Configure jam-core (dependency-free: both trackers OFF)"
         run: |
           set -eu
           cd "$CI_WORKDIR"
-          cmake -S jam-core -B build -G Ninja
+          # Both tracker options are named explicitly rather than left to their
+          # defaults, so this lane keeps meaning "dependency-free" even if a
+          # default is ever flipped. JAM_CORE_BUILD_TESTS is likewise explicit:
+          # jam-core now honours it (main, after CI-001) and this job's whole
+          # point is to run the tests.
+          cmake -S jam-core -B build -G Ninja \
+                -DJAM_CORE_BUILD_TESTS=ON \
+                -DJAM_ENABLE_BTRACK=OFF \
+                -DJAM_ENABLE_AUBIO=OFF
           # -S jam-core, not the repository root: configuring the root needs
           # JUCE and the NAM submodule, which this lane must not require.
 
@@ -157,33 +176,54 @@ jobs:
           cd "$CI_WORKDIR"
           cmake --build build --parallel
 
-      - name: Licence boundary — the default build must contain no GPL BTrack objects
+      - name: Licence boundary — the dependency-free build must contain no GPL tracker objects
         run: |
           set -eu
           cd "$CI_WORKDIR"
-          # third_party/BTrack is GPLv3 and is guarded by JAM_ENABLE_BTRACK,
-          # which is OFF by default. "src/jam/ stays free of third-party code"
-          # (jam-core/CMakeLists.txt rules 2 and 3) is only true if this
-          # assertion keeps holding, so it is asserted, not assumed.
+          # third_party/BTrack and third_party/aubio are both GPLv3 and both
+          # guarded by an OFF-by-default option. "src/jam/ stays free of
+          # third-party code" (jam-core/CMakeLists.txt rules 2 and 3) is only
+          # true if this assertion keeps holding, so it is asserted, not assumed.
           #
-          # Check 1: no reference to third_party/BTrack anywhere in the build
-          # graph at all — the option is OFF, so it should not even be parsed.
-          if grep -q 'third_party/BTrack' build/build.ninja; then
-            echo "::error::default jam-core build references third_party/BTrack — GPL code leaked in"
+          # Check 1: no reference to either tracker anywhere in the build graph
+          # at all — both options are OFF, so neither should even be parsed.
+          if grep -q 'third_party/BTrack\|third_party/aubio' build/build.ninja; then
+            echo "::error::dependency-free jam-core build references a third_party tracker — GPL code leaked in"
             exit 1
           fi
 
           # Check 2: no GPL symbol in the produced archive or test binary.
           # binutils' nm is installed by the previous step; fail if it is not
-          # there rather than quietly skipping the check.
+          # there rather than quietly skipping the check. Run nm to a file and
+          # require BOTH a zero exit and at least one symbol line: `nm` exits 0
+          # with empty output on an empty archive and exits 0 with "no symbols"
+          # on a stripped binary (both measured), so an exit-code-only check
+          # would false-green a corrupt or stub object. nm's "path:" header
+          # lines are then stripped: they contain the build directory name and
+          # would otherwise match the word "btrack"/"aubio" (a measured false
+          # positive, see jam-core-trackers-linux.yml).
           command -v nm >/dev/null 2>&1 || { echo "::error::nm missing"; exit 1; }
-          hits="$(nm -C build/libjam-core.a build/jamTests 2>/dev/null \
-                  | grep -c 'BTrack\|btrack::\|kiss_fft' || true)"
-          if [ "${hits}" != "0" ]; then
-            echo "::error::${hits} GPL BTrack/kiss_fft symbol(s) in the default build"
+          status=0
+          nm -C build/libjam-core.a build/jamTests > nm-core.log 2>&1 || status=$?
+          if [ "${status}" -ne 0 ]; then
+            echo "::error::nm failed (exit ${status}); cannot verify the boundary"
+            cat nm-core.log
             exit 1
           fi
-          echo "licence boundary OK: default build has no GPL BTrack objects"
+          if ! grep -Eq '^[0-9a-fA-F]+ [A-Za-z]|^ +U ' nm-core.log; then
+            echo "::error::nm produced no symbol lines; refusing to report a clean boundary"
+            cat nm-core.log
+            exit 1
+          fi
+          # Case-insensitive so a leaked BTrack (capital) or jam::AubioBackend
+          # cannot slip past a lowercase-only pattern.
+          hits="$(grep -Ev '^[^:]+:$' nm-core.log | grep -Eci 'btrack|aubio|kiss_fft' || true)"
+          if [ "${hits}" != "0" ]; then
+            echo "::error::${hits} GPL tracker symbol(s) in the dependency-free build"
+            grep -Ev '^[^:]+:$' nm-core.log | grep -Ei 'btrack|aubio|kiss_fft' | head -20
+            exit 1
+          fi
+          echo "licence boundary OK: dependency-free build has no GPL tracker objects"
 
       - name: Run every ctest suite
         run: |
@@ -205,8 +245,33 @@ jobs:
           # The suites jam-core/CMakeLists.txt generates from JAM_TEST(...)
           # registrations. A suite deleted from a source file must turn this job
           # red rather than quietly reduce coverage.
-          for suite in jam.AnalysisAudioRing jam.DrumTransportAdapter \
-                       jam.MusicalClock jam.RhythmCorpus jam.RtSignal; do
+          #
+          # Suites added to main after this job's base commit are required only
+          # when their source (or their registration) is present, so the job is
+          # green on the older commit it was written against and stricter on
+          # main. jam.RhythmDerivedGenerator is the important one: main's CMake
+          # registers it only if Python3 is found, so without the interpreter
+          # (installed above) it would vanish silently.
+          expected="jam.AnalysisAudioRing jam.DrumTransportAdapter \
+                    jam.MusicalClock jam.RhythmCorpus jam.RhythmEvalMetrics \
+                    jam.RtSignal"
+          if [ -f tests/jam/BackendRunnerTests.cpp ]; then
+            expected="$expected jam.BackendRunner"
+          fi
+          if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
+            expected="$expected jam.RhythmDerived"
+          fi
+          if [ -f tools/rhythm-eval/tools/test_make_derived.py ] \
+             && grep -q 'RhythmDerivedGenerator' jam-core/CMakeLists.txt; then
+             expected="$expected jam.RhythmDerivedGenerator"
+           fi
+           if [ -f tools/rhythm-eval/tools/test_run_robustness.py ]; then
+             expected="$expected jam.RhythmRobustness"
+           fi
+           if [ -f tools/beatnet-eval/tests/test_score.py ]; then
+             expected="$expected jam.BeatNetResearch"
+           fi
+           for suite in $expected; do
             if ! ctest --test-dir build -N | grep -q " ${suite}$"; then
               echo "::error::expected suite ${suite} is not registered with ctest"
               exit 1
@@ -230,17 +295,20 @@ jobs:
         run: |
           set -eu
           cd "$CI_WORKDIR"
-          [ -f ctest.log ] || { echo "no ctest.log was produced"; exit 0; }
-          size="$(wc -c < ctest.log)"
-          echo "ctest.log is ${size} bytes"
           # Cap at 2 MiB. The tail is what matters — ctest prints the failure
           # last — so an oversized log is truncated rather than dropped.
-          if [ "${size}" -gt 2097152 ]; then
-            echo "log exceeds 2 MiB; showing the last 2 MiB"
-            tail -c 2097152 ctest.log
-          else
-            cat ctest.log
-          fi
+          for log in ctest.log nm-core.log; do
+            [ -f "$log" ] || continue
+            size="$(wc -c < "$log")"
+            echo "----- $log ($size bytes) -----"
+            if [ "${size}" -gt 2097152 ]; then
+              echo "log exceeds 2 MiB; showing the last 2 MiB"
+              tail -c 2097152 "$log"
+            else
+              cat "$log"
+            fi
+          done
+          [ -f ctest.log ] || [ -f nm-core.log ] || echo "no logs were produced"
           echo
           echo "NOTE: this job does not use actions/upload-artifact, because"
           echo "whether that action exists on this Gitea server is unverified."

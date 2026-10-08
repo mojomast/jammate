@@ -4,7 +4,7 @@
 repository, understand exactly what exists, what has been verified, what is
 blocked, and what to delegate next — without re-deriving any of it.
 
-**Written:** 2026-10-07
+**Updated:** 2026-10-08
 **Governing documents:** `SPEC.md` (v0.1), `DEVPLAN.md` (v0.1). Treat both as
 source of truth. Do not rewrite them to match the code.
 
@@ -35,6 +35,9 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
   real trackers over 24 derived clips, 2160 metric rows exactly reproduced from
   stored raw runs. Corrected numerical 2% diagnostic; missing data and structural
   noise-silence caveats retained. See `docs/research/robustness/README.md`.
+- CI-002 revised workflows (`480f15f`) integrated with required research-suite
+  guards. Executed locally against `6e03b40`: OFF/BTrack/aubio/both **11/12/12/13
+  suites**; separate core workflow **11/11**. No remote or Windows CI run.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
@@ -59,7 +62,7 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 
 | Task | Branch / worktree | Session |
 |---|---|---|
-| CI-002 tracker workflows | `wp/CI-002-trackers`, `../worktrees/CI-002-trackers` | `ses_ee75a1084ffep3AxLvnl0Kqa3d` |
+| CI-002 integrated workflows (worker finished) | `wp/CI-002-trackers`, `../worktrees/CI-002-trackers` | `ses_ee75a1084ffep3AxLvnl0Kqa3d` |
 | TRACK-003 integrated partial feasibility (worker finished) | `wp/TRACK-003-beatnet`, `../worktrees/TRACK-003-beatnet` | `ses_ee745589effeU0Q5VSCHfvX51T` |
 | EVAL-005 integrated paired diagnostics (worker finished) | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
 | EVAL-006 sustained repair + tapping audit | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
@@ -70,19 +73,17 @@ tree and SHA. Review/merge returned work rather than rerunning a worker's topic
 concurrently. The user asked for Flash; escalation, if genuinely necessary, is
 `openai/gpt-6.1-sol#xhigh`, not the OpenCode provider.
 
-All three initial handoffs have returned. TRACK-003's corrected `1ef3d5c` is
-integrated as partial feasibility with final scorer fixes; EVAL-005's corrected
-`816a955` is integrated as scoped paired diagnostics. CI-002 is still correcting
-review findings from `4dfbc96` (enabled symbols, fail-closed nm, Python/derived
-suite requirements and empty reference gitlink guards). Await its revised clean
-SHA; do not merge the initial CI-002 handoff as completed work. BeatNet has no
-inference result and remains a partial feasibility review.
+All three corrected handoffs are integrated: TRACK-003 `1ef3d5c` as partial
+feasibility with final scorer fixes, EVAL-005 `816a955` as scoped paired
+diagnostics, and CI-002 `480f15f` as workflow definitions with local execution
+evidence. BeatNet has no inference result and remains a partial feasibility
+review. Remote CI and Windows execution remain unmeasured.
 
 EVAL-006 and TRACK-004 started from `6287288` in new isolated Flash lanes. The
 first owns a versioned sustained replacement corpus, generator/tests and acoustic
 report; it preserves the historical corpus and audits tapping before proposing
 changes. The second owns new causal trace/replay diagnostics and its report,
-with no tracker/harness/scoring edits. CI-002 continues independently. Current
+with no tracker/harness/scoring edits. CI-002 has finished. Current
 integration merges: TRACK-003 `e61784d`, EVAL-005 `6287288`.
 
 ### Remaining gate work

@@ -78,6 +78,11 @@ PARTIAL, never PASSED.
   CMake: enabled trackers **13/13 suites pass**, default-OFF **11/11 pass**.
   Both-enabled tests-OFF still registers **0 tests**. The two new suites verify
   scorer/aggregator contracts; the BeatNet suite runs no model inference.
+- CI-002 integration (2026-10-08): actual tracker workflow checkout/build/test
+  bodies run against committed `6e03b40` locally, passing **11/12/12/13 suites**
+  for OFF/BTrack/aubio/both. Separate core workflow configure/build/boundary/test
+  bodies pass **11/11**. All 19 shell bodies pass `bash -n`; structural validator
+  passes. Toolchain installation, remote server CI and Windows remain unexecuted.
 - Corrected corpus comparison: BTrack F=0.7099, acquisition 4/11, worst core BPM
   error 2.34%; aubio F=0.5357, acquisition 7/11, worst core BPM error 1.33%.
   Acquisition fails for both. No tracker selected and no G0/G1/G3 pass claimed.
@@ -111,6 +116,9 @@ review findings and correction status are:
   pending enabled-symbol assertions, fail-closed `nm` checks, required Python/
   derived suites, and a Windows reference-materialization guard that tolerates
   empty gitlink placeholders. Correct stale Linux build and checkout claims.
+  Revised `480f15f` accepted and integrated with conditional required-suite
+  checks for RhythmRobustness and BeatNetResearch; current-main workflow bodies
+  pass 11/12/12/13, and separate core workflow passes 11/11 locally.
 
 These are review findings, not new tracker measurements or gate passes. Exact
 continuation sessions remain in `HANDOFF.md`; no worker topics are duplicated.
@@ -163,7 +171,7 @@ and reports instead.
 | EVAL-003 robustness fixtures | **DONE: scoped corpus** | `wp/EVAL-003` → `0a15eef` | C — evidence, Flash | G3 | 24 derived clips, 11.12 MiB; C++/Python checks integrated; comparison follows in EVAL-005 |
 | EVAL-004 timing/gate audit + comparison | **DONE** | `wp/EVAL-004-timing` → `64b39ee` | B — evidence, Flash | G3 | combined 9/9 suites; both acquisition gates fail; aubio BPM passes, BTrack BPM fails |
 | TRACK-003 BeatNet feasibility | INTEGRATED:PARTIAL; benchmark unavailable | `wp/TRACK-003-beatnet`, `1ef3d5c` → main + scorer corrections | C — research, Flash | G3 | pinned source/weight terms and measured dependency blockers; 51 scorer tests; no inference; redistribution review unresolved |
-| CI-002 tracker CI repair | REVIEW CORRECTIONS RUNNING | `wp/CI-002-trackers`, initial `4dfbc96` | C — evidence, Flash | G1/G3 | local four-config evidence returned; symbol/error/materialization guards need repair; remote/Windows unverified |
+| CI-002 tracker CI repair | **DONE: definitions + local execution** | `wp/CI-002-trackers`, `480f15f` → main + research-suite guards | C — evidence, Flash | G1/G3 | current-main 11/12/12/13 suites; ON/OFF symbols and fail-closed nm; remote/Windows execution still unverified |
 | EVAL-005 paired robustness curves | **DONE: scoped paired diagnostics** | `wp/EVAL-005-robustness`, `816a955` → main | B — evidence, Flash | G3 | 29 tests; 2160 rows exactly reproduced; all 24 derived WAV hashes/sizes checked; short-window/missing-data caveats retained |
 | EVAL-006 sustained-corpus repair + tapping audit | RUNNING | `wp/EVAL-006-sustain`, base `6287288` | C — evidence, Flash | G3 | new versioned replacement corpus; original hashes preserved; independent duration/energy checks and paired tracker runs |
 | TRACK-004 acquisition/BPM diagnosis | RUNNING | `wp/TRACK-004-acquisition`, base `6287288` | B — evidence, Flash | G3 | causal observation traces and exact acquisition replay; per-core reasons and BTrack bias diagnosis; no shared tracker/scorer changes |

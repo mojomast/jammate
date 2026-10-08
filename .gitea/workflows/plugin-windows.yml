@@ -1,15 +1,18 @@
 # ============================================================================
-# NOT PROVEN. THIS JOB HAS NEVER RUN.
+# NOT PROVEN ON WINDOWS. THIS JOB HAS NEVER RUN.
 #
-# The plugin lane has NEVER been compiled anywhere in this project's history.
-# Not here — ADR-0003 measured the ALSA and freetype headers absent and sudo
-# unavailable, so JUCE cannot configure on the development machine. Not on
-# Windows either — there is no Windows machine or runner that has built this
-# repository at any point.
+# The plugin lane has NEVER been compiled ON WINDOWS in this project's history:
+# there is no Windows machine or runner that has built this repository. Do not
+# overstate that. On LINUX the Standalone and VST3 formats HAVE been configured
+# and built without root, using extracted Debian dev headers (see
+# docs/research/LOCAL-LINUX-BUILD.md and the main-branch commit that records
+# it). So the gap this job closes is specifically Windows/MSVC/VST3/ASIO
+# measurement, not "the plugin has never been built at all".
 #
-# EXPECT THE FIRST RUN TO NEED FIXES. Treat a first-run failure as
-# INFORMATION, not as a broken pipeline: it is the first measurement this lane
-# has ever produced. The plausible causes, in the order you should expect them:
+# EXPECT THE FIRST WINDOWS RUN TO NEED FIXES. Treat a first-run failure as
+# INFORMATION, not as a broken pipeline: it is the first Windows measurement
+# this lane has ever produced. The plausible causes, in the order you should
+# expect them:
 #
 #   1. `runs-on: windows-latest` is not a label this Gitea server publishes.
 #      Check the server's runner configuration before anything else; see
@@ -17,10 +20,10 @@
 #   2. `shell: bash` is unavailable on the Windows runner image.
 #   3. The submodule recipe below is wrong for NAM's nested submodules (it was
 #      verified from the pinned SHAs' .gitmodules over the network, but never
-#      executed).
-#   4. The JUCE plugin genuinely does not compile — which is the finding that
-#      matters most and is the reason FND-002 and the G1 plugin-lane items are
-#      still open.
+#      executed on Windows).
+#   4. The JUCE plugin genuinely does not compile under MSVC — which is the
+#      finding that matters most and is the reason FND-002 and the G1
+#      plugin-lane items are still open.
 #
 # Nothing in this file may be edited to make it "pass" without a measurement
 # backing the change. In particular: no `--warn-as-error`, no
@@ -99,9 +102,14 @@ jobs:
           git remote add origin "${CI_REPO_URL}"
           if ! git -c protocol.version=2 fetch -q --no-tags --depth 1 origin "${CI_COMMIT_SHA}"; then
             echo "Direct fetch by SHA refused; retrying via ref tips."
+            # Branch tips AND both pull-request refs (head and merge). A glob
+            # refspec that matches no ref is tolerated by git, so requesting
+            # refs/pull/*/merge is safe even on a server that does not expose
+            # it; the exact-SHA hard-fail below still prevents a wrong tree.
             git -c protocol.version=2 fetch -q --no-tags --depth 1 origin \
               '+refs/heads/*:refs/remotes/origin/*' \
-              '+refs/pull/*/head:refs/remotes/pull/*'
+              '+refs/pull/*/head:refs/remotes/pull/*' \
+              '+refs/pull/*/merge:refs/remotes/pull-merge/*'
           fi
           git checkout -q --detach "${CI_COMMIT_SHA}"
           got="$(git rev-parse HEAD)"
@@ -119,31 +127,52 @@ jobs:
           # reference DSP that no target in this repository compiles.
           #
           # Verified from the .gitmodules of the pinned SHAs over the network
-          # on 2026-10-07 (see docs/research/CI-SETUP.md for the exact commands):
+          # on 2026-10-07 and re-checked for CI-002 (see
+          # docs/research/CI-SETUP.md §5 for the exact commands and SHAs):
           #   - JUCE 91ad83ae… has NO .gitmodules, so a plain --init is enough.
-          #   - NAM  1f42f885… declares Dependencies/eigen and
-          #     Dependencies/AudioDSPTools as ITS OWN submodules, and
-          #     root CMakeLists.txt:36-40 puts Dependencies/eigen on the
-          #     include path. So NAM alone needs --recursive. Dependencies/
-          #     nlohmann is vendored in-tree (a tree, not a gitlink) and needs
-          #     nothing.
+          #   - NAM  1f42f885… declares Dependencies/eigen (bc3b3987…) and
+          #     Dependencies/AudioDSPTools (0827c6c2…) as ITS OWN submodules.
+          #   - AudioDSPTools 0827c6c2… itself declares a Dependencies/eigen of
+          #     its own. So the nesting is two levels deep, and only --recursive
+          #     fetches all three: a non-recursive init leaves AudioDSPTools
+          #     empty, and PluginProcessor.cpp includes LanczosResampler.h from
+          #     there, so the plugin cannot compile. Dependencies/nlohmann is
+          #     vendored in-tree (a tree, not a gitlink) and needs nothing.
+          # Root CMakeLists.txt:36-40 puts Dependencies/eigen on the include
+          # path. Do not "simplify" this to a non-recursive init.
           git submodule update --init third_party/JUCE
           git submodule update --init --recursive third_party/NeuralAmpModelerCore
 
           # Assert what we got rather than trusting the command's exit code.
+          # The three nested gitlinks are all checked, not just NAM's direct
+          # eigen: a partial tree otherwise surfaces as a compile error 200
+          # lines later.
           for p in third_party/JUCE/CMakeLists.txt \
                    third_party/NeuralAmpModelerCore/NAM/dsp.cpp \
-                   third_party/NeuralAmpModelerCore/Dependencies/eigen/Eigen/Core; do
+                   third_party/NeuralAmpModelerCore/Dependencies/eigen/Eigen/Core \
+                   third_party/NeuralAmpModelerCore/Dependencies/AudioDSPTools/CMakeLists.txt \
+                   third_party/NeuralAmpModelerCore/Dependencies/AudioDSPTools/Dependencies/eigen/Eigen/Core; do
             if [ ! -e "$p" ]; then
               echo "::error::expected ${p} after submodule init — the NAM nested-submodule"
-              echo "::error::recipe above is incomplete; NAM needs Dependencies/eigen"
+              echo "::error::recipe above is incomplete; NAM needs eigen and AudioDSPTools,"
+              echo "::error::and AudioDSPTools needs its own nested eigen (use --recursive)"
               exit 1
             fi
           done
-          if [ -d references/airwindows ]; then
-            echo "::error::references/* was cloned; this job must not fetch it"
-            exit 1
-          fi
+          # Materialisation, NOT mere directory presence. A checkout creates an
+          # EMPTY directory for every gitlink it carries even before submodule
+          # init (measured: third_party/JUCE and .../NeuralAmpModelerCore appear
+          # empty in a fresh clone), and `[ -d ... ]` would flag that placeholder
+          # as a clone. A real submodule checkout has a .git file or non-empty
+          # contents. At this base references/* have no gitlink in the tree, so
+          # they should not appear at all; the check is written to stay correct
+          # if one is ever added.
+          for ref in references/airwindows; do
+            if [ -e "$ref/.git" ] || [ -n "$(ls -A "$ref" 2>/dev/null)" ]; then
+              echo "::error::${ref} was materialised; this job must not fetch references/*"
+              exit 1
+            fi
+          done
           git submodule status
 
       - name: Toolchain — cmake >= 3.22 and a Visual Studio generator
@@ -243,8 +272,9 @@ jobs:
           tail -n 200 build.log
           if [ "${status}" -ne 0 ]; then
             echo "::error::build exited ${status}."
-            echo "::error::The GuitarCompanion target has never been compiled in this project's"
-            echo "::error::history. Do not work around this: it is FND-002 / G0 evidence."
+            echo "::error::The GuitarCompanion target has never been compiled ON WINDOWS"
+            echo "::error::(Linux Standalone+VST3 did build; the Windows/MSVC measurement is"
+            echo "::error::the open one). Do not work around this: it is FND-002 / G0 evidence."
             exit "${status}"
           fi
           # Prove the artefacts exist rather than trusting exit 0 alone.
