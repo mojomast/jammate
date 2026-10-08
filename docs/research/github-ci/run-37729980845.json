@@ -1,0 +1,35 @@
+{
+  "runId": 37729980845,
+  "url": "https://github.com/mojomast/jammate/actions/runs/37729980845",
+  "testedSha": "b7e3be18e6661fc458529d560c02a8f9877ece09",
+  "conclusion": "success",
+  "suiteCounts": {
+    "Core / depfree": 23,
+    "Core / btrack": 24,
+    "Core / aubio": 24,
+    "Core / both": 25,
+    "NAM / allocation repairs": 9,
+    "Windows / Standalone + VST3 + drums": 7
+  },
+  "jobs": [
+    {"name": "Windows / Standalone + VST3 + drums", "id": 113156665447, "conclusion": "success"},
+    {"name": "Core / both", "id": 113156665584, "conclusion": "success"},
+    {"name": "Core / depfree", "id": 113156665707, "conclusion": "success"},
+    {"name": "Core / aubio", "id": 113156665741, "conclusion": "success"},
+    {"name": "NAM / allocation repairs", "id": 113156665756, "conclusion": "success"},
+    {"name": "Core / btrack", "id": 113156665830, "conclusion": "success"}
+  ],
+  "limits": [
+    "Injected clock bridge is built and tested; live Jam pipeline/UI are the next wave",
+    "NAM actual processor replays and local binary freeze verification are separate local evidence",
+    "Windows build and drum tests only; no physical device, ASIO or callback deadline validation"
+  ],
+  "logHashes": {
+    "/home/mojo/projects/build-INT-DRUM-001-integration/github-windows-standalone-vst3-drums-success-37729980845.log": "db391dc1fa80b26dbf339123f8ab2619446149f953f5db8dffe8663a25367bb1",
+    "/home/mojo/projects/build-INT-DRUM-001-integration/github-core-both-success-37729980845.log": "6779d0b80ae9ca63819eb1ec3031609e32166c64bfa5ac33f4036a11907b67f1",
+    "/home/mojo/projects/build-INT-DRUM-001-integration/github-core-depfree-success-37729980845.log": "99a85af7abfdf0a7b9b4654beb6a2189dd96d47569f74424b051173883c62228",
+    "/home/mojo/projects/build-INT-DRUM-001-integration/github-core-aubio-success-37729980845.log": "bec3ed1a7900679773435c4671f9ee83028e4f3dd029e1e5cf4581eef0786f82",
+    "/home/mojo/projects/build-INT-DRUM-001-integration/github-nam-allocation-repairs-success-37729980845.log": "ac17dc276c2416ffc909bfd0fda3dc3e9ae894a838e71fa5e432ad01e56db8f4",
+    "/home/mojo/projects/build-INT-DRUM-001-integration/github-core-btrack-success-37729980845.log": "4573039ec0a377e4a37c04697ef4e1e7e202a0395d188877ad4f3373472d5ac7"
+  }
+}

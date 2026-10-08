@@ -18,8 +18,9 @@ sessions and exact ownership are in the ledger's Active live-Jam table.
 `docs/research/LIVE-JAM-CONTRACT.md` and `src/jam/JamLiveInterface.h` freeze the
 shared facade. No new handoff is accepted. Default BTrack is experimental;
 TRACK-008 stays diagnostic and G3 remains open. Shared CMake/CI are
-orchestrator-owned. Prior final head `b7e3be1` is published; run37729980845 is
-being watched in the background.
+orchestrator-owned. Prior final head `b7e3be1` is published and fully green in
+run37729980845: core23/24/24/25, NAM9/9, Windows Standalone/VST3 with7/7 drum
+suites. Receipt/log hashes: `docs/research/github-ci/run-37729980845.json`.
 
 `main` is the integration branch. `EXECUTION-LEDGER.md` holds current task/gate
 status; the rest of this older handoff describes the original checkout setup.
@@ -84,6 +85,10 @@ The final-source Linux Standalone/VST3/test-target build and7/7 registered drum
 suites pass, as does the updated foundation driver's50 cases. Independent
 integration receipt: `docs/research/drum-clock-bridge-integration.json`.
 Final published-head remote CI is pending.
+
+Update: run37729980845 at `b7e3be1` confirms the final bridge wave remotely,
+including Windows7/7 drums and core23/24/24/25. The receipt above pins only that
+tested SHA; local live-wave contracts/build preparation have not been published.
 
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:

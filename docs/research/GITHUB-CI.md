@@ -118,6 +118,16 @@ Receipt and downloaded-log hashes:
 The same device, ASIO and callback-timing limits apply. The simulated Jam UI
 preview was verified locally; this run does not build that preview target.
 
+## Final activation / stability / drum-bridge published-head pass
+
+[Run37729980845](https://github.com/mojomast/jammate/actions/runs/37729980845)
+at `b7e3be18e6661fc458529d560c02a8f9877ece09` passes all six jobs:
+core **23/23 OFF,24/24 BTrack-only,24/24 aubio-only,25/25 both**, NAM **9/9**,
+Windows2022/MSVC **Standalone + VST3 and7/7 drum suites**, including the
+injected-clock bridge. Live guitar/processor/UI wiring begins in the next wave.
+Receipt/log hashes:
+[`github-ci/run-37729980845.json`](github-ci/run-37729980845.json).
+
 ## RT-005 / TRACK-008 published-head pass
 
 [Run37728344321](https://github.com/mojomast/jammate/actions/runs/37728344321)

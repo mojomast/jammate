@@ -121,7 +121,7 @@ Latest local verification, **8 October 2026**:
   disabled. The core builds without JUCE or an audio device.
 - **6/6** JUCE drum suites pass, including 12 new foundation regressions;
   **Standalone + VST3** builds succeed on Linux and Windows.
-- [GitHub verification](https://github.com/mojomast/jammate/actions/runs/37728344321)
+- [GitHub verification](https://github.com/mojomast/jammate/actions/runs/37729980845)
   passes the four core configurations, NAM repair checks, and Windows build/tests.
 - **26** real-processor probe cases show zero detected heap allocation/free or
   lock/wait operations after the scoped LSTM repair, including eight NAM cases.

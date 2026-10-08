@@ -22,7 +22,7 @@ task note + commit SHA + successful integration.
 | Lane | Buildable here | Verifies |
 |---|---|---|
 | **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **25/25 suites**; default-OFF **23/23** | deterministic seams, worker lifecycle, injected drum bridge, acquisition/tempo diagnostics, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
-| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | current Linux drum tests **7/7 passed**; last remotely tested Windows **6/6**; **Standalone and VST3 built on both** | final bridge Windows rerun pending; ASIO, full callback and device measurements still required |
+| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | current Linux and Windows drum tests **7/7 passed**; **Standalone and VST3 built on both** | live wave integration pending; ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
 PARTIAL, never PASSED.
@@ -179,6 +179,11 @@ The final-source Linux product/test build passes Standalone, VST3 and7/7
 registered drum suites; the updated legacy foundation driver passes50 cases.
 Receipt: `docs/research/drum-clock-bridge-integration.json`. The wave's
 implementation workers are complete; final published-head CI is pending.
+
+Final published-head run37729980845 at `b7e3be1` passes all six jobs: core
+23/24/24/25, NAM9/9 and Windows Standalone/VST3 with7/7 drum suites. This
+includes the injected-clock bridge and precedes the new live-Jam wave. Receipt:
+`docs/research/github-ci/run-37729980845.json`.
 
 ### Completed development wave (base `bcf540a`, 2026-10-08)
 
@@ -428,7 +433,7 @@ and reports instead.
 | CI execution evidence | **REMOTE GREEN: scoped builds/tests** | `0820bb5`, run37715897283 | C | G1 | all6 GitHub jobs pass; this is build/test coverage, not whole callback/device validation |
 | TEST-001 foundation tests | **DONE: bounded foundation coverage (D8)** | `wp/TEST-001-foundation`, `0cfc252b` → main | C — verification, Sol | G1 |50 actual JUCE cases; root rebuild and6/6 suites pass; processor migration/concurrent edits remain uncovered |
 | MOD-003 Jam UI shell | **DONE: isolated simulation shell (D7)** | `wp/MOD-003-jam-ui`, `34ab2cb3` → main | C — UI, Sol | G2 | fresh actual JUCE preview build and Xvfb verification pass; seven screenshots; live editor wiring pending |
-| CI-003 GitHub verification | **DONE: RT-005/TRACK-008 remote green** | main, `f7c0a11` | orchestrator | G1 | run37728344321 core22/23/23/24, NAM9/9, Windows Standalone/VST3 +6/6 drums; failed-run receipts retained |
+| CI-003 GitHub verification | **DONE: RT-005/TRACK-008/INT-DRUM-001 remote green** | published `b7e3be1` | orchestrator | G1 | run37729980845 core23/24/24/25, NAM9/9, Windows Standalone/VST3 +7/7 drums; live wave integration pending |
 | TRACK-007 longer-window acquisition characterization | **DONE: corrected scoped evidence; G3 open** | `wp/TRACK-007-long-windows`, `65cd77d` → main | B — evidence, Haiku/Space Bunny/DeepSeek Go | G3 |48 research tests; independent16-fixture render/48 scores,7503 non-CPU fields exact; raw and corrected evidence preserved; core22/20 suites pass |
 | RT-004 NAM architecture callback coverage | **DONE: bounded historical evidence; A2 repair follows in RT-005** | `wp/RT-004-nam-architectures`, `337f4f3` → main | A — runtime evidence, Haiku + Space Bunny/Go | G1 |81 tests; independent260-case replay (80 NAM),6610 stable fields equal; original A2 PReLU allocation evidence retained |
 | DIAG-001 portable diagnostics foundation | **FOUNDATION DONE (D10); full task PARTIAL** | `wp/DIAG-001-core`, `b5852a0` → main | C — core, Haiku + Space Bunny/Go | G4 | independent21/19 core suites,34 diagnostics cases,strict/TSan/ASan checks pass within receipt scope; live wiring/overhead pending |
