@@ -1,0 +1,84 @@
+{
+  "binary": {
+    "buildCommand": "tools/tempo-stability/build.sh /home/mojo/projects/build-EVAL-005/main-core /home/mojo/projects/build-TRACK-008-worker",
+    "builtFrom": [
+      "tools/tempo-stability/TempoStable.h",
+      "tools/tempo-stability/TempoStable.cpp",
+      "tools/tempo-stability/MethodLog.h",
+      "tools/tempo-stability/MethodLog.cpp",
+      "tools/tempo-stability/TempoStablePlugin.cpp",
+      "tools/tempo-stability/build.sh"
+    ],
+    "embeddedDependencies": [
+      {
+        "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libjam-btrack.a",
+        "sha256": "92659b889ec7beb9e0e6d0ab0df59acd8c0b14eeff6de9b4ff5ca23561833255"
+      },
+      {
+        "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libbtrack.a",
+        "sha256": "6993f8224ea626802a28475cce3c1bcf209336919746ac41d7e99b6cae39f1f8"
+      },
+      {
+        "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libsamplerate.a",
+        "sha256": "55c591cff00889a7207a14eac442a36c1d7348f3cf003ef14fbf1718f97be072"
+      },
+      {
+        "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libkiss_fft.a",
+        "sha256": "fa209a29eed3ebbcb6bfb72471a48bd0b2bfa4c7b9fd33da6537ed161a932250"
+      }
+    ],
+    "path": "/home/mojo/projects/build-TRACK-008-worker/libtempo-stable-btrack.so",
+    "sha256": "791d36ecb4f2e9a7c8a4f045d13763d177d71c32257c174fb8f06fddffcff183"
+  },
+  "candidateId": "btrack-tempo-stable",
+  "combinedSha256": "8034e2d1fd8b6dc268084e24a75878fdfeda7888809e4386fbd18174660cbed3",
+  "evaluation": [
+    {
+      "path": "tools/tempo-stability/run_stability.py",
+      "sha256": "23d1cba06510fb434c704a3e8ec882c7e7f731a8fa8e08ce5f0ce186ced9c3c7"
+    },
+    {
+      "path": "tools/tempo-stability/tests/TempoStableTests.cpp",
+      "sha256": "d02226ed00d5f6fa3d5ed836d0f11e0036e6ab6defff0cab31ec7ba2cc4fcb4c"
+    },
+    {
+      "path": "tools/tempo-stability/tests/test_stability_method.py",
+      "sha256": "90f01daa5b02fa0717e69345c415e2abe403acaa2c91afe68a9899ccc5723fe4"
+    },
+    {
+      "path": "tools/tempo-stability/tests/test_stability_evidence.py",
+      "sha256": "0fe9d196a26ae82cb46453abdc8539178c6eaabe332b8fcbe39c1860d1fc33a0"
+    }
+  ],
+  "evaluationCombinedSha256": "608a2177b1faeb1214661a9c857542130ff035fd9d58298dc2928aa14a12c337",
+  "method": "confirmation-gated median (median-of-4, 3 agreeing updates within 2%)",
+  "note": "The behaviour freeze is sources + binary + embeddedDependencies. Evaluation tooling is recorded separately and is not part of the candidate behaviour. Any source/binary change needs a new freeze committed before any new scoring.",
+  "protocol": "docs/research/tempo-stability/PROTOCOL.md",
+  "sources": [
+    {
+      "path": "tools/tempo-stability/TempoStable.h",
+      "sha256": "239b65c597a322fdb7d81578538fc4bf51ba3ca926d81b6610fbe5f1be38efe4"
+    },
+    {
+      "path": "tools/tempo-stability/TempoStable.cpp",
+      "sha256": "ebd58e1bb36a23abfa264261214fea8142a1c690ea11c0695db7a6dfc73c1c6c"
+    },
+    {
+      "path": "tools/tempo-stability/MethodLog.h",
+      "sha256": "70dd621e06607081487c60d384b8d96c61813eaf9e53d10b6cb79218ae847b6e"
+    },
+    {
+      "path": "tools/tempo-stability/MethodLog.cpp",
+      "sha256": "7b9eebe7e6eb05c284cc212aee595405dbf0b39514f1c062bf7281761cfed2f6"
+    },
+    {
+      "path": "tools/tempo-stability/TempoStablePlugin.cpp",
+      "sha256": "87f36e02377ece2f022921cae446842bce13fb3f41700977ff73a4d88c0dfe3d"
+    },
+    {
+      "path": "tools/tempo-stability/build.sh",
+      "sha256": "e56cef8b543343f6b3697c5119aff968bd306d23d7eaca09dfd1d67afd73ad45"
+    }
+  ],
+  "task": "TRACK-008"
+}
