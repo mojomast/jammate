@@ -130,6 +130,6 @@ in §9 of the analysis; they are proposals, not changes.
 
 ## Final commit SHA
 
-- Implementation + evidence commit: `__IMPLEMENTATION_SHA__`
+- Implementation + evidence commit: `e7b1037`
   (`diag-track-004: causal acquisition diagnosis for BTrack and aubio`).
 - This note's SHA update is the subsequent commit on `wp/TRACK-004-acquisition`.
