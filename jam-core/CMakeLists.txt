@@ -209,6 +209,15 @@ if (JAM_CORE_BUILD_TESTS AND JAM_TEST_SOURCES)
                 -s "${JAM_ROOT}/tools/tempo-variant/tests" -p "test_*.py")
         endif()
     endif()
+    if (EXISTS "${JAM_ROOT}/tools/live-jam-pipeline/CMakeLists.txt")
+        add_subdirectory("${JAM_ROOT}/tools/live-jam-pipeline" "live-jam-pipeline")
+    endif()
+    if (Python3_Interpreter_FOUND AND
+        EXISTS "${JAM_ROOT}/tools/live-jam-replay/test_validate_evidence.py")
+        add_test(NAME jam.LiveReplayVerifier COMMAND "${Python3_EXECUTABLE}" -B
+            -m unittest discover -s "${JAM_ROOT}/tools/live-jam-replay" -p "test_*.py")
+        set_tests_properties(jam.LiveReplayVerifier PROPERTIES WORKING_DIRECTORY "${JAM_ROOT}")
+    endif()
     # TRACK-008's frozen diagnostic decorator is tested without a backend.
     # Its optional evaluation plugin remains separate from jam-core.
     if (EXISTS "${JAM_ROOT}/tools/tempo-stability/tests/TempoStableTests.cpp")

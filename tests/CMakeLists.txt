@@ -16,10 +16,15 @@ target_sources(GuitarCompanionTests
         DrumFoundationTests.cpp
         DrumClockBridgeTests.cpp
         DrumHeapProbe.cpp
+        JamLiveUiTests.cpp
+        JamUiTestFonts.cpp
         # production code under test
         ${PROJECT_SOURCE_DIR}/src/DrumEngine.cpp
         ${PROJECT_SOURCE_DIR}/src/DrumLibrary.cpp
         ${PROJECT_SOURCE_DIR}/src/DrumGenerator.cpp)
+target_sources(GuitarCompanionTests PRIVATE
+    ${PROJECT_SOURCE_DIR}/src/ui/JamOverlay.cpp
+    ${PROJECT_SOURCE_DIR}/src/ui/JamLivePresenter.cpp)
 
 target_include_directories(GuitarCompanionTests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
@@ -33,6 +38,7 @@ target_compile_definitions(GuitarCompanionTests
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_STANDALONE_APPLICATION=1)
+target_compile_definitions(GuitarCompanionTests PRIVATE JAM_LIVE_UI_TESTS=1)
 
 target_link_libraries(GuitarCompanionTests
     PRIVATE
@@ -55,6 +61,7 @@ add_test(NAME drums.barCodec   COMMAND GuitarCompanionTests codec_)
 add_test(NAME drums.midiCapacity COMMAND GuitarCompanionTests midi_)
 add_test(NAME drums.foundation COMMAND GuitarCompanionTests foundation_)
 add_test(NAME drums.clockBridge COMMAND GuitarCompanionTests intdrum_)
+add_test(NAME jam.LiveUi COMMAND GuitarCompanionTests uiLive_)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_definitions(GuitarCompanionTests PRIVATE DRUM_MIDI_HEAP_PROBE=1)

@@ -18,6 +18,8 @@ CORE = {
     'jam.RhythmSustainRepair', 'jam.BeatNetResearch', 'jam.TempoCharacterization',
     'jam.TempoStable', 'jam.TempoStableResearch',
     'jam.DrumClockBridge',
+    'jam.jamjoinpolicy', 'jam.livejamsession', 'jam.LiveJamPipeline',
+    'jam.LiveReplayVerifier',
 }
 NAM = {
     'nam_rt_diff', 'nam_rt_compare_unit', 'nam_rt_patch_checks',
@@ -30,6 +32,7 @@ DRUMS = {
     'drums.midiCapacity',
     'drums.foundation',
     'drums.clockBridge',
+    'jam.LiveUi',
 }
 TRACKERS = {
     'btrack': ('jam.BTrackBackend', 'jamBTrackTests', r'BTrack::'),

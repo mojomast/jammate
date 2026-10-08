@@ -90,6 +90,14 @@ Update: run37729980845 at `b7e3be1` confirms the final bridge wave remotely,
 including Windows7/7 drums and core23/24/24/25. The receipt above pins only that
 tested SHA; local live-wave contracts/build preparation have not been published.
 
+Live-wave handoffs received: pipeline `f3151f0`, UI `f9d1d15`, replay harness
+`07021ae`, all clean. Independent reviews are active and no implementation merge
+is accepted yet. Fresh9-case JUCE UI tests/editor compile and25-suite portable
+pipeline/driver pass; replay validators pass42 tests. Candidate product build is
+running at `/home/mojo/projects/build-INT-LIVE-001-integration/product` from its
+external `product-source` integration worktree. Review/Stop-contract resolution
+precedes actual scoring. Shared CMake/CI changes are orchestrator-owned on main.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.

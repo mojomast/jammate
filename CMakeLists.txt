@@ -204,7 +204,9 @@ juce_add_binary_data(GuitarCompanionAssets
 target_sources(GuitarCompanion
     PRIVATE
         src/PluginProcessor.cpp
-        src/PluginEditor.cpp
+    src/PluginEditor.cpp
+    src/ui/JamOverlay.cpp
+    src/ui/JamLivePresenter.cpp
         src/PluginCatalog.cpp
         src/Tone3000Client.cpp
         src/ToneWebView.cpp

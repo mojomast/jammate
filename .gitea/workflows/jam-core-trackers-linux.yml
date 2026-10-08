@@ -202,6 +202,12 @@ jobs:
           if [ -f tests/jam/DrumClockCommandTests.cpp ]; then
             CORE_SUITES="$CORE_SUITES jam.DrumClockBridge"
           fi
+          if [ -f tests/jam/LiveJamSessionTests.cpp ]; then
+            CORE_SUITES="$CORE_SUITES jam.livejamsession jam.jamjoinpolicy jam.LiveJamPipeline"
+          fi
+          if [ -f tools/live-jam-replay/test_validate_evidence.py ]; then
+            CORE_SUITES="$CORE_SUITES jam.LiveReplayVerifier"
+          fi
           if [ -f tools/tempo-characterization/tests/test_long_windows.py ]; then
             CORE_SUITES="$CORE_SUITES jam.TempoCharacterization"
           fi

@@ -273,6 +273,12 @@ jobs:
           if [ -f tests/jam/DrumClockCommandTests.cpp ]; then
             expected="$expected jam.DrumClockBridge"
           fi
+          if [ -f tests/jam/LiveJamSessionTests.cpp ]; then
+            expected="$expected jam.livejamsession jam.jamjoinpolicy jam.LiveJamPipeline"
+          fi
+          if [ -f tools/live-jam-replay/test_validate_evidence.py ]; then
+            expected="$expected jam.LiveReplayVerifier"
+          fi
           if [ -f tools/tempo-characterization/tests/test_long_windows.py ]; then
             expected="$expected jam.TempoCharacterization"
           fi

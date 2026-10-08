@@ -3,6 +3,9 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#if defined(JAM_LIVE_UI_TESTS)
+#include <juce_gui_basics/juce_gui_basics.h>
+#endif
 
 namespace th
 {
@@ -39,6 +42,13 @@ void info (const std::string& msg)
 int main (int argc, char** argv)
 {
     const char* filter = (argc > 1 ? argv[1] : nullptr);
+#if defined(JAM_LIVE_UI_TESTS)
+    // Only UI cases need the message manager/display connection. Drum-only
+    // invocations and standalone foundation drivers retain their old setup.
+    std::unique_ptr<juce::ScopedJuceInitialiser_GUI> gui;
+    if (filter == nullptr || std::strstr (filter, "uiLive_") != nullptr)
+        gui = std::make_unique<juce::ScopedJuceInitialiser_GUI>();
+#endif
     const auto t0 = std::chrono::steady_clock::now();
     int ran = 0, failedCases = 0;
 
