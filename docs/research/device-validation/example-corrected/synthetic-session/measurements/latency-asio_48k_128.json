@@ -1,0 +1,149 @@
+{
+  "analysis": {
+    "method": "two-channel",
+    "onset": {
+      "abs_correlation": 0.9999995249577708,
+      "ambiguous": false,
+      "candidates": [
+        {
+          "abs_correlation": 0.9999995249577708,
+          "correlation": 0.9999995249577708,
+          "lag_samples": 96,
+          "latency_ms": 2.0
+        },
+        {
+          "abs_correlation": 0.9969195268923304,
+          "correlation": -0.9969195268923304,
+          "lag_samples": 112,
+          "latency_ms": 2.3333333333333335
+        },
+        {
+          "abs_correlation": 0.9883933329205403,
+          "correlation": 0.9883933329205403,
+          "lag_samples": 128,
+          "latency_ms": 2.6666666666666665
+        },
+        {
+          "abs_correlation": 0.9851407923967236,
+          "correlation": 0.9851407923967236,
+          "lag_samples": 95,
+          "latency_ms": 1.9791666666666667
+        },
+        {
+          "abs_correlation": 0.9839191171130143,
+          "correlation": 0.9839191171130143,
+          "lag_samples": 97,
+          "latency_ms": 2.0208333333333335
+        }
+      ],
+      "correlation": 0.9999995249577708,
+      "detected": true,
+      "dominance": null,
+      "lag_samples": 96,
+      "method": "two-channel",
+      "reference": {
+        "detected": true,
+        "event_count": 1,
+        "quality": {
+          "clipped_samples": 0,
+          "dc_offset": 0.0006510469648573134,
+          "frames": 5760,
+          "nonfinite_samples": 0,
+          "peak": 0.6346435546875,
+          "peak_dbfs": -3.9494025239635224,
+          "rms": 0.029876743406358857,
+          "rms_dbfs": -30.493334855825218
+        },
+        "sample": 247,
+        "strength": 0.6346435546875,
+        "template_frames": 86,
+        "time_ms": 5.145833333333333
+      },
+      "sample": 343,
+      "time_ms": 7.145833333333333
+    },
+    "params": {
+      "ambiguity_sep_ms": 2.0,
+      "expected_channels": 2,
+      "expected_rate": 48000,
+      "loopback_channel": 0,
+      "method": "two-channel",
+      "min_correlation": 0.5,
+      "min_dominance": 1.05,
+      "onset_threshold_dbfs": -40.0,
+      "reference_channel": 1,
+      "reference_onset_ms": 0.0,
+      "reference_wav": null,
+      "search_end_ms": 250.0,
+      "search_start_ms": -10.0,
+      "silence_dbfs": -60.0,
+      "target_ms": 12.0,
+      "template_ms": 20.0
+    },
+    "physical_roundtrip_latency_ms": 2.0,
+    "quality": {
+      "clipped_samples": 0,
+      "dc_offset": 0.0004555013444688585,
+      "frames": 5760,
+      "nonfinite_samples": 0,
+      "peak": 0.444000244140625,
+      "peak_dbfs": -7.052335821631158,
+      "rms": 0.020913522717513757,
+      "rms_dbfs": -33.591456150991576
+    },
+    "reasons": [],
+    "target_met": true,
+    "target_ms": 12.0,
+    "valid": true,
+    "warnings": [],
+    "wav": {
+      "bits": 16,
+      "channels": 2,
+      "duration_s": 0.12,
+      "format_code": 1,
+      "frames": 5760,
+      "sample_rate": 48000
+    }
+  },
+  "condition": "asio_48k_128",
+  "generated_utc": "2026-10-08T13:08:05Z",
+  "identity": {
+    "build_kind": "synthetic",
+    "condition_spec": {
+      "backend": "asio",
+      "block": 128,
+      "kind": "latency",
+      "os": "windows",
+      "rate": 48000,
+      "target_ms": 12.0
+    },
+    "interface": {
+      "backend": "asio",
+      "block_frames": 128,
+      "driver": "Synthetic ASIO Driver",
+      "input_device": "Synthetic In",
+      "monitoring": "software-app",
+      "os": "windows",
+      "output_device": "Synthetic Out",
+      "reported_input_latency_ms": null,
+      "reported_output_latency_ms": null,
+      "sample_rate": 48000
+    },
+    "raw_reference_wav": null,
+    "raw_wav": {
+      "bytes": 23084,
+      "path": "raw/clean-two-channel.wav",
+      "role": "loopback",
+      "sha256": "89069be4025de165ad177a462b4df41eddd6170ad6a32439a16516aa31389603"
+    },
+    "source_sha": "0000000000000000000000000000000000000000"
+  },
+  "interface_id": "iface-asio",
+  "notes": [
+    "synthetic known 96-sample delay"
+  ],
+  "provenance": "recorded-loopback",
+  "schema": "device-validation/latency/1.0",
+  "session_id": "synthetic-selftest",
+  "synthetic": true
+}

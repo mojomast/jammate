@@ -1,0 +1,226 @@
+{
+  "callback": {
+    "analysis_overruns": {
+      "gating": true,
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 816,
+        "path": "raw/play-trace-receipt.json",
+        "role": "play-trial",
+        "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+      },
+      "value": 0
+    },
+    "deadline_misses": {
+      "gating": true,
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 816,
+        "path": "raw/play-trace-receipt.json",
+        "role": "play-trial",
+        "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+      },
+      "value": 0
+    },
+    "p50_ms": {
+      "gating": true,
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 816,
+        "path": "raw/play-trace-receipt.json",
+        "role": "play-trial",
+        "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+      },
+      "value": 0.8
+    },
+    "p99_ms": {
+      "gating": true,
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 816,
+        "path": "raw/play-trace-receipt.json",
+        "role": "play-trial",
+        "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+      },
+      "value": 1.2
+    },
+    "receipt": {
+      "bytes": 816,
+      "path": "raw/play-trace-receipt.json",
+      "role": "play-trial",
+      "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+    }
+  },
+  "condition": "clean_strumming",
+  "dropouts": {
+    "count": {
+      "gating": true,
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 816,
+        "path": "raw/play-trace-receipt.json",
+        "role": "play-trial",
+        "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+      },
+      "value": 0
+    },
+    "receipt": {
+      "bytes": 816,
+      "path": "raw/play-trace-receipt.json",
+      "role": "play-trial",
+      "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+    }
+  },
+  "generated_utc": "2026-10-08T13:08:05Z",
+  "identity": {
+    "build_kind": "synthetic",
+    "interface": {
+      "backend": "asio",
+      "block_frames": 128,
+      "driver": "Synthetic ASIO Driver",
+      "input_device": "Synthetic In",
+      "monitoring": "software-app",
+      "os": "windows",
+      "output_device": "Synthetic Out",
+      "sample_rate": 48000
+    },
+    "source_sha": "0000000000000000000000000000000000000000"
+  },
+  "interface_id": "iface-asio",
+  "judgements": {
+    "fills_musical_enough": "yes",
+    "join_sensible": "yes",
+    "overreacted": "no",
+    "provenance": "operator-report",
+    "push_pull_possible": "yes",
+    "recovered_tap_resync": "yes",
+    "stayed_stable": "yes"
+  },
+  "notes": [
+    "synthetic play trial"
+  ],
+  "operator": "synthetic",
+  "raw_files": [
+    {
+      "bytes": 816,
+      "path": "raw/play-trace-receipt.json",
+      "role": "play-trial",
+      "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+    },
+    {
+      "bytes": 816,
+      "path": "raw/play-trace-receipt.json",
+      "role": "play-trial",
+      "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+    },
+    {
+      "bytes": 816,
+      "path": "raw/play-trace-receipt.json",
+      "role": "play-trial",
+      "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+    },
+    {
+      "bytes": 816,
+      "path": "raw/play-trace-receipt.json",
+      "role": "play-trial",
+      "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+    }
+  ],
+  "schema": "device-validation/play-trial/1.0",
+  "session_id": "synthetic-selftest",
+  "settings": {
+    "complexity": 0.4,
+    "fill_amount": 0.3,
+    "follow_tightness": 0.5,
+    "intensity": 0.5,
+    "jam_mode": "follow",
+    "meter": "4/4",
+    "style": "Rock",
+    "tempo_bpm": 120.0
+  },
+  "synthetic": true,
+  "timing": {
+    "join_heard_s": {
+      "gating": true,
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 816,
+        "path": "raw/play-trace-receipt.json",
+        "role": "play-trial",
+        "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+      },
+      "value": 3.5
+    },
+    "receipt": {
+      "bytes": 816,
+      "path": "raw/play-trace-receipt.json",
+      "role": "play-trial",
+      "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+    },
+    "start_requested_s": {
+      "gating": true,
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 816,
+        "path": "raw/play-trace-receipt.json",
+        "role": "play-trial",
+        "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+      },
+      "value": 1.0
+    },
+    "stop_s": {
+      "gating": true,
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 816,
+        "path": "raw/play-trace-receipt.json",
+        "role": "play-trial",
+        "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+      },
+      "value": 12.0
+    }
+  },
+  "useful_lock": {
+    "provenance": "operator-report",
+    "receipt": {
+      "bytes": 816,
+      "path": "raw/play-trace-receipt.json",
+      "role": "play-trial",
+      "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+    },
+    "time_to_lock_s": {
+      "gating": true,
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 816,
+        "path": "raw/play-trace-receipt.json",
+        "role": "play-trial",
+        "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+      },
+      "value": 1.8
+    },
+    "verdict": "yes",
+    "window_bars": {
+      "gating": true,
+      "measured": true,
+      "provenance": "instrumented-raw",
+      "receipt": {
+        "bytes": 816,
+        "path": "raw/play-trace-receipt.json",
+        "role": "play-trial",
+        "sha256": "f23d209002a817e09265f5eb5ac3c8dcc92d0a37a99023faaffc4f90bf342994"
+      },
+      "value": 2
+    }
+  },
+  "warnings": []
+}

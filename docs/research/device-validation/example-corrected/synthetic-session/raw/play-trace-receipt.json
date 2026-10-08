@@ -1,0 +1,37 @@
+{
+  "generated_utc": "2026-10-08T13:08:05Z",
+  "interface": {
+    "backend": "asio",
+    "block_frames": 128,
+    "driver": "Synthetic ASIO Driver",
+    "input_device": "Synthetic In",
+    "monitoring": "software-app",
+    "os": "windows",
+    "output_device": "Synthetic Out",
+    "sample_rate": 48000
+  },
+  "interface_id": "iface-asio",
+  "kind": "play-trial",
+  "metrics": {
+    "callback": {
+      "analysis_overruns": 0,
+      "deadline_misses": 0,
+      "p50_ms": 0.8,
+      "p99_ms": 1.2
+    },
+    "dropouts": {
+      "count": 0
+    },
+    "timing": {
+      "join_heard_s": 3.5,
+      "start_requested_s": 1.0,
+      "stop_s": 12.0
+    },
+    "useful_lock": {
+      "time_to_lock_s": 1.8,
+      "window_bars": 2
+    }
+  },
+  "schema": "device-validation/receipt/1.0",
+  "session_id": "synthetic-selftest"
+}

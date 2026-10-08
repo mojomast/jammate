@@ -1,0 +1,19 @@
+{
+  "dev_snd_present": false,
+  "os": "linux",
+  "pipewire_socket": false,
+  "platform": "Linux-6.12.105+deb13-cloud-amd64-x86_64-with-glibc2.41",
+  "proc_asound_cards": null,
+  "programs": {
+    "aplay": null,
+    "arecord": null,
+    "ffmpeg": "/usr/bin/ffmpeg",
+    "ffplay": "/usr/bin/ffplay",
+    "jackd": null,
+    "pactl": null,
+    "pw-cli": null,
+    "pw-record": null,
+    "sox": null
+  },
+  "python": "3.13.5"
+}

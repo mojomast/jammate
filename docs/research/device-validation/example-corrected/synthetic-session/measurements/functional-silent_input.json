@@ -1,0 +1,32 @@
+{
+  "condition": "silent_input",
+  "detail": null,
+  "generated_utc": "2026-10-08T13:08:05Z",
+  "identity": {
+    "interface": {
+      "backend": "asio",
+      "block_frames": 128,
+      "driver": "Synthetic ASIO Driver",
+      "input_device": "Synthetic In",
+      "monitoring": "software-app",
+      "os": "windows",
+      "output_device": "Synthetic Out",
+      "sample_rate": 48000
+    },
+    "source_sha": "0000000000000000000000000000000000000000"
+  },
+  "interface_id": "iface-asio",
+  "measured": true,
+  "notes": [],
+  "outcome": "pass",
+  "provenance": "instrumented-raw",
+  "receipt": {
+    "bytes": 518,
+    "path": "raw/functional-silent_input-receipt.json",
+    "role": "functional",
+    "sha256": "6097fd048f5eaa9e8c4acf15cf939fa289401518abe1984bf8714bcfe3d0b6b3"
+  },
+  "schema": "device-validation/functional/1.0",
+  "session_id": "synthetic-selftest",
+  "synthetic": true
+}
