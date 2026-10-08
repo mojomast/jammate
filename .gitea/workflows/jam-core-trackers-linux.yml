@@ -190,6 +190,9 @@ jobs:
           if [ -f tools/tracker-diagnostics/tests/TraceReplayTests.cpp ]; then
             CORE_SUITES="$CORE_SUITES jam.TrackerDiagnostics"
           fi
+          if [ -f tools/tempo-variant/tests/TempoVariantTests.cpp ]; then
+            CORE_SUITES="$CORE_SUITES jam.TempoVariant jam.TempoVariantResearch"
+          fi
           if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
             CORE_SUITES="$CORE_SUITES jam.RhythmDerived"
           fi

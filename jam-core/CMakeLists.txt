@@ -181,6 +181,24 @@ if (JAM_CORE_BUILD_TESTS AND JAM_TEST_SOURCES)
                     "${JAM_DISCOVERED_SUITES_DISPLAY}")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
+    if (EXISTS "${JAM_ROOT}/tools/tempo-variant/tests/TempoVariantTests.cpp")
+        add_executable(jamTempoVariantTests
+            "${JAM_ROOT}/tools/tempo-variant/tests/TempoVariantTests.cpp"
+            "${JAM_ROOT}/tools/tempo-variant/TempoVariant.cpp"
+            "${JAM_ROOT}/tools/tempo-variant/ClickTrain.cpp"
+            "${JAM_ROOT}/tools/tempo-variant/MethodLog.cpp")
+        target_compile_features(jamTempoVariantTests PRIVATE cxx_std_17)
+        target_include_directories(jamTempoVariantTests PRIVATE
+            "${JAM_ROOT}/tools/tempo-variant"
+            "${JAM_ROOT}/tools/rhythm-eval")
+        target_link_libraries(jamTempoVariantTests PRIVATE jam-core)
+        add_test(NAME jam.TempoVariant COMMAND jamTempoVariantTests)
+        if (Python3_Interpreter_FOUND)
+            add_test(NAME jam.TempoVariantResearch COMMAND "${Python3_EXECUTABLE}"
+                -B -m unittest discover
+                -s "${JAM_ROOT}/tools/tempo-variant/tests" -p "test_*.py")
+        endif()
+    endif()
     if (EXISTS "${JAM_ROOT}/tools/tracker-diagnostics/tests/TraceReplayTests.cpp")
         add_executable(jamTrackerDiagnosticsTests
             "${JAM_ROOT}/tools/tracker-diagnostics/tests/TraceReplayTests.cpp"

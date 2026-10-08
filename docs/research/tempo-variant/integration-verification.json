@@ -1,0 +1,89 @@
+{
+  "causalStepAndSweepsExactlyReproduced": true,
+  "cliFailureChecks": 22,
+  "cppChecks": 67,
+  "hashes": {
+    "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so": "920a30f9bb2c81b8ed743f817beb5dc51e9f90070de5ca0788a46ff1223a6717",
+    "/home/mojo/projects/build-TRACK-005-integration/tempo-variant-click": "d1c3592bb612cb1ff5c3be3389302ba977a329d00f10eed91c1992aa1b87aee1",
+    "/home/mojo/projects/build-TRACK-005-integration/tempo-variant-metrics": "7f3e653540dad43740b69cc70c92edec22a876530d4bc39e97331ee0d88ac7e6",
+    "tools/tempo-variant/ClickTrain.cpp": "5c04047401e8d458bff6b58f3dee01d1715347cb18cfa1d91ed64b01c8cfd54b",
+    "tools/tempo-variant/ClickTrain.h": "d5a594302f70d4d36e40ab0307bd04cb982e8b572e5bec68583292682085febf",
+    "tools/tempo-variant/FixtureMetricsDump.cpp": "79c73ece01cc1e008081808c7cabf86f2e0276529089b7c0da4be7a3a73d732f",
+    "tools/tempo-variant/MethodLog.cpp": "7ac91b6a33324fef30e97881feb8a53eef7246f65ad534e9c5e7cf692e66d3f6",
+    "tools/tempo-variant/MethodLog.h": "017a39440dc05e53dcac0c2bf2c44bd66125161e24b7c16d6a2bb81bc0f2247e",
+    "tools/tempo-variant/TempoVariant.cpp": "363619d39033861e2fe7c4635c5d1c9caa28d73d60697ab3a84d43d03495c404",
+    "tools/tempo-variant/TempoVariant.h": "f683a8d0adcffe9508bd2bd76ec0471868460bb28a7215fa248e29d6b18078d0",
+    "tools/tempo-variant/TempoVariantPlugin.cpp": "536532c469272323cfc362043886ff00f7121cbe56861483b6f79724224b60fe",
+    "tools/tempo-variant/build.sh": "2926e344ccc52672f96b96b1d8a52be8b327ad984b0219535b863e03548dc5d8",
+    "tools/tempo-variant/check_failclosed.sh": "305dd36b8a8d49cce2bc9430203cfe84eb3f7195d1feb0e58fd0a40879a05c11",
+    "tools/tempo-variant/click_lag.py": "2902aca2aa0dd4607815abad166b2ae6952293592531105b34861cfdb9906db1",
+    "tools/tempo-variant/compare_runs.py": "c58408374645fefe5ddecc80e83fd5209a5e2268ebfe2e904757d3ea6ef036d8",
+    "tools/tempo-variant/extract_method_history.py": "8ac3c22f5a5a900cbcedfc41bd6ca8544e5341a889f73a5d96561df3909c565f",
+    "tools/tempo-variant/main.cpp": "600dd9d45e93ea90a7bd61fbe43c80e28028ccda885858b7fcf8928db4799a94",
+    "tools/tempo-variant/run-corpus.sh": "b3df47b0433e9d7ffc0c5c7464b4cc18fc09ebe8fcaa8d564e6e789f69acc6b8",
+    "tools/tempo-variant/verify_hashes.py": "9b5856469b859e16456cd9fc3facb2844756bc1ff9cc71b8d1c5ca08d3a77ed2"
+  },
+  "mismatched512MetricsRejected": true,
+  "new512MetricPins": {
+    "base-original-block512.json": {
+      "producerSha256": "0d87dfd15b5d24735aa10f834710c5b2aa1550e791e390782281211f70454bec",
+      "sha256": "c4cf26940ecd84666c0f260413b4db6218403f4067fe3b5a7d44e764da686857"
+    },
+    "var-original-block512.json": {
+      "producerSha256": "0d87dfd15b5d24735aa10f834710c5b2aa1550e791e390782281211f70454bec",
+      "sha256": "866e6b1df3fe8e433199dfb86f50af1aa3331e65030f8de1efe4d19166f68944"
+    }
+  },
+  "pythonTests": 8,
+  "runs": [
+    {
+      "acquisitionWithinTwoBars": 4,
+      "allFixtureDiagnosticRowsReproduced": true,
+      "block": 128,
+      "corpus": "original",
+      "kind": "baseline",
+      "replayJsonReproduced": true
+    },
+    {
+      "acquisitionWithinTwoBars": 6,
+      "allFixtureDiagnosticRowsReproduced": true,
+      "block": 128,
+      "corpus": "original",
+      "kind": "variant",
+      "replayJsonReproduced": true
+    },
+    {
+      "acquisitionWithinTwoBars": 5,
+      "allFixtureDiagnosticRowsReproduced": true,
+      "block": 128,
+      "corpus": "repaired",
+      "kind": "baseline",
+      "replayJsonReproduced": true
+    },
+    {
+      "acquisitionWithinTwoBars": 7,
+      "allFixtureDiagnosticRowsReproduced": true,
+      "block": 128,
+      "corpus": "repaired",
+      "kind": "variant",
+      "replayJsonReproduced": true
+    },
+    {
+      "acquisitionWithinTwoBars": 4,
+      "allFixtureDiagnosticRowsReproduced": true,
+      "block": 512,
+      "corpus": "original",
+      "kind": "baseline",
+      "replayJsonReproduced": true
+    },
+    {
+      "acquisitionWithinTwoBars": 8,
+      "allFixtureDiagnosticRowsReproduced": true,
+      "block": 512,
+      "corpus": "original",
+      "kind": "variant",
+      "replayJsonReproduced": true
+    }
+  ],
+  "workerSha": "7b3a4d7"
+}

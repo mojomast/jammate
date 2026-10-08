@@ -1470,10 +1470,10 @@ Keep this near the top of the live devplan during implementation.
 | TRACK-004 | DONE (scoped causal acquisition/BPM diagnosis) | main | 98da13f + integration corrections | G3 |
 | RT-002 | DONE (bounded callback/timer evidence) | main | 6e89b1c + integration fixes | G1 |
 | EVAL-007 | DONE (version-aware silence coverage) | main | 514c154 + CSV citation corrections | G3 |
-| TRACK-005 | review corrections running (causal BPM-report diagnostic) | wp/TRACK-005-tempo-variant | initial 55827de, not merged | G3 |
-| RT-003 | RUNNING (measured LSTM allocation repair) | wp/RT-003-nam-lstm | base af8b77a | G1 |
+| TRACK-005 | DONE (diagnostic-only causal BPM-report variant) | main | 7b3a4d7 + framing corrections | G3 |
+| RT-003 | review corrections running (measured LSTM repair) | wp/RT-003-nam-lstm | initial c96134b, not merged | G1 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
-| ANALYSIS-001 | RUNNING lifecycle subset (D6); full task BLOCKED:G3 | wp/ANALYSIS-001-worker | base af8b77a | G4 |
+| ANALYSIS-001 | lifecycle subset RETURNED FOR REVIEW (D6); full task BLOCKED:G3 | wp/ANALYSIS-001-worker | 20a015a, not merged | G4 |
 | DIAG-001 | BLOCKED:G3 | | | G4 |
 | STYLE-001 | BLOCKED:G4 | | | G5 |
 | DIRECTOR-001 | BLOCKED:G4 | | | G5 |

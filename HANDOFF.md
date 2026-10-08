@@ -61,12 +61,17 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
   restoration at 30.5 ms is distinguished from the ~257 ms no-audio fallback.
   All 15 CLI/output checks and pipeline/source-pin failure injections pass.
   See `docs/research/PROCESSOR-RUNTIME-PROBE.md`; G1 remains partial.
+- TRACK-005 diagnostic variant (`7b3a4d7`) integrated with framing corrections:
+  all six runs, both click sweeps/step sidecars exactly reproduced; beat series
+  unchanged. Original/repaired128 acquisition6/11 and7/11, original5128/11,
+  worst core BPMerror0.77%; sparse-train regression retained. No tracker selected.
+  See `docs/research/TEMPO-REPORT-VARIANT.md`.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
-  pass **16/16**, including acquisition replay, silence coverage, derived/sustain Python acoustic
+  pass **18/18**, including acquisition/tempo diagnostics, silence coverage, derived/sustain Python acoustic
   checks, robustness aggregation and BeatNet research-tool contracts.
-  Default-OFF passes **14/14**.
+  Default-OFF passes **16/16**.
   Tests-OFF registers zero tests.
 - Drum MIDI prepare-time reservation now uses a scheduling bound. Old 256-byte
   storage grows to **2115 bytes** in the test; bounded storage shows zero observed
@@ -93,9 +98,9 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | TRACK-004 integrated acquisition/BPM diagnosis (worker finished) | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
 | RT-002 integrated processor runtime probe (worker finished) | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
 | EVAL-007 integrated silence coverage (worker finished) | `wp/EVAL-007-silence-coverage`, `../worktrees/EVAL-007-silence-coverage` | `ses_ee7215f59ffeWQ6ZWQvH5z229z` |
-| TRACK-005 causal BPM-report variant (review corrections) | `wp/TRACK-005-tempo-variant`, `../worktrees/TRACK-005-tempo-variant` | `ses_ee71ab2f2ffeNbYXo23DrPP7Da` |
-| RT-003 LSTM allocation repair | `wp/RT-003-nam-lstm`, `../worktrees/RT-003-nam-lstm` | `ses_ee70c33feffeq8pD9Eid5zfHob` |
-| ANALYSIS-001 injected lifecycle subset | `wp/ANALYSIS-001-worker`, `../worktrees/ANALYSIS-001-worker` | `ses_ee70baf44ffeg2zw0hfVyeQjc1` |
+| TRACK-005 integrated diagnostic variant (worker finished) | `wp/TRACK-005-tempo-variant`, `../worktrees/TRACK-005-tempo-variant` | `ses_ee71ab2f2ffeNbYXo23DrPP7Da` |
+| RT-003 LSTM repair (review corrections) | `wp/RT-003-nam-lstm`, `../worktrees/RT-003-nam-lstm` | `ses_ee70c33feffeq8pD9Eid5zfHob` |
+| ANALYSIS-001 injected lifecycle subset (returned for review) | `wp/ANALYSIS-001-worker`, `../worktrees/ANALYSIS-001-worker` | `ses_ee70baf44ffeg2zw0hfVyeQjc1` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
 tree and SHA. Review/merge returned work rather than rerunning a worker's topic
@@ -183,6 +188,15 @@ Latest integrations: EVAL-007 `90e1839`, RT-002 `af8b77a`. Three Flash lanes now
   preserve beat events and causal availability. Full task remains partial;
   application wiring is not authorised. Shared CMake/CI registration is reserved
   for integration review.
+
+Updates to the above: TRACK-005 corrected `7b3a4d7` is integrated with separately
+measured512 full metrics and a framing mismatch guard. Core18/18 enabled16/16
+OFF passes; no production selection. RT-003 initial `c96134b` returns a minimal
+Eigen temporary/view repair and actual processor zeros; same worker is correcting
+non-finite differential acceptance, production patch-file verification and
+reconfigure/copied-source refresh before integration. ANALYSIS-001 `20a015a`
+returned tracker-neutral worker code/tests/benchmark; review is pending and the
+broader task remains partial until selected-backend/processor wiring.
 
 ### Remaining gate work
 

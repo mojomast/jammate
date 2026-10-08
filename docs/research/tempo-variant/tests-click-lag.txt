@@ -1,0 +1,11 @@
+test_base_uses_availability_without_readiness (__main__.ClickLagTests.test_base_uses_availability_without_readiness) ... ok
+test_constant_train_has_no_anchor (__main__.ClickLagTests.test_constant_train_has_no_anchor) ... ok
+test_lag_from_anchor_and_beats (__main__.ClickLagTests.test_lag_from_anchor_and_beats) ... ok
+test_out_of_band_later_does_not_change_first_hit (__main__.ClickLagTests.test_out_of_band_later_does_not_change_first_hit) ... ok
+test_primary_uses_availability_and_requires_ready (__main__.ClickLagTests.test_primary_uses_availability_and_requires_ready) ... ok
+test_readiness_false_fallback_not_counted (__main__.ClickLagTests.test_readiness_false_fallback_not_counted) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.000s
+
+OK

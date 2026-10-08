@@ -21,7 +21,7 @@ task note + commit SHA + successful integration.
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **16/16 suites**; default-OFF **14/14** | deterministic seams, acquisition replay, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
+| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **18/18 suites**; default-OFF **16/16** | deterministic seams, acquisition/tempo diagnostics, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
 | **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **5/5 passed**; **Standalone and VST3 built** | Windows/ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
@@ -126,6 +126,15 @@ PARTIAL, never PASSED.
   controls distinguishing the ~257 ms fallback. All 15 CLI/output checks,
   failing-tee/source-pin injections and artifact hashes verified. This is bounded
   non-device evidence; model-specific callback allocation is an open G1 blocker.
+- TRACK-005 integration: corrected worker `7b3a4d7` accepted; 67 C++ checks,
+  8 Python tests and 22 CLI failure checks pass. All six diagnostic runs and both
+  click sweeps/step sidecars independently reproduced; beat series unchanged.
+  Added actual 512-frame metric records and a framing-mismatch rejection guard.
+  All 38 input entries verified; current scorer agrees except coverage/timing.
+  Variant acquisition original128=6/11, repaired128=7/11, original512=8/11;
+  worst core BPM error 0.77%. Sparse original sustain low-tempo/acceleration
+  proxy regression retained; no default or gate change, G3 open. Enabled core
+  18/18, default-OFF16/16, 19 workflow shell bodies valid.
 
 ### Returned handoffs under integration review (2026-10-07)
 
@@ -217,9 +226,9 @@ and reports instead.
 | TRACK-004 acquisition/BPM diagnosis | **DONE: scoped causal diagnosis** | `wp/TRACK-004-acquisition`, `98da13f` → main + integration corrections | B — evidence, Flash | G3 | 63 replay checks; all four real-backend trace runs exactly reproduced; numerical vs invalid-phase clauses separated; lag-selection cause unresolved |
 | RT-002 real processor runtime probe | **DONE: bounded runtime evidence** | `wp/RT-002-processor-probe`, `6e89b1c` → main + integration fixes | A — runtime evidence, Flash | G1 | 26 cases independently reproduced; example LSTM callback allocations measured; scene Timer/fallback differential; full G1 remains partial |
 | EVAL-007 version-aware silence coverage | **DONE: scoped coverage correction** | `wp/EVAL-007-silence-coverage`, `514c154` → main + CSV citation corrections | C — evidence, Flash | G3 | exact known-defect hash; repaired/tapping assessed; structural noise unassessed; six reruns preserve non-coverage scores; all 62 input entries verified |
-| TRACK-005 causal BPM-report variant | REVIEW CORRECTIONS RUNNING | `wp/TRACK-005-tempo-variant`, initial `55827de`, base `bf61598` | B — evidence, Flash | G3 | observed acquisition/BPM gains and sparse regression; fix step availability-vs-event timing, strict CLI bounds, missing values and claims before integration |
-| RT-003 LSTM callback allocation repair | RUNNING | `wp/RT-003-nam-lstm`, base `af8b77a` | A — runtime repair, Flash | G1 | tracked fail-closed build overlay with pristine submodule; minimal LSTM temporary removal; multilayer/multichannel numerical differential and actual processor probe required |
-| ANALYSIS-001 injected worker lifecycle subset | RUNNING (D6) | `wp/ANALYSIS-001-worker`, base `af8b77a` | C — core implementation, Flash | G4 | injected backend, bounded observation queue preserving events/causal availability, lifecycle/continuity tests and throughput benchmark; no processor wiring or selection |
+| TRACK-005 causal BPM-report variant | **DONE: diagnostic-only variant evidence** | `wp/TRACK-005-tempo-variant`, `7b3a4d7` → main + framing corrections | B — evidence, Flash | G3 | causal readiness-gated step evidence; six runs reproduced; gains and sparse regression retained; no production/default change |
+| RT-003 LSTM callback allocation repair | REVIEW CORRECTIONS RUNNING | `wp/RT-003-nam-lstm`, initial `c96134b`, base `af8b77a` | A — runtime repair, Flash | G1 | measured allocation removal promising; fix non-finite comparator acceptance, patch-file verification, repeated reconfiguration and copied-source refresh before integration |
+| ANALYSIS-001 injected worker lifecycle subset | RETURNED FOR REVIEW (D6) | `wp/ANALYSIS-001-worker`, `20a015a`, base `af8b77a` | C — core implementation, Flash | G4 | injected worker, bounded event/availability publication and tests/benchmark returned; lifecycle/rate/discontinuity contracts require review; no processor wiring or selection |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |

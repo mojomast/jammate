@@ -261,6 +261,9 @@ jobs:
           if [ -f tools/tracker-diagnostics/tests/TraceReplayTests.cpp ]; then
             expected="$expected jam.TrackerDiagnostics"
           fi
+          if [ -f tools/tempo-variant/tests/TempoVariantTests.cpp ]; then
+            expected="$expected jam.TempoVariant jam.TempoVariantResearch"
+          fi
           if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
             expected="$expected jam.RhythmDerived"
           fi
