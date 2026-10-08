@@ -205,6 +205,14 @@ default fields, plus the injected scenario ran unpaced and never joined. Worker
 capture/pacing/lifecycle-proof corrections are active before a new measured run.
 Original raw results are not re-scored or rewritten.
 
+Replay worker `35cd3f8` addresses actual001's snapshot/pacing failures with a
+bounded prepared baseline, retention on unsuccessful latest-value reads, paced
+injected first/second joins, actual engine stop and session-generation/released
+payload checks. Orchestrator review accepts those fixes; the resync proof is
+being tightened to require a rendered downbeat-phase change while already
+playing rather than a generic new step after restarting. Actual002 remains
+pending; no additional measurement has run.
+
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The
 default BTrack adapter is experimental. Synthetic processor replay verifies

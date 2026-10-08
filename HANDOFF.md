@@ -174,6 +174,12 @@ fires59 steps. End-state capture ignores false LatestValue reads (108 failures),
 and the unpaced injected scenario did not join. Worker is correcting snapshot
 retention and paced lifecycle proof; repeat in a new directory after acceptance.
 
+`35cd3f8` fixes snapshot retention and paced lifecycle sampling (113 validator
+units/link self-checks reported). Orchestrator review accepts those changes,
+but resync proof must observe a phase correction while already playing; a new
+step after restarting is insufficient. Worker refinement is active. Actual002
+is pending and actual001's raw/verdict are untouched.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.
