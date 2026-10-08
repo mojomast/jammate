@@ -93,7 +93,9 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | TRACK-004 integrated acquisition/BPM diagnosis (worker finished) | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
 | RT-002 integrated processor runtime probe (worker finished) | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
 | EVAL-007 integrated silence coverage (worker finished) | `wp/EVAL-007-silence-coverage`, `../worktrees/EVAL-007-silence-coverage` | `ses_ee7215f59ffeWQ6ZWQvH5z229z` |
-| TRACK-005 causal BPM-report diagnostic variant | `wp/TRACK-005-tempo-variant`, `../worktrees/TRACK-005-tempo-variant` | `ses_ee71ab2f2ffeNbYXo23DrPP7Da` |
+| TRACK-005 causal BPM-report variant (review corrections) | `wp/TRACK-005-tempo-variant`, `../worktrees/TRACK-005-tempo-variant` | `ses_ee71ab2f2ffeNbYXo23DrPP7Da` |
+| RT-003 LSTM allocation repair | `wp/RT-003-nam-lstm`, `../worktrees/RT-003-nam-lstm` | `ses_ee70c33feffeq8pD9Eid5zfHob` |
+| ANALYSIS-001 injected lifecycle subset | `wp/ANALYSIS-001-worker`, `../worktrees/ANALYSIS-001-worker` | `ses_ee70baf44ffeg2zw0hfVyeQjc1` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
 tree and SHA. Review/merge returned work rather than rerunning a worker's topic
@@ -162,6 +164,25 @@ allocations remain an open callback blocker; no whole-callback safety or device
 gate pass is inferred. Worker raw artifacts retain their original pins, while
 `processor-probe/integration-verification.json` records main-source measurements.
 EVAL-007 has finished.
+
+Latest integrations: EVAL-007 `90e1839`, RT-002 `af8b77a`. Three Flash lanes now:
+
+- TRACK-005 initial `55827de` returned a median-of-four diagnostic variant with
+  unchanged beat series, acquisition/BPM gains and a sparse-train regression.
+  Review found `click_lag.py` labels event time as causal availability, click
+  step changes intervals after a scheduled onset rather than exactly at nominal
+  12 s, unvalidated CLI blocks permit a zero loop/oversized frame write, and some
+  missing metrics are exported as zero. Same worker corrects these and scopes
+  first-hit versus settling and wrapper allocation claims. Await revised SHA.
+- RT-003 owns a new tracked NAM patch/build overlay and **only** the top-level
+  NAM CMake section plus NAM dependency provenance. Submodule pins/bytes stay
+  pristine. Require independent multilayer/multichannel numerical comparison
+  and actual processor cold/warm probes before accepting the allocation repair.
+- ANALYSIS-001 owns new tracker-injected core worker files/tests/benchmark only.
+  D6 advances the lifecycle subset before selection; bounded publication must
+  preserve beat events and causal availability. Full task remains partial;
+  application wiring is not authorised. Shared CMake/CI registration is reserved
+  for integration review.
 
 ### Remaining gate work
 

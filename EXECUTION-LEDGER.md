@@ -61,7 +61,12 @@ PARTIAL, never PASSED.
    development packages and existing runtime libraries can supply a user prefix.
    ADR-0003's assertion that this necessarily requires root was too strong.
    `/tmp` is a full tmpfs, distinct from `/home`; plugin build and compiler
-   scratch use `/home/mojo/projects/guitars-build-resume/`.
+    scratch use `/home/mojo/projects/guitars-build-resume/`.
+6. **D6 — ANALYSIS-001 lifecycle subset starts before G3.** The worker accepts an
+   injected `IRhythmTracker`; lifecycle, bounded publication, discontinuities and
+   shutdown can be verified without selecting a production backend. No processor
+   wiring is authorised. Full ANALYSIS-001 stays partial until selected-backend
+   wiring and live integration are measured.
 
 ---
 
@@ -212,7 +217,9 @@ and reports instead.
 | TRACK-004 acquisition/BPM diagnosis | **DONE: scoped causal diagnosis** | `wp/TRACK-004-acquisition`, `98da13f` → main + integration corrections | B — evidence, Flash | G3 | 63 replay checks; all four real-backend trace runs exactly reproduced; numerical vs invalid-phase clauses separated; lag-selection cause unresolved |
 | RT-002 real processor runtime probe | **DONE: bounded runtime evidence** | `wp/RT-002-processor-probe`, `6e89b1c` → main + integration fixes | A — runtime evidence, Flash | G1 | 26 cases independently reproduced; example LSTM callback allocations measured; scene Timer/fallback differential; full G1 remains partial |
 | EVAL-007 version-aware silence coverage | **DONE: scoped coverage correction** | `wp/EVAL-007-silence-coverage`, `514c154` → main + CSV citation corrections | C — evidence, Flash | G3 | exact known-defect hash; repaired/tapping assessed; structural noise unassessed; six reruns preserve non-coverage scores; all 62 input entries verified |
-| TRACK-005 causal BPM-report variant | RUNNING | `wp/TRACK-005-tempo-variant`, base `bf61598` | B — evidence, Flash | G3 | diagnostic-only beat-interval report with predeclared bounded method; exact beat-series comparison, startup/gap/ramp and causal-confirmation evidence; no default adapter change |
+| TRACK-005 causal BPM-report variant | REVIEW CORRECTIONS RUNNING | `wp/TRACK-005-tempo-variant`, initial `55827de`, base `bf61598` | B — evidence, Flash | G3 | observed acquisition/BPM gains and sparse regression; fix step availability-vs-event timing, strict CLI bounds, missing values and claims before integration |
+| RT-003 LSTM callback allocation repair | RUNNING | `wp/RT-003-nam-lstm`, base `af8b77a` | A — runtime repair, Flash | G1 | tracked fail-closed build overlay with pristine submodule; minimal LSTM temporary removal; multilayer/multichannel numerical differential and actual processor probe required |
+| ANALYSIS-001 injected worker lifecycle subset | RUNNING (D6) | `wp/ANALYSIS-001-worker`, base `af8b77a` | C — core implementation, Flash | G4 | injected backend, bounded observation queue preserving events/causal availability, lifecycle/continuity tests and throughput benchmark; no processor wiring or selection |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | BLOCKED:plugin lane | | C | G1 | cannot run here |
