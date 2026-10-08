@@ -54,6 +54,7 @@
 #include "DrumClockBridge.h"
 #include "IRhythmTracker.h"
 #include "JamJoinPolicy.h"
+#include "JamDirector.h"
 #include "JamLiveInterface.h"
 #include "MusicalClock.h"
 #include "RhythmAnalyzer.h"
@@ -108,6 +109,10 @@ struct LiveJamSessionConfig
     ClockConfig clock {};
     DrumClockBridgeConfig bridge {};
     JamJoinPolicyConfig policy {};
+    DirectorConfig director {};
+    // RMS feature normalization for musical energy, not a clock threshold.
+    float energyFloorDbfs = -55.0f;
+    float energyCeilingDbfs = -6.0f;
 
     /** An observation older than this (in samples) is fail-closed: it is
         dropped and counted rather than applied late to a moved-on clock. */
@@ -221,6 +226,7 @@ private:
     void processObservation (const ObservationEnvelope& envelope,
                              std::uint64_t cursor) noexcept;
     void syncBridgePhaseToClock (std::uint64_t cursor) noexcept;
+    void updatePerformance (std::uint64_t cursor, bool discontinuity) noexcept;
     void publishState (std::uint64_t cursor) noexcept;
     void publishColdState (bool prepared) noexcept;
     void resetSessionStats() noexcept;
@@ -238,6 +244,8 @@ private:
     // callback continues to publish mono audio, never musical decisions.
     RhythmObservation lastFeatures_ {};
     std::uint64_t adaptiveChangeTarget_ = 0;
+    std::uint64_t lastPerformanceCursor_ = 0, lastOnsetSample_ = 0;
+    bool havePerformanceCursor_ = false, haveOnsetSample_ = false;
     AnalysisAudioRing ring_;
     std::unique_ptr<IRhythmTracker> pendingTracker_;
     JamLiveBackend pendingBackend_ = JamLiveBackend::unavailable;
@@ -245,6 +253,7 @@ private:
     MusicalClock clock_;
     DrumClockBridge bridge_;
     JamJoinPolicy policy_;
+    JamDirector director_;
 
     rt::CommandQueue<QueuedCommand, kJamLiveCommandCapacity> commands_;
     rt::CommandQueue<ObservationEnvelope, kJamLiveInjectedObservationCapacity>

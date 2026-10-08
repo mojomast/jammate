@@ -14,6 +14,104 @@ struct QuietTracker final : jam::IRhythmTracker
 };
 }
 
+JAM_TEST (AdaptiveLiveSession, selectedStyleJoinsAndFillWaitsForActualPlayback)
+{
+    jam::LiveJamSession session;
+    REQUIRE (session.setTracker (std::make_unique<QuietTracker>(), jam::JamLiveBackend::injectedTest));
+    REQUIRE (session.prepare (48000.0, 512, false));
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::SetStyle, 3.0 }));
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::SetFillAmount, 0.0 }));
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::Start, 0.0 }));
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::TapTempo, 0.0 }));
+    session.stepControlForTesting();
+    session.publishAudioCursor (24000);
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::TapTempo, 0.0 }));
+    session.stepControlForTesting();
+    jam::DrumClockCommand command;
+    std::uint64_t joinSample = 0;
+    bool join = false, prematureChange = false;
+    while (session.drumCommandQueue().pop (command))
+    {
+        if (command.type == jam::DrumClockCommandType::JoinAtBar)
+        {
+            join = true;
+            joinSample = command.sampleTime;
+            CHECK (command.groove == jam::StyleCatalog::style (jam::StyleId::Funk)
+                                    .grooves[static_cast<int> (jam::GrooveTier::Medium)][0].index);
+        }
+        prematureChange = prematureChange || command.type == jam::DrumClockCommandType::BarChange;
+    }
+    REQUIRE (join);
+    CHECK (! prematureChange);
+    jam::ObservationEnvelope evidence;
+    evidence.observation.inputSampleTime = joinSample;
+    evidence.observation.sourceSampleRate = evidence.sourceSampleRate = 48000.0;
+    evidence.observation.bpmCandidate = 120.0f;
+    evidence.observation.beatConfidence01 = 0.99f;
+    evidence.observation.energyRmsDbfs = -20.0f;
+    evidence.inputHorizonSampleTime = joinSample;
+    evidence.blockStartSampleTime = joinSample;
+    evidence.streamGeneration = 1;
+    for (std::uint64_t cursor = 48000; cursor < joinSample; cursor += 24000)
+    {
+        session.publishAudioCursor (cursor);
+        evidence.observation.inputSampleTime = evidence.inputHorizonSampleTime
+            = evidence.blockStartSampleTime = cursor;
+        session.injectObservationForTesting (evidence);
+        session.stepControlForTesting();
+    }
+    session.publishAudioCursor (joinSample);
+    evidence.observation.inputSampleTime = evidence.inputHorizonSampleTime
+        = evidence.blockStartSampleTime = joinSample;
+    session.injectObservationForTesting (evidence);
+    jam::DrumPlaybackEcho echo;
+    echo.sessionGeneration = session.currentGeneration();
+    echo.attached = echo.injectedActive = echo.injectedPlaying = true;
+    echo.samplePosition = joinSample;
+    echo.groove = jam::StyleCatalog::style (jam::StyleId::Funk)
+                  .grooves[static_cast<int> (jam::GrooveTier::Medium)][0].index;
+    session.publishDrumEcho (echo);
+    session.stepControlForTesting();
+    while (session.drumCommandQueue().pop (command)) {}
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::RequestFill, 0.0 }));
+    session.publishAudioCursor (joinSample + 512);
+    evidence.observation.inputSampleTime = evidence.inputHorizonSampleTime
+        = evidence.blockStartSampleTime = joinSample + 512;
+    session.injectObservationForTesting (evidence);
+    session.stepControlForTesting();
+    bool fill = false;
+    while (session.drumCommandQueue().pop (command))
+    {
+        if (command.type == jam::DrumClockCommandType::BarChange && command.fill >= 0)
+        {
+            fill = true;
+            CHECK (command.sampleTime > joinSample + 512);
+        }
+    }
+    REQUIRE (fill);
+    jam::JamLiveState state;
+    REQUIRE (session.readState (state));
+    CHECK (state.adaptiveChangePending);
+    CHECK (! state.fillPlaying); // command publication is not audio playback
+    echo.fillPlaying = true;
+    echo.samplePosition = session.audioCursor();
+    session.publishDrumEcho (echo);
+    session.stepControlForTesting();
+    REQUIRE (session.readState (state));
+    CHECK (state.fillPlaying);
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::Stop, 0.0 }));
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::RequestFill, 0.0 }));
+    session.publishAudioCursor (joinSample + 1024);
+    session.stepControlForTesting();
+    bool clear = false;
+    while (session.drumCommandQueue().pop (command))
+    {
+        clear = clear || command.type == jam::DrumClockCommandType::Clear;
+        CHECK (command.type != jam::DrumClockCommandType::BarChange);
+    }
+    CHECK (clear);
+}
+
 JAM_TEST (AdaptiveLiveSession, malformedControlsCannotConsumeBoundedQueue)
 {
     jam::LiveJamSession session;

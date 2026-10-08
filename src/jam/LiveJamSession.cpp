@@ -36,7 +36,8 @@ LiveJamSession::LiveJamSession (const LiveJamSessionConfig& config)
       ring_ (config.audioRingCapacity),
       clock_ (config.clock),
       bridge_ (config.bridge),
-      policy_ (config.policy)
+      policy_ (config.policy),
+      director_ (config.director)
 {
 }
 
@@ -90,6 +91,11 @@ void LiveJamSession::publishColdState (bool prepared) noexcept
     state.requestedRunning = false;
     state.joinPending = false;
     state.drumsPlaying = false;
+    const auto settings = director_.settings();
+    state.styleIndex = static_cast<int> (settings.style);
+    state.intensity01 = settings.intensity01;
+    state.complexity01 = settings.complexity01;
+    state.fillAmount01 = settings.fillAmount01;
     state_.publish (state);
 }
 
@@ -111,8 +117,11 @@ bool LiveJamSession::prepare (double sampleRate, int maximumBlockSize,
     bridge_.prepare (sampleRate, maximumBlockSize);
     clock_.reset();
     policy_.reset();
+    director_.reset (director_.settings());
     lastFeatures_ = RhythmObservation {};
     adaptiveChangeTarget_ = 0;
+    havePerformanceCursor_ = haveOnsetSample_ = false;
+    lastPerformanceCursor_ = lastOnsetSample_ = 0;
 
     haveClockAnchor_ = false;
     clockSampleTime_ = 0;
@@ -363,16 +372,21 @@ void LiveJamSession::applyCommand (const JamLiveCommand& command,
             if (failure_ == JamLiveFailure::unavailableBackend)
                 failure_ = JamLiveFailure::none;
             policy_.notifyStart();
+            director_.notifySessionStarted();
             break;
 
         case JamLiveCommandType::Stop:
             // Bounded stop at the next serviced audio block; cancels any queued
             // join and releases injected mode so manual transport works again.
             policy_.notifyStop (JamStopKind::now);
+            director_.notifyStopRequested();
+            adaptiveChangeTarget_ = 0;
             break;
 
         case JamLiveCommandType::StopAtNextBar:
             policy_.notifyStop (JamStopKind::nextBar);
+            director_.notifyStopRequested();
+            adaptiveChangeTarget_ = 0;
             break;
 
         case JamLiveCommandType::TapTempo:
@@ -424,8 +438,97 @@ void LiveJamSession::applyCommand (const JamLiveCommand& command,
             haveClockAnchor_ = false;
             clockSampleTime_ = 0;
             policy_.notifyReset();
+            director_.reset (director_.settings());
+            adaptiveChangeTarget_ = 0;
             discontinuitySeen_ = true;
             break;
+
+        case JamLiveCommandType::SetStyle:
+        case JamLiveCommandType::SetIntensity:
+        case JamLiveCommandType::SetComplexity:
+        case JamLiveCommandType::SetFillAmount:
+        {
+            auto settings = director_.settings();
+            if (command.type == JamLiveCommandType::SetStyle)
+                settings.style = static_cast<StyleId> (static_cast<int> (command.value));
+            else if (command.type == JamLiveCommandType::SetIntensity)
+                settings.intensity01 = static_cast<float> (command.value);
+            else if (command.type == JamLiveCommandType::SetComplexity)
+                settings.complexity01 = static_cast<float> (command.value);
+            else
+                settings.fillAmount01 = static_cast<float> (command.value);
+            director_.setSettings (settings);
+            break;
+        }
+        case JamLiveCommandType::RequestFill:
+            if (policy_.requestedRunning() && ! policy_.stopPending())
+            {
+                auto settings = director_.settings();
+                settings.requestFill = true;
+                director_.setSettings (settings);
+                settings.requestFill = false;
+                director_.setSettings (settings);
+            }
+            break;
+    }
+}
+
+void LiveJamSession::updatePerformance (std::uint64_t cursor, bool discontinuity) noexcept
+{
+    const auto snapshot = clock_.snapshot();
+    const bool playing = lastEcho_.attached && lastEcho_.injectedActive && lastEcho_.injectedPlaying;
+    const bool allowed = policy_.requestedRunning() && ! policy_.stopPending();
+    // Re-arm after an actual stopped echo, including Start while a previously
+    // accepted Stop is still completing. The join policy remains the authority.
+    if (director_.state() == DirectorState::Stopping && ! playing && ! policy_.stopPending())
+        director_.notifyStopCompleted();
+    if (allowed)
+        director_.notifySessionStarted();
+    if (! allowed || discontinuity || snapshot.lockState == ClockLockState::Lost)
+    {
+        director_.cancelPending();
+        adaptiveChangeTarget_ = 0;
+    }
+    const bool advanced = ! havePerformanceCursor_ || cursor != lastPerformanceCursor_;
+    if (! advanced && cursor == 0)
+        return; // the portable director reserves zero as its test-only sentinel
+
+    DirectorInputs inputs;
+    inputs.sessionGeneration = sessionGeneration_;
+    inputs.audioCursor = cursor;
+    inputs.discontinuity = discontinuity;
+    inputs.clock = snapshot;
+    inputs.transport = bridge_.position();
+    inputs.transport.samplePosition = lastEcho_.samplePosition;
+    inputs.transport.playing = playing;
+    inputs.playbackEchoPlaying = playing;
+    inputs.lifecycleAllowsPerformance = allowed;
+    inputs.silence = lastFeatures_.silence || cursor < lastFeatures_.inputSampleTime
+                     || cursor - lastFeatures_.inputSampleTime > config_.maxObservationAgeSamples;
+    const float span = config_.energyCeilingDbfs - config_.energyFloorDbfs;
+    if (! inputs.silence && std::isfinite (lastFeatures_.energyRmsDbfs)
+        && std::isfinite (span) && span > 0.0f)
+        inputs.energy01 = std::clamp ((lastFeatures_.energyRmsDbfs - config_.energyFloorDbfs) / span, 0.0f, 1.0f);
+    inputs.onsetStrength01 = lastFeatures_.onsetStrength01;
+    inputs.transientDensity01 = lastFeatures_.transientDensity01;
+    // The feature sample identifies an onset once, rather than a repeated UI or
+    // worker tick inventing additional onset evidence.
+    inputs.onsetEvent = advanced && lastFeatures_.beatEvent
+                        && (! haveOnsetSample_ || lastOnsetSample_ != lastFeatures_.inputSampleTime);
+    const auto proposal = director_.update (inputs);
+    if (inputs.onsetEvent)
+    {
+        lastOnsetSample_ = lastFeatures_.inputSampleTime;
+        haveOnsetSample_ = true;
+    }
+    lastPerformanceCursor_ = cursor;
+    havePerformanceCursor_ = true;
+    if (proposal.hasBarChange && allowed && playing
+        && snapshot.lockState == ClockLockState::Locked && ! discontinuity)
+    {
+        const auto target = bridge_.nextBarBoundarySample();
+        if (director_.publishPending ([this] (const QueuedBarChange& c) { return bridge_.requestBarChange (c); }))
+            adaptiveChangeTarget_ = target;
     }
 }
 
@@ -483,13 +586,20 @@ void LiveJamSession::stepControl (std::uint64_t cursor) noexcept
     // 7. Minimal director: join / hold / stop. The bridge's accept/reject is
     //    reported back so a full queue is retried, never latched.
     const JamJoinDecision decision = policy_.update (clock_.snapshot(), discontinuitySeen_);
+    const bool performanceDiscontinuity = discontinuitySeen_;
     discontinuitySeen_ = false;
 
     switch (decision.action)
     {
         case JamJoinAction::joinAtNextBar:
-            policy_.notifyJoinAccepted (bridge_.requestJoinAtNextBar (config_.groove));
+        {
+            const auto style = director_.settings().style;
+            const auto& descriptor = StyleCatalog::style (style);
+            const auto initialGroove = style == StyleId::Rock ? config_.groove
+                : descriptor.grooves[static_cast<int> (GrooveTier::Medium)][0].index;
+            policy_.notifyJoinAccepted (bridge_.requestJoinAtNextBar (initialGroove));
             break;
+        }
         case JamJoinAction::stopNow:
             policy_.notifyStopAccepted (bridge_.requestStopNow());
             break;
@@ -504,6 +614,8 @@ void LiveJamSession::stepControl (std::uint64_t cursor) noexcept
     policy_.notifyPlaybackEcho (lastEcho_.attached
                                 && lastEcho_.injectedActive
                                 && lastEcho_.injectedPlaying);
+
+    updatePerformance (cursor, performanceDiscontinuity);
 
     // 9. One coherent state publication for the UI reader.
     publishState (cursor);
@@ -523,6 +635,17 @@ void LiveJamSession::publishState (std::uint64_t cursor) noexcept
     state.failure = failure_;
     state.clock = clock_.snapshot();
     state.mode = clock_.mode();
+    const auto performance = director_.report();
+    state.styleIndex = static_cast<int> (performance.settings.style);
+    state.intensity01 = performance.settings.intensity01;
+    state.complexity01 = performance.settings.complexity01;
+    state.fillAmount01 = performance.settings.fillAmount01;
+    state.performanceIntensity01 = performance.intensityEnvelope01;
+    state.activeGroove = lastEcho_.attached && lastEcho_.injectedActive
+                            ? lastEcho_.groove : kNoLibraryEntry;
+    state.fillPlaying = state.drumsPlaying && lastEcho_.fillPlaying;
+    state.adaptiveChangePending = adaptiveChangeTarget_ != 0
+                                 && lastEcho_.samplePosition < adaptiveChangeTarget_;
     state.candidateBpm = candidateBpm_;
 
     const float peak = inputPeak_.exchange (0.0f, std::memory_order_relaxed);

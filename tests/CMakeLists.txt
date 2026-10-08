@@ -15,6 +15,7 @@ target_sources(GuitarCompanionTests
         DrumMidiTests.cpp
         DrumFoundationTests.cpp
         DrumClockBridgeTests.cpp
+        DrumAdaptiveTests.cpp
         DrumHeapProbe.cpp
         JamLiveUiTests.cpp
         JamAdaptiveUiTests.cpp
@@ -62,6 +63,7 @@ add_test(NAME drums.barCodec   COMMAND GuitarCompanionTests codec_)
 add_test(NAME drums.midiCapacity COMMAND GuitarCompanionTests midi_)
 add_test(NAME drums.foundation COMMAND GuitarCompanionTests foundation_)
 add_test(NAME drums.clockBridge COMMAND GuitarCompanionTests intdrum_)
+add_test(NAME drums.adaptive COMMAND GuitarCompanionTests drumadapt_)
 add_test(NAME jam.LiveUi COMMAND GuitarCompanionTests uiLive_)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

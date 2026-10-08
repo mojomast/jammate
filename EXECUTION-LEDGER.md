@@ -94,10 +94,10 @@ measurements and are not closed by software or synthetic tests.
 
 | Task | State | Worktree / ownership |
 |---|---|---|
-| STYLE-DIRECTOR-002 | BUILDING `ses_ee48b3de2ffe1Y3nPOHAj9Hrks` | `../worktrees/STYLE-DIRECTOR-002`; new catalog/director and portable tests |
-| DRUM-ADAPT-002 | BUILDING `ses_ee48af76cffe2JZ2Uc0FTbgI1S` | `../worktrees/DRUM-ADAPT-002`; bridge/engine adaptation and actual-engine tests |
-| EVAL-GUITAR-009 | REVIEW FIX `d64a598`, worker `ses_ee48ab4e4ffe1yZOM5auV6mf2P` | `../worktrees/EVAL-GUITAR-009`; representative-guitar import/useful-lock evaluation |
-| DEVICE-002 | REVIEW `dbd261d`, worker `ses_ee48a7730ffe4JXF99n4BDv8R4` | `../worktrees/DEVICE-002`; physical-device/play evidence tooling |
+| STYLE-DIRECTOR-002 | ACCEPTED/MERGED `3293026`, worker `ses_ee48b3de2ffe1Y3nPOHAj9Hrks` | `../worktrees/STYLE-DIRECTOR-002`; new catalog/director and portable tests |
+| DRUM-ADAPT-002 | ACCEPTED/MERGED `e0eba66`, worker `ses_ee48af76cffe2JZ2Uc0FTbgI1S` | `../worktrees/DRUM-ADAPT-002`; bridge/engine adaptation and actual-engine tests |
+| EVAL-GUITAR-009 | ACCEPTED/MERGED `89ec9e8`, worker `ses_ee48ab4e4ffe1yZOM5auV6mf2P` | `../worktrees/EVAL-GUITAR-009`; representative-guitar import/useful-lock evaluation |
+| DEVICE-002 | REVIEW FIX `dbd261d`, worker `ses_ee48a7730ffe4JXF99n4BDv8R4` | `../worktrees/DEVICE-002`; physical-device/play evidence tooling |
 
 The orchestrator appended adaptive command IDs without renumbering the live
 commands, added worker-setting/audio-echo telemetry and wired the UI mapping.
@@ -120,7 +120,30 @@ self-check and correctly failing physical gates. Independent read-only review
 `ses_ee47517e0ffe4app9SU0Y82PUX` is active. The environment has no audio device or
 Windows/ASIO host; no physical evidence is claimed. The local source-tree product
 build completes Standalone/VST3/tests in the backend-OFF variant; the experimental
-BTrack-enabled build is now running. Adaptive live wiring remains pending.
+BTrack-enabled build also completes. Adaptive live wiring remains pending.
+
+Guitar evaluator correction `89ec9e8` passes independent re-review (48 tests,
+original and corrected traces/hash receipts preserved), and is merged. The real
+population remains empty and G3 stays OPEN. The catalogue/director `35227d9` is
+staged locally for live integration, not accepted: independent review reproduces
+all40 cases and123 catalogue references, but finds double-counted phase/echo bars
+and pending fills publishable in Holdover. Corrections are running in the worker.
+Device review rejects `dbd261d`: record-supplied latency thresholds/rates,
+measured-null fields, direct-monitoring gate substitution, unparsed receipts and
+pass-over-fail aggregation can yield false passes. Those corrections are also
+running; this task has not been merged. No adaptive wave head is published yet.
+
+Director `64a8de9` functional fixes pass independent re-review (44 director and12
+catalogue cases); receipt-only `3293026` preserves the original hash and appends
+the corrected shipped bytes. Transport review `ses_ee4675069ffeQlpyPaxLgY5olZ`
+accepts the bridge/engine behavior and independently runs98 probe/95 normal/47
+portable cases at bank-capacity fix `0213364`; `e0eba66` corrects a bank comment
+and produces a new clean, header-hashed receipt without overwriting earlier runs.
+Both handoffs are merged. Live integration prepares and validates all106 unique
+catalogue entries, applies worker-owned settings, and publishes groove/fill only
+from audio-owner echo. Three adaptive session cases pass64 checks, including
+style-specific join, explicit fill intent vs playback, Stop and stale echo.
+Full product/replay integration checks and device correction re-review continue.
 
 ### Completed live-Jam wave (base `88893e2`, 2026-10-08)
 

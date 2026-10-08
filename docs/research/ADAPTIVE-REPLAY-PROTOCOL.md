@@ -24,7 +24,9 @@ Required outcomes:
 - Actual join within the declared 1400-block (~14.93 s audio-time) wiring window.
   This is not a two-bar guitar-acquisition test.
 - Each style reflected by the worker, continuing actual playback, and actual
-  groove changes across styles after a 400-block settling window per style.
+  groove changes across styles after a 400-block settling window per style. Every
+  settled audio-owner groove must belong to that style's actual catalogue tiers;
+  the recorded six-style table must contain at least two distinct grooves.
 - Worker confirms intensity/complexity settings and automatic fills disabled.
   Actual-engine unit cases separately verify the rendered dynamic controls.
 - Explicit fill observed in audio-owner echo and subsequent reversion within

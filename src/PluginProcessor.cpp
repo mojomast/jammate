@@ -38,10 +38,49 @@ inline constexpr double PI = 3.14159265358979323846;
 
 namespace
 {
-// One prepared 4/4 open groove for the first audible slice. Library index 0 is
-// ROCK/Basic in the shipped library; DrumEngine::prepareInjectedGroove refuses
-// any non-4/4 entry, so a library edit cannot silently mistime the grid.
+// Compatibility initial Rock groove; every catalogue entry is resolved before
+// the callback starts, so runtime style/fill changes only select POD patterns.
 constexpr jam::LibraryIndex kLiveJamGrooveIndex = 0;
+
+struct CompiledDrumLibraryProbe final : jam::ILibraryProbe
+{
+    int size() const noexcept override { return static_cast<int> (drum::library().size()); }
+    bool lookup (jam::LibraryIndex index, jam::LibraryEntry& out) const noexcept override
+    {
+        if (index < 0 || index >= size()) return false;
+        const auto& entry = drum::library()[static_cast<std::size_t> (index)];
+        out = { true, index, entry.genre, entry.name, entry.fill, entry.spec,
+                { entry.num, entry.den } };
+        return true;
+    }
+};
+
+bool prepareLiveJamBank (DrumEngine& engine)
+{
+    const CompiledDrumLibraryProbe probe;
+    if (! jam::StyleCatalog::validate (probe).ok) return false;
+    constexpr int maxGrooves = jam::kStyleCount * jam::kGrooveTierCount * jam::kMaxTierPatterns;
+    constexpr int maxFills = jam::kStyleCount * jam::kFillKindCount * jam::kMaxFillPatterns;
+    jam::LibraryIndex grooves[maxGrooves] {}, fills[maxFills] {};
+    int ng = 0, nf = 0;
+    auto appendUnique = [] (jam::LibraryIndex* list, int& n, jam::LibraryIndex index)
+    {
+        for (int i = 0; i < n; ++i) if (list[i] == index) return;
+        list[n++] = index;
+    };
+    for (int style = 0; style < jam::kStyleCount; ++style)
+    {
+        const auto& descriptor = jam::StyleCatalog::styleAt (style);
+        for (int tier = 0; tier < jam::kGrooveTierCount; ++tier)
+            for (int i = 0; i < descriptor.grooveCount[tier]; ++i)
+                appendUnique (grooves, ng, descriptor.grooves[tier][i].index);
+        for (int role = 0; role < jam::kFillKindCount; ++role)
+            for (int i = 0; i < descriptor.fillCount[role]; ++i)
+                appendUnique (fills, nf, descriptor.fills[role][i].index);
+    }
+    return engine.prepareInjectedBank (grooves, ng, fills, nf) == ng + nf
+           && engine.prepareInjectedGroove (kLiveJamGrooveIndex);
+}
 } // namespace
 
 namespace
@@ -1162,12 +1201,18 @@ void GuitarCompanionProcessor::prepareToPlay (double sampleRate, int samplesPerB
         }
 #endif
 
+        // A stale catalogue or incomplete prepared bank cannot be exposed as a
+        // working Jam session. Preparation is quiescent, never a UI command.
+        if (! prepareLiveJamBank (drumEngine))
+        {
+            drumEngine.detachClockBridge();
+            return;
+        }
         jamSession_->prepare (sampleRate, samplesPerBlock, true);
 
         // Attach the engine to the session's bridge at origin 0 so the worker's
         // explicit clock and the engine's injected timeline share one domain.
         drumEngine.attachClockBridge (&jamSession_->drumCommandQueue(), 0);
-        drumEngine.prepareInjectedGroove (kLiveJamGrooveIndex);
     }
 }
 
@@ -1407,7 +1452,9 @@ void GuitarCompanionProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
                                         drumEngine.injectedActive(),
                                         drumEngine.injectedPlaying(),
                                         drumEngine.injectedSamplePosition(),
-                                        drumEngine.injectedStepsFired() });
+                                        drumEngine.injectedStepsFired(),
+                                        drumEngine.injectedGroove(),
+                                        drumEngine.injectedFillPlaying() });
 
     // drum stem: what processDrums added to the mix in this block
     if (auto* w = recActiveDrm.load(); w != nullptr && n <= recDrumScratch.getNumSamples())

@@ -24,6 +24,7 @@ CORE = {
     'jam.stylecatalog', 'jam.jamdirector', 'jam.StyleCatalogProvenance',
     'jam.StyleCatalogTools',
     'jam.GuitarLockEval', 'jam.DeviceValidation',
+    'jam.DrumAdaptiveBridge',
 }
 NAM = {
     'nam_rt_diff', 'nam_rt_compare_unit', 'nam_rt_patch_checks',
@@ -36,6 +37,7 @@ DRUMS = {
     'drums.midiCapacity',
     'drums.foundation',
     'drums.clockBridge',
+    'drums.adaptive',
     'jam.LiveUi',
 }
 TRACKERS = {
