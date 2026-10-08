@@ -103,6 +103,17 @@ stop and resync on the actual renderer. Shared build/CI, processor/editor wiring
 and current-facing documents remain orchestrator-owned. Committed handoffs need
 independent verification before integration. No new gate pass is claimed.
 
+Current review state: TRACK-008 `f20b192` passes independent code/evidence review
+and fresh plugin/replay verification (160 scores, 24744 non-CPU fields,
+160 beat files, four method logs and eight derived outputs exact); final wording
+and missing-nominal summary corrections are requested with historical evidence
+preserved. INT-DRUM-001 `724d75f` passes the fresh driver (10 engine cases,
+11 portable tests, 50 legacy cases), but review blocks merge on coincident
+join/tempo ordering, beat-resync phase divergence and duplicate heap-probe
+symbols. Its worker is correcting these and adding internal-renderer coverage.
+RT-005 `51e4356` is submitted; independent overlay review, fresh NAM build and
+15-process replay are running. None of this wave is integrated yet.
+
 ### Completed development wave (base `bcf540a`, 2026-10-08)
 
 The wave started on Haiku on OpenCode Go. The user's subsequent instruction
@@ -355,6 +366,9 @@ and reports instead.
 | TRACK-007 longer-window acquisition characterization | **DONE: corrected scoped evidence; G3 open** | `wp/TRACK-007-long-windows`, `65cd77d` → main | B — evidence, Haiku/Space Bunny/DeepSeek Go | G3 |48 research tests; independent16-fixture render/48 scores,7503 non-CPU fields exact; raw and corrected evidence preserved; core22/20 suites pass |
 | RT-004 NAM architecture callback coverage | **DONE: bounded evidence; A2 repair open** | `wp/RT-004-nam-architectures`, `337f4f3` → main | A — runtime evidence, Haiku + Space Bunny/Go | G1 |81 tests; independent260-case replay (80 NAM),6610 stable fields equal; A2 PReLU/blending allocations retained |
 | DIAG-001 portable diagnostics foundation | **FOUNDATION DONE (D10); full task PARTIAL** | `wp/DIAG-001-core`, `b5852a0` → main | C — core, Haiku + Space Bunny/Go | G4 | independent21/19 core suites,34 diagnostics cases,strict/TSan/ASan checks pass within receipt scope; live wiring/overhead pending |
+| RT-005 NAM activation allocation repair | INDEPENDENT REVIEW / REPLAY | `wp/RT-005-nam-activations`, `51e4356` | A — repair, DeepSeek Go | G1 | worker7 suites and15 processor runs reported; independent checks pending |
+| TRACK-008 frozen tempo-stability candidate | FINAL EVIDENCE CORRECTIONS | `wp/TRACK-008-tempo-stability`, `f20b192` | B — diagnostic candidate, DeepSeek Go | G3 | independent review accepts science; rebuilt plugin hash exact;160 scores/24744 fields replayed; historical summaries preserved for null/wording correction |
+| INT-DRUM-001 actual clock-to-drum bridge | REVIEW BLOCKED / CORRECTIONS | `wp/INT-DRUM-001-clock-bridge`, `724d75f` | C — injected bridge, DeepSeek Go | G2/G4 | independent10/11/50 driver passes; join/tempo collision and beat-resync phase defects require correction before merge |
 
 ---
 

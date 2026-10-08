@@ -22,8 +22,16 @@ documented in EXECUTION-LEDGER's completed-wave history.
 TRACK-008 builds and freezes a new tempo-stability diagnostic candidate;
 INT-DRUM-001 builds the bounded bridge to the actual DrumEngine with injected
 clock input. Three isolated worker sessions and ownership are in the ledger's
-Active build wave table. No handoff has yet been accepted. Orchestrator owns
+Active build wave table. No handoff has yet been integrated. Orchestrator owns
 shared build/CI registration, processor/editor wiring and integration.
+
+Review update: TRACK-008 `f20b192` is independently reproduced (fresh plugin hash,
+160 scores/24744 non-CPU fields,160 beats,four method logs,eight derived files)
+and review accepts the science; final report/null-summary corrections are pending.
+INT-DRUM-001 `724d75f` passes the independent10/11/50 driver but is blocked by
+join/tempo ordering and beat-resync phase bugs; the worker is correcting them
+and the combined-test heap-probe collision. RT-005 `51e4356` is undergoing
+independent source/overlay review, fresh NAM build and15-process probe replay.
 
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
