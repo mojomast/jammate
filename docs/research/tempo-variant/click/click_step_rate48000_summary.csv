@@ -1,0 +1,2 @@
+rate,stepSeconds,stepFromBpm,stepToBpm,variantWithin2PctSeconds,variantLagSeconds,variantLagBeats,baseWithin2PctSeconds,baseLagSeconds,baseLagBeats,variantFinalBpm,baseFinalBpm
+48000,12.000000,126.000000,132.000000,13.850708333,1.850708,5,,,,132.514328003,129.199218750

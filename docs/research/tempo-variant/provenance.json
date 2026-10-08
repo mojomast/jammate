@@ -1,0 +1,65 @@
+{
+  "adr": null,
+  "artifactBudgetBytes": 5242880,
+  "aubioReference": "reference/aubio-block128-summary.json",
+  "baseSha": "bf61598b6b33f68fc27df97317fa5e0fbf3cca5c",
+  "baseSubject": "merge(TRACK-004): integrate causal acquisition diagnosis and fail-closed replay checks",
+  "binaries": {
+    "aubioPlugin": {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+      "sha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41"
+    },
+    "baselinePlugin": {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+      "sha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d"
+    },
+    "diagnosticCli": {
+      "path": "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+      "sha256": "75b0d73bdfedb5028b65a0e171d371c7ea3bc97ed6cb0b5ed60c84b30f3edee2"
+    },
+    "variantPlugin": {
+      "path": "/home/mojo/projects/build-TRACK-005/libtempo-variant-btrack.so",
+      "sha256": "19c4bc67484b7add47124ae87ed89b2bc107e234c2f5054a724eb497428865fe"
+    }
+  },
+  "claim": "diagnostic-only BPM-report variant; NOT default evidence",
+  "coreArchives": "/home/mojo/projects/build-EVAL-005/main-core/btrack",
+  "corpusOriginal": {
+    "manifest": "testdata/rhythm/manifest.json",
+    "manifestSha256": "06fe2c4356dd411a90b5e4948ebeb00eeb68d82f42d26b5ad25f4797c530fab1",
+    "verified": "wav-hashes.txt"
+  },
+  "corpusRepaired": {
+    "manifest": "testdata/rhythm/repaired-sustain/manifest.json",
+    "manifestSha256": "9b0104553d8356f82eebb986f66735e16cf1d2d4623b4d66b1048a693798486a",
+    "note": "18 original refs + repaired sustained_chords; hashes asserted in wav-hashes.txt"
+  },
+  "defaultChanged": false,
+  "freezeHashes": {
+    "combinedSha256": "7fccdd7f2dc32d9bbaebb8a5ac0db6f7cc989c0b386403b77adc97a8dac4ba0b",
+    "files": {
+      "tools/tempo-variant/MethodLog.cpp": "d4dac7354ce887559f9e20384a911bb5ca4f80263384b059330b755d555baff4",
+      "tools/tempo-variant/MethodLog.h": "017a39440dc05e53dcac0c2bf2c44bd66125161e24b7c16d6a2bb81bc0f2247e",
+      "tools/tempo-variant/TempoVariant.cpp": "b82b6bb088e09f5773a793b817992c1537e97ad896f90d4ea8dd714d5790e7e6",
+      "tools/tempo-variant/TempoVariant.h": "7568458ff547a1427aa6330b5a191f30779e768ab8d8831c25455c3d0213abfa",
+      "tools/tempo-variant/TempoVariantPlugin.cpp": "536532c469272323cfc362043886ff00f7121cbe56861483b6f79724224b60fe"
+    }
+  },
+  "g3": "OPEN",
+  "gateChanged": false,
+  "kind": "diagnostic_measurement",
+  "schemaVersion": 1,
+  "selection": null,
+  "task": "TRACK-005",
+  "variantAlgorithm": {
+    "intervalWindowSeconds": [
+      0.25,
+      1.5
+    ],
+    "method": "median of last 4 positive finite consecutive emitted beat intervals; 5 events required",
+    "octaveCorrection": false,
+    "resetPolicy": "non-finite/<=0/non-monotonic/sub-min/gap>max/non-causal resets the ring",
+    "startupFallback": "wrapped backend bpmCandidate unchanged until ready",
+    "truthInputs": false
+  }
+}
