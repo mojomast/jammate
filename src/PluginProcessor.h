@@ -6,6 +6,7 @@
 
 #include "DrumEngine.h"
 #include "rt/RtSignal.h"
+#include "jam/JamLiveInterface.h"
 
 #include <atomic>
 #include <functional>
@@ -23,11 +24,15 @@ class ResamplingContainer;
 }
 
 class GuitarCompanionProcessor : public juce::AudioProcessor,
+                                public jam::IJamLiveControl,
                               private juce::Timer
 {
 public:
     GuitarCompanionProcessor();
     ~GuitarCompanionProcessor() override;
+
+    bool submitJamCommand (const jam::JamLiveCommand&) noexcept override;
+    bool readJamLiveState (jam::JamLiveState&) const noexcept override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
