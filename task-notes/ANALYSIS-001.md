@@ -132,6 +132,6 @@ may appear to work without `-pthread`. **No shared CMake patch is needed.**
 
 ## Final commit SHA
 
-- Implementation, tests, benchmark and docs: `TO_BE_FILLED` on
-  `wp/ANALYSIS-001-worker`. The branch head is the handoff SHA reported to the
-  orchestrator.
+- Implementation, tests, benchmark and docs: `19a2f86` on
+  `wp/ANALYSIS-001-worker`. The branch head (note-SHA update) is the handoff SHA
+  reported to the orchestrator.
