@@ -421,6 +421,11 @@ private:
     bool          haveStagedResync_ = false;
     bool          stagedResyncBar_ = false;
     std::uint64_t stagedResyncTarget_ = 0;
+    // Step within the bar (0..barSteps-1) that lands on the staged target; 0 for
+    // a bar resync. nextBarBoundarySample() uses it to return a boundary on the
+    // POST-resync grid, so a join/BarChange scheduled before the resync is
+    // applied does not land off the engine's actual downbeat.
+    int           stagedResyncPhaseStep_ = 0;
 
     // BarChange staged for a future bar boundary (DRUM-ADAPT-002). Coalesced
     // exactly like tempo so a director polling every tick cannot flood the

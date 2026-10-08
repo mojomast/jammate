@@ -691,6 +691,7 @@ void DrumEngine::resetInjectedTransport() noexcept
     // otherwise. The prepared bank and selected groove survive (a re-prepare
     // must not forget the prepared groove).
     injFillActive_ = false;
+    injFillRevertPending_ = false;
     injCurrentSlot_ = injSelGrooveSlot_;
     injRevertSlot_ = injSelGrooveSlot_;
     resetInjectedAdaptive();
@@ -731,13 +732,15 @@ void DrumEngine::resetInjectedAdaptive() noexcept
     injHumanRR_ = 0.0f;
 }
 
-void DrumEngine::endInjectedFillIfDue() noexcept
+void DrumEngine::applyInjectedFillRevertIfPending() noexcept
 {
-    if (! injFillActive_)
+    if (! injFillRevertPending_)
         return;
-    // The fill has played its one bar: return to the selected groove for the
-    // next downbeat. The switch happens when the bar wraps, i.e. exactly at the
-    // bar boundary, so the change is never mid-bar.
+    // The fill has played all of its bar; revert to the selected groove exactly
+    // on the next downbeat, before step 0 is fired. This is what makes
+    // injectedFillPlaying() true for the WHOLE bar (the integration replay
+    // observed it stopping a bar early when the revert happened after step 15).
+    injFillRevertPending_ = false;
     injFillActive_ = false;
     injCurrentSlot_ = injRevertSlot_ >= 0 ? injRevertSlot_ : injSelGrooveSlot_;
 }
@@ -839,6 +842,7 @@ bool DrumEngine::applyInjectedCommand (const jam::DrumClockCommand& command,
             injNextStep_ = 0;
             injPlayBar_ = 0;
             injFillActive_ = false;
+            injFillRevertPending_ = false;
             injCurrentSlot_ = injSelGrooveSlot_;
             injRevertSlot_ = injSelGrooveSlot_;
             // A join starts the exact pre-adaptive slice; the director must
@@ -918,6 +922,7 @@ bool DrumEngine::applyInjectedCommand (const jam::DrumClockCommand& command,
             injEventCount_ = 0;
             injSamplesToNext_ = 0.0;
             injFillActive_ = false;
+            injFillRevertPending_ = false;
             injCurrentSlot_ = injSelGrooveSlot_;
             injRevertSlot_ = injSelGrooveSlot_;
             resetInjectedAdaptive();
@@ -1008,8 +1013,20 @@ void DrumEngine::applyInjectedEvent (std::uint64_t nowSample, int offset,
             break;
 
         case jam::DrumClockCommandType::BarChange:
+        {
+            // The worker clock is authoritative. If the change target is not this
+            // engine's current downbeat (worker/engine grid desync, e.g. after a
+            // phase correction), re-anchor the downbeat to the target so the
+            // change — and any one-bar fill — starts on the clock's grid instead
+            // of mid-bar. An exactly-on-grid target is a no-op.
+            if (injNextStep_ != 0 || injSamplesToNext_ > 0.5)
+            {
+                injNextStep_ = 0;
+                injSamplesToNext_ = 0.0;
+            }
             applyInjectedBarChange (ev);
             break;
+        }
 
         case jam::DrumClockCommandType::StopAtBar:
             // Bounded musical stop at the bar boundary. Leave injected mode so
@@ -1021,6 +1038,7 @@ void DrumEngine::applyInjectedEvent (std::uint64_t nowSample, int offset,
             injPlaying_ = false;
             injEventCount_ = 0;
             injFillActive_ = false;
+            injFillRevertPending_ = false;
             injCurrentSlot_ = injSelGrooveSlot_;
             injRevertSlot_ = injSelGrooveSlot_;
             resetInjectedAdaptive();
@@ -1047,6 +1065,9 @@ void DrumEngine::applyInjectedBarChange (const InjectedEvent& ev) noexcept
     const bool grooveSet = jam::hasField (ev.changeFields, jam::DrumChangeField::Groove);
     const bool fillSet = jam::hasField (ev.changeFields, jam::DrumChangeField::Fill);
     const bool paramsSet = jam::hasField (ev.changeFields, jam::DrumChangeField::Params);
+
+    if (grooveSet || fillSet)
+        injFillRevertPending_ = false; // the change defines this boundary
 
     // Groove first: a fill reverts to whatever groove this bar selects.
     if (grooveSet && ev.groove != jam::kNoLibraryEntry)
@@ -1134,6 +1155,12 @@ void DrumEngine::runInjectedLoop (int n, juce::AudioPluginInstance* vst,
 
         if (injSamplesToNext_ <= 0.5)
         {
+            // A one-bar fill ends exactly on the next downbeat. Perform the
+            // pending revert BEFORE firing step 0 so the reverted groove plays
+            // the downbeat and injectedFillPlaying() stayed true for the whole
+            // fill bar.
+            applyInjectedFillRevertIfPending();
+
             fireInjectedStep (injNextStep_, offset, vst, midi);
             injLastStepSample_ = abs;
             ++injStepsFired_;
@@ -1142,9 +1169,10 @@ void DrumEngine::runInjectedLoop (int n, juce::AudioPluginInstance* vst,
             if (++injNextStep_ >= injBarSteps_)
             {
                 injNextStep_ = 0;
-                // A one-bar fill ends exactly on the bar boundary: the next step
-                // 0 is rendered from the selected groove again.
-                endInjectedFillIfDue();
+                // The fill's last step has fired: schedule the reversion for the
+                // next downbeat (handled at the top of this branch).
+                if (injFillActive_)
+                    injFillRevertPending_ = true;
                 injPlayBar_ = (injPlayBar_ + 1) % injPatternBars_;
             }
             continue;
