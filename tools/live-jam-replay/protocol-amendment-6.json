@@ -1,0 +1,32 @@
+{
+  "schema": "live-jam-replay/protocol-amendment/6.0",
+  "task": "EVAL-LIVE-001",
+  "title": "Sixth amendment: real resync phase proof (replace the false-positive join-as-resync check)",
+  "base_commit": "88893e24be328f131b5df673078ff934a46ed5ab",
+  "frozen_before": "any reevaluation or actual-002 measurement under the corrected resync proof",
+  "supersedes": {"previous_tools_commit": "35cd3f8",
+                 "note": "Additive. Amendment 5, its receipts and the preserved actual-full-001 artifacts remain immutable history. Original predeclared.json, protocol.sha256 and all prior contracts/pins/receipts are preserved."},
+  "reason": "The injected scenario submitted ResyncNextBar after StopNow and then started a third join; any new step plus a last-step change set resync_effect_observed, so an ordinary join passed even if Resync was ignored. This is a false positive in the first-slice resync proof.",
+  "corrections": {
+    "resync_phase_proof": {
+      "procedure": "After the second-join StopNow proof, start a THIRD actual join (paced) and wait for engine injectedPlaying plus new steps with NO resync yet. Advance paced callbacks until the baseline injectedNextStep() is in [2,14] (not the downbeat 1) and the engine is playing. Record baseline injectedNextStep(), injectedLastStepSample(), injectedCommandCount() and injectedSamplePosition() (submit cursor). Submit ResyncNextBar alone (no concurrent Start). Advance paced callbacks (bounded 2 s) until injectedCommandCount() advances and injectedStepsFired() advances while playing. Assert the resulting injectedNextStep()==1 (step 0 fired), injectedLastStepSample() in [submitCursor, audioOwnerAfter), and a positive command-count delta.",
+      "rationale": "requestResyncNextBar sends a ResyncBar at the current worker cursor; the engine rephases so step 0 fires at the next serviced callback. The baseline phase in [2,14] proves a normal next step would not be 0, so the observed step-0 event is attributable to the resync and not to an ordinary join.",
+      "fields": ["resync_phase_before", "resync_phase_after", "resync_step_sample",
+                 "resync_submit_cursor", "resync_observed_end", "resync_owner_command_delta",
+                 "resync_effect_observed"],
+      "gate": "injected join gate requires resync_phase_before in [2,14], resync_phase_after==1, submit_cursor <= step_sample < observed_end, owner_command_delta >= 1 and resync_effect_observed true. Missing fields fail even if resync_effect_observed is true."
+    },
+    "defaultlong_gate": {
+      "note": "The default-long gate remains identity plus actual audio-owner advancement; it does not require injected-specific fields. The paced/wall checks apply to the injected scenario only."
+    }
+  },
+  "semantics_unchanged": "structural AND rt_gate AND join_gate; default no-lock diagnostic; the 54-cell matrix, pacing and expected ids are unchanged. Only the injected resync proof is strengthened.",
+  "preserve": {
+    "actual_full_001": "/home/mojo/projects/build-EVAL-LIVE-001-integration/actual-full-001 (read-only, never rewritten)",
+    "amendment_5_and_receipts": "immutable history"
+  },
+  "immutable_preserved": {
+    "predeclared_json_sha256": "d29eeedf903aa9abb63e44ad4293f60e5bedfa2ef3c6f8033cb325b7348432fa",
+    "protocol_sha256_file": "fdc22bab2bc0154ddae2758766026a70e9db495655c73684013f31f09a6dba09"
+  }
+}
