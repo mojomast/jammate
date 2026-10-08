@@ -109,6 +109,13 @@ The combined build's JUCE PNG failure was traced to libsamplerate's public
 config macro/header; `c2137d9` makes them private. Rebuild active; no actual live
 processor scoring has run.
 
+Combined initial candidate builds Linux Standalone/VST3/JUCE tests after the
+samplerate-private-config fix and product PIC (`1df104b`). External receipt:
+`/home/mojo/projects/build-INT-LIVE-001-integration/candidate-build-receipt.json`
+pins the modified candidate source manifest and artifact/log hashes. Full suite
+verification is running; this is build evidence for the blocked initial
+handoffs, not acceptance or actual replay scoring.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.

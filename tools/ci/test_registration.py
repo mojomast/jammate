@@ -50,6 +50,21 @@ class RegistrationTests(unittest.TestCase):
         with patch.object(guard.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, output)):
             self.assertIsNone(guard.TRACKER_SYMBOLS.search(guard.symbols(Path('core.a'))))
 
+    def test_stub_tracker_names_are_not_backend_linkage(self):
+        for symbol in ('(anonymous namespace)::StubTracker::reset(double)',
+                       'typeinfo for (anonymous namespace)::StubTracker',
+                       'jam::IRhythmTracker::~IRhythmTracker()'):
+            with self.subTest(symbol=symbol):
+                self.assertIsNone(guard.TRACKER_SYMBOLS.search(symbol))
+
+    def test_real_backend_symbols_remain_forbidden_in_core(self):
+        for symbol in ('BTrack::processAudioFrame(double*)',
+                       'jam::BTrackBackend::BTrackBackend()',
+                       'jam::AubioBackend::reset(double)',
+                       'kiss_fft', 'kiss_fftr_alloc', 'aubio_tempo_do'):
+            with self.subTest(symbol=symbol):
+                self.assertIsNotNone(guard.TRACKER_SYMBOLS.search(symbol))
+
 
 if __name__ == '__main__':
     unittest.main()

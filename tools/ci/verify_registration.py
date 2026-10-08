@@ -38,7 +38,10 @@ TRACKERS = {
     'btrack': ('jam.BTrackBackend', 'jamBTrackTests', r'BTrack::'),
     'aubio': ('jam.AubioBackend', 'jamAubioTests', r'\baubio_tempo_'),
 }
-TRACKER_SYMBOLS = re.compile(r'BTrack|btrack|kiss_fft|aubio', re.IGNORECASE)
+# Match backend class/function symbols, not the substring "bTrack" in a
+# dependency-free StubTracker test double.
+TRACKER_SYMBOLS = re.compile(
+    r'\b(?:BTrack|BTrackBackend|AubioBackend)::|\b(?:kiss_fft\w*|aubio_\w*)\b')
 SYMBOL_LINE = re.compile(r'^(?:[0-9a-fA-F]+\s+[A-Za-z]\s|\s+U\s)')
 
 

@@ -337,10 +337,11 @@ jobs:
             # positive (measured while writing this job). Case-insensitive so a
             # leaked BTrack (capital) or jam::AubioBackend cannot slip past a
             # lowercase-only pattern.
-            hits="$(grep -Ev '^[^:]+:$' "$cfg-core.nm" | grep -Eci 'btrack|aubio|kiss_fft' || true)"
+            tracker_symbols='\b(BTrack|BTrackBackend|AubioBackend)::|\b(kiss_fft[[:alnum:]_]*|aubio_[[:alnum:]_]*)\b'
+            hits="$(grep -Ev '^[^:]+:$' "$cfg-core.nm" | grep -Ec "$tracker_symbols" || true)"
             if [ "${hits}" != "0" ]; then
               echo "::error::$cfg: ${hits} GPL tracker symbol(s) in libjam-core.a/jamTests — boundary broken"
-              grep -Ev '^[^:]+:$' "$cfg-core.nm" | grep -Ei 'btrack|aubio|kiss_fft' | head -20 | sed 's/^/    /'
+              grep -Ev '^[^:]+:$' "$cfg-core.nm" | grep -E "$tracker_symbols" | head -20 | sed 's/^/    /'
               return 1
             fi
 

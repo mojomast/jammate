@@ -128,6 +128,15 @@ preserved. Combined product building exposed a public libsamplerate config flag
 leaking into JUCE PNG; the orchestrator's private-configuration fix is committed
 at `c2137d9` and rebuilding. No actual processor scoring has run.
 
+The combined candidate now builds Linux Standalone, VST3 and the JUCE test
+executable. Product static libraries require PIC (`1df104b`) for VST3; the
+private samplerate configuration and PIC fixes resolve both observed build
+failures. Candidate source/artifact/log identities are preserved externally in
+`build-INT-LIVE-001-integration/candidate-build-receipt.json`. Registered-suite
+verification is running after building the portable test executable as well.
+The initial handoffs remain review-blocked; corrected worker handoffs and actual
+processor scoring are pending.
+
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The
 default BTrack adapter is experimental. Synthetic processor replay verifies
