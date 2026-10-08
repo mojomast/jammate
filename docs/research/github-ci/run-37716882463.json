@@ -1,0 +1,51 @@
+{
+  "conclusion": "success",
+  "jobs": [
+    {
+      "conclusion": "success",
+      "id": 113115281002,
+      "name": "Windows / Standalone + VST3 + drums"
+    },
+    {
+      "conclusion": "success",
+      "id": 113115281160,
+      "name": "Core / both"
+    },
+    {
+      "conclusion": "success",
+      "id": 113115281216,
+      "name": "NAM / LSTM repair"
+    },
+    {
+      "conclusion": "success",
+      "id": 113115281228,
+      "name": "Core / aubio"
+    },
+    {
+      "conclusion": "success",
+      "id": 113115281243,
+      "name": "Core / depfree"
+    },
+    {
+      "conclusion": "success",
+      "id": 113115281267,
+      "name": "Core / btrack"
+    }
+  ],
+  "limits": [
+    "Windows WASAPI/DirectSound build and drum tests only",
+    "No ASIO, physical device or callback deadline validation",
+    "Simulated UI verified locally, not built in this CI job"
+  ],
+  "logHashes": {
+    "/home/mojo/projects/build-CI-003-integration/final-core-aubio-green.log": "96180b3f9ee1c3f307a246545b052a7c92d9aa5f1fa76431acb5455e6c1f0432",
+    "/home/mojo/projects/build-CI-003-integration/final-core-both-green.log": "4f75158555a2c07d33823da4377c4367044437028dbf3979ec33b643780ada18",
+    "/home/mojo/projects/build-CI-003-integration/final-core-btrack-green.log": "487a04bbbb25abfb47e269c89c5613f5ac1c9b009e886214aebf7312b68a3413",
+    "/home/mojo/projects/build-CI-003-integration/final-core-depfree-green.log": "c74c1fe546b97519f51541a70157d8c5043de04348477e7d76ea430142cdbc91",
+    "/home/mojo/projects/build-CI-003-integration/final-nam-lstm-repair-green.log": "e05eb72f5cdb0bb3e743948b9e00e7bab472bfb92cd653344d659f3fbb96cf2f",
+    "/home/mojo/projects/build-CI-003-integration/final-windows-standalone-vst3-drums-green.log": "161b6c54584f6b7aeb6822e0ec542e040b9b19c9cb297796b0f4a3ea5d66d337"
+  },
+  "runId": 37716882463,
+  "testedSha": "bcf540ae9509315d143595f5887060444aa9bae6",
+  "url": "https://github.com/mojomast/jammate/actions/runs/37716882463"
+}

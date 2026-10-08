@@ -13,9 +13,26 @@ source of truth. Do not rewrite them to match the code.
 `main` is the integration branch. `EXECUTION-LEDGER.md` holds current task/gate
 status; the rest of this older handoff describes the original checkout setup.
 The original uncommitted seams are long since integrated. The latest user
-instruction is **Haiku subagents on OpenCode Go**, exact model
-`opencode-go/claude-haiku-5-5`. Prior Flash/Sol workers finished their tasks;
-new delegated work uses Haiku. Its read-only handoff audit completed successfully.
+instruction is **Space Bunny while waiting**, exact temporary model
+`opencode-go/space-bunny`. All three active Haiku continuations were
+interrupted successfully and relaunched in the same sessions on DeepSeek Go.
+All three continuations were rejected before execution: the model requires Global
+regions in the workspace's Privacy settings. They are paused pending that change;
+the requested model is retained. The user then confirmed the model is enabled;
+all three continuations were retried and returned the same region rejection.
+They have now been continued on Space Bunny Go with user authorisation.
+
+New active wave starts at `bcf540a`: TRACK-007 longer paired acquisition evidence,
+RT-004 broader NAM architecture callback probes, and DIAG-001 portable diagnostics
+under D10. Sessions and exact ownership are in EXECUTION-LEDGER's Active development
+table. None is integrated yet. The published merged-head run37716882463 at
+`bcf540a` passed all six jobs: core18/19/19/20, NAM5/5, and Windows
+Standalone/VST3 plus6/6 drum suites. Its receipt and downloaded-log hashes are
+in `docs/research/github-ci/run-37716882463.json`.
+
+The earlier queued model switch is superseded by the user's immediate switch.
+TRACK-007 has protocol `492c5a8`; RT-004 `95e5eac` and DIAG-001 `2a9a929`
+are undergoing review corrections. Commits and in-progress files are preserved.
 
 Worker sessions and path ownership are in EXECUTION-LEDGER's resumption table:
 TRACK-006 fixed paired robustness, MOD-003 isolated simulated Jam UI, and TEST-001

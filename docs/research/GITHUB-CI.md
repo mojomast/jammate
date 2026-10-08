@@ -85,5 +85,19 @@ browser. It does not execute physical audio, ASIO, latency or processor-probe
 instrumentation. Remote NAM validation rechecks committed callback artifacts.
 Evidence receipt and downloaded-log hashes:
 [`github-ci/run-37715897283.json`](github-ci/run-37715897283.json).
-The final merged UI/tracker head is published separately and will receive its
-own CI run; this receipt authenticates the stated tested SHA only.
+This receipt authenticates the stated tested SHA only.
+
+## Published merged-head pass
+
+[Run37716882463](https://github.com/mojomast/jammate/actions/runs/37716882463)
+at `bcf540ae9509315d143595f5887060444aa9bae6` passed all six jobs, including
+the merged UI, tracker evidence and foundation-test head:
+
+- Core OFF / BTrack-only / aubio-only / both: **18/18, 19/19, 19/19, 20/20** suites.
+- NAM repair: **5/5** suites.
+- Windows2022 / MSVC: **Standalone and VST3 built; 6/6 drum suites passed**.
+
+Receipt and downloaded-log hashes:
+[`github-ci/run-37716882463.json`](github-ci/run-37716882463.json).
+The same device, ASIO and callback-timing limits apply. The simulated Jam UI
+preview was verified locally; this run does not build that preview target.

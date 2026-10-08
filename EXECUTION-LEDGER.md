@@ -78,6 +78,37 @@ PARTIAL, never PASSED.
    approved public `mojomast/jammate`. D3 described the earlier assumed forge;
    GitHub is now the measured destination. Remote CI status is recorded only
    after execution, separately from local workflow checks.
+10. **D10 — DIAG-001 portable foundation starts before full G4.** Injected
+    observation/clock records, bounded publication and off-thread trace export
+    can be verified independently of tracker selection and processor wiring.
+    No production analyzer/clock/editor integration is authorised by this task;
+    full DIAG-001 stays partial until that integration and overhead are measured.
+
+### Active development wave (base `bcf540a`, 2026-10-08)
+
+The wave started on Haiku on OpenCode Go. The user's subsequent instruction
+switched it immediately to **`opencode-go/deepseek-v4.1-flash`**. All three
+Haiku continuations were interrupted successfully; continuations were launched
+on DeepSeek in the same isolated worktrees, preserving commits and in-progress
+files. All three continuations then returned a provider error: this Go model requires
+**Global** regions in the workspace's Privacy settings. Their work is paused
+pending that setting; no fallback model is authorised. The user subsequently
+confirmed the model is enabled, and all three continuations were retried on the
+same Go model. All three retries returned the same Global-region error before
+execution. The user then authorised **Space Bunny while waiting**; the same
+sessions have been continued with **`opencode-go/space-bunny`**, preserving work.
+
+| Task | Session | Ownership |
+|---|---|---|
+| TRACK-007 longer-window acquisition characterization | `ses_ee6b11506ffeO88DmgmBtgPPW8` | `../worktrees/TRACK-007-long-windows`; new generator/protocol and evidence only |
+| RT-004 broader NAM architecture callback coverage | `ses_ee6b0ad29ffePmZt4GEancg5T3` | `../worktrees/RT-004-nam-architectures`; new runner/validators and evidence only |
+| DIAG-001 portable diagnostics foundation (D10) | `ses_ee6b04532ffeuT9R0iCDjXGZP8` | `../worktrees/DIAG-001-core`; new diagnostics/trace interfaces and tests |
+
+TRACK-007 must commit its fixed protocol before running new fixtures. RT-004
+retains positive findings and explicit load failures; no architecture repairs
+are included. DIAG-001 preserves event, horizon and measured availability as
+distinct clocks. Shared build/CI/processor/editor surfaces remain orchestrator
+owned; each handoff needs a clean commit, executed checks and independent review.
 
 ### Resumption wave handoffs (2026-10-08)
 
@@ -223,14 +254,24 @@ continuation sessions remain in `HANDOFF.md`; no worker topics are duplicated.
 
 | Work class | Model |
 |---|---|
-| Development, evidence, tests and reviews | **`opencode-go/claude-haiku-5-5`** (latest user instruction) |
-| Blocked delegated work | Retry/re-scope on Haiku; obtain user direction before changing model |
+| Development, evidence, tests and reviews (temporary) | **`opencode-go/space-bunny`** |
+| Requested route pending access | **`opencode-go/deepseek-v4.1-flash`**; Global-region rejection persists |
 
 Historical routing: Flash was initially requested, then Sol workers were
 authorised after balance failures. Those workers completed the three packages
 above. The latest user instruction replaces Sol subagents with Haiku on OpenCode
 Go. Haiku audit `ses_ee6b95c28ffegXxn37dQR53e4e` completed successfully and its
 concrete current-facing documentation findings were reviewed and corrected.
+
+**Latest user instruction supersedes the queued switch:** stop Haiku and switch
+now to **`opencode-go/deepseek-v4.1-flash`** (DeepSeek V4.1 Flash on OpenCode Go),
+verified in the model catalog. All three interrupt responses returned
+`interrupted: true`; continuations target DeepSeek Go. All three were
+rejected before execution because the workspace region setting must be Global.
+This is distinct from
+the earlier direct DeepSeek route that reported insufficient balance. After all
+three retries returned the same region rejection, the user authorised Space
+Bunny while waiting. The active temporary route is **`opencode-go/space-bunny`**.
 
 ## Controlled integration surfaces (orchestrator-only unless granted)
 
@@ -282,7 +323,10 @@ and reports instead.
 | CI execution evidence | **REMOTE GREEN: scoped builds/tests** | `0820bb5`, run37715897283 | C | G1 | all6 GitHub jobs pass; this is build/test coverage, not whole callback/device validation |
 | TEST-001 foundation tests | **DONE: bounded foundation coverage (D8)** | `wp/TEST-001-foundation`, `0cfc252b` → main | C — verification, Sol | G1 |50 actual JUCE cases; root rebuild and6/6 suites pass; processor migration/concurrent edits remain uncovered |
 | MOD-003 Jam UI shell | **DONE: isolated simulation shell (D7)** | `wp/MOD-003-jam-ui`, `34ab2cb3` → main | C — UI, Sol | G2 | fresh actual JUCE preview build and Xvfb verification pass; seven screenshots; live editor wiring pending |
-| CI-003 GitHub verification | **DONE: definitions + first remote green** | main, `0820bb5` | orchestrator | G1 | run37715897283 core18/19/19/20, NAM5/5, Windows Standalone/VST3 +6/6 drums; final merged-head run follows publication |
+| CI-003 GitHub verification | **DONE: published merged-head remote green** | main, `bcf540a` | orchestrator | G1 | run37716882463 core18/19/19/20, NAM5/5, Windows Standalone/VST3 +6/6 drums; receipt and downloaded-log hashes retained |
+| TRACK-007 longer-window acquisition characterization | CONTINUATION LAUNCHED | `wp/TRACK-007-long-windows`, protocol `492c5a8` | B — evidence, Space Bunny/Go | G3 | fixture and paired inference handoff pending |
+| RT-004 NAM architecture callback coverage | REVIEW CORRECTIONS LAUNCHED | `wp/RT-004-nam-architectures`, `95e5eac` | A — runtime evidence, Space Bunny/Go | G1 | A2 activation allocations found; fail-closed review corrections pending |
+| DIAG-001 portable diagnostics foundation | REVIEW CORRECTIONS LAUNCHED (D10) | `wp/DIAG-001-core`, `2a9a929` | C — core, Space Bunny/Go | G4 | export/provenance/lifecycle corrections pending; full live task remains partial |
 
 ---
 
