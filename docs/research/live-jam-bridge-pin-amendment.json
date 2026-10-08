@@ -1,0 +1,15 @@
+{
+  "schema": "live-jam-source-pin-amendment/1",
+  "timing": "committed before any actual live processor replay measurement",
+  "reason": "Add bounded runtime StopNow to satisfy LIVE-JAM-STOP-CONTRACT without quiescent reset",
+  "source_commit": "ba9748ac3f96a5de04d122e1e820759bbb5a7dbd",
+  "implementation_review": "pending re-review; pinning does not assert acceptance",
+  "path": "src/jam/DrumClockBridge.h",
+  "original_sha256": "d5dd30d61794a02cbc5fc0166ac8fe92cdcbd8c0dcba00fbe4f4060f411371cc",
+  "amended_sha256": "c115eb8b24f0918f7a375f6507d094cf94d5a0fc99019bba6cf5b3b4459d1025",
+  "unchanged_facade": {
+    "path": "src/jam/JamLiveInterface.h",
+    "sha256": "b24cf6c878e13ab2ce5fa1a3b56afeca31c14008e4e14e918528716f1cf56dc6"
+  },
+  "original_protocol_and_evidence": "preserved; original source pin is not overwritten"
+}

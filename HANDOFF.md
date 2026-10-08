@@ -116,6 +116,13 @@ pins the modified candidate source manifest and artifact/log hashes. Full suite
 verification is running; this is build evidence for the blocked initial
 handoffs, not acceptance or actual replay scoring.
 
+Initial combined candidate now passes all36 registered suites and both
+registration/linkage guards. Corrected pipeline `ba9748a` is re-reviewing;
+its StopNow header is preregistered in
+`docs/research/live-jam-bridge-pin-amendment.json`. UI/replay rework is active.
+Do not treat the initial candidate's passing tests as acceptance of the reviewed
+defects or as actual processor replay evidence.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.

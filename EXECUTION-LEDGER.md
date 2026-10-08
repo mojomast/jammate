@@ -137,6 +137,14 @@ verification is running after building the portable test executable as well.
 The initial handoffs remain review-blocked; corrected worker handoffs and actual
 processor scoring are pending.
 
+Initial combined candidate passes all36 registered suites (28 core/backend/
+research and8 drum/UI); both registration/linkage guards pass after matching
+real backend symbols instead of the `bTrack` substring in `StubTracker`.
+Corrected pipeline handoff `ba9748a` addresses the review findings and is under
+re-review. Its StopNow bridge header is pinned pre-measurement in
+`docs/research/live-jam-bridge-pin-amendment.json`; pinning is not acceptance.
+UI/replay corrections remain active and actual live processor scoring has not run.
+
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The
 default BTrack adapter is experimental. Synthetic processor replay verifies
