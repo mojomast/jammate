@@ -1,0 +1,169 @@
+{
+  "ok": true,
+  "missing": [],
+  "identity": {
+    "source": {
+      "plugin_processor_h_sha256": "3e1958e3eccc3892304f8a42c28a1c7cdf711c226e7ec91082211b0d80059930",
+      "plugin_processor_cpp_sha256": "21e3d7ad2cb8a0d5f8fb4f068ee82ac3332a0bf8a4cdaaede062bca146e76e66",
+      "jam_live_interface_h_sha256": "b24cf6c878e13ab2ce5fa1a3b56afeca31c14008e4e14e918528716f1cf56dc6",
+      "src_tree_hash": "e22380f972d909bef9f5982de79fb105377e227f8c468f2e6a84263fd372307e",
+      "facade_definitions_present": true,
+      "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product-source",
+      "head": "125de67f7a00a8f8b6485d65b2f367c333078ecd",
+      "branch": "HEAD",
+      "dirty": null,
+      "src_tree_hash_committed": "e9063fd28a2e0b4efbcd86928cf8ef5ccc618982",
+      "immutable_pins_ok": true,
+      "immutable_pins": {
+        "src/jam/DrumClockBridge.h": "c115eb8b24f0918f7a375f6507d094cf94d5a0fc99019bba6cf5b3b4459d1025",
+        "src/PluginProcessor.h": "3e1958e3eccc3892304f8a42c28a1c7cdf711c226e7ec91082211b0d80059930",
+        "src/PluginProcessor.cpp": "21e3d7ad2cb8a0d5f8fb4f068ee82ac3332a0bf8a4cdaaede062bca146e76e66",
+        "src/jam/JamLiveInterface.h": "b24cf6c878e13ab2ce5fa1a3b56afeca31c14008e4e14e918528716f1cf56dc6",
+        "src/jam/RhythmTypes.h": "1ca042858c4c0ba9f014510212866384a09c9d304a88015dd6507e6a1f7e2b5d",
+        "src/jam/MusicalClock.h": "3faac7264bb63b43e3d6b5cd54a903df04484ca4fa45b8f5aabe94f3159fdd96"
+      },
+      "source_pin_overrides_applied": true
+    },
+    "product": {
+      "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product",
+      "product_source_dir": "/home/mojo/projects/build-INT-LIVE-001-integration/product-source",
+      "source_matches_product": true,
+      "link_closure_source": "ninja:GuitarCompanion_Standalone",
+      "shared_archive": "/home/mojo/projects/build-INT-LIVE-001-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+      "shared_archive_sha256": "e780251ab2616f3ccabe72d608fd373461ba4b2cb28fef29569ea6b858d8de6c",
+      "nam_archive": "/home/mojo/projects/build-INT-LIVE-001-integration/product/libnam_core.a",
+      "nam_archive_sha256": "ad0ffbb37434a860a5084831ef7514f7e0146318cf98a743c14e2d24b68b5579",
+      "assets_archive": "/home/mojo/projects/build-INT-LIVE-001-integration/product/libGuitarCompanionAssets.a",
+      "assets_archive_sha256": "c097a68ce36cc0f46fd30b13e02988328efe1bc5dffc35957efa4efb0e04618c",
+      "jam_archive": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/libjam-core.a",
+      "jam_archive_sha256": "04e850eeae76e30dbe77aaf094d8e2be157c0e9e9bb291e200b0107f5becf879",
+      "build_ninja": "/home/mojo/projects/build-INT-LIVE-001-integration/product/build.ninja",
+      "build_ninja_sha256": "5e9a1a25c0646b6fe662c228603276d1d9788b5bfa0faf5158f8bee7647955de",
+      "link_archives": [
+        {
+          "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+          "sha256": "e780251ab2616f3ccabe72d608fd373461ba4b2cb28fef29569ea6b858d8de6c"
+        },
+        {
+          "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/libnam_core.a",
+          "sha256": "ad0ffbb37434a860a5084831ef7514f7e0146318cf98a743c14e2d24b68b5579"
+        },
+        {
+          "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/libGuitarCompanionAssets.a",
+          "sha256": "c097a68ce36cc0f46fd30b13e02988328efe1bc5dffc35957efa4efb0e04618c"
+        },
+        {
+          "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libjam-btrack.a",
+          "sha256": "92659b889ec7beb9e0e6d0ab0df59acd8c0b14eeff6de9b4ff5ca23561833255"
+        },
+        {
+          "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/libjam-core.a",
+          "sha256": "04e850eeae76e30dbe77aaf094d8e2be157c0e9e9bb291e200b0107f5becf879"
+        },
+        {
+          "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libbtrack.a",
+          "sha256": "6993f8224ea626802a28475cce3c1bcf209336919746ac41d7e99b6cae39f1f8"
+        },
+        {
+          "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libkiss_fft.a",
+          "sha256": "fa209a29eed3ebbcb6bfb72471a48bd0b2bfa4c7b9fd33da6537ed161a932250"
+        },
+        {
+          "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libsamplerate.a",
+          "sha256": "55c591cff00889a7207a14eac442a36c1d7348f3cf003ef14fbf1718f97be072"
+        }
+      ],
+      "link_libs": [
+        "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu/libasound.so",
+        "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu/libfontconfig.so",
+        "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu/libfreetype.so",
+        "-lrt",
+        "-ldl",
+        "-lpthread"
+      ],
+      "link_wl_flags": [
+        "-Wl,--no-undefined",
+        "-Wl,--dependency-file=CMakeFiles/GuitarCompanion_Standalone.dir/link.d",
+        "-Wl,--push-state,--whole-archive",
+        "-Wl,--pop-state"
+      ]
+    },
+    "facade_symbols": {
+      "submitJamCommand": true,
+      "readJamLiveState": true
+    },
+    "backend": {
+      "macro_defined": true,
+      "signals": [
+        "define:JAM_LIVE_BTRACK_AVAILABLE",
+        "source:src/btrack/*.cpp",
+        "symbol:live_facade"
+      ]
+    },
+    "live_seams": {
+      "setJamTrackerForTesting": true,
+      "requestStopNow": true,
+      "tracker_injection_archive_symbol": true
+    }
+  },
+  "flags": {
+    "DEFINES": "-DJAM_LIVE_BTRACK_AVAILABLE=1 -DJUCE_DIRECTSOUND=1 -DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1 -DJUCE_MODULE_AVAILABLE_juce_audio_basics=1 -DJUCE_MODULE_AVAILABLE_juce_audio_devices=1 -DJUCE_MODULE_AVAILABLE_juce_audio_formats=1 -DJUCE_MODULE_AVAILABLE_juce_audio_plugin_client=1 -DJUCE_MODULE_AVAILABLE_juce_audio_processors=1 -DJUCE_MODULE_AVAILABLE_juce_audio_processors_headless=1 -DJUCE_MODULE_AVAILABLE_juce_audio_utils=1 -DJUCE_MODULE_AVAILABLE_juce_core=1 -DJUCE_MODULE_AVAILABLE_juce_cryptography=1 -DJUCE_MODULE_AVAILABLE_juce_data_structures=1 -DJUCE_MODULE_AVAILABLE_juce_dsp=1 -DJUCE_MODULE_AVAILABLE_juce_events=1 -DJUCE_MODULE_AVAILABLE_juce_graphics=1 -DJUCE_MODULE_AVAILABLE_juce_gui_basics=1 -DJUCE_MODULE_AVAILABLE_juce_gui_extra=1 -DJUCE_PLUGINHOST_VST3=1 -DJUCE_SHARED_CODE=1 -DJUCE_STANDALONE_APPLICATION=JucePlugin_Build_Standalone -DJUCE_TARGET_HAS_BINARY_DATA=1 -DJUCE_USE_CURL=0 -DJUCE_VST3_CAN_REPLACE_VST2=0 -DJUCE_WASAPI=1 -DJUCE_WEB_BROWSER=0 -DJucePlugin_AAXCategory=0 -DJucePlugin_AAXDisableBypass=0 -DJucePlugin_AAXDisableMultiMono=0 -DJucePlugin_AAXIdentifier=com.raphaelfukuda.GuitarCompanion -DJucePlugin_AAXManufacturerCode=JucePlugin_ManufacturerCode -DJucePlugin_AAXProductId=JucePlugin_PluginCode -DJucePlugin_ARACompatibleArchiveIDs=\\\"\\\" -DJucePlugin_ARAContentTypes=0 -DJucePlugin_ARADocumentArchiveID=\\\"com.raphaelfukuda.GuitarCompanion.aradocumentarchive.1\\\" -DJucePlugin_ARAFactoryID=\\\"com.raphaelfukuda.GuitarCompanion.arafactory.0.1.0\\\" -DJucePlugin_ARATransformationFlags=0 -DJucePlugin_AUExportPrefix=Guitar_CompanionAU -DJucePlugin_AUExportPrefixQuoted=\\\"Guitar_CompanionAU\\\" -DJucePlugin_AUMainType=\"'aufx'\" -DJucePlugin_AUManufacturerCode=JucePlugin_ManufacturerCode -DJucePlugin_AUSubType=JucePlugin_PluginCode -DJucePlugin_Build_AAX=0 -DJucePlugin_Build_AU=0 -DJucePlugin_Build_AUv3=0 -DJucePlugin_Build_LV2=0 -DJucePlugin_Build_Standalone=1 -DJucePlugin_Build_Unity=0 -DJucePlugin_Build_VST3=1 -DJucePlugin_Build_VST=0 -DJucePlugin_CFBundleIdentifier=com.raphaelfukuda.GuitarCompanion -DJucePlugin_Desc=\"\\\"Guitar Companion\\\"\" -DJucePlugin_EditorRequiresKeyboardFocus=0 -DJucePlugin_Enable_ARA=0 -DJucePlugin_IsMidiEffect=0 -DJucePlugin_IsSynth=0 -DJucePlugin_LV2PluginClass=Plugin -DJucePlugin_Manufacturer=\"\\\"Raphael Fukuda\\\"\" -DJucePlugin_ManufacturerCode=0x52617068 -DJucePlugin_ManufacturerEmail=\\\"\\\" -DJucePlugin_ManufacturerWebsite=\\\"\\\" -DJucePlugin_Name=\"\\\"Guitar Companion\\\"\" -DJucePlugin_PluginCode=0x4774636f -DJucePlugin_ProducesMidiOutput=0 -DJucePlugin_VSTCategory=kPlugCategEffect -DJucePlugin_VSTNumMidiInputs=16 -DJucePlugin_VSTNumMidiOutputs=16 -DJucePlugin_VSTUniqueID=JucePlugin_PluginCode -DJucePlugin_Version=0.1.0 -DJucePlugin_VersionCode=0x100 -DJucePlugin_VersionString=\\\"0.1.0\\\" -DJucePlugin_Vst3Category=\\\"Fx\\\" -DJucePlugin_WantsMidiInput=0 -DLINUX=1 -DNAM_ENABLE_A2_FAST -DNAM_SAMPLE_FLOAT -DNDEBUG=1 -DNOMINMAX -DUSE_KISS_FFT=1 -D_NDEBUG=1",
+    "FLAGS": "-O3 -DNDEBUG -std=gnu++17 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -O3 -Wall -Wextra -Wpedantic -Wstrict-aliasing -Wuninitialized -Wunused-parameter -Wsign-compare -Wsign-conversion -Wunreachable-code -Wcast-align -Wno-implicit-fallthrough -Wno-maybe-uninitialized -Wno-ignored-qualifiers -Wno-multichar -Wswitch-enum -Wredundant-decls -Wno-strict-overflow -Wshadow -Wfloat-equal -Wmissing-field-initializers -Woverloaded-virtual -Wreorder -Wzero-as-null-pointer-constant",
+    "INCLUDES": "-I/home/mojo/projects/build-INT-LIVE-001-integration/product/GuitarCompanion_artefacts/JuceLibraryCode -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/JUCE/modules -I/usr/include/freetype2 -I/home/mojo/projects/guitars-build-resume/sysroot/usr/include -I/usr/include/libpng16 -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/JUCE/modules/juce_audio_processors_headless/format_types/VST3_SDK -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/lv2 -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/serd -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/sord -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/sord/src -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/sratom -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/lilv -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/JUCE/modules/juce_audio_processors_headless/format_types/LV2_SDK/lilv/src -I/home/mojo/projects/build-INT-LIVE-001-integration/product/juce_binarydata_GuitarCompanionAssets/JuceLibraryCode -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/src -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/BTrack/src -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/BTrack/libs/kiss_fft130 -I/home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/libsamplerate/src -isystem /home/mojo/projects/build-INT-LIVE-001-integration/product/nam-rt/generated -isystem /home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/NeuralAmpModelerCore -isystem /home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/NeuralAmpModelerCore/Dependencies/eigen -isystem /home/mojo/projects/build-INT-LIVE-001-integration/product-source/third_party/NeuralAmpModelerCore/Dependencies/nlohmann"
+  },
+  "paths": {
+    "shared_archive": "/home/mojo/projects/build-INT-LIVE-001-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+    "nam_archive": "/home/mojo/projects/build-INT-LIVE-001-integration/product/libnam_core.a",
+    "assets_archive": "/home/mojo/projects/build-INT-LIVE-001-integration/product/libGuitarCompanionAssets.a",
+    "jam_archive": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/libjam-core.a",
+    "sysroot_lib": "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu",
+    "link_closure": {
+      "ok": true,
+      "missing": null,
+      "source": "ninja:GuitarCompanion_Standalone",
+      "archives": [
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/libnam_core.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/libGuitarCompanionAssets.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libjam-btrack.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/libjam-core.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libbtrack.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libkiss_fft.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libsamplerate.a"
+      ],
+      "libs": [
+        "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu/libasound.so",
+        "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu/libfontconfig.so",
+        "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu/libfreetype.so",
+        "-lrt",
+        "-ldl",
+        "-lpthread"
+      ],
+      "wl_flags": [
+        "-Wl,--no-undefined",
+        "-Wl,--dependency-file=CMakeFiles/GuitarCompanion_Standalone.dir/link.d",
+        "-Wl,--push-state,--whole-archive",
+        "-Wl,--pop-state"
+      ],
+      "inputs": [
+        "-Wl,--no-undefined",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+        "-Wl,--push-state,--whole-archive",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/libnam_core.a",
+        "-Wl,--pop-state",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/libGuitarCompanionAssets.a",
+        "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu/libasound.so",
+        "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu/libfontconfig.so",
+        "/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu/libfreetype.so",
+        "-lrt",
+        "-ldl",
+        "-lpthread",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libjam-btrack.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/libjam-core.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libbtrack.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libkiss_fft.a",
+        "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libsamplerate.a"
+      ]
+    }
+  }
+}

@@ -1,0 +1,70 @@
+EVAL-LIVE-001 actual-processor live-Jam replay (corrected)
+=========================================================
+source=/home/mojo/projects/build-INT-LIVE-001-integration/product-source
+product=/home/mojo/projects/build-INT-LIVE-001-integration/product
+scope=full cells=54 realtime=1
+
+[instrument self-check]
+  armed exact: new=2 new[]=2 del=1 del[]=2 del(sized)=1 malloc=1 calloc=1 realloc=1 free=2 lock=2 unlock=2 trylock=1 cond=1
+  self-check PASS
+
+  [disabled_r48000_b128_clean          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 1500 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=32 repeat=0 rms=0.175385
+  [disabled_r48000_b128_noise          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 1500 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=31 repeat=0 rms=0.115492
+  [disabled_r48000_b128_silence        ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 1500 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=30 repeat=0 rms=0.000000
+  [enabled_r48000_b128_clean           ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 1500 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=22 skipped=22 future=0) new_receipts=1488 repeat=0 rms=0.175385
+  [enabled_r48000_b128_noise           ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 1500 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=50 skipped=50 future=0) new_receipts=1490 repeat=0 rms=0.115492
+  [enabled_r48000_b128_silence         ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 1500 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=36 skipped=36 future=0) new_receipts=1488 repeat=0 rms=0.000000
+  [enabled_pressure_r48000_b128_clean  ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 1500 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=30 repeat=0 rms=0.175385
+  [enabled_pressure_r48000_b128_noise  ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 1500 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=32 repeat=0 rms=0.115492
+  [enabled_pressure_r48000_b128_silence] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 1500 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=30 repeat=0 rms=0.000000
+  [disabled_r48000_b512_clean          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 375 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=30 repeat=0 rms=0.184912
+  [disabled_r48000_b512_noise          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 375 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=29 repeat=0 rms=0.115500
+  [disabled_r48000_b512_silence        ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 375 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=29 repeat=0 rms=0.000000
+  [enabled_r48000_b512_clean           ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 375 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=9 skipped=9 future=0) new_receipts=373 repeat=0 rms=0.184912
+  [enabled_r48000_b512_noise           ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 375 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=11 skipped=11 future=0) new_receipts=375 repeat=0 rms=0.115500
+  [enabled_r48000_b512_silence         ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 375 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=7 skipped=7 future=0) new_receipts=374 repeat=1 rms=0.000000
+  [enabled_pressure_r48000_b512_clean  ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 375 blocks 0.04s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=35 repeat=0 rms=0.184912
+  [enabled_pressure_r48000_b512_noise  ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 375 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=25 repeat=0 rms=0.115500
+  [enabled_pressure_r48000_b512_silence] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 375 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=17 repeat=0 rms=0.000000
+  [disabled_r48000_b4096_clean         ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 47 blocks 0.04s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=30 repeat=0 rms=0.247380
+  [disabled_r48000_b4096_noise         ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 47 blocks 0.06s fast ao=measured(delta_bad=0 back=0) rep(coalesced=2 skipped=2 future=0) new_receipts=36 repeat=0 rms=0.115499
+  [disabled_r48000_b4096_silence       ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 47 blocks 0.05s fast ao=measured(delta_bad=0 back=0) rep(coalesced=2 skipped=2 future=0) new_receipts=34 repeat=0 rms=0.000000
+  [enabled_r48000_b4096_clean          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 47 blocks 4.01s rt ao=measured(delta_bad=0 back=0) rep(coalesced=6 skipped=6 future=0) new_receipts=46 repeat=1 rms=0.247380
+  [enabled_r48000_b4096_noise          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 47 blocks 4.01s rt ao=measured(delta_bad=0 back=0) rep(coalesced=11 skipped=11 future=0) new_receipts=47 repeat=0 rms=0.115499
+  [enabled_r48000_b4096_silence        ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 47 blocks 4.01s rt ao=measured(delta_bad=0 back=0) rep(coalesced=13 skipped=13 future=0) new_receipts=46 repeat=1 rms=0.000000
+  [enabled_pressure_r48000_b4096_clean ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 47 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=30 repeat=0 rms=0.247380
+  [enabled_pressure_r48000_b4096_noise ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 47 blocks 0.04s fast ao=measured(delta_bad=0 back=0) rep(coalesced=1 skipped=1 future=0) new_receipts=23 repeat=0 rms=0.115499
+  [enabled_pressure_r48000_b4096_silence] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 47 blocks 0.03s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=27 repeat=0 rms=0.000000
+  [disabled_r96000_b128_clean          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 3000 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=60 repeat=0 rms=0.169262
+  [disabled_r96000_b128_noise          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 3000 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=58 repeat=0 rms=0.091328
+  [disabled_r96000_b128_silence        ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 3000 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=51 repeat=0 rms=0.000000
+  [enabled_r96000_b128_clean           ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 3000 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=130 skipped=130 future=0) new_receipts=2971 repeat=2 rms=0.169262
+  [enabled_r96000_b128_noise           ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 3000 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=65 skipped=65 future=0) new_receipts=2946 repeat=2 rms=0.091328
+  [enabled_r96000_b128_silence         ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 3000 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=56 skipped=56 future=0) new_receipts=2903 repeat=2 rms=0.000000
+  [enabled_pressure_r96000_b128_clean  ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 3000 blocks 0.08s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=74 repeat=0 rms=0.169262
+  [enabled_pressure_r96000_b128_noise  ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 3000 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=64 repeat=0 rms=0.091328
+  [enabled_pressure_r96000_b128_silence] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 3000 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=60 repeat=0 rms=0.000000
+  [disabled_r96000_b512_clean          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 750 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=58 repeat=0 rms=0.178661
+  [disabled_r96000_b512_noise          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 750 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=55 repeat=0 rms=0.091352
+  [disabled_r96000_b512_silence        ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 750 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=58 repeat=0 rms=0.000000
+  [enabled_r96000_b512_clean           ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 750 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=19 skipped=19 future=0) new_receipts=747 repeat=2 rms=0.178661
+  [enabled_r96000_b512_noise           ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 750 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=18 skipped=18 future=0) new_receipts=749 repeat=0 rms=0.091352
+  [enabled_r96000_b512_silence         ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 750 blocks 4.00s rt ao=measured(delta_bad=0 back=0) rep(coalesced=14 skipped=14 future=0) new_receipts=745 repeat=0 rms=0.000000
+  [enabled_pressure_r96000_b512_clean  ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 750 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=57 repeat=0 rms=0.178661
+  [enabled_pressure_r96000_b512_noise  ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 750 blocks 0.08s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=67 repeat=0 rms=0.091352
+  [enabled_pressure_r96000_b512_silence] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 750 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=62 repeat=0 rms=0.000000
+  [disabled_r96000_b4096_clean         ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 94 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=61 repeat=0 rms=0.218888
+  [disabled_r96000_b4096_noise         ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 94 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=59 repeat=0 rms=0.091353
+  [disabled_r96000_b4096_silence       ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 94 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=61 repeat=0 rms=0.000000
+  [enabled_r96000_b4096_clean          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 94 blocks 4.01s rt ao=measured(delta_bad=0 back=0) rep(coalesced=16 skipped=16 future=0) new_receipts=93 repeat=1 rms=0.218888
+  [enabled_r96000_b4096_noise          ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 94 blocks 4.01s rt ao=measured(delta_bad=0 back=0) rep(coalesced=8 skipped=8 future=0) new_receipts=93 repeat=1 rms=0.091353
+  [enabled_r96000_b4096_silence        ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 94 blocks 4.01s rt ao=measured(delta_bad=0 back=0) rep(coalesced=9 skipped=9 future=0) new_receipts=91 repeat=2 rms=0.000000
+  [enabled_pressure_r96000_b4096_clean ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 94 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=60 repeat=0 rms=0.218888
+  [enabled_pressure_r96000_b4096_noise ] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 94 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=45 repeat=0 rms=0.091353
+  [enabled_pressure_r96000_b4096_silence] cold(cxx=0 c=0 lock=0) warm(cxx=0 c=0 free=0 lock=0) 94 blocks 0.07s fast ao=measured(delta_bad=0 back=0) rep(coalesced=0 skipped=0 future=0) new_receipts=58 repeat=0 rms=0.000000
+
+[supplemental scenarios]
+  scenario[default_clean_long] start=1 join=1 blocks_to_join=753 16.0s
+  scenario[injected_join_stop_resync] join=0 stopNow=1 resync=1 genChanged=1
+
+cells.json: /home/mojo/projects/build-EVAL-LIVE-001-integration/actual-full-001/cells.json (scope=full cells=54 measured=54 findings=0)

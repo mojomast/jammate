@@ -104,8 +104,9 @@ audio-owner playback echo. Default BTrack is experimental live wiring, not a G3
 selection or TRACK-008 promotion. Advanced style/fill controls are unavailable
 for the one-Rock-groove slice. Shared build/CI and integration remain
 orchestrator-owned. Final UI `8ac4517` and pipeline `016c0c8` are accepted and
-integrated after focused review and fresh product verification. Replay correction
-and actual processor measurements remain pending.
+integrated after focused review and fresh product verification. Replay `5c0d72e`
+is accepted and integrated after its additive outcome/input-timeline corrections.
+The first actual processor full-matrix measurement is running.
 
 All three implementation workers have submitted clean handoffs: INT-LIVE-001
 `f3151f0`, UI-LIVE-001 `f9d1d15`, EVAL-LIVE-001 `07021ae`. Independent reviews
@@ -186,6 +187,23 @@ the timeout bound. Pre-measurement inspection then found stereo WAV cursor
 advance and source/device-rate mapping errors; the fixture playback correction
 is active under `docs/research/LIVE-JAM-FIXTURE-TIMELINE.md`. Original fixture
 bytes/protocols remain preserved. No actual processor replay has run.
+
+Replay `5c0d72e` is accepted/merged: fixture playback advances once per device
+frame, applies source/device-rate conversion and maintains channel/chunk
+coherence; nonjoining backend identity and timeout bounds are corrected.
+First actual full replay is running in
+`build-EVAL-LIVE-001-integration/actual-full-001` with the canonical synthetic
+WAVs,54 cells and both supplemental scenarios. Results are not yet known.
+
+First actual replay completed and is preserved in
+`docs/research/live-jam-replay/actual-full-001/` with raw evidence, validator
+verdict, manifests/log and hashes. All54 cells pass the callback RT gate. The
+default experimental BTrack scenario joins at block753 (about8.03 s) and fires59
+drum steps on the declared built-in120 BPM synthetic signal. Overall acceptance
+fails:108 end-state checks because unsuccessful final LatestValue reads left
+default fields, plus the injected scenario ran unpaced and never joined. Worker
+capture/pacing/lifecycle-proof corrections are active before a new measured run.
+Original raw results are not re-scored or rewritten.
 
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The

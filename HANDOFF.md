@@ -18,7 +18,8 @@ sessions and exact ownership are in the ledger's Active live-Jam table.
 `docs/research/LIVE-JAM-CONTRACT.md` and `src/jam/JamLiveInterface.h` freeze the
 shared facade. UI `8ac4517` and pipeline `016c0c8` are accepted and merged locally
 after fresh product verification; replay corrections and actual scoring remain
-pending. Default BTrack is experimental;
+pending. Replay `5c0d72e` is now accepted/merged and the first actual full replay
+is running; results are not yet known. Default BTrack is experimental;
 TRACK-008 stays diagnostic and G3 remains open. Shared CMake/CI are
 orchestrator-owned. Prior final head `b7e3be1` is published and fully green in
 run37729980845: core23/24/24/25, NAM9/9, Windows Standalone/VST3 with7/7 drum
@@ -159,6 +160,19 @@ for a no-join outcome and timeout bounds; pre-measurement inspection found
 incorrect WAV advancement per channel and ignored device rate. Worker playback
 fix is active under `docs/research/LIVE-JAM-FIXTURE-TIMELINE.md`; original WAV
 bytes/protocols stay unchanged. Actual full replay is still unrun.
+
+Replay `5c0d72e` is accepted and merged after the backend identity and coherent
+fixture timeline fixes. First actual full replay is running at
+`/home/mojo/projects/build-EVAL-LIVE-001-integration/actual-full-001`, using the
+canonical generated fixtures,54 cells and both supplemental scenarios. Await
+background completion before evaluating counters/scenarios or publishing claims.
+
+Actual full001 completed with overall failure. Raw is preserved in
+`docs/research/live-jam-replay/actual-full-001/`. All54 callback cells pass the RT
+gate; default BTrack joins the built-in120 BPM synthetic input at block753 and
+fires59 steps. End-state capture ignores false LatestValue reads (108 failures),
+and the unpaced injected scenario did not join. Worker is correcting snapshot
+retention and paced lifecycle proof; repeat in a new directory after acceptance.
 
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
