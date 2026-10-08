@@ -57,6 +57,7 @@ struct JamLiveState
     float complexity01 = 0.5f;
     float fillAmount01 = 0.3f;
     float performanceIntensity01 = 0.5f;
+    // These two fields come only from the audio-owner echo, never the director.
     int activeGroove = -1;
     bool fillPlaying = false;
     bool adaptiveChangePending = false;

@@ -234,6 +234,10 @@ private:
     };
 
     LiveJamSessionConfig config_;
+    // Validated tracker features consumed only on the control worker. The audio
+    // callback continues to publish mono audio, never musical decisions.
+    RhythmObservation lastFeatures_ {};
+    std::uint64_t adaptiveChangeTarget_ = 0;
     AnalysisAudioRing ring_;
     std::unique_ptr<IRhythmTracker> pendingTracker_;
     JamLiveBackend pendingBackend_ = JamLiveBackend::unavailable;

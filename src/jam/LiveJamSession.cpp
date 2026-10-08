@@ -111,6 +111,8 @@ bool LiveJamSession::prepare (double sampleRate, int maximumBlockSize,
     bridge_.prepare (sampleRate, maximumBlockSize);
     clock_.reset();
     policy_.reset();
+    lastFeatures_ = RhythmObservation {};
+    adaptiveChangeTarget_ = 0;
 
     haveClockAnchor_ = false;
     clockSampleTime_ = 0;
@@ -322,6 +324,7 @@ void LiveJamSession::processObservation (const ObservationEnvelope& envelope,
     lastEventSampleTime_ = event;
     lastInputHorizon_ = envelope.inputHorizonSampleTime;
     candidateBpm_ = envelope.observation.bpmCandidate;
+    lastFeatures_ = envelope.observation;
     clock_.observe (envelope.observation);
 }
 

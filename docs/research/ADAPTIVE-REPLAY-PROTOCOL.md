@@ -14,8 +14,10 @@ tagged injected tracker returning deterministic 120 BPM/phase/energy evidence.
 It advances one 48 kHz / 512-frame sample domain and paces worker service outside
 the armed callback. It requests a real join, all six style changes, intensity and
 complexity changes, an explicit fill with automatic fills disabled, and Stop.
-Raw per-block JSONL records engine cursor/playback/groove/steps, worker style/fill
-echo and output RMS. Queue acceptance is separate from application and sound.
+Raw per-block JSONL records engine cursor/playback/groove/fill/steps, worker style
+and audio-owner-derived fill echo, and output RMS. Queue acceptance is separate
+from application and sound. The product closure must be built from the same clean
+source tree with all product targets up-to-date; mixed-tree archives are refused.
 
 Required outcomes:
 
@@ -23,8 +25,12 @@ Required outcomes:
   This is not a two-bar guitar-acquisition test.
 - Each style reflected by the worker, continuing actual playback, and actual
   groove changes across styles after a 400-block settling window per style.
+- Worker confirms intensity/complexity settings and automatic fills disabled.
+  Actual-engine unit cases separately verify the rendered dynamic controls.
 - Explicit fill observed in audio-owner echo and subsequent reversion within
-  600 blocks, with `fillAmount=0` to remove automatic-fill ambiguity.
+  600 blocks, with `fillAmount=0` to remove automatic-fill ambiguity. Audio-owner
+  engine fill start/end observations must span 96,000 samples within the
+  512-sample callback observation resolution (one 120 BPM 4/4 bar).
 - Immediate Stop releases injected ownership within 30 servicing blocks.
 - Every processed callback advances exactly 512 audio-owner samples.
 - Audible actual internal-kit output with zero guitar: more than 100 nonzero

@@ -4,9 +4,11 @@
 #include "jam/IRhythmTracker.h"
 #include "RtProbeInstrumentation.h"
 #include <juce_events/juce_events.h>
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdint>
 #include <memory>
 #include <thread>
 
@@ -79,11 +81,12 @@ int main (int argc, char** argv)
         std::this_thread::sleep_for (std::chrono::milliseconds (1));
         proc->readJamLiveState (state); // retain whole previous state on false
         std::fprintf (trace, "{\"block\":%llu,\"audio_sample\":%llu,\"engine_playing\":%s,"
-                      "\"engine_groove\":%d,\"style\":%d,\"fill_echo\":%s,\"echo_playing\":%s,"
+                      "\"engine_groove\":%d,\"engine_fill\":%s,\"style\":%d,\"fill_echo\":%s,\"echo_playing\":%s,"
                       "\"steps\":%llu,\"rms\":%.9g}\n",
                       static_cast<unsigned long long> (blocks),
                       static_cast<unsigned long long> (engine.injectedSamplePosition()),
                       engine.injectedPlaying() ? "true" : "false", engine.injectedGroove(),
+                      engine.injectedFillPlaying() ? "true" : "false",
                       state.styleIndex, state.fillPlaying ? "true" : "false", state.drumsPlaying ? "true" : "false",
                       static_cast<unsigned long long> (engine.injectedStepsFired()), std::sqrt (squares / 512));
     };
@@ -102,19 +105,30 @@ int main (int argc, char** argv)
         send (jam::JamLiveCommandType::SetComplexity, 0.65);
         for (int i = 0; i < 400; ++i) block();
         check (state.styleIndex == style, "worker applied selected style");
+        check (std::abs (state.intensity01 - 0.75f) < 0.0001f
+               && std::abs (state.complexity01 - 0.65f) < 0.0001f
+               && state.fillAmount01 == 0.0f, "worker applied intensity/complexity and disabled automatic fills");
         check (proc->drumEngine.injectedPlaying(), "style transition retains actual playback");
         styleChanged = styleChanged || proc->drumEngine.injectedGroove() != priorGroove;
     }
     check (styleChanged, "style controls change actual prepared groove");
     send (jam::JamLiveCommandType::RequestFill);
-    bool fill = false, reverted = false;
+    bool fill = false, reverted = false, fillEcho = false;
+    std::uint64_t fillStart = 0, fillEnd = 0;
     for (int i = 0; i < 600; ++i)
     {
         block();
-        fill = fill || state.fillPlaying;
-        reverted = reverted || (fill && ! state.fillPlaying);
+        const bool engineFill = proc->drumEngine.injectedFillPlaying();
+        if (engineFill && ! fill) fillStart = proc->drumEngine.injectedSamplePosition();
+        if (! engineFill && fill && ! reverted) fillEnd = proc->drumEngine.injectedSamplePosition();
+        fill = fill || engineFill;
+        fillEcho = fillEcho || state.fillPlaying;
+        reverted = reverted || (fill && ! engineFill);
     }
-    check (fill && reverted, "audio-owner fill echo and one-bar reversion");
+    check (fill && reverted && fillEcho && fillEnd > fillStart,
+           "actual engine fill, audio-owner echo and reversion");
+    check (fillEnd > fillStart && std::abs (static_cast<double> (fillEnd - fillStart) - 96000.0) <= 512.0,
+           "fill duration is one 120 BPM bar within callback observation resolution");
     send (jam::JamLiveCommandType::Stop);
     for (int i = 0; i < 30 && proc->drumEngine.injectedActive(); ++i) block();
     check (! proc->drumEngine.injectedActive(), "Stop releases injected ownership");

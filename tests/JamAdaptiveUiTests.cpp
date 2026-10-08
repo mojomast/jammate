@@ -29,6 +29,11 @@ TEST_CASE (uiLive_adaptiveInvalidInputNeverReachesQueue)
         CHECK (! p.submit (intent));
     CHECK (c.submissions == 0);
     CHECK (p.lastFeedback().containsIgnoreCase ("invalid"));
+    jam::JamLiveCommand command;
+    CHECK (JamLivePresenter::mapIntent ({ K::mode, std::numeric_limits<double>::max() }, command));
+    CHECK (command.value == 2.0);
+    CHECK (JamLivePresenter::mapIntent ({ K::mode, -std::numeric_limits<double>::max() }, command));
+    CHECK (command.value == 0.0);
 }
 
 TEST_CASE (uiLive_adaptiveQueueIntentDoesNotInventAppliedSettings)

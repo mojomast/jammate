@@ -123,7 +123,7 @@ bool JamLivePresenter::mapIntent (const JamUiIntent& in, jam::JamLiveCommand& ou
         case K::reset:       out.type = Cmd::Reset;          return true;
         case K::mode:
         {
-            const int id = (int) in.value < 1 ? 1 : ((int) in.value > 3 ? 3 : (int) in.value);
+            const int id = static_cast<int> (juce::jlimit (1.0, 3.0, in.value));
             out.type = Cmd::SetMode;
             out.value = (double) (id - 1);   // combo id 1..3 -> TempoMode 0..2
             return true;

@@ -25,11 +25,24 @@ def main():
     parser.add_argument('--out', type=Path, required=True)
     args = parser.parse_args()
     root, product, out = args.source.resolve(), args.product_build.resolve(), args.out.resolve()
+    if out.exists() and any(out.iterdir()):
+        raise SystemExit('Output directory must be empty: preserve every failed and successful run')
     out.mkdir(parents=True, exist_ok=True)
     spec = importlib.util.spec_from_file_location('replay_recipe', root / 'tools/live-jam-replay/replay_lib.py')
     recipe = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(recipe)
     vals = recipe.production_flags(str(product))
+    product_source = recipe.product_source_dir(str(product), vals)
+    if product_source is None or Path(product_source).resolve() != root:
+        raise SystemExit('Product source must be the exact --source tree; ABI-mixed archives are rejected')
+    dirty = subprocess.check_output(['git', 'status', '--porcelain'], cwd=root, text=True)
+    if dirty:
+        raise SystemExit('Commit the source before measurement; dirty source is rejected')
+    pending = subprocess.check_output(['ninja', '-n', 'GuitarCompanion_Standalone',
+                                       'GuitarCompanion_VST3', 'GuitarCompanionTests'],
+                                      cwd=product, text=True)
+    if any(word in pending for word in ('Building ', 'Linking ', 'Re-running CMake')):
+        raise SystemExit('Product targets are not up-to-date; build them before reusing their closure')
     closure = recipe.extract_link_closure(str(product))
     if not closure['ok']:
         raise SystemExit('No complete product link closure')
@@ -48,7 +61,15 @@ def main():
     manifest = {'schema': 'adaptive-jam-replay/build/1', 'source_head': subprocess.check_output(
         ['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
         'fresh_sources': {str(p.relative_to(root)): sha(p) for p in sources},
-        'headers': {str(p.relative_to(root)): sha(p) for p in (root / 'src').rglob('*.h')},
+        'headers': {str(p.relative_to(root)): sha(p) for directory in
+                    (root / 'src', root / 'tools/live-jam-replay/src')
+                    for p in directory.rglob('*.h')},
+        'tools': {str(p.relative_to(root)): sha(p) for p in
+                  (root / 'tools/adaptive-jam-replay/build.py',
+                   root / 'tools/live-jam-replay/replay_lib.py',
+                   root / 'docs/research/ADAPTIVE-REPLAY-PROTOCOL.md')},
+        'product_source': recipe.git_info(product_source), 'source_dirty': bool(dirty),
+        'product_freshness_check': pending,
         'reused_archives': {p: sha(p) for p in closure['archives']},
         'commands': commands, 'scope': 'actual processor with injected observations; callback-thread probe only'}
     try:
