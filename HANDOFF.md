@@ -65,7 +65,7 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | CI-002 integrated workflows (worker finished) | `wp/CI-002-trackers`, `../worktrees/CI-002-trackers` | `ses_ee75a1084ffep3AxLvnl0Kqa3d` |
 | TRACK-003 integrated partial feasibility (worker finished) | `wp/TRACK-003-beatnet`, `../worktrees/TRACK-003-beatnet` | `ses_ee745589effeU0Q5VSCHfvX51T` |
 | EVAL-005 integrated paired diagnostics (worker finished) | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
-| EVAL-006 sustained repair + tapping audit | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
+| EVAL-006 sustained repair + tapping audit (review corrections) | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
 | TRACK-004 acquisition/BPM diagnosis | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
 | RT-002 real processor runtime probe | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
 
@@ -93,6 +93,13 @@ objects, instrument actual callbacks and actual editor-absent timer delivery.
 No legacy callback changes authorised; any runtime/build blocker must be
 recorded as measured partial evidence. Device latency, NAM/arbitrary plugins
 and full G1 coverage are not inferred from a bounded non-device probe.
+
+EVAL-006 initial `d6e36ff` has returned (31 worker tests, versioned long-decay
+audio and four real tracker runs) but is not integrated. Same worker is fixing
+custom `--out` references to the 18 original WAVs, running acoustic validators
+during generation, and tightening claims about continuity/physical realism and
+metric-grid detections versus four actual onsets. The name-based CorpusDefect
+scorer caveat remains reported. Await a revised clean SHA.
 
 ### Remaining gate work
 
