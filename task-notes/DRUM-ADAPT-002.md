@@ -58,9 +58,13 @@ live facade wiring.
 - Stop/Clear/reset/discontinuity cancel a staged change.
 
 ### Engine (`DrumEngine`)
-- A **bounded immutable bank** of up to `kMaxInjectedBankPatterns = 16`
+- A **bounded immutable bank** of up to `kMaxInjectedBankPatterns = 128`
   pre-resolved library patterns (`InjectedBankPattern`, inline storage, no
-  allocation after construction). Prepared off the audio callback by
+  allocation after construction). 128 is fixed with headroom over the completed
+  six-style catalogue's 106 distinct groove/fill indices (cross-worker
+  integration fix): the parent prepares the catalogue's unique 4/4 entries once,
+  quiescently, and the runtime UI never re-parses or re-prepares during the
+  callback. Prepared off the audio callback by
   `prepareInjectedBank(grooves, n, fills, n)`; each entry is validated (index in
   range, 4/4 meter) and classified by the library's own `fill` flag with kind
   matching (a groove listed as a fill, or vice versa, is skipped). Duplicates
@@ -130,8 +134,10 @@ last-wins; monotonic intensity (velocity + internal-sampler peak); swing moves
 offbeats but not downbeats; bounded humanization jitter; unprepared index
 and late command rejected whole with the pattern still playing; join + same-bar
 change composition; StopNow/StopAtBar cancellation and manual recovery;
-bank meter/kind rejection; re-prepare preserving bank and selection; and the
-heap-probe callback-allocation gate with adaptation active.
+bank meter/kind rejection; re-prepare preserving bank and selection; a fixed
+128-slot bank capacity/regression loading the actual 4/4 library with a
+high-slot change and high-slot fill; and the heap-probe callback-allocation gate
+with adaptation active (including a large-bank bounded allocation-free scan).
 ## Commands executed
 ```sh
 export PATH=/tmp/opencode/venv/bin:$PATH
@@ -148,12 +154,12 @@ ctest --test-dir /home/mojo/projects/build-DRUM-ADAPT-002-worker/jamcore --outpu
 ## Results
 Driver (`tools/drum-adaptive/run.py`, command log
 `/home/mojo/projects/build-DRUM-ADAPT-002-worker/driver-run.log`):
-- Combined JUCE binary **with** `DRUM_MIDI_HEAP_PROBE` + `--wrap`: **97 cases,
-  0 failed** (15 new adaptive actual-engine cases + 32 INT-DRUM-001 cases + all
-  existing drum suites in ONE link, proving the shared probe has a single
-  definition).
+- Combined JUCE binary **with** `DRUM_MIDI_HEAP_PROBE` + `--wrap`: **98 cases,
+  0 failed** (15 new adaptive actual-engine cases + the 128-slot bank
+  capacity/bounded-scan case + 32 INT-DRUM-001 cases + all existing drum suites
+  in ONE link, proving the shared probe has a single definition).
 - Combined JUCE binary **without** the macro and without the wrap flags:
-  **94 cases, 0 failed** (the three allocation-probe cases are skipped by the
+  **95 cases, 0 failed** (the three allocation-probe cases are skipped by the
   macro), proving every test compiles and runs on a default/Windows-style
   configuration.
 - Portable JUCE-free suites (`DrumClockBridge` + `DrumAdaptiveBridge`):

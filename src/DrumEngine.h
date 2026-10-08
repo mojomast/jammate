@@ -357,8 +357,12 @@ private:
     static constexpr int kMaxInjectedEvents = 8;
     // Bounded adaptive pattern bank (DRUM-ADAPT-002). Structural, not a tunable:
     // the storage is inline so nothing allocates after construction and the
-    // audio thread only ever indexes into pre-resolved patterns.
-    static constexpr int kMaxInjectedBankPatterns = 16;
+    // audio thread only ever indexes into pre-resolved patterns. Capacity 128 is
+    // fixed with headroom over the completed six-style catalogue's 106 distinct
+    // groove/fill indices (DRUM-ADAPT-002 integration fix); the parent prepares
+    // the catalogue's unique 4/4 entries once, quiescently, and the runtime UI
+    // never re-parses or re-prepares during the callback.
+    static constexpr int kMaxInjectedBankPatterns = 128;
 
     /// One pre-resolved, immutable library pattern. `pattern` is the parsed
     /// one-bar grid; `index`/`isFill` identify the source library entry.

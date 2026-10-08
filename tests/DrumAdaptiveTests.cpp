@@ -673,6 +673,93 @@ TEST_CASE (drumadapt_late_bar_change_rejected_no_midbar_switch)
 }
 
 //==============================================================================
+// Integration fix (six-style catalogue): the fixed bounded bank must hold the
+// completed catalogue's distinct indices with headroom. Capacity is 128 inline
+// slots; a bank far larger than the old 16 must prepare and play, and the
+// callback must stay allocation-free while a high bank slot is selected and a
+// high-slot fill plays one bar and reverts.
+//==============================================================================
+TEST_CASE (drumadapt_large_bank_capacity_and_callback_bounded)
+{
+    // Mirror the parent's quiescent catalogue preparation: collect the actual
+    // 4/4 library entries, reserving fill slots, up to the fixed capacity.
+    DrumEngine capacityProbe;
+    const int cap = capacityProbe.injectedBankCapacity();
+    CHECK (cap > 16);
+
+    std::vector<LibraryIndex> allGrooves, allFills;
+    for (std::size_t i = 0; i < drum::library().size(); ++i)
+    {
+        const auto& g = drum::library()[i];
+        if (g.num != 4 || g.den != 4)
+            continue;
+        (g.fill ? allFills : allGrooves).push_back (static_cast<LibraryIndex> (i));
+    }
+    REQUIRE (static_cast<int> (allGrooves.size()) >= cap - 4);
+    REQUIRE (allFills.size() >= 4u);
+
+    const int fillReserve = 4;
+    std::vector<LibraryIndex> grooves, fills;
+    for (auto idx : allGrooves)
+    {
+        if (static_cast<int> (grooves.size() + fills.size()) >= cap - fillReserve)
+            break;
+        grooves.push_back (idx);
+    }
+    for (auto idx : allFills)
+    {
+        if (static_cast<int> (grooves.size() + fills.size()) >= cap)
+            break;
+        fills.push_back (idx);
+    }
+
+    Rig rig;
+    REQUIRE (rig.setup (grooves.data(), static_cast<int> (grooves.size()),
+                        fills.data(), static_cast<int> (fills.size())));
+    CHECK_EQ (rig.engine.injectedBankSize(), cap); // the whole bank fit
+    CHECK_EQ (rig.engine.injectedBankCapacity(), cap);
+
+    const LibraryIndex highGroove = grooves.back(); // a slot well beyond 16
+    const LibraryIndex highFill = fills.back();     // the last bank slot
+
+    REQUIRE (rig.bridge.requestJoinAtNextBar (grooves.front()));
+    rig.render (kBar + 1024u, 512); // bar 2
+    CHECK_EQ (rig.engine.injectedSelectedGroove(), grooves.front());
+
+    CHECK (rig.bridge.requestBarChange (exactChange (highGroove, highFill)));
+    CHECK_EQ (rig.bridge.barChangeBoundarySample(), 2 * kBar);
+
+#if defined(DRUM_MIDI_HEAP_PROBE)
+    // Bounded, allocation-free callback scan across the change boundary, the
+    // one-bar fill and its reversion to the high-slot selected groove.
+    std::size_t alloc = 0;
+    std::size_t freeN = 0;
+    while (rig.elapsed < 4 * kBar)
+    {
+        const int n = static_cast<int> (
+            juce::jmin<std::uint64_t> (4 * kBar - rig.elapsed, 512u));
+        rig.bridge.setClockSample (rig.elapsed); // worker side, outside the probe
+        drumprobe::beginMeasure();
+        rig.engine.process (rig.audio, n, &rig.sink, rig.midi);
+        drumprobe::endMeasure();
+        alloc += drumprobe::allocations();
+        freeN += drumprobe::deallocations();
+        rig.elapsed += static_cast<std::uint64_t> (n);
+    }
+    CHECK_EQ (alloc, static_cast<std::size_t> (0));
+    CHECK_EQ (freeN, static_cast<std::size_t> (0));
+#else
+    rig.render (4 * kBar, 512);
+#endif
+
+    CHECK_EQ (rig.engine.injectedSelectedGroove(), highGroove);
+    CHECK (! rig.engine.injectedFillPlaying());
+    CHECK_EQ (rig.engine.injectedActiveFill(), kNoLibraryEntry);
+    CHECK_EQ (rig.engine.injectedBarChangeCount(), static_cast<std::uint64_t> (1));
+    CHECK (rig.engine.injectedStepsFired() > 0u);
+}
+
+//==============================================================================
 #if defined(DRUM_MIDI_HEAP_PROBE)
 // The injected callback must allocate nothing with a bank, a groove change and a
 // one-bar fill all in flight.
