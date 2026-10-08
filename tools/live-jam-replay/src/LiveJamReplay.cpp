@@ -763,6 +763,12 @@ struct ScenarioResult
     std::uint64_t blocksToStopNow = 0;
     bool resyncAccepted = false;
     bool resyncEffectObserved = false;
+    int resyncPhaseBefore = -1;
+    int resyncPhaseAfter = -1;
+    std::uint64_t resyncStepSample = 0;
+    std::uint64_t resyncSubmitCursor = 0;
+    std::uint64_t resyncObservedEnd = 0;
+    std::uint64_t resyncOwnerCommandDelta = 0;
     std::uint64_t generationBeforeReprepare = 0;
     std::uint64_t generationAfterReprepare = 0;
     bool generationChangedOnReprepare = false;
@@ -940,7 +946,6 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     };
     auto enginePlaying = [&] { return proc.drumEngine.injectedPlaying(); };
     auto stepsFired = [&] { return proc.drumEngine.injectedStepsFired(); };
-    auto lastStep = [&] { return proc.drumEngine.injectedLastStepSample(); };
 
     r.paced = true;
     r.startAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
@@ -1004,24 +1009,64 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
         }
     }
 
-    // Resync: submit, then a third actual join and observe a real step/phase
-    // effect (queued acceptance alone is not proof).
-    r.resyncAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::ResyncNextBar, 0.0 });
+    // Resync phase proof (sixth correction): a THIRD actual join with no resync,
+    // then ResyncNextBar alone, then an engine-phase assertion. An ordinary join
+    // must not be able to satisfy this.
     proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
     const std::uint64_t steps2 = stepsFired();
-    const std::uint64_t lastStep0 = lastStep();
     const int maxJoin3 = (int) (8.0 * rate / block);
     for (int i = 0; i < maxJoin3; ++i)
     {
         pacedStep();
         jam::JamLiveState s {};
         readState (s);
-        if (stepsFired() > steps2 && lastStep() != lastStep0)
+        if ((s.drumsPlaying || enginePlaying()) && stepsFired() > steps2)
+            break;
+    }
+
+    // Wait for a mid-bar baseline phase: injectedNextStep in [2,14] (not the
+    // downbeat 1), engine playing.
+    const int maxPhase = (int) (2.0 * rate / block);
+    for (int i = 0; i < maxPhase; ++i)
+    {
+        const int ns = proc.drumEngine.injectedNextStep();
+        if (enginePlaying() && ns >= 2 && ns <= 14) break;
+        pacedStep();
+    }
+
+    const int phaseBefore = proc.drumEngine.injectedNextStep();
+    const std::uint64_t cmdBefore = proc.drumEngine.injectedCommandCount();
+    const std::uint64_t submitCursor = proc.drumEngine.injectedSamplePosition();
+    const bool baselinePlaying = enginePlaying();
+    r.resyncPhaseBefore = phaseBefore;
+    r.resyncSubmitCursor = submitCursor;
+
+    r.resyncAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::ResyncNextBar, 0.0 });
+    const std::uint64_t steps3 = stepsFired();
+    const int maxResync = (int) (2.0 * rate / block);
+    for (int i = 0; i < maxResync; ++i)
+    {
+        pacedStep();
+        jam::JamLiveState s {};
+        readState (s);
+        const std::uint64_t cmdNow = proc.drumEngine.injectedCommandCount();
+        if (cmdNow > cmdBefore && stepsFired() > steps3 && enginePlaying())
         {
-            r.resyncEffectObserved = true;
+            r.resyncObservedEnd = proc.drumEngine.injectedSamplePosition();
+            r.resyncPhaseAfter = proc.drumEngine.injectedNextStep();
+            r.resyncStepSample = proc.drumEngine.injectedLastStepSample();
+            r.resyncOwnerCommandDelta = cmdNow - cmdBefore;
             break;
         }
     }
+    if (r.resyncObservedEnd == 0)
+        r.resyncObservedEnd = proc.drumEngine.injectedSamplePosition();
+    r.resyncEffectObserved = baselinePlaying
+        && r.resyncPhaseBefore >= 2 && r.resyncPhaseBefore <= 14
+        && r.resyncPhaseAfter == 1
+        && r.resyncOwnerCommandDelta >= 1
+        && r.resyncStepSample >= r.resyncSubmitCursor
+        && r.resyncStepSample < r.resyncObservedEnd;
     r.stepsFired = stepsFired();
 
     // Session generation via prepare cold state (not the per-tick clock gen).
@@ -1397,6 +1442,12 @@ int main (int argc, char** argv)
         std::fprintf (f, ",\"engine_playing_observed\":"); jsonBool (f, r.enginePlayingObserved);
         std::fprintf (f, ",\"stop_now_accepted\":"); jsonBool (f, r.stopNowAccepted);
         std::fprintf (f, ",\"resync_effect_observed\":"); jsonBool (f, r.resyncEffectObserved);
+        std::fprintf (f, ",\"resync_phase_before\":"); std::fprintf (f, "%d", r.resyncPhaseBefore);
+        std::fprintf (f, ",\"resync_phase_after\":"); std::fprintf (f, "%d", r.resyncPhaseAfter);
+        std::fprintf (f, ",\"resync_step_sample\":"); jsonU64 (f, r.resyncStepSample);
+        std::fprintf (f, ",\"resync_submit_cursor\":"); jsonU64 (f, r.resyncSubmitCursor);
+        std::fprintf (f, ",\"resync_observed_end\":"); jsonU64 (f, r.resyncObservedEnd);
+        std::fprintf (f, ",\"resync_owner_command_delta\":"); jsonU64 (f, r.resyncOwnerCommandDelta);
         std::fprintf (f, ",\"session_generation_changed\":"); jsonBool (f, r.sessionGenerationChanged);
         std::fprintf (f, ",\"released_confirmed\":"); jsonBool (f, r.releasedConfirmed);
         std::fprintf (f, ",\"paced\":"); jsonBool (f, r.paced);

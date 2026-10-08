@@ -321,6 +321,19 @@ synthetic full tree passes all gates; link-only against the actual product is
 LIVE-READY (runtime not invoked). Remaining: a truthful actual-002 run by the
 orchestrator.
 
+## Sixth correction — real resync phase proof
+
+The injected `resync_effect_observed` was a false positive (ordinary join passed
+as resync). Fixed with an engine-phase proof: third actual join without resync,
+wait for baseline `injectedNextStep in [2,14]`, submit `ResyncNextBar` alone,
+assert `injectedNextStep()==1`, `lastStepSample in [submitCursor, observedEnd)`
+and a positive command-count delta. The injected gate requires the recorded phase
+fields; a forged flag cannot pass. Default-long gate is identity + actual
+audio-owner only.
+
+Executed: validator unit tests **121/121**; link-only against the actual product
+LIVE-READY (runtime not invoked); preserved actual-001 still fails truthfully.
+
 ## Limitations (not claimed)
 
 - The actual live measurement is pending the merged pipeline. Only the harness,

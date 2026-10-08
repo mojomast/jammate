@@ -617,15 +617,27 @@ def validate_scenarios(ev, scope, add):
                     add(f"scenario_{sid}_backend_first_label", "hard",
                         s.get("backend_kind") == s.get("backend_first"),
                         "backend_kind must equal the first observed backend label")
-                    add(f"scenario_{sid}_paced", "hard", s.get("paced") is True,
-                        "the scenario must be real-time paced")
-                    add(f"scenario_{sid}_wall_seconds", "hard",
-                        finite(s.get("wall_seconds")) and s.get("wall_seconds", -1) > 0,
-                        "the scenario wall time must be a positive number")
+                    if sid == "injected_join_stop_resync":
+                        add(f"scenario_{sid}_paced", "hard", s.get("paced") is True,
+                            "the injected scenario must be real-time paced")
+                        add(f"scenario_{sid}_wall_seconds", "hard",
+                            finite(s.get("wall_seconds")) and s.get("wall_seconds", -1) > 0,
+                            "the injected scenario wall time must be a positive number")
+                        add(f"scenario_{sid}_phase_before", "hard",
+                            isinstance(s.get("resync_phase_before"), int)
+                            and 2 <= s.get("resync_phase_before", -1) <= 14,
+                            "resync_phase_before must be a mid-bar step in [2,14]")
+                        add(f"scenario_{sid}_phase_after", "hard",
+                            isinstance(s.get("resync_phase_after"), int),
+                            "resync_phase_after must be an integer")
+                        for key in ("resync_step_sample", "resync_submit_cursor",
+                                    "resync_observed_end", "resync_owner_command_delta"):
+                            add(f"scenario_{sid}_{key}", "hard",
+                                isinstance(s.get(key), int) and s.get(key) >= 0,
+                                f"{key} must be a non-negative integer")
         d = by_id.get("default_clean_long", {}) or {}
         d_ok = (d.get("ran") is True and d.get("backend_kind") == "experimentalBTrack"
                 and d.get("start_accepted") is True and d.get("audio_owner_delta_ok") is True
-                and d.get("paced") is True
                 and isinstance(d.get("audio_owner_observed_s"), (int, float))
                 and d.get("audio_owner_observed_s", 0) > 0
                 and d.get("callbacks", 0) > 0 and d.get("output_nonzero_blocks", 0) > 0)
@@ -641,6 +653,15 @@ def validate_scenarios(ev, scope, add):
                   and inj.get("stop_now_stopped") is True
                   and inj.get("resync_accepted") is True
                   and inj.get("resync_effect_observed") is True
+                  and isinstance(inj.get("resync_phase_before"), int)
+                  and 2 <= inj.get("resync_phase_before", -1) <= 14
+                  and inj.get("resync_phase_after") == 1
+                  and isinstance(inj.get("resync_submit_cursor"), int)
+                  and isinstance(inj.get("resync_step_sample"), int)
+                  and isinstance(inj.get("resync_observed_end"), int)
+                  and inj.get("resync_submit_cursor", -1) <= inj.get("resync_step_sample", -1)
+                  < inj.get("resync_observed_end", -1)
+                  and inj.get("resync_owner_command_delta", 0) >= 1
                   and inj.get("session_generation_changed") is True
                   and inj.get("released_confirmed") is True
                   and inj.get("paced") is True
@@ -651,7 +672,7 @@ def validate_scenarios(ev, scope, add):
         else:
             add("join_gate", "gate", inj_ok,
                 "injected scenario must prove a first and second actual join, engine steps, "
-                "StopNow, a resync effect, a session-generation change and a coherent release")
+                "StopNow, a real resync phase shift, a session-generation change and a coherent release")
     else:
         add("join_gate", "gate", False,
             f"scope {scope} is partial; the first-audible join gate is only required for full scope")

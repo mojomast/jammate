@@ -367,6 +367,24 @@ Semantics unchanged (`structural AND rt_gate AND join_gate`; default no-lock
 diagnostic). Link-only against the actual product is LIVE-READY; runtime **not**
 invoked. Validator unit tests **113/113**.
 
+## Sixth correction (real resync phase proof)
+
+The injected scenario's `resync_effect_observed` was a false positive: it
+submitted Resync after StopNow, started a third join, and treated any new step +
+last-step change as a resync, so an ordinary join passed. Fixed: a third actual
+join **without** resync, then wait for a mid-bar baseline phase
+(`injectedNextStep in [2,14]`), then submit `ResyncNextBar` alone, then assert
+`injectedNextStep()==1` (step 0 fired), `lastStepSample in [submitCursor,
+observedEnd)`, and a positive `injectedCommandCount` delta. Recorded fields
+`resync_phase_before/after`, `resync_step_sample`, `resync_submit_cursor`,
+`resync_observed_end`, `resync_owner_command_delta`. The injected gate requires
+them; a forged `resync_effect_observed` cannot pass. The default-long gate is
+identity + actual audio-owner only and does not require injected fields.
+
+Validator unit tests **121/121**; link-only against the actual product is
+LIVE-READY (runtime not invoked); the preserved actual-001 evidence still fails
+truthfully (`actual-001-recheck-6.json`).
+
 ## Limitations (not claimed)
 
 - Not a whole-program allocation-safety proof. It is a bounded matrix over the

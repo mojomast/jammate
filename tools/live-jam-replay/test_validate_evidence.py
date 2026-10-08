@@ -512,6 +512,62 @@ class CorrectedValidatorTests(unittest.TestCase):
         ok, _, _ = hard_pass(ev)
         self.assertFalse(ok, "a measured cell must latch a baseline prepared state")
 
+    # -- sixth: real resync phase proof --------------------------------------
+    def _inj(self, ev):
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                return s
+        raise AssertionError("no injected scenario")
+
+    def test_resync_phase_fields_required(self):
+        ev = self.fresh(); del self._inj(ev)["resync_phase_before"]
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_resync_phase_after_must_be_one(self):
+        ev = self.fresh(); self._inj(ev)["resync_phase_after"] = 5
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_resync_phase_before_downbeat_fails(self):
+        ev = self.fresh(); self._inj(ev)["resync_phase_before"] = 1
+        ok, _, checks = hard_pass(ev)
+        self.assertFalse(ok, "a downbeat baseline cannot attribute step 0 to resync")
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_resync_step_before_command_fails(self):
+        ev = self.fresh(); self._inj(ev)["resync_step_sample"] = 800  # < submit 900
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_resync_step_future_fails(self):
+        ev = self.fresh(); self._inj(ev)["resync_step_sample"] = 1200  # >= end 1100
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_resync_command_delta_zero_fails(self):
+        ev = self.fresh(); self._inj(ev)["resync_owner_command_delta"] = 0
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_resync_forged_flag_with_bad_phase_fails(self):
+        ev = self.fresh()
+        self._inj(ev)["resync_effect_observed"] = True
+        self._inj(ev)["resync_phase_after"] = 7
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_,
+                         "a forged effect flag cannot pass without the phase proof")
+
+    def test_defaultlong_gate_does_not_require_injected_fields(self):
+        ev = self.fresh()
+        d = ev["scenarios"][0]
+        for k in ("first_join_observed", "second_join_observed", "resync_phase_before",
+                  "resync_phase_after", "released_confirmed"):
+            d.pop(k, None)
+        d["paced"] = False  # default gate must not depend on injected pacing
+        _, _, checks = hard_pass(ev)
+        self.assertTrue([c for c in checks if c.id == "scenario_default_clean_long_gate"][0].pass_,
+                        "default-long gate is identity + audio-owner only")
+
     def test_full_injected_steps_zero_gate(self):
         ev = self.fresh()
         for s in ev["scenarios"]:
