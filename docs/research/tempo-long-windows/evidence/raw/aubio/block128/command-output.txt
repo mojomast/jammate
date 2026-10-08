@@ -1,0 +1,91 @@
+# Rhythm evaluation summary
+
+- backend: `aubio`
+- corpus: `track007-long-windows`
+- beat-match tolerance: 70 ms
+- variants in this run: `uncompensated` (0.00 ms)
+- fixtures per variant: 16 (0 core, 16 steady, 0 ramp)
+
+## Variant `uncompensated` — uncompensated
+
+
+**Per-fixture evidence.** `coverage` is the true-silence diagnostic's coverage (Measured / NoTrueSilence / CorpusDefect / NotAssessedStructuralNoise); `sil accel` is the silence tempo-increase diagnostic (blank when not measured); `causal lat` is the mean availability-minus-event delay of backend-reported beats. `p95 phase` is `n/a` when no predicted beat matched (a zero there is undefined, not perfect).
+
+| fixture | core | coverage | pred | TP | P | R | F | acq bars | BPM err | h/d | trueSil F/s | sil accel bpm | unplayed F/s | off-grid F/s | recovery s | sync dev | ramp err | p95 phase ms | causal lat ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| regular_96bpm_48000hz |  | NoTrueSilence | 50 | 48 | 0.960 | 0.923 | 0.941 | 1.00 | 0.010 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 27.42 | 4.96 |
+| sparse_96bpm_48000hz |  | NoTrueSilence | 49 | 48 | 0.980 | 0.923 | 0.950 | 0.99 | 0.012 | - | 0.000 | - | 13.462 | 0.000 | 0.000 | 0.0000 | 0.0000 | 35.35 | 4.77 |
+| gap_96bpm_48000hz |  | NoTrueSilence | 50 | 48 | 0.960 | 0.923 | 0.941 | 1.00 | 0.010 | - | 0.000 | - | 16.667 | 0.000 | 0.000 | 0.0000 | 0.0000 | 26.94 | 4.78 |
+| noise_96bpm_48000hz |  | NoTrueSilence | 56 | 39 | 0.696 | 0.750 | 0.722 | 3.25 | 0.016 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 43.75 | 4.74 |
+| regular_126bpm_48000hz |  | NoTrueSilence | 66 | 63 | 0.955 | 0.926 | 0.940 | 1.25 | 0.014 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 36.31 | 6.03 |
+| sparse_126bpm_48000hz |  | NoTrueSilence | 46 | 42 | 0.913 | 0.618 | 0.737 | 1.50 | 0.496 | ERR | 0.000 | - | 5.392 | 0.000 | 0.000 | 0.0000 | 0.0000 | 42.46 | 4.80 |
+| gap_126bpm_48000hz |  | NoTrueSilence | 65 | 63 | 0.969 | 0.926 | 0.947 | 1.25 | 0.014 | - | 0.000 | - | 8.333 | 0.000 | 0.000 | 0.0000 | 0.0000 | 36.31 | 5.40 |
+| noise_126bpm_48000hz |  | NoTrueSilence | 68 | 38 | 0.559 | 0.559 | 0.559 | 2.75 | 0.021 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 55.76 | 5.95 |
+| regular_96bpm_44100hz |  | NoTrueSilence | 52 | 50 | 0.962 | 0.962 | 0.962 | 0.76 | 0.012 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 19.66 | 6.49 |
+| sparse_96bpm_44100hz |  | NoTrueSilence | 52 | 49 | 0.942 | 0.942 | 0.942 | 1.25 | 0.013 | - | 0.000 | - | 14.744 | 0.000 | 0.000 | 0.0000 | 0.0000 | 34.51 | 5.58 |
+| gap_96bpm_44100hz |  | NoTrueSilence | 52 | 50 | 0.962 | 0.962 | 0.962 | 0.76 | 0.012 | - | 0.000 | - | 16.667 | 0.000 | 0.000 | 0.0000 | 0.0000 | 24.92 | 6.09 |
+| noise_96bpm_44100hz |  | NoTrueSilence | 55 | 46 | 0.836 | 0.885 | 0.860 | 2.50 | 0.019 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 46.96 | 6.38 |
+| regular_126bpm_44100hz |  | NoTrueSilence | 67 | 65 | 0.970 | 0.956 | 0.963 | 1.00 | 0.016 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 35.22 | 5.73 |
+| sparse_126bpm_44100hz |  | NoTrueSilence | 41 | 40 | 0.976 | 0.588 | 0.734 | 1.51 | 0.496 | ERR | 0.000 | - | 3.431 | 0.000 | 0.000 | 0.0000 | 0.0000 | 36.42 | 6.28 |
+| gap_126bpm_44100hz |  | NoTrueSilence | 67 | 65 | 0.970 | 0.956 | 0.963 | 1.00 | 0.016 | - | 0.000 | - | 16.667 | 0.000 | 0.000 | 0.0000 | 0.0000 | 34.35 | 6.06 |
+| noise_126bpm_44100hz |  | NoTrueSilence | 68 | 43 | 0.632 | 0.632 | 0.632 | 1.50 | 0.026 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 64.40 | 6.40 |
+
+## Aggregates
+
+### `uncompensated`
+
+- F-measure mean 0.8597 (precision 0.8901, recall 0.8394) over 16 fixtures with a ground-truth grid; phase measured on 16 fixture(s)
+- BPM relative error (steady): mean 0.0752, median 0.0149; core worst 0.0000 over 0/0 core fixtures locked
+- half/double-time error rate: 0.1250 (2/16), core 0.0000 (0/0)
+- acquisition within 2 bars (core): 0/0 = 0.0000
+- events in TRUE silence (diagnostic, not a gate): worst 0.0000/s over 0 fixtures; measured-coverage worst 0.0000/s over 0 fixture(s); coverage: 0 measured, 16 no-silence, 0 corpus-defect, 0 structural-noise
+- silence tempo-increase diagnostic: max +0.0000 BPM over 0 evaluated fixture(s); insufficient evidence on 0 fixture(s)
+- events in UNPLAYED-BEAT windows (separate metric): worst 16.6667/s, off-grid worst 0.0000/s
+- ramp local-tempo relative error (raw, not a gate): mean 0.0000, worst 0.0000 over 0 measured ramp fixture(s)
+- syncopation max deviation 0.0000, max step 0.0000 (raw, not a gate; 0 fixture(s) measured)
+- backend beat-timestamp mapping: 902 reported, 2 at block start, 0 non-causal fallbacks, 0 rate-mismatch blocks; causal availability delay mean 5.68 ms, worst 11.56 ms
+- CPU 1.0974 s total, 64 C++ new/delete allocations total
+
+## Latency compensation effect
+
+No compensation was requested (`--compensate-latency` absent or 0). The table below is therefore empty by design; re-run with a non-zero value to measure the effect.
+
+**The orchestrator, not the harness, decides whether to compensate.** Compensation is a claim about the backend, and it can be as wrong as no compensation: subtracting a latency the backend does not actually have is just a bias in the other direction, and for a non-causal or tempo-adaptive backend the delay may not even be constant. This table exists so the ADR can see the size of the decision, not so the harness can make it.
+
+## SPEC 19 gates
+
+### `uncompensated`
+
+| gate | result | reason |
+|---|---|---|
+| acquire useful lock within 2 bars for >= 95% of core fixtures | NOT-MEASURED | 0/0 core fixtures acquired within 2 bars (fraction 0.0000) |
+| locked BPM relative error <= 2% on steady-tempo core fixtures | NOT-MEASURED | worst core BPM relative error 0.0000; 0/0 core fixtures locked |
+| half/double-time errors < 5% on core fixtures | NOT-MEASURED | core half/double-time errors 0/0 (rate 0.0000) |
+| no tempo jump from one isolated syncopated event | NOT-MEASURED | raw diagnostic: largest first difference of reported BPM on `syncopated_funk` is 0.0000 of nominal over 0 measured fixture(s). The fixture contains many syncopated events, so it cannot isolate ONE; no numeric threshold is claimed. |
+| silence does not create false acceleration | NOT-MEASURED | raw diagnostic: 0/16 fixtures declare true silence (0 measured, 0 corpus-defect, 0 structural-noise); worst 0.0000 events/s, worst measured-coverage 0.0000/s; silence tempo-increase max +0.0000 BPM over 0 evaluated fixture(s), 0 insufficient. SPEC forbids false ACCELERATION, not beat events during a short intentional holdover; the offline harness cannot attribute a tempo change to the silence rather than to legitimate tempo follow, so no gate is claimed. |
+| explicit resync establishes new phase within the requested boundary | NOT-MEASURED | the offline harness has no resync command path; the Musical Clock is the only place this can be tested |
+| Follow handles controlled gradual tempo ramps without abrupt audible discontinuities | NOT-MEASURED | raw diagnostic: mean local-tempo relative error 0.0000, worst 0.0000 over 0 measured ramp fixture(s). The SPEC target is 'without abrupt audible discontinuities', which requires the Musical Clock and audition; a 2 % backend error threshold would be fabricated (and is not the SPEC rule). |
+| Loose Follow is measurably less reactive than Follow | NOT-MEASURED | requires the Musical Clock and a real controller; no clock runs in this offline harness |
+| stop/start recovery succeeds without restarting the audio device | NOT-INFORMATIVE | offline proxy: worst post-stop lock recovery 0.0000 s; audio-device restart is not observable offline |
+
+## Fixtures not informative for the true-silence false-beat metric
+
+- `regular_96bpm_48000hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `sparse_96bpm_48000hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `gap_96bpm_48000hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `noise_96bpm_48000hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `regular_126bpm_48000hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `sparse_126bpm_48000hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `gap_126bpm_48000hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `noise_126bpm_48000hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `regular_96bpm_44100hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `sparse_96bpm_44100hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `gap_96bpm_44100hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `noise_96bpm_44100hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `regular_126bpm_44100hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `sparse_126bpm_44100hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `gap_126bpm_44100hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+- `noise_126bpm_44100hz` (`uncompensated`): NO TRUE SILENCE — the metric is NOT MEASURED for this fixture; a rate of 0 would be absent data, not a pass.
+
+Criterion (stated, not hidden): a fixture is not informative when (a) it has no true-silence spans at all (`NoTrueSilence`), (b) it is a derived noise perturbation whose inherited spans are structural (`NotAssessedStructuralNoise`), or (c) its declared WAV sha256 is in the reviewed fast-decay defect registry (`CorpusDefect`, EVAL-006 `docs/research/SUSTAIN-REPAIR.md`). Classification is by WAV identity, not fixture name: the repaired `sustained_chords` render with hash `23b8cf21…` measures its own independently derived spans, while the original `e4b9297f…` bytes remain a defect even if renamed. The hash is the declared manifest hash, not an authentication of the PCM. No numeric silence-occupancy threshold is used; this replaces EVAL-002R's '>= 50 % silence' censoring rule, which also censored genuine sparse playing (`sparse_single_notes` sits at 48.55 %).
+wrote docs/research/tempo-long-windows/evidence/raw/aubio/block128/results.json, docs/research/tempo-long-windows/evidence/raw/aubio/block128/fixtures.csv, docs/research/tempo-long-windows/evidence/raw/aubio/block128/summary.md, and per-fixture JSON/CSV in docs/research/tempo-long-windows/evidence/raw/aubio/block128/per_fixture

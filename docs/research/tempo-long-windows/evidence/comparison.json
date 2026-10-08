@@ -1,0 +1,162 @@
+[
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "no-change",
+    "defaultBpmRelativeError": 0.00309244792,
+    "fixture": "regular_96bpm_48000hz",
+    "variantBpmRelativeError": 0.00309038162,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "no-change",
+    "defaultBpmRelativeError": 0.00309244792,
+    "fixture": "sparse_96bpm_48000hz",
+    "variantBpmRelativeError": 0.00309038162,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": true
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "no-change",
+    "defaultBpmRelativeError": 0.00309244792,
+    "fixture": "gap_96bpm_48000hz",
+    "variantBpmRelativeError": 0.00309038162,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "no-change",
+    "defaultBpmRelativeError": 0.00309244792,
+    "fixture": "noise_96bpm_48000hz",
+    "variantBpmRelativeError": 0.00309038162,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": true
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "gain",
+    "defaultBpmRelativeError": 0.0234375,
+    "fixture": "regular_126bpm_48000hz",
+    "variantBpmRelativeError": 0.000378260537,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "no-change",
+    "defaultBpmRelativeError": 0.000381106422,
+    "fixture": "sparse_126bpm_48000hz",
+    "variantBpmRelativeError": 0.000378260537,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "gain",
+    "defaultBpmRelativeError": 0.0234375,
+    "fixture": "gap_126bpm_48000hz",
+    "variantBpmRelativeError": 0.000378260537,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": true,
+    "acquisitionLost": false,
+    "bpmErrorState": "gain",
+    "defaultBpmRelativeError": 0.0234375,
+    "fixture": "noise_126bpm_48000hz",
+    "variantBpmRelativeError": 0.000378260537,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "no-change",
+    "defaultBpmRelativeError": 0.00309244792,
+    "fixture": "regular_96bpm_44100hz",
+    "variantBpmRelativeError": 0.00309244792,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "no-change",
+    "defaultBpmRelativeError": 0.00309244792,
+    "fixture": "sparse_96bpm_44100hz",
+    "variantBpmRelativeError": 0.00309244792,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": true
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "no-change",
+    "defaultBpmRelativeError": 0.00309244792,
+    "fixture": "gap_96bpm_44100hz",
+    "variantBpmRelativeError": 0.00309244792,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "no-change",
+    "defaultBpmRelativeError": 0.00309244792,
+    "fixture": "noise_96bpm_44100hz",
+    "variantBpmRelativeError": 0.00309244792,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "gain",
+    "defaultBpmRelativeError": 0.0234375,
+    "fixture": "regular_126bpm_44100hz",
+    "variantBpmRelativeError": 0.000381106422,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "no-change",
+    "defaultBpmRelativeError": 0.000381106422,
+    "fixture": "sparse_126bpm_44100hz",
+    "variantBpmRelativeError": 0.000381106422,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "gain",
+    "defaultBpmRelativeError": 0.0234375,
+    "fixture": "gap_126bpm_44100hz",
+    "variantBpmRelativeError": 0.000381106422,
+    "withinTwoBarsGained": true,
+    "withinTwoBarsLost": false
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "bpmErrorState": "gain",
+    "defaultBpmRelativeError": 0.0234375,
+    "fixture": "noise_126bpm_44100hz",
+    "variantBpmRelativeError": 0.000381106422,
+    "withinTwoBarsGained": false,
+    "withinTwoBarsLost": false
+  }
+]

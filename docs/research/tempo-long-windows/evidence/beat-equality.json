@@ -1,0 +1,146 @@
+[
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "regular_96bpm_48000hz",
+    "sha256": {
+      "aubio": "5ef38b5ebf92e3169674c089ff5a72b84fa714ebb4c96d5a9a470fc3f02c256c",
+      "btrack": "462cade77c74c46d08e2fbd97aceca0fa4668856d310a2ce26b9df27b99f0ffa",
+      "btrack-tempo-variant": "462cade77c74c46d08e2fbd97aceca0fa4668856d310a2ce26b9df27b99f0ffa"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "sparse_96bpm_48000hz",
+    "sha256": {
+      "aubio": "cbcb703cfb97b2e937cbb4bd2454edfc5a92416d46521431df7c53b2311deb2e",
+      "btrack": "367373c173c9383c3e8f4b147f7090ad017f1c715a8a1ea08e39af4630f2f4bf",
+      "btrack-tempo-variant": "367373c173c9383c3e8f4b147f7090ad017f1c715a8a1ea08e39af4630f2f4bf"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "gap_96bpm_48000hz",
+    "sha256": {
+      "aubio": "7e1309492028f34d08a6a4bd5361e9b3d81c37651328ef516408f2bf4a4b7ddb",
+      "btrack": "84fd114fb1c992e56e797011b8f56feda88f06e02805b69932e7f1d528394594",
+      "btrack-tempo-variant": "84fd114fb1c992e56e797011b8f56feda88f06e02805b69932e7f1d528394594"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "noise_96bpm_48000hz",
+    "sha256": {
+      "aubio": "f64055e0ef45f6e8d9e9cca58e7f693833367735b20a80aefbf4679fd22b378f",
+      "btrack": "30842b71a98d7f10a8215e91a05568c086a029e2fdf1170478f1643b7cdbd5b6",
+      "btrack-tempo-variant": "30842b71a98d7f10a8215e91a05568c086a029e2fdf1170478f1643b7cdbd5b6"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "regular_126bpm_48000hz",
+    "sha256": {
+      "aubio": "3bafe5bd52fc492de71c9f8ac5e8055dc4e95f9b548f9d4ff8b70deda4579df5",
+      "btrack": "3b4b8202f9a1acd4c38179710b92dfd09d11eb51e694f1564ff5cf0e5a924d3b",
+      "btrack-tempo-variant": "3b4b8202f9a1acd4c38179710b92dfd09d11eb51e694f1564ff5cf0e5a924d3b"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "sparse_126bpm_48000hz",
+    "sha256": {
+      "aubio": "c5f78d91af2d8a035c36910e5d7389eba6844a5488d47a7523d0ee4ff099a988",
+      "btrack": "0a64f10698ffe08e4ce71621b4373bfbbdb3443d41f18918bb2b1c3baef4ac90",
+      "btrack-tempo-variant": "0a64f10698ffe08e4ce71621b4373bfbbdb3443d41f18918bb2b1c3baef4ac90"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "gap_126bpm_48000hz",
+    "sha256": {
+      "aubio": "59d051fcd0812e2bf59f23f36feb1de5fc9d56ed0bb93dcb40d49767d10d645d",
+      "btrack": "9760ef5135c089879d1aadf25b2b052942a5b874b9c765c09780233231db3e5f",
+      "btrack-tempo-variant": "9760ef5135c089879d1aadf25b2b052942a5b874b9c765c09780233231db3e5f"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "noise_126bpm_48000hz",
+    "sha256": {
+      "aubio": "cb1505c85a219812d9e9c363c6b6249be5a9c59aac34ff7739adc6ef49d28e19",
+      "btrack": "f200e24d5c2081d63304c35d58e1045c17c90612cbf66272c58766af7ac2150b",
+      "btrack-tempo-variant": "f200e24d5c2081d63304c35d58e1045c17c90612cbf66272c58766af7ac2150b"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "regular_96bpm_44100hz",
+    "sha256": {
+      "aubio": "fe8ca2a28dab15bba99f870e791cfe2757a44abd8e65d9ddc98adffc389829f5",
+      "btrack": "1946fe2b6d1d67e3fb0701acb8ca9d8ee218891ad5eda286217d6811500cbb23",
+      "btrack-tempo-variant": "1946fe2b6d1d67e3fb0701acb8ca9d8ee218891ad5eda286217d6811500cbb23"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "sparse_96bpm_44100hz",
+    "sha256": {
+      "aubio": "f9c7a4ef0c115592d5d56b1c081d45870f7de0d38bbcaef7ab03880ae2cdb8d0",
+      "btrack": "83a316cc7e1ab9cc19c524103966be475aa19bdc974798f617f39285154f3d24",
+      "btrack-tempo-variant": "83a316cc7e1ab9cc19c524103966be475aa19bdc974798f617f39285154f3d24"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "gap_96bpm_44100hz",
+    "sha256": {
+      "aubio": "62159aa3e49857a6a837b37eb793dfd600d65f8d3036ca617754e969f7ace3e9",
+      "btrack": "6e0d07a8f087b5265e49ab0c8e65a740e3c0f7ba1aca6920f91e76ede3f1ade3",
+      "btrack-tempo-variant": "6e0d07a8f087b5265e49ab0c8e65a740e3c0f7ba1aca6920f91e76ede3f1ade3"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "noise_96bpm_44100hz",
+    "sha256": {
+      "aubio": "bd7a22250eb96a856a2b510b5ff499f267baf007eb197a9b2e733dea94bf963d",
+      "btrack": "ad78206575f50b89775495baf932d5c207a12a2192d1a05ee82a16e27b755e3e",
+      "btrack-tempo-variant": "ad78206575f50b89775495baf932d5c207a12a2192d1a05ee82a16e27b755e3e"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "regular_126bpm_44100hz",
+    "sha256": {
+      "aubio": "b5ac173fabfeaa2f336c1a88338e6ddd5d88fe62b9e4bd6f79ca927a22384d77",
+      "btrack": "d6c064e29aa60f01c6d64179fe94a11166897bbfb7999a9abd09436e322509d5",
+      "btrack-tempo-variant": "d6c064e29aa60f01c6d64179fe94a11166897bbfb7999a9abd09436e322509d5"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "sparse_126bpm_44100hz",
+    "sha256": {
+      "aubio": "cafa29d136983606d69fc010ff1469085710dbf3c6ee84dbe12fe98f3e75892e",
+      "btrack": "e620f4eeb38ea8476084f62a5329a23cb27d54ae3681c6419c9d437a2b2323be",
+      "btrack-tempo-variant": "e620f4eeb38ea8476084f62a5329a23cb27d54ae3681c6419c9d437a2b2323be"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "gap_126bpm_44100hz",
+    "sha256": {
+      "aubio": "4586608bc27ab6a6f97b4113360d3225089e5cb758d5de55557ba7c3b3e52696",
+      "btrack": "e647755b7d3ab38d81feef2daefbda1bd89812a4a2679703c113c4aede331a3e",
+      "btrack-tempo-variant": "e647755b7d3ab38d81feef2daefbda1bd89812a4a2679703c113c4aede331a3e"
+    }
+  },
+  {
+    "exactDefaultVariantEquality": true,
+    "fixture": "noise_126bpm_44100hz",
+    "sha256": {
+      "aubio": "2a28c4bd669dbe449daf1c79496597d31ccaca6baf8d89ae848d268aff79ce26",
+      "btrack": "f445ab1846a35ac46c72520aaf446dfef7659c8e112ed6fb0c0fb1b152176b43",
+      "btrack-tempo-variant": "f445ab1846a35ac46c72520aaf446dfef7659c8e112ed6fb0c0fb1b152176b43"
+    }
+  }
+]
