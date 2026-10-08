@@ -139,9 +139,22 @@ Independent-review repairs (all in owned director/tests/docs):
 - Manifest: `tools/style-catalog/library_provenance.json`
   (`sha256 9a366d9c3c5a96e731ce1cbb133397790a2e0b0fc3ac8609ef2145190f2a4975`).
 - `src/jam/StyleCatalog.cpp`
-  `sha256 400a277b356779de04996c15a1281d27cb83140d2eb97ffe55a8a2530678ac5d`.
-- `src/jam/JamDirector.cpp`
+  `sha256 400a277b356779de04996c15a1281d27cb83140d2eb97ffe55a8a2530678ac5d`
+  (unchanged across the fix).
+- `src/jam/JamDirector.cpp` — **historical receipt at the implementation commit
+  `16db474`** (superseded by the fix commit below):
   `sha256 cb3cf5b20ba310cc8ff91465db65e058ef5e0fbf4d49d05695d4676c3ce832ed`.
+- `src/jam/JamDirector.cpp` — **corrected artifact at the fix commit `64a8de9`**
+  (current shipped bytes, matches the working tree):
+  `sha256 13433f3f4a0dd081f389aeeb590d8ecca48120f4f47d31ae9ffddff6fd690768`.
+- Headers changed by the fix commit `64a8de9` (current shipped bytes):
+  `src/jam/JamDirector.h`
+  `sha256 1820b63983a168fefc7ae8968da0f5e7e9fd8b59280d79339b8cd5f8a63f8e75`;
+  `src/jam/StyleCatalog.h`
+  `sha256 65a43e849b67f5399d186d7e90b3c2ecf3acd86972c75c90d48e574991928e38`.
+
+All other Evidence artifacts (library fingerprint, fixture, manifest,
+`StyleCatalog.cpp`) are byte-identical across `16db474` and `64a8de9`.
 
 ## Known limitations
 
