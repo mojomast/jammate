@@ -21,6 +21,11 @@ source tree with all product targets up-to-date; mixed-tree archives are refused
 
 Required outcomes:
 
+The same-source product must be configured with
+`-DCMAKE_SUPPRESS_REGENERATION=ON` and built before replay. This lets Ninja's
+dry-run check the actual product graph instead of stopping at CMake's
+always-dirty glob verification target. Reconfigure explicitly after CMake edits.
+
 - All106 unique catalogue patterns prepared before processing callbacks.
 - Actual join within the declared 1400-block (~14.93 s audio-time) wiring window.
   This is not a two-bar guitar-acquisition test.

@@ -110,6 +110,7 @@ jobs:
         run: |
           cmake -S . -B build/adaptive-product -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DGUITAR_COMPANION_BUILD_TESTS=ON -DGUITAR_COMPANION_EMBEDDED_BROWSER=OFF \
+            -DCMAKE_SUPPRESS_REGENERATION=ON \
             -DJAM_CORE_BUILD_TESTS=OFF -DJAM_ENABLE_BTRACK=ON
           cmake --build build/adaptive-product --target GuitarCompanion_Standalone \
             GuitarCompanion_VST3 GuitarCompanionTests --parallel 2

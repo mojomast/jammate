@@ -38,6 +38,10 @@ def main():
     dirty = subprocess.check_output(['git', 'status', '--porcelain'], cwd=root, text=True)
     if dirty:
         raise SystemExit('Commit the source before measurement; dirty source is rejected')
+    cache = (product / 'CMakeCache.txt').read_text()
+    if 'CMAKE_SUPPRESS_REGENERATION:BOOL=ON' not in cache:
+        raise SystemExit('Configure the product with -DCMAKE_SUPPRESS_REGENERATION=ON and build it; '
+                         'Ninja dry-run otherwise stops at the always-dirty CMake glob check')
     pending = subprocess.check_output(['ninja', '-n', 'GuitarCompanion_Standalone',
                                        'GuitarCompanion_VST3', 'GuitarCompanionTests'],
                                       cwd=product, text=True)
