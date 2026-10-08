@@ -1,0 +1,58 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "link-receipt-actual-7",
+  "note": "Link-only verification against the actual integrated product with the drum-only window. Runtime NOT invoked.",
+  "runtime_invoked": false,
+  "source": "/home/mojo/projects/build-INT-LIVE-001-integration/product-source",
+  "product": "/home/mojo/projects/build-INT-LIVE-001-integration/product",
+  "source_pin_overrides": "/home/mojo/projects/guitars/docs/research/live-jam-replay-source-pins.json",
+  "preflight_ok": true,
+  "preflight_missing": [],
+  "instrument_selfcheck_ok": true,
+  "support_selftest_ok": true,
+  "facade_tests_exit": 0,
+  "injection_define": [
+    "-DLIVE_JAM_HAVE_TRACKER_INJECTION"
+  ],
+  "live_seams": {
+    "setJamTrackerForTesting": true,
+    "requestStopNow": true,
+    "tracker_injection_archive_symbol": true
+  },
+  "link_closure_source": "ninja:GuitarCompanion_Standalone",
+  "link_archives": [
+    {
+      "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+      "sha256": "e780251ab2616f3ccabe72d608fd373461ba4b2cb28fef29569ea6b858d8de6c"
+    },
+    {
+      "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/libnam_core.a",
+      "sha256": "ad0ffbb37434a860a5084831ef7514f7e0146318cf98a743c14e2d24b68b5579"
+    },
+    {
+      "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/libGuitarCompanionAssets.a",
+      "sha256": "c097a68ce36cc0f46fd30b13e02988328efe1bc5dffc35957efa4efb0e04618c"
+    },
+    {
+      "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libjam-btrack.a",
+      "sha256": "92659b889ec7beb9e0e6d0ab0df59acd8c0b14eeff6de9b4ff5ca23561833255"
+    },
+    {
+      "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/libjam-core.a",
+      "sha256": "04e850eeae76e30dbe77aaf094d8e2be157c0e9e9bb291e200b0107f5becf879"
+    },
+    {
+      "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libbtrack.a",
+      "sha256": "6993f8224ea626802a28475cce3c1bcf209336919746ac41d7e99b6cae39f1f8"
+    },
+    {
+      "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libkiss_fft.a",
+      "sha256": "fa209a29eed3ebbcb6bfb72471a48bd0b2bfa4c7b9fd33da6537ed161a932250"
+    },
+    {
+      "path": "/home/mojo/projects/build-INT-LIVE-001-integration/product/jam-core/btrack/libsamplerate.a",
+      "sha256": "55c591cff00889a7207a14eac442a36c1d7348f3cf003ef14fbf1718f97be072"
+    }
+  ],
+  "harness_binary_sha256": "0f3e208faa85e864d8599c948c85a880fdaf11fbeac7b7f6fc27112b553c77d2"
+}

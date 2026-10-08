@@ -460,9 +460,147 @@ class CorrectedValidatorTests(unittest.TestCase):
         ev = self.fresh()
         for s in ev["scenarios"]:
             if s["id"] == "injected_join_stop_resync":
+                s["first_join_observed"] = False
                 s["join_observed"] = False
         ok, _, checks = hard_pass(ev)
         self.assertTrue(ok, "structural validity is independent of the join gate")
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_injected_second_join_required(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["second_join_observed"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_injected_resync_effect_required(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["resync_effect_observed"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_injected_session_gen_required(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["session_generation_changed"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_full_injected_release_required(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["released_confirmed"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_scenario_not_paced_fails(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                s["paced"] = False
+        ok, errors, _ = hard_pass(ev)
+        self.assertFalse(ok)
+
+    def test_cell_baseline_prepared_required(self):
+        ev = self.fresh()
+        self.enabled_clean(ev)["baseline_prepared"] = False
+        ok, _, _ = hard_pass(ev)
+        self.assertFalse(ok, "a measured cell must latch a baseline prepared state")
+
+    # -- sixth: real resync phase proof --------------------------------------
+    def _inj(self, ev):
+        for s in ev["scenarios"]:
+            if s["id"] == "injected_join_stop_resync":
+                return s
+        raise AssertionError("no injected scenario")
+
+    def test_resync_phase_fields_required(self):
+        ev = self.fresh(); del self._inj(ev)["resync_phase_before"]
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_resync_phase_after_must_be_one(self):
+        ev = self.fresh(); self._inj(ev)["resync_phase_after"] = 5
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_resync_phase_before_downbeat_fails(self):
+        ev = self.fresh(); self._inj(ev)["resync_phase_before"] = 1
+        ok, _, checks = hard_pass(ev)
+        self.assertFalse(ok, "a downbeat baseline cannot attribute step 0 to resync")
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_resync_step_before_command_fails(self):
+        ev = self.fresh(); self._inj(ev)["resync_step_sample"] = 800  # < submit 900
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_resync_step_future_fails(self):
+        ev = self.fresh(); self._inj(ev)["resync_step_sample"] = 1200  # >= end 1100
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_resync_command_delta_zero_fails(self):
+        ev = self.fresh(); self._inj(ev)["resync_owner_command_delta"] = 0
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_resync_forged_flag_with_bad_phase_fails(self):
+        ev = self.fresh()
+        self._inj(ev)["resync_effect_observed"] = True
+        self._inj(ev)["resync_phase_after"] = 7
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_,
+                         "a forged effect flag cannot pass without the phase proof")
+
+    def test_defaultlong_gate_does_not_require_injected_fields(self):
+        ev = self.fresh()
+        d = ev["scenarios"][0]
+        for k in ("first_join_observed", "second_join_observed", "resync_phase_before",
+                  "resync_phase_after", "released_confirmed"):
+            d.pop(k, None)
+        d["paced"] = False  # default gate must not depend on injected pacing
+        _, _, checks = hard_pass(ev)
+        self.assertTrue([c for c in checks if c.id == "scenario_default_clean_long_gate"][0].pass_,
+                        "default-long gate is identity + audio-owner only")
+
+    # -- seventh: drum-only zero-input window --------------------------------
+    def test_drum_only_window_required(self):
+        ev = self.fresh(); del self._inj(ev)["drum_only_window"]
+        ok, _, _ = hard_pass(ev); self.assertFalse(ok)
+
+    def test_drum_only_window_all_zero_output_fails(self):
+        ev = self.fresh(); self._inj(ev)["drum_only_window"]["rms"] = 0.0
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_drum_only_window_steps_none_fails(self):
+        ev = self.fresh(); self._inj(ev)["drum_only_window"]["steps_delta"] = 0
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
+
+    def test_drum_only_window_hosted_kit_fails(self):
+        ev = self.fresh()
+        self._inj(ev)["drum_only_window"]["use_vst"] = True
+        self._inj(ev)["drum_only_window"]["sampler_loaded"] = False
+        _, _, checks = hard_pass(ev)
+        self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_,
+                         "a hosted kit does not prove internal-kit output")
+
+    def test_drum_only_window_allocator_coverage_must_be_unmeasured(self):
+        ev = self.fresh()
+        self._inj(ev)["drum_only_window"]["allocator_coverage"] = "measured-zero"
+        ok, _, _ = hard_pass(ev)
+        self.assertFalse(ok, "the unarmed window must not report measured allocator zeros")
+
+    def test_drum_only_window_zero_input_declared_required(self):
+        ev = self.fresh()
+        self._inj(ev)["drum_only_window"]["zero_input_declared"] = False
+        _, _, checks = hard_pass(ev)
         self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_)
 
     def test_full_injected_steps_zero_gate(self):

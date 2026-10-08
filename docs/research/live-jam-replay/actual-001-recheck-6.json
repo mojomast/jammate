@@ -1,0 +1,17 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "actual-001-recheck-6",
+  "note": "Corrected validator re-evaluated the PRESERVED actual-full-001 evidence read-only; it remains a truthful failure. Evidence unmodified.",
+  "actual_001_evidence_sha256": "284d265bf157b2a8eeb1add41aee65d33e1cbad25888ed13cfa16900ffd5e0ba",
+  "status": "measured",
+  "hard_failures": 170,
+  "gate_failures": 1,
+  "gates": {
+    "rt_gate": true,
+    "scenario_default_clean_long_gate": true,
+    "join_gate": false
+  },
+  "hard_pass": false,
+  "pass": false,
+  "defaultlong_gate_now": "identity + actual audio-owner only (does not require injected fields)"
+}

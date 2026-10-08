@@ -49,4 +49,58 @@ struct BackendObservation
     }
 };
 
+// Coherent latest-value latch (Defect A). readJamLiveState returns false when
+// there is no new publication; the latch retains the last valid state instead of
+// exposing a default zero. A bounded prepared/released poll is used before the
+// callback and on shutdown.
+struct StateLatch
+{
+    jam::JamLiveState last {};
+    bool have = false;
+
+    bool updateFrom (bool ok, const jam::JamLiveState& s) noexcept
+    {
+        if (ok)
+        {
+            last = s;
+            have = true;
+        }
+        return ok;
+    }
+
+    template <typename Reader, typename SleepFn>
+    bool pollPrepared (Reader&& reader, int maxAttempts, SleepFn&& sleepFn) noexcept
+    {
+        for (int i = 0; i < maxAttempts; ++i)
+        {
+            jam::JamLiveState s {};
+            if (reader (s) && s.prepared && s.sampleRate > 0.0)
+            {
+                last = s;
+                have = true;
+                return true;
+            }
+            if (i + 1 < maxAttempts) sleepFn();
+        }
+        return false;
+    }
+
+    template <typename Reader, typename SleepFn>
+    bool pollReleased (Reader&& reader, int maxAttempts, SleepFn&& sleepFn) noexcept
+    {
+        for (int i = 0; i < maxAttempts; ++i)
+        {
+            jam::JamLiveState s {};
+            if (reader (s) && ! s.prepared && ! s.drumsPlaying)
+            {
+                last = s;
+                have = true;
+                return true;
+            }
+            if (i + 1 < maxAttempts) sleepFn();
+        }
+        return false;
+    }
+};
+
 } // namespace replay

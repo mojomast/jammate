@@ -1,0 +1,31 @@
+{
+  "schema": "live-jam-replay/protocol-amendment/5.0",
+  "task": "EVAL-LIVE-001",
+  "title": "Fifth amendment: coherent state latch (Defect A) and real-time injected scenario proof (Defect B)",
+  "base_commit": "88893e24be328f131b5df673078ff934a46ed5ab",
+  "frozen_before": "any reevaluation or actual-002 measurement under the corrected harness",
+  "supersedes": {"previous_tools_commit": "5c0d72e",
+                 "note": "Additive. The actual-full-001 raw artifacts are preserved byte-for-byte and are never rewritten. Original predeclared.json, protocol.sha256, amendments 1-4, all contracts and receipts are preserved."},
+  "reason": "The first actual full measurement (actual-full-001) exposed two harness defects: (A) all 54 cells reported state_end.prepared=false/sampleRate=0 because the final readJamLiveState result was used even when the coherent latest-value read returned false (no new publication / sequence race); (B) the injected scenario ran unpaced so the analysis/control workers could not keep the timeline and never joined, making the join proof vacuous.",
+  "corrections": {
+    "A_coherent_state_latch": {
+      "defect": "runCell used the result of readJamLiveState(c.stateEnd) even when it returned false; the coherent latest-value slot returns false when there is no new publication, leaving a default zero state.",
+      "correction": "Obtain a baseline prepared state (prepared=true, sampleRate>0) with a bounded off-callback poll BEFORE the cold callback, and initialize state_start and state_end from it. Update state_end ONLY when a read returns true; never reset it on false. The final read is a temp that replaces state_end only on true. The reported state_end is the last coherent snapshot, not an exact current-callback cursor, and retains the seen generation/prepared/rate. No unbounded wait or forced worker.",
+      "test": "A pure StateLatch helper (shared by the harness and the support self-test) retains the last valid prepared/rate/cursor on false and fails explicitly if no baseline was ever read."
+    },
+    "B_injected_realtime_proof": {
+      "defect": "runInjectedJoinStop had no sleep; 8 s of audio ran in milliseconds, so the workers could not track the timeline, the ring overflowed, and no join occurred. StopNow 'passed' at block 1 without a join; resync accepted without servicing; the reprepare generations were not a real session-generation change.",
+      "correction": "Pace the injected scenario in real time (block/rate steady_clock.sleep_until outside the callback). Require a first join (engine injectedPlaying + steps grow) within a bounded 8 s audio window, a deferred StopAtNextBar that actually persists until the bar, a SECOND actual join before StopNow, an actual StopNow measured in serviced blocks after the command, an actual resync effect observation, session-generation change via prepare cold state, and a coherent released payload (prepared=false, drumsPlaying=false) on shutdown. Command acceptance alone is never treated as proof.",
+      "gate": "The injected join gate now requires firstJoin and secondJoin, steps_fired>0, engine_playing_observed, stop_now_stopped, resync_accepted AND resync_effect_observed, session_generation_changed and released_confirmed. No output-RMS-only claim: engine steps and injected playing carry the proof."
+    }
+  },
+  "semantics_unchanged": "structural AND rt_gate AND join_gate; default no-lock remains diagnostic; the 54-cell matrix, pacing, warm counts and expected ids are unchanged. Only the injected scenario is strengthened to prove what the gate already claimed.",
+  "preserve": {
+    "actual_full_001": "/home/mojo/projects/build-EVAL-LIVE-001-integration/actual-full-001 (read-only, never rewritten)",
+    "note": "A truthful actual-002 run in a different directory is required; failures are never hidden by editing evidence."
+  },
+  "immutable_preserved": {
+    "predeclared_json_sha256": "d29eeedf903aa9abb63e44ad4293f60e5bedfa2ef3c6f8033cb325b7348432fa",
+    "protocol_sha256_file": "fdc22bab2bc0154ddae2758766026a70e9db495655c73684013f31f09a6dba09"
+  }
+}

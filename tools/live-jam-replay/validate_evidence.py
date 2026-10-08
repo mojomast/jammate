@@ -343,6 +343,8 @@ def validate_measured(ev, predeclared, local, errors, checks, allow_synthetic):
         add(f"{cid}.input_source_rate", "hard",
             (src_is_wav and finite(sr) and sr > 0) or ((not src_is_wav) and sr in (0, 0.0)),
             "input_source_rate must be positive for a WAV and zero for builtin")
+        add(f"{cid}.baseline_prepared", "hard", c.get("baseline_prepared") is True,
+            "a coherent baseline prepared state must be latched before the callback")
 
         prog = c.get("progression", {})
         for key in PROGRESSION_NUMERIC:
@@ -615,6 +617,47 @@ def validate_scenarios(ev, scope, add):
                     add(f"scenario_{sid}_backend_first_label", "hard",
                         s.get("backend_kind") == s.get("backend_first"),
                         "backend_kind must equal the first observed backend label")
+                    if sid == "injected_join_stop_resync":
+                        add(f"scenario_{sid}_paced", "hard", s.get("paced") is True,
+                            "the injected scenario must be real-time paced")
+                        add(f"scenario_{sid}_wall_seconds", "hard",
+                            finite(s.get("wall_seconds")) and s.get("wall_seconds", -1) > 0,
+                            "the injected scenario wall time must be a positive number")
+                        add(f"scenario_{sid}_phase_before", "hard",
+                            isinstance(s.get("resync_phase_before"), int)
+                            and 2 <= s.get("resync_phase_before", -1) <= 14,
+                            "resync_phase_before must be a mid-bar step in [2,14]")
+                        add(f"scenario_{sid}_phase_after", "hard",
+                            isinstance(s.get("resync_phase_after"), int),
+                            "resync_phase_after must be an integer")
+                        for key in ("resync_step_sample", "resync_submit_cursor",
+                                    "resync_observed_end", "resync_owner_command_delta"):
+                            add(f"scenario_{sid}_{key}", "hard",
+                                isinstance(s.get(key), int) and s.get(key) >= 0,
+                                f"{key} must be a non-negative integer")
+                        win = s.get("drum_only_window")
+                        add(f"scenario_{sid}_window", "hard", isinstance(win, dict),
+                            "the drum-only zero-input window must be declared")
+                        if isinstance(win, dict):
+                            add(f"scenario_{sid}_window_zero_input", "hard",
+                                win.get("zero_input_declared") is True,
+                                "the window must declare zero input")
+                            add(f"scenario_{sid}_window_allocator_coverage", "hard",
+                                win.get("allocator_coverage") == "unmeasured",
+                                "the unarmed window must declare allocator coverage unmeasured")
+                            for key in ("sample_count", "nonzero_blocks", "steps_delta"):
+                                add(f"scenario_{sid}_window_{key}", "hard",
+                                    isinstance(win.get(key), int) and win.get(key) >= 0,
+                                    f"window.{key} must be a non-negative integer")
+                            for key in ("warmup_seconds", "measured_seconds", "sample_rate",
+                                        "rms", "peak"):
+                                add(f"scenario_{sid}_window_{key}", "hard",
+                                    finite(win.get(key)) and win.get(key) >= 0,
+                                    f"window.{key} must be a non-negative finite number")
+                            for key in ("engine_playing", "sampler_loaded", "use_vst"):
+                                add(f"scenario_{sid}_window_{key}", "hard",
+                                    isinstance(win.get(key), bool),
+                                    f"window.{key} must be boolean")
         d = by_id.get("default_clean_long", {}) or {}
         d_ok = (d.get("ran") is True and d.get("backend_kind") == "experimentalBTrack"
                 and d.get("start_accepted") is True and d.get("audio_owner_delta_ok") is True
@@ -625,18 +668,46 @@ def validate_scenarios(ev, scope, add):
             "default_clean_long must run with the actual experimentalBTrack backend and real audio-owner advancement")
         inj = by_id.get("injected_join_stop_resync", {}) or {}
         inj_ok = (inj.get("ran") is True and inj.get("backend_kind") == "injectedTest"
-                  and inj.get("start_accepted") is True and inj.get("join_observed") is True
-                  and inj.get("steps_fired", 0) > 0 and inj.get("stop_now_stopped") is True
+                  and inj.get("start_accepted") is True
+                  and inj.get("first_join_observed") is True
+                  and inj.get("second_join_observed") is True
+                  and inj.get("steps_fired", 0) > 0
+                  and inj.get("engine_playing_observed") is True
+                  and inj.get("stop_now_stopped") is True
                   and inj.get("resync_accepted") is True
-                  and inj.get("generation_changed_on_reprepare") is True
-                  and inj.get("shutdown_released") is True
-                  and inj.get("callbacks", 0) > 0 and inj.get("output_nonzero_blocks", 0) > 0)
+                  and inj.get("resync_effect_observed") is True
+                  and isinstance(inj.get("resync_phase_before"), int)
+                  and 2 <= inj.get("resync_phase_before", -1) <= 14
+                  and inj.get("resync_phase_after") == 1
+                  and isinstance(inj.get("resync_submit_cursor"), int)
+                  and isinstance(inj.get("resync_step_sample"), int)
+                  and isinstance(inj.get("resync_observed_end"), int)
+                  and inj.get("resync_submit_cursor", -1) <= inj.get("resync_step_sample", -1)
+                  < inj.get("resync_observed_end", -1)
+                  and inj.get("resync_owner_command_delta", 0) >= 1
+                  and inj.get("session_generation_changed") is True
+                  and inj.get("released_confirmed") is True
+                  and inj.get("paced") is True
+                  and isinstance(inj.get("drum_only_window"), dict)
+                  and inj["drum_only_window"].get("zero_input_declared") is True
+                  and inj["drum_only_window"].get("sampler_loaded") is True
+                  and inj["drum_only_window"].get("use_vst") is False
+                  and inj["drum_only_window"].get("sample_count", 0)
+                      >= inj["drum_only_window"].get("sample_rate", 0)
+                  and inj["drum_only_window"].get("rms", 0) > 1.0e-7
+                  and inj["drum_only_window"].get("peak", 0) > 1.0e-7
+                  and inj["drum_only_window"].get("nonzero_blocks", 0) > 0
+                  and inj["drum_only_window"].get("steps_delta", 0) > 0
+                  and inj["drum_only_window"].get("engine_playing") is True
+                  and inj["drum_only_window"].get("allocator_coverage") == "unmeasured"
+                  and inj.get("callbacks", 0) > 0)
         if inj.get("ran") is not True:
             add("join_gate", "gate", False,
                 f"join proof unavailable: {inj.get('unmeasured_reason_code')}")
         else:
             add("join_gate", "gate", inj_ok,
-                "injected join/stop/resync scenario must show real join, steps, StopNow, resync, reprepare and shutdown")
+                "injected scenario must prove a first and second actual join, engine steps, "
+                "StopNow, a real resync phase shift, a session-generation change and a coherent release")
     else:
         add("join_gate", "gate", False,
             f"scope {scope} is partial; the first-audible join gate is only required for full scope")

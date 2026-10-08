@@ -336,6 +336,75 @@ full closure and all self-checks; the runtime was **not** invoked
 (`link-receipt-actual-4.json`, `fixture-timeline-receipt.json`). Validator unit
 tests **107/107**.
 
+## Fifth correction (observed in actual-full-001)
+
+The first actual full run (preserved read-only at
+`/home/mojo/projects/build-EVAL-LIVE-001-integration/actual-full-001`) exposed
+two harness defects; the evidence was **not** edited. The corrected validator
+still reports the preserved actual-001 evidence as a truthful failure
+(`actual-001-recheck.json`).
+
+- **Defect A — coherent state latch.** All 54 cells reported
+  `state_end.prepared=false`/`sampleRate=0` because the final
+  `readJamLiveState` result was used even when it returned false (no new
+  publication / sequence race). Fix: a `StateLatch` helper obtains a baseline
+  prepared state with a bounded off-callback poll before the cold callback and
+  initializes `state_start`/`state_end` from it; `state_end` is updated only on
+  a true read and never reset on false; the final read is a temp that replaces
+  only on true. `baseline_prepared` is required per cell.
+- **Defect B — real injected proof.** The injected scenario ran unpaced, so the
+  workers could not track the timeline and never joined; StopNow "passed"
+  without a join, resync was accepted without servicing, and the reprepare
+  generations were not a real session change. Fix: real-time pacing
+  (`sleep_until` outside the callback); require a first and a **second** actual
+  join (engine `injectedPlaying` + steps grow), a deferred StopAtNextBar that
+  actually persists, a StopNow measured in serviced blocks, a real resync
+  effect, a session-generation change via prepare cold state, and a coherent
+  released payload on shutdown. Command acceptance alone is never proof. The
+  injected gate uses engine steps/playing, not output RMS.
+
+Semantics unchanged (`structural AND rt_gate AND join_gate`; default no-lock
+diagnostic). Link-only against the actual product is LIVE-READY; runtime **not**
+invoked. Validator unit tests **113/113**.
+
+## Sixth correction (real resync phase proof)
+
+The injected scenario's `resync_effect_observed` was a false positive: it
+submitted Resync after StopNow, started a third join, and treated any new step +
+last-step change as a resync, so an ordinary join passed. Fixed: a third actual
+join **without** resync, then wait for a mid-bar baseline phase
+(`injectedNextStep in [2,14]`), then submit `ResyncNextBar` alone, then assert
+`injectedNextStep()==1` (step 0 fired), `lastStepSample in [submitCursor,
+observedEnd)`, and a positive `injectedCommandCount` delta. Recorded fields
+`resync_phase_before/after`, `resync_step_sample`, `resync_submit_cursor`,
+`resync_observed_end`, `resync_owner_command_delta`. The injected gate requires
+them; a forged `resync_effect_observed` cannot pass. The default-long gate is
+identity + actual audio-owner only and does not require injected fields.
+
+Validator unit tests **121/121**; link-only against the actual product is
+LIVE-READY (runtime not invoked); the preserved actual-001 evidence still fails
+truthfully (`actual-001-recheck-6.json`).
+
+## Seventh correction (drum-only zero-input window)
+
+The injected scenario proved transport wiring via engine getters, but not that
+the actual processor output carries internal-kit drums. Added a declared
+zero-input window after the resync proof: switch the input generator to silence
+so every callback buffer is written exact-zero by the caller, run 0.5 s of paced
+wash, then measure 1.0 s of paced callbacks. The window records the real
+processor output RMS/peak/nonzero blocks, the injected steps delta, engine
+playing, internal-kit `samplesLoaded()==true` and `useVst.load()==false`, with
+`allocator_coverage=unmeasured` (the window is unarmed; the 54-cell RT gate is
+unchanged). The injected gate requires `zero_input_declared`, `sampler_loaded`,
+`use_vst=false`, `sample_count>=sample_rate`, nonzero output, `steps_delta>0` and
+`engine_playing`. This is INJECTED CONTRACT evidence, not a real-guitar or
+physical-device claim. `make_synthetic_evidence.py` WAV bytes and the selected
+source WAVs/absolute-frame phase metadata are unchanged.
+
+Validator unit tests **127/127**; link-only against the actual product is
+LIVE-READY (runtime not invoked); preserved actual-001 still fails truthfully
+(`actual-001-recheck-7.json`).
+
 ## Limitations (not claimed)
 
 - Not a whole-program allocation-safety proof. It is a bounded matrix over the

@@ -297,6 +297,55 @@ with the full closure and all self-checks; runtime **not** invoked
 (`link-receipt-actual-4.json`). Remaining: the actual runtime gates await the
 orchestrator.
 
+## Fifth correction — actual-full-001 defects (A state latch, B injected proof)
+
+The first actual full run (preserved read-only at
+`/home/mojo/projects/build-EVAL-LIVE-001-integration/actual-full-001`) showed 108
+validator failures: all 54 cells `state_end.prepared=false`/`sampleRate=0`, and
+`join_gate=false`; RT gate passed on all 54 cells and the default-long gate
+passed (BTrack join, steps). The evidence was **not** edited; the corrected
+validator still reports actual-001 as a truthful failure
+(`actual-001-recheck.json`, evidence sha `284d265b…`).
+
+- **Defect A**: the final `readJamLiveState` result was used even when false.
+  Fixed with the `StateLatch` helper (baseline prepared poll pre-callback;
+  update only on true; never reset on false; `baseline_prepared` required).
+- **Defect B**: the injected scenario was unpaced, so it never joined and its
+  StopNow/resync/reprepare proofs were vacuous. Fixed with real-time pacing,
+  first+second actual join (engine playing + steps), deferred StopAtNextBar,
+  serviced-block StopNow, real resync effect, session-generation change and a
+  coherent released payload. Engine steps/playing carry the proof, not RMS.
+
+Executed: validator unit tests **113/113**; pure `StateLatch` tests; labelled
+synthetic full tree passes all gates; link-only against the actual product is
+LIVE-READY (runtime not invoked). Remaining: a truthful actual-002 run by the
+orchestrator.
+
+## Sixth correction — real resync phase proof
+
+The injected `resync_effect_observed` was a false positive (ordinary join passed
+as resync). Fixed with an engine-phase proof: third actual join without resync,
+wait for baseline `injectedNextStep in [2,14]`, submit `ResyncNextBar` alone,
+assert `injectedNextStep()==1`, `lastStepSample in [submitCursor, observedEnd)`
+and a positive command-count delta. The injected gate requires the recorded phase
+fields; a forged flag cannot pass. Default-long gate is identity + actual
+audio-owner only.
+
+Executed: validator unit tests **121/121**; link-only against the actual product
+LIVE-READY (runtime not invoked); preserved actual-001 still fails truthfully.
+
+## Seventh correction — drum-only zero-input window
+
+Added a declared zero-input window after the resync proof (silence written
+exact-zero by the caller; 0.5 s wash + 1.0 s measured) that records the real
+processor output RMS/peak/nonzero blocks, steps delta, engine playing,
+`samplesLoaded()==true`, `useVst==false` and `allocator_coverage=unmeasured`.
+The injected gate requires the window proof. INJECTED CONTRACT evidence, not a
+real-guitar/physical claim. WAV bytes and source phase metadata unchanged.
+
+Executed: validator unit tests **127/127**; link-only against the actual product
+LIVE-READY (runtime not invoked); preserved actual-001 still fails truthfully.
+
 ## Limitations (not claimed)
 
 - The actual live measurement is pending the merged pipeline. Only the harness,

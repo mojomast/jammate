@@ -169,6 +169,7 @@ struct Cell
     std::uint64_t nonzeroBlocks = 0;
 
     jam::JamLiveState stateStart {}, stateEnd {};
+    bool baselinePrepared = false;
 
     // Audio-owner cursor (true per-callback advancement).
     bool audioOwnerMeasured = false;
@@ -481,8 +482,17 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
     }
     gen.reset (o.seed ^ (std::uint32_t) c.block ^ (std::uint32_t) (unsigned) c.rate);
 
-    if (! proc.readJamLiveState (c.stateStart))
-        c.stateStart = jam::JamLiveState {};
+    // Defect A: bounded off-callback prepared poll for the baseline coherent
+    // state (non-RT, unarmed). Initialize state_start and state_end from it; a
+    // later false latest-value read must never reset them.
+    replay::StateLatch latch;
+    const bool baselinePrepared = latch.pollPrepared (
+        [&] (jam::JamLiveState& s) { return proc.readJamLiveState (s); },
+        2000,
+        [] { std::this_thread::sleep_for (std::chrono::milliseconds (1)); });
+    c.baselinePrepared = baselinePrepared;
+    c.stateStart = latch.last;
+    c.stateEnd = latch.last;
 
     // Cold callback (armed). The audio-owner cursor is read after the callback on
     // this same callback-owner thread, outside the armed region.
@@ -575,7 +585,8 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
         if (rms > 1.0e-7) ++nonzero;
 
         jam::JamLiveState s {};
-        if (! proc.readJamLiveState (s)) continue;
+        if (! proc.readJamLiveState (s)) continue;   // retain stateEnd on false
+        c.stateEnd = s;                               // coherent update only on true
 
         const std::uint64_t reported = s.audioSampleTime;
         cursors.observe (c.audioOwnerMeasured, actual, reported);
@@ -668,7 +679,12 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
 
     c.audioOwnerEnd = proc.drumEngine.injectedSamplePosition();
 
-    proc.readJamLiveState (c.stateEnd);
+    // Defect A: final read is a temp that replaces state_end ONLY on true; a
+    // false latest-value read must never reset the latched coherent state.
+    {
+        jam::JamLiveState tmp {};
+        if (proc.readJamLiveState (tmp)) c.stateEnd = tmp;
+    }
 
     if (enabled)
     {
@@ -732,6 +748,9 @@ struct ScenarioResult
     std::string unmeasuredReasonCode;
     bool startAccepted = false;
     bool joinObserved = false;
+    bool firstJoinObserved = false;
+    bool secondJoinObserved = false;
+    bool enginePlayingObserved = false;
     std::uint64_t blocksToJoin = 0;
     std::uint64_t callbacks = 0;
     std::uint64_t stepsFired = 0;
@@ -740,11 +759,38 @@ struct ScenarioResult
     bool stopAtNextBarDeferred = false;
     std::uint64_t blocksToStopAtNextBar = 0;
     bool stopNowStopped = false;
+    bool stopNowAccepted = false;
     std::uint64_t blocksToStopNow = 0;
     bool resyncAccepted = false;
+    bool resyncEffectObserved = false;
+    int resyncPhaseBefore = -1;
+    int resyncPhaseAfter = -1;
+    std::uint64_t resyncStepSample = 0;
+    std::uint64_t resyncSubmitCursor = 0;
+    std::uint64_t resyncObservedEnd = 0;
+    std::uint64_t resyncOwnerCommandDelta = 0;
+    // Drum-only zero-input window (seventh correction)
+    std::string drumOnlyInputKind = "silence";
+    double drumOnlyWarmupSeconds = 0.0;
+    double drumOnlyMeasuredSeconds = 0.0;
+    std::uint64_t drumOnlySampleCount = 0;
+    double drumOnlySampleRate = 0.0;
+    double drumOnlyRms = 0.0;
+    double drumOnlyPeak = 0.0;
+    std::uint64_t drumOnlyNonzeroBlocks = 0;
+    std::uint64_t drumOnlyStepsDelta = 0;
+    bool drumOnlyEnginePlaying = false;
+    bool drumOnlySamplerLoaded = false;
+    bool drumOnlyUseVst = true;
+    bool drumOnlyZeroInput = false;
+    std::string drumOnlyAllocatorCoverage = "unmeasured";
     std::uint64_t generationBeforeReprepare = 0;
     std::uint64_t generationAfterReprepare = 0;
     bool generationChangedOnReprepare = false;
+    bool sessionGenerationChanged = false;
+    bool releasedConfirmed = false;
+    bool paced = false;
+    double wallSeconds = 0.0;
     bool shutdownReleased = false;
     std::uint64_t callbackAllocCxx = 0, callbackAllocC = 0, callbackFree = 0, callbackLocks = 0;
     bool audioOwnerDeltaOk = true;
@@ -890,13 +936,17 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     midi.ensureSize (4096);
     InputGen gen; gen.kind = InputKind::clean; gen.deviceRate = rate; gen.reset (999);
 
+    replay::StateLatch latch;
+    latch.pollPrepared ([&] (jam::JamLiveState& s) { return proc.readJamLiveState (s); },
+                        2000, [] { std::this_thread::sleep_for (std::chrono::milliseconds (1)); });
     replay::BackendObservation backend;
-    {
-        jam::JamLiveState s {};
-        if (proc.readJamLiveState (s)) backend.observe (s);
-    }
+    backend.observe (latch.last);
 
-    auto step = [&] {
+    const auto startWall = Clock::now();
+    TimePoint nextDeadline = startWall;
+    auto pacedStep = [&] {
+        nextDeadline += std::chrono::nanoseconds ((std::int64_t) (1e9 * (double) block / rate));
+        if (nextDeadline > Clock::now()) std::this_thread::sleep_until (nextDeadline);
         gen.fill (buf.getArrayOfWritePointers(), buf.getNumChannels(), block);
         proc.processBlock (buf, midi);
         ++r.callbacks;
@@ -904,72 +954,214 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
         r.outputRms += rms;
         if (rms > 1.0e-7) ++r.outputNonzeroBlocks;
     };
+    auto readState = [&] (jam::JamLiveState& s) -> bool {
+        if (proc.readJamLiveState (s)) { latch.updateFrom (true, s); backend.observe (s); return true; }
+        s = latch.last;   // retain the last coherent snapshot on false
+        return false;
+    };
+    auto enginePlaying = [&] { return proc.drumEngine.injectedPlaying(); };
+    auto stepsFired = [&] { return proc.drumEngine.injectedStepsFired(); };
 
+    r.paced = true;
     r.startAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
 
-    // Run up to 8 s for a join.
-    const int maxBlocks = (int) (8.0 * rate / block);
-    for (int i = 0; i < maxBlocks && ! r.joinObserved; ++i)
+    // First join: bounded 8 s real audio, engine-backed.
+    const std::uint64_t steps0 = stepsFired();
+    const int maxJoinBlocks = (int) (8.0 * rate / block);
+    for (int i = 0; i < maxJoinBlocks; ++i)
     {
-        step();
+        pacedStep();
         jam::JamLiveState s {};
-        if (proc.readJamLiveState (s))
+        readState (s);
+        if ((s.drumsPlaying || enginePlaying()) && stepsFired() > steps0)
         {
-            backend.observe (s);
-            if (s.drumsPlaying)
-            {
-                r.joinObserved = true; r.blocksToJoin = (std::uint64_t) (i + 1);
-            }
+            r.joinObserved = true; r.firstJoinObserved = true; r.enginePlayingObserved = true;
+            r.blocksToJoin = (std::uint64_t) (i + 1);
+            break;
+        }
+    }
+    r.stepsFired = stepsFired();
+
+    // StopAtNextBar: deferred if the engine is actually playing at submit and
+    // keeps playing for at least the next serviced block.
+    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::StopAtNextBar, 0.0 });
+    const bool playingAtSubmit = enginePlaying();
+    if (playingAtSubmit) pacedStep();
+    r.stopAtNextBarDeferred = playingAtSubmit && enginePlaying();
+    const int maxStopNext = (int) (4.0 * rate / block);
+    for (int i = 0; i < maxStopNext; ++i)
+    {
+        pacedStep();
+        if (! enginePlaying()) { r.blocksToStopAtNextBar = (std::uint64_t) (i + 1); break; }
+    }
+
+    // Second actual join before StopNow.
+    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
+    const std::uint64_t steps1 = stepsFired();
+    const int maxJoin2 = (int) (8.0 * rate / block);
+    for (int i = 0; i < maxJoin2; ++i)
+    {
+        pacedStep();
+        jam::JamLiveState s {};
+        readState (s);
+        if ((s.drumsPlaying || enginePlaying()) && stepsFired() > steps1)
+        {
+            r.secondJoinObserved = true;
+            break;
+        }
+    }
+    r.stepsFired = stepsFired();
+
+    // StopNow: only meaningful after a second join; measured in serviced blocks.
+    if (r.secondJoinObserved)
+    {
+        r.stopNowAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Stop, 0.0 });
+        const int maxStopNow = (int) (2.0 * rate / block);
+        for (int i = 0; i < maxStopNow; ++i)
+        {
+            pacedStep();
+            if (! enginePlaying()) { r.stopNowStopped = true; r.blocksToStopNow = (std::uint64_t) (i + 1); break; }
         }
     }
 
-    // StopAtNextBar must be deferred.
-    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::StopAtNextBar, 0.0 });
+    // Resync phase proof (sixth correction): a THIRD actual join with no resync,
+    // then ResyncNextBar alone, then an engine-phase assertion. An ordinary join
+    // must not be able to satisfy this.
+    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
+    const std::uint64_t steps2 = stepsFired();
+    const int maxJoin3 = (int) (8.0 * rate / block);
+    for (int i = 0; i < maxJoin3; ++i)
     {
+        pacedStep();
         jam::JamLiveState s {};
-        proc.readJamLiveState (s);
-        r.stopAtNextBarDeferred = s.drumsPlaying;
-    }
-    for (int i = 0; i < (int) (4.0 * rate / block); ++i)
-    {
-        step();
-        jam::JamLiveState s {};
-        if (proc.readJamLiveState (s) && ! s.drumsPlaying) { r.blocksToStopAtNextBar = (std::uint64_t) (i + 1); break; }
+        readState (s);
+        if ((s.drumsPlaying || enginePlaying()) && stepsFired() > steps2)
+            break;
     }
 
-    // Restart, then bounded StopNow.
-    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
-    for (int i = 0; i < 16; ++i) step();
-    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Stop, 0.0 });
-    for (int i = 0; i < (int) (2.0 * rate / block); ++i)
+    // Wait for a mid-bar baseline phase: injectedNextStep in [2,14] (not the
+    // downbeat 1), engine playing.
+    const int maxPhase = (int) (2.0 * rate / block);
+    for (int i = 0; i < maxPhase; ++i)
     {
-        step();
-        jam::JamLiveState s {};
-        if (proc.readJamLiveState (s) && ! s.drumsPlaying) { r.stopNowStopped = true; r.blocksToStopNow = (std::uint64_t) (i + 1); break; }
+        const int ns = proc.drumEngine.injectedNextStep();
+        if (enginePlaying() && ns >= 2 && ns <= 14) break;
+        pacedStep();
     }
+
+    const int phaseBefore = proc.drumEngine.injectedNextStep();
+    const std::uint64_t cmdBefore = proc.drumEngine.injectedCommandCount();
+    const std::uint64_t submitCursor = proc.drumEngine.injectedSamplePosition();
+    const bool baselinePlaying = enginePlaying();
+    r.resyncPhaseBefore = phaseBefore;
+    r.resyncSubmitCursor = submitCursor;
 
     r.resyncAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::ResyncNextBar, 0.0 });
+    const std::uint64_t steps3 = stepsFired();
+    const int maxResync = (int) (2.0 * rate / block);
+    for (int i = 0; i < maxResync; ++i)
+    {
+        pacedStep();
+        jam::JamLiveState s {};
+        readState (s);
+        const std::uint64_t cmdNow = proc.drumEngine.injectedCommandCount();
+        if (cmdNow > cmdBefore && stepsFired() > steps3 && enginePlaying())
+        {
+            r.resyncObservedEnd = proc.drumEngine.injectedSamplePosition();
+            r.resyncPhaseAfter = proc.drumEngine.injectedNextStep();
+            r.resyncStepSample = proc.drumEngine.injectedLastStepSample();
+            r.resyncOwnerCommandDelta = cmdNow - cmdBefore;
+            break;
+        }
+    }
+    if (r.resyncObservedEnd == 0)
+        r.resyncObservedEnd = proc.drumEngine.injectedSamplePosition();
+    r.resyncEffectObserved = baselinePlaying
+        && r.resyncPhaseBefore >= 2 && r.resyncPhaseBefore <= 14
+        && r.resyncPhaseAfter == 1
+        && r.resyncOwnerCommandDelta >= 1
+        && r.resyncStepSample >= r.resyncSubmitCursor
+        && r.resyncStepSample < r.resyncObservedEnd;
+    r.stepsFired = stepsFired();
 
+    // Seventh correction: drum-only zero-input window on the actual processor
+    // output. Every callback buffer is written exact-zero by the caller; the
+    // embedded kit (use_vst=false, samplesLoaded=true) is the only source.
+    gen.kind = InputKind::silence;
+    gen.wav = nullptr;
+    r.drumOnlyInputKind = "silence";
+    r.drumOnlyWarmupSeconds = 0.5;
+    r.drumOnlyMeasuredSeconds = 1.0;
+    r.drumOnlySampleRate = rate;
+    r.drumOnlyZeroInput = true;
+    r.drumOnlyAllocatorCoverage = "unmeasured";
+    const int warmupBlocks = (int) (r.drumOnlyWarmupSeconds * rate / block);
+    for (int i = 0; i < warmupBlocks; ++i) pacedStep();
+    const std::uint64_t winStepsBefore = stepsFired();
+    const int measureBlocks = (int) (r.drumOnlyMeasuredSeconds * rate / block);
+    double winRmsSum = 0.0;
+    double winPeak = 0.0;
+    std::uint64_t winNonzero = 0;
+    for (int i = 0; i < measureBlocks; ++i)
+    {
+        pacedStep();
+        const double rms = cellOutputRms (buf, block);
+        winRmsSum += rms;
+        for (int ch = 0; ch < buf.getNumChannels(); ++ch)
+        {
+            const float m = buf.getMagnitude (ch, 0, block);
+            if (m > winPeak) winPeak = m;
+        }
+        if (rms > 1.0e-7) ++winNonzero;
+    }
+    r.drumOnlySampleCount = (std::uint64_t) measureBlocks * (std::uint64_t) block;
+    r.drumOnlyRms = measureBlocks > 0 ? winRmsSum / (double) measureBlocks : 0.0;
+    r.drumOnlyPeak = winPeak;
+    r.drumOnlyNonzeroBlocks = winNonzero;
+    r.drumOnlyStepsDelta = stepsFired() - winStepsBefore;
+    r.drumOnlyEnginePlaying = enginePlaying();
+    r.drumOnlySamplerLoaded = proc.drumEngine.samplesLoaded();
+    r.drumOnlyUseVst = proc.drumEngine.useVst.load();
+    r.stepsFired = stepsFired();
+
+    // Session generation via prepare cold state (not the per-tick clock gen).
     jam::JamLiveState s {};
-    proc.readJamLiveState (s);
+    readState (s);
     r.generationBeforeReprepare = s.sessionGeneration;
+
     proc.releaseResources();
+    const bool releasedOk = latch.pollReleased (
+        [&] (jam::JamLiveState& x) { return proc.readJamLiveState (x); },
+        2000, [] { std::this_thread::sleep_for (std::chrono::milliseconds (1)); });
+    r.releasedConfirmed = releasedOk && ! latch.last.prepared && ! latch.last.drumsPlaying;
+
     proc.prepareToPlay (rate, block);
-    for (int i = 0; i < 4; ++i) step();
-    proc.readJamLiveState (s);
-    r.generationAfterReprepare = s.sessionGeneration;
+    latch.pollPrepared ([&] (jam::JamLiveState& x) { return proc.readJamLiveState (x); },
+                        2000, [] { std::this_thread::sleep_for (std::chrono::milliseconds (1)); });
+    r.generationAfterReprepare = latch.last.sessionGeneration;
     r.generationChangedOnReprepare = (r.generationAfterReprepare != r.generationBeforeReprepare);
+    r.sessionGenerationChanged = r.generationChangedOnReprepare;
+
     r.backendKind = backend.label();
     r.backendFirst = replay::liveBackendName (backend.first);
     r.backendLast = replay::liveBackendName (backend.last);
     r.backendChanged = backend.changed;
-    r.stepsFired = proc.drumEngine.injectedStepsFired();
     r.outputRms = r.callbacks > 0 ? r.outputRms / (double) r.callbacks : 0.0;
+
     proc.releaseResources();
-    r.shutdownReleased = true;
-    std::fprintf (log, "  scenario[%s] join=%d stopNow=%d resync=%d genChanged=%d\n",
-                  r.id.c_str(), (int) r.joinObserved, (int) r.stopNowStopped,
-                  (int) r.resyncAccepted, (int) r.generationChangedOnReprepare);
+    const bool shutOk = latch.pollReleased (
+        [&] (jam::JamLiveState& x) { return proc.readJamLiveState (x); },
+        2000, [] { std::this_thread::sleep_for (std::chrono::milliseconds (1)); });
+    r.shutdownReleased = shutOk && ! latch.last.prepared && ! latch.last.drumsPlaying;
+    r.wallSeconds = std::chrono::duration<double> (Clock::now() - startWall).count();
+
+    std::fprintf (log, "  scenario[%s] firstJoin=%d secondJoin=%d steps=%llu stopNextDeferred=%d "
+                       "stopNow=%d resyncEffect=%d genChanged=%d released=%d shut=%d %.1fs\n",
+                  r.id.c_str(), (int) r.firstJoinObserved, (int) r.secondJoinObserved,
+                  (unsigned long long) r.stepsFired, (int) r.stopAtNextBarDeferred,
+                  (int) r.stopNowStopped, (int) r.resyncEffectObserved,
+                  (int) r.sessionGenerationChanged, (int) r.releasedConfirmed,
+                  (int) r.shutdownReleased, r.wallSeconds);
 #else
     r.ran = false;
     r.unmeasuredReason = "pipeline setJamTrackerForTesting seam absent at build time";
@@ -1218,6 +1410,7 @@ int main (int argc, char** argv)
 
         std::fprintf (f, ",\"state_start\":"); writeState (f, c.stateStart);
         std::fprintf (f, ",\"state_end\":");   writeState (f, c.stateEnd);
+        std::fprintf (f, ",\"baseline_prepared\":"); jsonBool (f, c.baselinePrepared);
 
         std::fprintf (f, ",\"progression\":{");
         std::fprintf (f, "\"audio_owner_measured\":"); jsonBool (f, c.audioOwnerMeasured);
@@ -1299,6 +1492,37 @@ int main (int argc, char** argv)
         std::fprintf (f, ",\"output_nonzero_blocks\":"); jsonU64 (f, r.outputNonzeroBlocks);
         std::fprintf (f, ",\"start_accepted\":"); jsonBool (f, r.startAccepted);
         std::fprintf (f, ",\"join_observed\":"); jsonBool (f, r.joinObserved);
+        std::fprintf (f, ",\"first_join_observed\":"); jsonBool (f, r.firstJoinObserved);
+        std::fprintf (f, ",\"second_join_observed\":"); jsonBool (f, r.secondJoinObserved);
+        std::fprintf (f, ",\"engine_playing_observed\":"); jsonBool (f, r.enginePlayingObserved);
+        std::fprintf (f, ",\"stop_now_accepted\":"); jsonBool (f, r.stopNowAccepted);
+        std::fprintf (f, ",\"resync_effect_observed\":"); jsonBool (f, r.resyncEffectObserved);
+        std::fprintf (f, ",\"resync_phase_before\":"); std::fprintf (f, "%d", r.resyncPhaseBefore);
+        std::fprintf (f, ",\"resync_phase_after\":"); std::fprintf (f, "%d", r.resyncPhaseAfter);
+        std::fprintf (f, ",\"resync_step_sample\":"); jsonU64 (f, r.resyncStepSample);
+        std::fprintf (f, ",\"resync_submit_cursor\":"); jsonU64 (f, r.resyncSubmitCursor);
+        std::fprintf (f, ",\"resync_observed_end\":"); jsonU64 (f, r.resyncObservedEnd);
+        std::fprintf (f, ",\"resync_owner_command_delta\":"); jsonU64 (f, r.resyncOwnerCommandDelta);
+        std::fprintf (f, ",\"drum_only_window\":{");
+        std::fprintf (f, "\"input_kind\":\"%s\"", r.drumOnlyInputKind.c_str());
+        std::fprintf (f, ",\"warmup_seconds\":"); jsonNumber (f, r.drumOnlyWarmupSeconds);
+        std::fprintf (f, ",\"measured_seconds\":"); jsonNumber (f, r.drumOnlyMeasuredSeconds);
+        std::fprintf (f, ",\"sample_count\":"); jsonU64 (f, r.drumOnlySampleCount);
+        std::fprintf (f, ",\"sample_rate\":"); jsonNumber (f, r.drumOnlySampleRate);
+        std::fprintf (f, ",\"rms\":"); jsonNumber (f, r.drumOnlyRms);
+        std::fprintf (f, ",\"peak\":"); jsonNumber (f, r.drumOnlyPeak);
+        std::fprintf (f, ",\"nonzero_blocks\":"); jsonU64 (f, r.drumOnlyNonzeroBlocks);
+        std::fprintf (f, ",\"steps_delta\":"); jsonU64 (f, r.drumOnlyStepsDelta);
+        std::fprintf (f, ",\"engine_playing\":"); jsonBool (f, r.drumOnlyEnginePlaying);
+        std::fprintf (f, ",\"sampler_loaded\":"); jsonBool (f, r.drumOnlySamplerLoaded);
+        std::fprintf (f, ",\"use_vst\":"); jsonBool (f, r.drumOnlyUseVst);
+        std::fprintf (f, ",\"zero_input_declared\":"); jsonBool (f, r.drumOnlyZeroInput);
+        std::fprintf (f, ",\"allocator_coverage\":\"%s\"", r.drumOnlyAllocatorCoverage.c_str());
+        std::fprintf (f, "}");
+        std::fprintf (f, ",\"session_generation_changed\":"); jsonBool (f, r.sessionGenerationChanged);
+        std::fprintf (f, ",\"released_confirmed\":"); jsonBool (f, r.releasedConfirmed);
+        std::fprintf (f, ",\"paced\":"); jsonBool (f, r.paced);
+        std::fprintf (f, ",\"wall_seconds\":"); jsonNumber (f, r.wallSeconds);
         std::fprintf (f, ",\"blocks_to_join\":"); jsonU64 (f, r.blocksToJoin);
         std::fprintf (f, ",\"stop_at_next_bar_deferred\":"); jsonBool (f, r.stopAtNextBarDeferred);
         std::fprintf (f, ",\"blocks_to_stop_at_next_bar\":"); jsonU64 (f, r.blocksToStopAtNextBar);

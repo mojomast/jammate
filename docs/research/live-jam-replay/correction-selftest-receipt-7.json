@@ -1,0 +1,23 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "correction-selftest-receipt-7",
+  "note": "Seventh-correction self-test receipt. LABELLED SYNTHETIC; not an actual measurement. Earlier receipts preserved.",
+  "synthetic": true,
+  "status": "measured",
+  "hard_checks": 3926,
+  "hard_failures": 0,
+  "gate_checks": 3,
+  "gate_failures": 0,
+  "gates": {
+    "rt_gate": true,
+    "scenario_default_clean_long_gate": true,
+    "join_gate": true
+  },
+  "hard_pass": true,
+  "pass": true,
+  "validator_unit_tests": 127,
+  "validator_unit_tests_pass": true,
+  "fix": "drum-only zero-input window proof on the actual processor output",
+  "failed_check_ids": [],
+  "errors": []
+}
