@@ -41,8 +41,8 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
 - EVAL-006 versioned long-decay sustain repair (`e0e3bde`) integrated with **37
   tests passing**, preserved original hashes, all 19 referenced WAVs and four raw
   result hashes checked. Repaired corpus acquisition is BTrack **5/11**, aubio
-  **7/11** (both fail); original corpus evidence remains unchanged. By-name
-  CorpusDefect label still requires a version-aware follow-up. See
+  **7/11** (both fail); original corpus evidence remains unchanged. EVAL-007
+  supplies the version-aware coverage follow-up. See
   `docs/research/SUSTAIN-REPAIR.md` and `testdata/rhythm/repaired-sustain/`.
 - TRACK-004 causal diagnosis (`98da13f`) integrated with **63 replay checks**.
   Both real backends' original-corpus 128/512 runs exactly reproduced, including
@@ -55,6 +55,12 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
   sustain and tapping are assessed, five noise-derived clips unassessed with raw
   counts retained. Six integration CLI runs preserve every non-coverage score;
   all 62 WAV entries verified. See `docs/research/SILENCE-COVERAGE.md`.
+- RT-002 corrected probe (`6e89b1c`) integrated: all 26 CSV cases independently
+  reproduced except wall time, 18 bounded dry/drum cases clean in the measured
+  set, example LSTM two C allocations per model sample. Real editor-absent scene
+  restoration at 30.5 ms is distinguished from the ~257 ms no-audio fallback.
+  All 15 CLI/output checks and pipeline/source-pin failure injections pass.
+  See `docs/research/PROCESSOR-RUNTIME-PROBE.md`; G1 remains partial.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
@@ -85,7 +91,7 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | EVAL-005 integrated paired diagnostics (worker finished) | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
 | EVAL-006 integrated sustain repair + tapping audit (worker finished) | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
 | TRACK-004 integrated acquisition/BPM diagnosis (worker finished) | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
-| RT-002 real processor runtime probe (review corrections) | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
+| RT-002 integrated processor runtime probe (worker finished) | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
 | EVAL-007 integrated silence coverage (worker finished) | `wp/EVAL-007-silence-coverage`, `../worktrees/EVAL-007-silence-coverage` | `ses_ee7215f59ffeWQ6ZWQvH5z229z` |
 | TRACK-005 causal BPM-report diagnostic variant | `wp/TRACK-005-tempo-variant`, `../worktrees/TRACK-005-tempo-variant` | `ses_ee71ab2f2ffeNbYXo23DrPP7Da` |
 
@@ -148,18 +154,20 @@ events and every other observation field, compare baseline/variant on original
 and repaired corpora, and record event-start versus causal-confirmation times.
 No default adapter, vendor, scorer, gate or live transport changes authorised.
 
-RT-002 initial `3daf931` returned an actual processor probe and example LSTM
-callback allocations, but is not integrated. Same worker is correcting warm
-input-output feedback, incomplete CSV lock categories, an unbounded instrument
-CAS loop/realloc semantics, and scene-timer attribution versus the fallback.
-The bounded dry matrix cannot establish sampler voice coverage without measured
-activity; no scene-delivery closure or whole-callback safety pass is accepted
-before correction. EVAL-007 has finished.
+RT-002 corrected `6e89b1c` is integrated with final pipeline/output/source-pin
+fixes and independent reruns. Fresh inputs and measured sampler activity support
+the bounded dry/drum findings. Real message dispatch plus short/long no-audio
+controls discriminate processor scene delivery from fallback. Example LSTM
+allocations remain an open callback blocker; no whole-callback safety or device
+gate pass is inferred. Worker raw artifacts retain their original pins, while
+`processor-probe/integration-verification.json` records main-source measurements.
+EVAL-007 has finished.
 
 ### Remaining gate work
 
 G0/G1 remain partial: Windows/ASIO, hardware timing, full callback heap/locking
-and scene delivery need evidence. G2 lacks live analyzer/UI and real DrumEngine
+and the measured LSTM allocations need work. Bounded editor-absent scene delivery
+has runtime evidence. G2 lacks live analyzer/UI and real DrumEngine
 transport wiring. G3 still needs acquisition improvement and an evidence-backed
 selection ADR; version-aware silence-defect classification is now integrated.
 The historical

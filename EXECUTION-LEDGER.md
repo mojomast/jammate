@@ -34,7 +34,7 @@ PARTIAL, never PASSED.
 | Gate | State | Blocking items |
 |---|---|---|
 | **G0** fork/license/baseline | **PARTIAL** | current fork builds/tests on Linux; baseline audio/device and Windows evidence incomplete |
-| **G1** real-time foundation | **PARTIAL** | scene code compiled against JUCE; engine-generated MIDI bound measured; full callback, scene delivery and actual CI runs incomplete |
+| **G1** real-time foundation | **PARTIAL** | bounded real dry/drum callbacks and editor-absent scene delivery measured; example LSTM allocates per model sample; full callback/device/hosted-plugin and remote CI coverage incomplete |
 | **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam tested; live analyzer, real DrumEngine integration and Jam UI incomplete |
 | **G3** tracker selected | **IN PROGRESS (advanced early)** | comparison, robustness, sustain repair, version-aware silence coverage and partial BeatNet feasibility integrated; acquisition/BPM limitations and selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
@@ -113,6 +113,14 @@ PARTIAL, never PASSED.
   unchanged robustness aggregator reproduces 2160 rows with only CPU/coverage
   string differences. Original sustained hash stays CorpusDefect; repaired
   sustain/tapping assessed; five derived-noise clips explicitly unassessed.
+- RT-002 integration: corrected worker `6e89b1c` accepted with final fail-closed
+  script/output/source-pin fixes. Independent real-processor probe reproduces all
+  26 CSV cases except wall time: 18 dry/drum cases clean in the measured set;
+  eight NAM cases allocate twice per model sample (calloc48 + malloc12). Real
+  editor-absent scene delivery observed at 30.5 ms, with no-audio 150/400 ms
+  controls distinguishing the ~257 ms fallback. All 15 CLI/output checks,
+  failing-tee/source-pin injections and artifact hashes verified. This is bounded
+  non-device evidence; model-specific callback allocation is an open G1 blocker.
 
 ### Returned handoffs under integration review (2026-10-07)
 
@@ -202,7 +210,7 @@ and reports instead.
 | EVAL-005 paired robustness curves | **DONE: scoped paired diagnostics** | `wp/EVAL-005-robustness`, `816a955` → main | B — evidence, Flash | G3 | 29 tests; 2160 rows exactly reproduced; all 24 derived WAV hashes/sizes checked; short-window/missing-data caveats retained |
 | EVAL-006 sustained-corpus repair + tapping audit | **DONE: versioned synthetic repair** | `wp/EVAL-006-sustain`, `e0e3bde` → main + suite registration | C — evidence, Flash | G3 | 37 tests; 1.5 s measured persistence; historical hashes preserved; both real tracker pairs verified; stale name-based defect label reported |
 | TRACK-004 acquisition/BPM diagnosis | **DONE: scoped causal diagnosis** | `wp/TRACK-004-acquisition`, `98da13f` → main + integration corrections | B — evidence, Flash | G3 | 63 replay checks; all four real-backend trace runs exactly reproduced; numerical vs invalid-phase clauses separated; lag-selection cause unresolved |
-| RT-002 real processor runtime probe | REVIEW CORRECTIONS RUNNING | `wp/RT-002-processor-probe`, initial `3daf931`, base `cd9f97f` | A — runtime evidence, Flash | G1 | example LSTM callback heap traffic observed; fix warm input, machine-readable counters, bounded instrumentation and timed scene/fallback discrimination before integration |
+| RT-002 real processor runtime probe | **DONE: bounded runtime evidence** | `wp/RT-002-processor-probe`, `6e89b1c` → main + integration fixes | A — runtime evidence, Flash | G1 | 26 cases independently reproduced; example LSTM callback allocations measured; scene Timer/fallback differential; full G1 remains partial |
 | EVAL-007 version-aware silence coverage | **DONE: scoped coverage correction** | `wp/EVAL-007-silence-coverage`, `514c154` → main + CSV citation corrections | C — evidence, Flash | G3 | exact known-defect hash; repaired/tapping assessed; structural noise unassessed; six reruns preserve non-coverage scores; all 62 input entries verified |
 | TRACK-005 causal BPM-report variant | RUNNING | `wp/TRACK-005-tempo-variant`, base `bf61598` | B — evidence, Flash | G3 | diagnostic-only beat-interval report with predeclared bounded method; exact beat-series comparison, startup/gap/ramp and causal-confirmation evidence; no default adapter change |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |

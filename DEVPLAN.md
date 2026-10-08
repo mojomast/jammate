@@ -1468,7 +1468,7 @@ Keep this near the top of the live devplan during implementation.
 | CI-002 | DONE (definitions + local execution; remote/Windows open) | main | 480f15f + research-suite guards | G1/G3 |
 | EVAL-006 | DONE (versioned synthetic sustain repair + tapping audit) | main | e0e3bde + integration registration | G3 |
 | TRACK-004 | DONE (scoped causal acquisition/BPM diagnosis) | main | 98da13f + integration corrections | G3 |
-| RT-002 | review corrections running (callback/timer evidence) | wp/RT-002-processor-probe | initial 3daf931, not merged | G1 |
+| RT-002 | DONE (bounded callback/timer evidence) | main | 6e89b1c + integration fixes | G1 |
 | EVAL-007 | DONE (version-aware silence coverage) | main | 514c154 + CSV citation corrections | G3 |
 | TRACK-005 | RUNNING (diagnostic-only causal BPM-report variant) | wp/TRACK-005-tempo-variant | base bf61598 | G3 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
