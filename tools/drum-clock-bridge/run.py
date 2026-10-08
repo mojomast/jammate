@@ -224,7 +224,9 @@ def main():
         "freshSources": {str(p): digest(p) for p in all_sources},
         "reusedInputs": {p: digest(p) for p in reused},
         "commands": executed,
-        "binaries": {b.name: digest(b) for b in binaries},
+        # Key by output-relative path: the probe and no-probe combined binaries
+        # share a file name but are distinct artifacts.
+        "binaries": {str(b.relative_to(output)): digest(b) for b in binaries},
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
