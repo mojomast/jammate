@@ -917,11 +917,15 @@ JAM_TEST (RhythmEvalMetrics, silenceCoverageIsNotADurationThreshold)
     CHECK (! none.trueSilenceMeasured);
     CHECK (! none.falseBeatMetricInformative);
 
-    // The two known synthesis defects are flagged by name, not by percentage.
+    // The two known synthesis defects were flagged by NAME before EVAL-007. That
+    // is now invalid: EVAL-006 repaired `sustained_chords` under the same name,
+    // and the `tapping_muting_only` audit found no defect. A synthetic truth
+    // carries no WAV hash, so identity cannot exclude it: both are MEASURED.
+    // (Hash-keyed defect coverage is pinned in RhythmSilenceCoverageTests.)
     CHECK (coverageOf ("sustained_chords", 8.0, 10.0).falseBeatCoverage
-           == FalseBeatCoverage::CorpusDefect);
+           == FalseBeatCoverage::Measured);
     CHECK (coverageOf ("tapping_muting_only", 8.0, 10.0).falseBeatCoverage
-           == FalseBeatCoverage::CorpusDefect);
+           == FalseBeatCoverage::Measured);
 }
 
 // ---------------------------------------------------------------------------

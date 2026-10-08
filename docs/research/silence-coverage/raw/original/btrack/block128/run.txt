@@ -1,0 +1,81 @@
+/home/mojo/projects/build-EVAL-007/cli/rhythm-eval --corpus testdata/rhythm --out docs/research/silence-coverage/raw/original/btrack/block128 --backend btrack --backend-lib /home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so --block 128
+# Rhythm evaluation summary
+
+- backend: `btrack`
+- corpus: `eval001-guitar-corpus`
+- beat-match tolerance: 70 ms
+- variants in this run: `uncompensated` (0.00 ms)
+- fixtures per variant: 19 (11 core, 17 steady, 2 ramp)
+
+## Variant `uncompensated` — uncompensated
+
+
+**Per-fixture evidence.** `coverage` is the true-silence diagnostic's coverage (Measured / NoTrueSilence / CorpusDefect / NotAssessedStructuralNoise); `sil accel` is the silence tempo-increase diagnostic (blank when not measured); `causal lat` is the mean availability-minus-event delay of backend-reported beats. `p95 phase` is `n/a` when no predicted beat matched (a zero there is undefined, not perfect).
+
+| fixture | core | coverage | pred | TP | P | R | F | acq bars | BPM err | h/d | trueSil F/s | sil accel bpm | unplayed F/s | off-grid F/s | recovery s | sync dev | ramp err | p95 phase ms | causal lat ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| accelerando |  | Measured | 25 | 9 | 0.360 | 0.375 | 0.367 | - | 0.000 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0758 | 46.80 | 13.00 |
+| arpeggio | yes | Measured | 22 | 19 | 0.864 | 0.950 | 0.905 | - | 0.021 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 14.08 | 13.05 |
+| blues_shuffle | yes | Measured | 22 | 16 | 0.727 | 0.800 | 0.762 | 1.99 | 0.003 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 18.98 | 12.97 |
+| clean_eighths | yes | Measured | 21 | 17 | 0.810 | 0.850 | 0.829 | - | 0.023 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 25.64 | 12.80 |
+| clean_sixteenths | yes | Measured | 22 | 19 | 0.864 | 0.950 | 0.905 | - | 0.023 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 21.16 | 12.72 |
+| compound_6_8 |  | Measured | 20 | 6 | 0.300 | 0.500 | 0.375 | - | 0.455 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 13.81 | 12.91 |
+| line_input_clipping |  | Measured | 22 | 17 | 0.773 | 0.850 | 0.810 | 2.99 | 0.000 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 16.02 | 13.02 |
+| line_input_low_level |  | Measured | 18 | 17 | 0.944 | 0.850 | 0.895 | - | 0.023 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 8.82 | 12.79 |
+| missing_downbeats | yes | Measured | 21 | 18 | 0.857 | 0.900 | 0.878 | - | 0.021 | - | 0.000 | - | 11.111 | 0.000 | 0.000 | 0.0000 | 0.0000 | 20.02 | 12.95 |
+| noisy_microphone |  | Measured | 22 | 16 | 0.727 | 0.800 | 0.762 | - | 0.023 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 9.01 | 12.77 |
+| palm_mute_metal | yes | Measured | 19 | 18 | 0.947 | 0.900 | 0.923 | - | 0.023 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 8.82 | 12.98 |
+| power_chords_distorted | yes | Measured | 21 | 0 | 0.000 | 0.000 | 0.000 | - | 0.023 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | n/a | 12.74 |
+| ritardando |  | Measured | 28 | 15 | 0.536 | 0.625 | 0.577 | - | 0.000 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0920 | 65.51 | 12.85 |
+| sparse_single_notes | yes | Measured | 22 | 15 | 0.682 | 0.750 | 0.714 | 1.26 | 0.018 | - | 1.366 | +0.00 | 11.111 | 0.000 | 0.000 | 0.0000 | 0.0000 | 38.16 | 12.88 |
+| stop_start | yes | Measured | 26 | 22 | 0.846 | 0.688 | 0.759 | 0.26 | 0.021 | - | 0.000 | +0.00 | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 16.82 | 12.83 |
+| sustained_chords | yes | CorpusDefect | 11 | 6 | 0.545 | 0.375 | 0.444 | 2.74 | 0.003 | - | 0.916 | +0.00 | 5.556 | 0.000 | 0.000 | 0.0000 | 0.0000 | 15.21 | 13.09 |
+| syncopated_funk | yes | Measured | 21 | 18 | 0.857 | 0.900 | 0.878 | 1.00 | 0.018 | - | 0.000 | - | 13.333 | 0.000 | 0.000 | 0.0182 | 0.0000 | 39.77 | 12.77 |
+| tapping_muting_only |  | Measured | 18 | 17 | 0.944 | 0.850 | 0.895 | 1.00 | 0.018 | - | 0.502 | +0.00 | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 6.63 | 12.68 |
+| waltz_3_4 |  | Measured | 19 | 15 | 0.789 | 0.833 | 0.811 | 1.32 | 0.014 | - | 0.000 | - | 0.000 | 0.000 | 0.000 | 0.0000 | 0.0000 | 10.94 | 12.90 |
+
+## Aggregates
+
+### `uncompensated`
+
+- F-measure mean 0.7099 (precision 0.7039, recall 0.7235) over 19 fixtures with a ground-truth grid; phase measured on 18 fixture(s)
+- BPM relative error (steady): mean 0.0432, median 0.0212; core worst 0.0234 over 11/11 core fixtures locked
+- half/double-time error rate: 0.0000 (0/17), core 0.0000 (0/11)
+- acquisition within 2 bars (core): 4/11 = 0.3636
+- events in TRUE silence (diagnostic, not a gate): worst 1.3663/s over 19 fixtures; measured-coverage worst 1.3663/s over 18 fixture(s); coverage: 18 measured, 0 no-silence, 1 corpus-defect, 0 structural-noise
+- silence tempo-increase diagnostic: max +0.0000 BPM over 4 evaluated fixture(s); insufficient evidence on 15 fixture(s)
+- events in UNPLAYED-BEAT windows (separate metric): worst 13.3333/s, off-grid worst 0.0000/s
+- ramp local-tempo relative error (raw, not a gate): mean 0.0839, worst 0.3432 over 2 measured ramp fixture(s)
+- syncopation max deviation 0.0182, max step 0.0000 (raw, not a gate; 1 fixture(s) measured)
+- backend beat-timestamp mapping: 400 reported, 0 at block start, 0 non-causal fallbacks, 0 rate-mismatch blocks; causal availability delay mean 12.88 ms, worst 14.25 ms
+- CPU 1.5883 s total, 38761 C++ new/delete allocations total
+
+## Latency compensation effect
+
+No compensation was requested (`--compensate-latency` absent or 0). The table below is therefore empty by design; re-run with a non-zero value to measure the effect.
+
+**The orchestrator, not the harness, decides whether to compensate.** Compensation is a claim about the backend, and it can be as wrong as no compensation: subtracting a latency the backend does not actually have is just a bias in the other direction, and for a non-causal or tempo-adaptive backend the delay may not even be constant. This table exists so the ADR can see the size of the decision, not so the harness can make it.
+
+## SPEC 19 gates
+
+### `uncompensated`
+
+| gate | result | reason |
+|---|---|---|
+| acquire useful lock within 2 bars for >= 95% of core fixtures | FAIL | 4/11 core fixtures acquired within 2 bars (fraction 0.3636) |
+| locked BPM relative error <= 2% on steady-tempo core fixtures | FAIL | worst core BPM relative error 0.0234; 11/11 core fixtures locked |
+| half/double-time errors < 5% on core fixtures | PASS | core half/double-time errors 0/11 (rate 0.0000) |
+| no tempo jump from one isolated syncopated event | NOT-MEASURED | raw diagnostic: largest first difference of reported BPM on `syncopated_funk` is 0.0000 of nominal over 1 measured fixture(s). The fixture contains many syncopated events, so it cannot isolate ONE; no numeric threshold is claimed. |
+| silence does not create false acceleration | NOT-MEASURED | raw diagnostic: 19/19 fixtures declare true silence (18 measured, 1 corpus-defect, 0 structural-noise); worst 1.3663 events/s, worst measured-coverage 1.3663/s; silence tempo-increase max +0.0000 BPM over 4 evaluated fixture(s), 15 insufficient. SPEC forbids false ACCELERATION, not beat events during a short intentional holdover; the offline harness cannot attribute a tempo change to the silence rather than to legitimate tempo follow, so no gate is claimed. |
+| explicit resync establishes new phase within the requested boundary | NOT-MEASURED | the offline harness has no resync command path; the Musical Clock is the only place this can be tested |
+| Follow handles controlled gradual tempo ramps without abrupt audible discontinuities | NOT-MEASURED | raw diagnostic: mean local-tempo relative error 0.0839, worst 0.3432 over 2 measured ramp fixture(s). The SPEC target is 'without abrupt audible discontinuities', which requires the Musical Clock and audition; a 2 % backend error threshold would be fabricated (and is not the SPEC rule). |
+| Loose Follow is measurably less reactive than Follow | NOT-MEASURED | requires the Musical Clock and a real controller; no clock runs in this offline harness |
+| stop/start recovery succeeds without restarting the audio device | NOT-INFORMATIVE | offline proxy: worst post-stop lock recovery 0.0000 s; audio-device restart is not observable offline |
+
+## Fixtures not informative for the true-silence false-beat metric
+
+- `sustained_chords` (`uncompensated`, sha256 `e4b9297fca34…`): CORPUS DEFECT — 8.73 s (77%) of declared true silence is an artifact of the fast-decay recording, not a performance. Its rate must not be read as a pass or a fail. Citation: EVAL-006 docs/research/SUSTAIN-REPAIR.md / CORPUS-ACOUSTIC-REVIEW.md: measured 30-35 dB attack collapse by 300 ms, 8.734 s of 11.35 s declared true silence from the two-stage fast decay
+
+Criterion (stated, not hidden): a fixture is not informative when (a) it has no true-silence spans at all (`NoTrueSilence`), (b) it is a derived noise perturbation whose inherited spans are structural (`NotAssessedStructuralNoise`), or (c) its declared WAV sha256 is in the reviewed fast-decay defect registry (`CorpusDefect`, EVAL-006 `docs/research/SUSTAIN-REPAIR.md`). Classification is by WAV identity, not fixture name: the repaired `sustained_chords` render with hash `23b8cf21…` measures its own independently derived spans, while the original `e4b9297f…` bytes remain a defect even if renamed. The hash is the declared manifest hash, not an authentication of the PCM. No numeric silence-occupancy threshold is used; this replaces EVAL-002R's '>= 50 % silence' censoring rule, which also censored genuine sparse playing (`sparse_single_notes` sits at 48.55 %).
+wrote docs/research/silence-coverage/raw/original/btrack/block128/results.json, docs/research/silence-coverage/raw/original/btrack/block128/fixtures.csv, docs/research/silence-coverage/raw/original/btrack/block128/summary.md, and per-fixture JSON/CSV in docs/research/silence-coverage/raw/original/btrack/block128/per_fixture
+exit=0
