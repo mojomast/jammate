@@ -1,0 +1,9 @@
+variant=original_control
+architecture_id=a1_wavenet_standard
+model_file=wavenet_a1_standard.nam
+warm_blocks=128
+timeout_s=600
+binary=/home/mojo/projects/build-RT-003-integration/probe-baseline/build/processor_probe
+binary_sha256=de089230f5c718641e5620376cc8b7a8e8932b527464042a9211f8f32aa302e7
+model_sha256=ceb53469a19ce278e2235da982ae676cb8d5451a8de22a7ecc7a2617d07224d1
+exit=0

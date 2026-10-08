@@ -1,0 +1,27 @@
+{
+  "id": "slimmable_wavenet",
+  "file": "slimmable_wavenet.nam",
+  "sha256": "735c1a86e18140b7cfe90c08427ca6a85f62c32d34cc4048997933652aa774b4",
+  "architecture": "WaveNet",
+  "version": "0.7.0",
+  "sample_rate": 48000,
+  "weight_count": 457,
+  "config": {
+    "layer_arrays": 1,
+    "layers": [
+      {
+        "channels": 3,
+        "kernel_size": 3,
+        "dilation_count": 10,
+        "activation": "ReLU",
+        "condition_size": 1,
+        "slimmable_allowed_channels": [
+          1,
+          2,
+          3
+        ]
+      }
+    ],
+    "head_scale": 0.02
+  }
+}

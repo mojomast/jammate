@@ -1,0 +1,29 @@
+{
+  "id": "a1_wavenet_standard",
+  "file": "wavenet_a1_standard.nam",
+  "sha256": "ceb53469a19ce278e2235da982ae676cb8d5451a8de22a7ecc7a2617d07224d1",
+  "architecture": "WaveNet",
+  "version": "0.5.0",
+  "sample_rate": null,
+  "weight_count": 13802,
+  "config": {
+    "layer_arrays": 2,
+    "layers": [
+      {
+        "channels": 16,
+        "kernel_size": 3,
+        "dilation_count": 10,
+        "activation": "Tanh",
+        "condition_size": 1
+      },
+      {
+        "channels": 8,
+        "kernel_size": 3,
+        "dilation_count": 10,
+        "activation": "Tanh",
+        "condition_size": 1
+      }
+    ],
+    "head_scale": 0.02
+  }
+}

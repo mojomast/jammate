@@ -1,0 +1,9 @@
+variant=repaired
+architecture_id=a2_slimmable_container
+model_file=A2.nam
+warm_blocks=128
+timeout_s=600
+binary=/home/mojo/projects/build-RT-003-integration/product-probe/build/processor_probe
+binary_sha256=f950d6d95ff2f02d3deaab25e807b15c8fe0ac208a59f07f0e961729e3761715
+model_sha256=2d2d744516dc0197737a2c5001010429692d4cb20d72b08264781de626fcf4ca
+exit=0

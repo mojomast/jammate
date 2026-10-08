@@ -1,0 +1,236 @@
+{
+  "id": "a2_slimmable_container",
+  "file": "A2.nam",
+  "sha256": "2d2d744516dc0197737a2c5001010429692d4cb20d72b08264781de626fcf4ca",
+  "architecture": "SlimmableContainer",
+  "version": "0.7.0",
+  "sample_rate": 48000.0,
+  "weight_count": 0,
+  "config": {
+    "submodels": [
+      {
+        "max_value": 0.5,
+        "architecture": "WaveNet",
+        "version": "0.7.0",
+        "config": {
+          "layer_arrays": 1,
+          "layers": [
+            {
+              "channels": 3,
+              "kernel_size": null,
+              "dilation_count": 23,
+              "activation": [
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                }
+              ],
+              "condition_size": 1
+            }
+          ],
+          "head_scale": 0.01
+        }
+      },
+      {
+        "max_value": 1.0,
+        "architecture": "WaveNet",
+        "version": "0.7.0",
+        "config": {
+          "layer_arrays": 1,
+          "layers": [
+            {
+              "channels": 8,
+              "kernel_size": null,
+              "dilation_count": 23,
+              "activation": [
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                },
+                {
+                  "type": "LeakyReLU",
+                  "negative_slope": 0.01
+                }
+              ],
+              "condition_size": 1
+            }
+          ],
+          "head_scale": 0.01
+        }
+      }
+    ],
+    "default_active_submodel_index": 1
+  }
+}
