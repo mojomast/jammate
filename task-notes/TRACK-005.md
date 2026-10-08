@@ -152,5 +152,7 @@ Analysis: `docs/research/TEMPO-REPORT-VARIANT.md`. Evidence:
 
 ## Final commit SHA
 
-- Implementation + evidence: this commit. The SHA line is updated by the
-  subsequent commit on `wp/TRACK-005-tempo-variant`.
+- Implementation + evidence: `bb30496` (`diag-track-005: causal BPM-report variant
+  from emitted beat intervals`).
+- This note's SHA line is updated by the subsequent commit on
+  `wp/TRACK-005-tempo-variant` (the branch head).
