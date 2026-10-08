@@ -1,0 +1,12 @@
+PASS layout + screenshot jam-shell-wide.png 1060x720
+PASS resize sweep 580x600
+PASS resize sweep 800x600
+PASS resize sweep 1000x600
+PASS resize sweep 1016x600
+PASS resize sweep 1280x600
+PASS layout + screenshot jam-shell-minimum.png 580x480
+PASS layout + screenshot jam-shell-compact.png 640x540
+PASS layout + screenshot jam-shell-compact-actions.png 640x540
+PASS layout + screenshot jam-shell-diagnostics.png 1060x860
+PASS layout + screenshot jam-shell-stopped.png 1060x860
+PASS silent refresh, controls, timer telemetry, queued bar stop, lock states; intents=21
