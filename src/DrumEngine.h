@@ -132,7 +132,25 @@ public:
     /// the POD pattern the injected transport renders. Must not run during audio.
     /// Returns false for an out-of-range index or a groove that is not the 4/4
     /// contract this task supports.
+    ///
+    /// DRUM-ADAPT-002: this remains the single-groove compatibility path. It also
+    /// registers the resolved 4/4 entry in the bounded adaptive bank and selects
+    /// it, so existing callers see byte-identical behaviour. Up to
+    /// `kMaxInjectedBankPatterns` distinct entries may be prepared across calls;
+    /// a later BarChange may only name an entry prepared here.
     bool prepareInjectedGroove (jam::LibraryIndex index);
+
+    /// Message thread, all roles quiescent. DRUM-ADAPT-002: prepare the bounded
+    /// immutable bank the adaptive transport may switch to. Every entry is
+    /// resolved off the audio callback, validated (index in range, 4/4 meter) and
+    /// classified by the library's own fill flag: an entry listed in `grooves`
+    /// must be a groove, one in `fills` must be a fill. Invalid/mismatched/
+    /// non-4/4 entries are skipped (never guessed). Duplicates collapse. Returns
+    /// the number of entries accepted and selects the first accepted groove (or
+    /// keeps the previous selection when no groove was accepted), so a bank
+    /// prepared once plays exactly like `prepareInjectedGroove`.
+    int prepareInjectedBank (const jam::LibraryIndex* grooves, int numGrooves,
+                            const jam::LibraryIndex* fills, int numFills);
 
     bool injectedActive() const noexcept { return injActive_; }
     bool injectedPlaying() const noexcept { return injPlaying_; }
@@ -146,6 +164,29 @@ public:
     std::uint64_t injectedLastStepSample() const noexcept { return injLastStepSample_; }
     std::uint64_t injectedDropCount() const noexcept;
     int injectedNextStep() const noexcept { return injNextStep_; }
+
+    // ---- adaptive bank / change diagnostics (DRUM-ADAPT-002) ----------------
+    int injectedBankSize() const noexcept { return injBankCount_; }
+    int injectedBankCapacity() const noexcept { return kMaxInjectedBankPatterns; }
+    /// Selected (persistent) groove among the prepared bank, or kNoLibraryEntry.
+    jam::LibraryIndex injectedSelectedGroove() const noexcept;
+    /// The fill currently being played for its one bar, or kNoLibraryEntry.
+    jam::LibraryIndex injectedActiveFill() const noexcept;
+    /// True while a one-bar fill is the pattern actually rendering. Audio-owner
+    /// only (same stop-the-world rule as the other injected*() getters): the
+    /// processor publishes it as telemetry so `injectedGroove()` can keep
+    /// identifying the selected/base groove before, during and after a fill.
+    /// Clear/Stop/reset leave it false.
+    bool injectedFillPlaying() const noexcept { return injFillActive_; }
+    /// True once a BarChange's intensity/swing/humanization were commanded.
+    bool injectedAdaptiveActive() const noexcept { return injAdaptive_; }
+    float injectedIntensity01() const noexcept { return injIntensity01_; }
+    float injectedSwing01() const noexcept { return injSwing01_; }
+    float injectedHumanizeVelocity() const noexcept { return injHumanVel_; }
+    float injectedHumanizeTiming() const noexcept { return injHumanTime_; }
+    float injectedHumanizeRoundRobin() const noexcept { return injHumanRR_; }
+    std::uint64_t injectedBarChangeCount() const noexcept { return injBarChangeCount_; }
+    std::uint64_t injectedStaleCommandCount() const noexcept { return injStaleCommandCount_; }
 
     std::atomic<float> bpm { 104.0f };
     std::atomic<float> swingPct { 0.0f };   // 0..60
@@ -314,6 +355,21 @@ private:
     // lock-free command queue; it never touches these fields.
     static constexpr int kMaxInjectedCommandsPerBlock = 4;
     static constexpr int kMaxInjectedEvents = 8;
+    // Bounded adaptive pattern bank (DRUM-ADAPT-002). Structural, not a tunable:
+    // the storage is inline so nothing allocates after construction and the
+    // audio thread only ever indexes into pre-resolved patterns.
+    static constexpr int kMaxInjectedBankPatterns = 16;
+
+    /// One pre-resolved, immutable library pattern. `pattern` is the parsed
+    /// one-bar grid; `index`/`isFill` identify the source library entry.
+    struct InjectedBankPattern
+    {
+        jam::LibraryIndex index = jam::kNoLibraryEntry;
+        bool isFill = false;
+        int barSteps = drum::stepsPerBar;
+        bool valid = false;
+        juce::uint8 pattern[drum::numVoices][drum::maxStepsPerBar] = {};
+    };
 
     struct InjectedEvent
     {
@@ -321,6 +377,15 @@ private:
         std::uint64_t target = 0;   // absolute injected-timeline sample
         double bpm = 0.0;
         int phaseStep = -1;         // Resync: step within the bar that lands on target
+        // BarChange payload (DRUM-ADAPT-002).
+        std::int32_t groove = jam::kNoLibraryEntry;
+        std::int32_t fill = jam::kNoLibraryEntry;
+        std::uint8_t changeFields = 0;
+        float intensity01 = 0.5f;
+        float swing01 = 0.0f;
+        float humanizeVelocity = 0.25f;
+        float humanizeTiming = 0.15f;
+        float humanizeRoundRobin = 0.40f;
     };
 
     /// Audio thread: consume up to kMaxInjectedCommandsPerBlock commands. Each
@@ -350,19 +415,49 @@ private:
     double injectedStepLen (int stepIdx) const noexcept;
 
     /// Remove scheduled events at or before `sample`; a fresh join supersedes
-    /// only what it replaces, never tempo/resync aimed at a later boundary.
+    /// only what it replaces, never tempo/resync aimed at a later boundary. A
+    /// BarChange aimed exactly at the join boundary is preserved, because it is
+    /// the pattern for the bar being joined.
     void dropInjectedEventsUpTo (std::uint64_t sample) noexcept;
 
-    void resetInjectedTransport() noexcept; // keeps a prepared groove
-    void resetInjectedState() noexcept;     // also forgets a prepared groove
+    void resetInjectedTransport() noexcept; // keeps the prepared bank/groove
+    void resetInjectedState() noexcept;     // also forgets the prepared bank
+
+    // --- adaptive bank helpers (DRUM-ADAPT-002) ------------------------------
+    /// Message thread: resolve one library entry into the bank. `requireFill`
+    /// is -1 (any), 0 (must be a groove) or 1 (must be a fill). Returns the slot
+    /// or -1. May allocate (juce parsing) so it must never run on the audio
+    /// thread; this is the off-callback bank preparation step.
+    int prepareInjectedBankEntry (jam::LibraryIndex index, int requireFill);
+    /// Audio thread: look up an already-prepared entry without allocating.
+    int findInjectedSlot (jam::LibraryIndex index, bool wantFill) const noexcept;
+    /// Audio thread: apply a resolved BarChange at its bar boundary.
+    void applyInjectedBarChange (const InjectedEvent& event) noexcept;
+    /// Audio thread: forget commanded intensity/swing/humanization.
+    void resetInjectedAdaptive() noexcept;
+    /// Audio thread: finish a one-bar fill and revert to the selected groove.
+    void endInjectedFillIfDue() noexcept;
 
     jam::DrumClockCommandQueue* clockQueue_ = nullptr;
 
     bool injPatternReady_ = false;
-    jam::LibraryIndex injGroove_ = jam::kNoLibraryEntry;
-    juce::uint8 injPattern_[drum::numVoices][drum::maxStepsPerBar] = {};
+    jam::LibraryIndex injGroove_ = jam::kNoLibraryEntry; // selected groove index
     int injBarSteps_ = drum::stepsPerBar;
     int injPatternBars_ = 1;
+
+    InjectedBankPattern injBank_[kMaxInjectedBankPatterns];
+    int injBankCount_ = 0;
+    int injSelGrooveSlot_ = -1;   // selected (persistent) groove slot
+    int injCurrentSlot_ = -1;     // slot actually rendering this bar (fill or groove)
+    int injRevertSlot_ = -1;      // selected groove to return to after a fill
+    bool injFillActive_ = false;  // a one-bar fill is in flight
+
+    bool injAdaptive_ = false;    // a Params-bearing BarChange was applied
+    float injIntensity01_ = 0.5f;
+    float injSwing01_ = 0.0f;
+    float injHumanVel_ = 0.0f;
+    float injHumanTime_ = 0.0f;
+    float injHumanRR_ = 0.0f;
 
     bool injActive_ = false;      // injected mode engaged by a Join
     bool injPlaying_ = false;     // injected transport currently rendering
@@ -377,6 +472,8 @@ private:
     std::uint64_t injCommands_ = 0;
     std::uint64_t injRejected_ = 0;
     std::uint64_t injLateCommandCount_ = 0;
+    std::uint64_t injBarChangeCount_ = 0;
+    std::uint64_t injStaleCommandCount_ = 0;
     // Shared queue drop count is cumulative; rebaselined per injected session.
     std::uint64_t injDropBaseline_ = 0;
 
