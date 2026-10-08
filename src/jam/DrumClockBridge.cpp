@@ -168,6 +168,31 @@ std::uint64_t DrumClockBridge::nextBarBoundarySample() const noexcept
     if (! prepared_ || bpm_ <= 0.0 || sampleRate_ <= 0.0)
         return now_;
 
+    // A resync staged for a future target re-phases the grid there. The next bar
+    // boundary must therefore be the first bar boundary of the POST-resync grid,
+    // or a join / BarChange / stop published before the resync is applied would
+    // land off the engine's actual downbeat (the integration one-bar-fill bug).
+    if (haveStagedResync_ && stagedResyncTarget_ > now_)
+    {
+        const int barSteps = beatsPerBar_ * 4; // sixteenths per bar
+        int step = stagedResyncPhaseStep_;
+        if (step < 0 || step >= barSteps)
+            step = 0;
+
+        // A bar resync, or a beat resync that lands on the downbeat, makes the
+        // target itself the next bar boundary. Otherwise the next downbeat is
+        // (barSteps - step) steps after the target on the uniform injected grid.
+        if (stagedResyncBar_ || step == 0)
+            return stagedResyncTarget_;
+
+        const double samplesPerStep = samplesPerBar() / static_cast<double> (barSteps);
+        if (! (samplesPerStep > 0.0))
+            return stagedResyncTarget_;
+        const double exact = static_cast<double> (stagedResyncTarget_)
+                           + static_cast<double> (barSteps - step) * samplesPerStep;
+        return static_cast<std::uint64_t> (std::ceil (exact - kBoundaryEpsilon));
+    }
+
     const double barBeats = static_cast<double> (beatsPerBar_);
     const double beatsNow = beatsAt (now_);
     const double targetBar = std::floor (beatsNow / barBeats) + 1.0;
@@ -711,6 +736,7 @@ bool DrumClockBridge::requestResyncNextBeat (std::uint64_t targetSample) noexcep
     haveStagedResync_ = true;
     stagedResyncBar_ = false;
     stagedResyncTarget_ = targetSample;
+    stagedResyncPhaseStep_ = command.phaseStep;
     return true;
 }
 
@@ -739,6 +765,7 @@ bool DrumClockBridge::requestResyncNextBar (std::uint64_t targetSample) noexcept
     haveStagedResync_ = true;
     stagedResyncBar_ = true;
     stagedResyncTarget_ = targetSample;
+    stagedResyncPhaseStep_ = 0;
     return true;
 }
 

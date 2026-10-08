@@ -347,6 +347,148 @@ TEST_CASE (drumadapt_fill_plays_one_bar_then_reverts_to_selected_groove)
 }
 
 //==============================================================================
+// Integration regression (actual005): a phase correction (resync bar) staged
+// BEFORE the join must move the injected downbeat to the correction target. The
+// join and any later fill then land on the SAME grid the bridge clock asserts,
+// and the fill lasts exactly one bar (the failure observed a 11264-sample fill
+// because the join ignored the staged resync and the fill started at engine
+// step 14).
+//==============================================================================
+TEST_CASE (drumadapt_resync_then_fill_is_one_aligned_bar)
+{
+    Rig rig;
+    REQUIRE (rig.setup (kBankGrooves, 3, kBankFills, 1));
+    rig.bridge.setClockSample (0);
+
+    // A phase correction to a downbeat that is NOT the pre-correction next bar.
+    REQUIRE (rig.bridge.requestResyncNextBar (72000));
+    REQUIRE (rig.bridge.requestJoinAtNextBar (kGrooveBasic));
+    rig.render (96000u + 1024u, 512);
+
+    // The injected grid re-phased to the resync target: downbeat at 72000, and
+    // NO downbeat at the old 96000 (that sample is step 4, a snare, not a kick).
+    CHECK (hasHitExact (rig.hits, kKick, 72000));
+    CHECK (! hasHitExact (rig.hits, kKick, 96000));
+
+    // A fill for the bridge's next bar must target the post-resync downbeat.
+    REQUIRE (rig.bridge.requestFillAtNextBar (kFillCrescendo));
+    CHECK_EQ (rig.bridge.barChangeBoundarySample(), static_cast<std::uint64_t> (168000));
+
+    std::uint64_t fillStart = 0, fillEnd = 0;
+    bool fill = false, reverted = false;
+    while (rig.elapsed < 168000u + 2 * 96000u + 1024u)
+    {
+        rig.block (512);
+        const bool active = rig.engine.injectedFillPlaying();
+        if (active && ! fill) fillStart = rig.engine.injectedSamplePosition();
+        if (! active && fill && ! reverted) fillEnd = rig.engine.injectedSamplePosition();
+        fill = fill || active;
+        reverted = reverted || (fill && ! active);
+    }
+
+    CHECK (fill);
+    CHECK (reverted);
+    const long long duration = static_cast<long long> (fillEnd) - static_cast<long long> (fillStart);
+    const long long diff = duration - 96000;
+    CHECK_MSG (diff <= 512 && diff >= -512,
+               "fill duration=" + std::to_string (duration));
+    // The fill's crash fires on its downbeat, and the selected groove is intact.
+    CHECK (hasHitExact (rig.hits, kCrash, 168000));
+    CHECK (! rig.engine.injectedFillPlaying());
+    CHECK_EQ (rig.engine.injectedSelectedGroove(), kGrooveBasic);
+}
+
+//==============================================================================
+// Integration regression (actual005 clock): with the frozen 47*512 = 24064
+// sample beat (119.680851 BPM) a one-bar fill must last one bar (~96256) and
+// start on a downbeat, within callback observation resolution.
+//==============================================================================
+TEST_CASE (drumadapt_fill_lasts_one_bar_at_non_120_clock)
+{
+    Rig rig;
+    REQUIRE (rig.setup (kBankGrooves, 3, kBankFills, 1));
+    rig.bridge.setClockSample (0);
+    rig.bridge.applySnapshot ([] {
+        ClockSnapshot s;
+        s.bpm = 48000.0 * 60.0 / 24064.0; // 47 taps of 512 -> 119.680851 BPM
+        s.generation = 1;
+        s.lockState = ClockLockState::Locked;
+        return s;
+    }());
+    REQUIRE (rig.bridge.requestJoinAtNextBar (kGrooveBasic));
+    rig.render (2 * 96000u + 1024u, 512);
+
+    // The join carried the staged clock tempo.
+    REQUIRE (rig.engine.injectedTempo() > 119.0 && rig.engine.injectedTempo() < 120.0);
+
+    REQUIRE (rig.bridge.requestFillAtNextBar (kFillCrescendo));
+    const std::uint64_t target = rig.bridge.barChangeBoundarySample();
+
+    std::uint64_t fillStart = 0, fillEnd = 0;
+    bool fill = false, reverted = false;
+    while (rig.elapsed < target + 2 * 96000u + 2048u)
+    {
+        rig.block (512);
+        const bool active = rig.engine.injectedFillPlaying();
+        if (active && ! fill) fillStart = rig.engine.injectedSamplePosition();
+        if (! active && fill && ! reverted) fillEnd = rig.engine.injectedSamplePosition();
+        fill = fill || active;
+        reverted = reverted || (fill && ! active);
+    }
+
+    CHECK (fill);
+    CHECK (reverted);
+    const long long duration = static_cast<long long> (fillEnd) - static_cast<long long> (fillStart);
+    const long long diff = duration - 96000;
+    CHECK_MSG (diff <= 1024 && diff >= -1024,
+               "fill duration=" + std::to_string (duration));
+    // The fill's crash starts the fill bar on the bridge's target downbeat.
+    CHECK (hasHitExact (rig.hits, kCrash, target));
+    CHECK_EQ (rig.engine.injectedSelectedGroove(), kGrooveBasic);
+}
+
+//==============================================================================
+// A fill commanded together with swing starts on the (unchanged) downbeat and
+// still lasts one bar: the swung intervals sum to the bar, so the reversion is
+// exact and the phase is preserved.
+//==============================================================================
+TEST_CASE (drumadapt_fill_on_swung_grid_is_one_bar)
+{
+    Rig rig;
+    REQUIRE (rig.setup (kBankGrooves, 3, kBankFills, 1));
+    REQUIRE (rig.bridge.requestJoinAtNextBar (kGrooveBasic));
+    rig.render (kBar + 1024u, 512);
+
+    QueuedBarChange change = exactChange (kGrooveBasic, kFillCrescendo);
+    change.swing01 = 1.0f;
+    REQUIRE (rig.bridge.requestBarChange (change));
+    CHECK_EQ (rig.bridge.barChangeBoundarySample(), 2 * kBar);
+
+    std::uint64_t fillStart = 0, fillEnd = 0;
+    bool fill = false, reverted = false;
+    while (rig.elapsed < 4 * kBar + 1024u)
+    {
+        rig.block (512);
+        const bool active = rig.engine.injectedFillPlaying();
+        if (active && ! fill) fillStart = rig.engine.injectedSamplePosition();
+        if (! active && fill && ! reverted) fillEnd = rig.engine.injectedSamplePosition();
+        fill = fill || active;
+        reverted = reverted || (fill && ! active);
+    }
+
+    CHECK (fill);
+    CHECK (reverted);
+    const long long duration = static_cast<long long> (fillEnd) - static_cast<long long> (fillStart);
+    const long long diff = duration - 96000;
+    CHECK_MSG (diff <= 1024 && diff >= -1024,
+               "swung fill duration=" + std::to_string (duration));
+    // The fill's crash starts the fill bar on the downbeat.
+    CHECK (hasHitExact (rig.hits, kCrash, 2 * kBar));
+    // The next downbeat after the fill is exact (swing sums to one bar).
+    CHECK (hasHitExact (rig.hits, kKick, 3 * kBar));
+}
+
+//==============================================================================
 // Repeated requests for the same bar coalesce; the last one wins.
 //==============================================================================
 TEST_CASE (drumadapt_coalesced_requests_last_wins)

@@ -103,6 +103,28 @@ live facade wiring.
   `injectedHumanize*`, `injectedBarChangeCount`, `injectedStaleCommandCount`.
   All obey the existing stop-the-world/audio-owner rule.
 
+### Integration repair (actual004/actual005 one-bar fill)
+The actual-processor replay (`tools/adaptive-jam-replay`) failed a one-bar fill at
+the frozen 119.680851 BPM clock: the fill lasted 11264 samples instead of ~96256,
+and started at engine step 14. Root cause and fix (owned files only):
+- **Bridge:** `nextBarBoundarySample()` now returns the first bar boundary of the
+  POST-resync grid when a resync is staged. The integration calls
+  `syncBridgePhaseToClock` (a `requestResyncNextBar`) before the join; previously
+  the join/BarChange target ignored that staged resync, so the join landed on the
+  old grid and a later fill landed mid-bar (engine step 14). A beat resync uses
+  the staged step index to compute the next downbeat.
+- **Engine:** a one-bar fill now reverts exactly on the next downbeat (pending
+  revert applied before step 0 fires) instead of stopping one interval early;
+  `injectedFillPlaying()` is therefore true for the whole bar.
+- **Engine (defence in depth):** if a BarChange target is not the engine's current
+  downbeat (a residual worker/engine grid skew), the engine re-anchors the
+  downbeat to the target — the worker clock is authoritative — so a change/fill
+  never starts mid-bar. On an exactly-on-grid target this is a no-op.
+- New actual-engine regressions: `drumadapt_resync_then_fill_is_one_aligned_bar`,
+  `drumadapt_fill_lasts_one_bar_at_non_120_clock`, and
+  `drumadapt_fill_on_swung_grid_is_one_bar` (phase sync / actual clock / swung
+  grid), all asserting a one-bar fill duration and a downbeat start.
+
 ## Integration API the orchestrator calls
 1. Message thread, all roles quiescent:
    `engine.prepareInjectedBank(grooves, nG, fills, nF)` (or
@@ -134,7 +156,9 @@ last-wins; monotonic intensity (velocity + internal-sampler peak); swing moves
 offbeats but not downbeats; bounded humanization jitter; unprepared index
 and late command rejected whole with the pattern still playing; join + same-bar
 change composition; StopNow/StopAtBar cancellation and manual recovery;
-bank meter/kind rejection; re-prepare preserving bank and selection; a fixed
+resync-before-join then a one-bar fill on the re-phased grid; a one-bar fill at
+the actual 119.680851 BPM clock; a one-bar fill on a swung grid; bank meter/kind
+rejection; re-prepare preserving bank and selection; a fixed
 128-slot bank capacity/regression loading the actual 4/4 library with a
 high-slot change and high-slot fill; and the heap-probe callback-allocation gate
 with adaptation active (including a large-bank bounded allocation-free scan).
@@ -154,12 +178,13 @@ ctest --test-dir /home/mojo/projects/build-DRUM-ADAPT-002-worker/jamcore --outpu
 ## Results
 Driver (`tools/drum-adaptive/run.py`, command log
 `/home/mojo/projects/build-DRUM-ADAPT-002-worker/driver-run.log`):
-- Combined JUCE binary **with** `DRUM_MIDI_HEAP_PROBE` + `--wrap`: **98 cases,
-  0 failed** (15 new adaptive actual-engine cases + the 128-slot bank
-  capacity/bounded-scan case + 32 INT-DRUM-001 cases + all existing drum suites
-  in ONE link, proving the shared probe has a single definition).
+- Combined JUCE binary **with** `DRUM_MIDI_HEAP_PROBE` + `--wrap`: **101 cases,
+  0 failed** (18 new adaptive actual-engine cases including the one-bar-fill
+  integration regressions + the 128-slot bank capacity/bounded-scan case + 32
+  INT-DRUM-001 cases + all existing drum suites in ONE link, proving the shared
+  probe has a single definition).
 - Combined JUCE binary **without** the macro and without the wrap flags:
-  **95 cases, 0 failed** (the three allocation-probe cases are skipped by the
+  **98 cases, 0 failed** (the three allocation-probe cases are skipped by the
   macro), proving every test compiles and runs on a default/Windows-style
   configuration.
 - Portable JUCE-free suites (`DrumClockBridge` + `DrumAdaptiveBridge`):

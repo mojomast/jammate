@@ -443,8 +443,10 @@ private:
     void applyInjectedBarChange (const InjectedEvent& event) noexcept;
     /// Audio thread: forget commanded intensity/swing/humanization.
     void resetInjectedAdaptive() noexcept;
-    /// Audio thread: finish a one-bar fill and revert to the selected groove.
-    void endInjectedFillIfDue() noexcept;
+    /// Audio thread: perform a pending one-bar-fill reversion exactly on the
+    /// next downbeat (before step 0 fires), so injectedFillPlaying() is true for
+    /// the whole fill bar rather than stopping one interval early.
+    void applyInjectedFillRevertIfPending() noexcept;
 
     jam::DrumClockCommandQueue* clockQueue_ = nullptr;
 
@@ -459,6 +461,7 @@ private:
     int injCurrentSlot_ = -1;     // slot actually rendering this bar (fill or groove)
     int injRevertSlot_ = -1;      // selected groove to return to after a fill
     bool injFillActive_ = false;  // a one-bar fill is in flight
+    bool injFillRevertPending_ = false; // fill's last step fired; revert at downbeat
 
     bool injAdaptive_ = false;    // a Params-bearing BarChange was applied
     float injIntensity01_ = 0.5f;
