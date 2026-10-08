@@ -1,0 +1,10 @@
+{
+  "schema": "live-jam-replay/orchestrator-source-correction/1",
+  "timing": "committed before actual002",
+  "reason": "ceil supplemental minimum durations; keep gate unchanged; report actual sample duration",
+  "previous_worker_commit": "f554884dceba9d7eb635da573081290368986e7b",
+  "path": "tools/live-jam-replay/src/LiveJamReplay.cpp",
+  "previous_sha256": "00b98a2497757a8ffbff819c1921d8cb340d88628a55d29d2d4880a069dd978d",
+  "amended_sha256": "f367f2abd2341b2f20f59dbeee6faa97dc3040b01307e4d658885606f2a187a9",
+  "prior_evidence": "actual001 unchanged; this source has not yet been measured"
+}

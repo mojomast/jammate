@@ -1095,10 +1095,12 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     r.drumOnlySampleRate = rate;
     r.drumOnlyZeroInput = true;
     r.drumOnlyAllocatorCoverage = "unmeasured";
-    const int warmupBlocks = (int) (r.drumOnlyWarmupSeconds * rate / block);
+    const int warmupBlocks = (int) std::ceil (r.drumOnlyWarmupSeconds * rate / block);
+    r.drumOnlyWarmupSeconds = (double) warmupBlocks * block / rate;
     for (int i = 0; i < warmupBlocks; ++i) pacedStep();
     const std::uint64_t winStepsBefore = stepsFired();
-    const int measureBlocks = (int) (r.drumOnlyMeasuredSeconds * rate / block);
+    const int measureBlocks = (int) std::ceil (r.drumOnlyMeasuredSeconds * rate / block);
+    r.drumOnlyMeasuredSeconds = (double) measureBlocks * block / rate;
     double winRmsSum = 0.0;
     double winPeak = 0.0;
     std::uint64_t winNonzero = 0;
