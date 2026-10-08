@@ -1,0 +1,445 @@
+{
+  "base": "45fa333ed8dc4b81ce392b42b6b37ba678f10176",
+  "blockFrames": 128,
+  "caveats": [
+    "Derived clips are 5.0 s windows. They can compare a backend to its own paired baseline; they CANNOT establish the SPEC 19 absolute '>= 95 % of core fixtures acquire within 2 bars' release gate, and derived clips are not in any core denominator (they carry 'core_parent', not 'core'). Acquisition is per-clip only.",
+    "No gate threshold is invented for detection, CPU, silence or ramp. Only the documented SPEC 19 locked-BPM <= 2 % number appears, as a labelled per-row BPM diagnostic normalisation; there is no rolled-up overall grade.",
+    "Syncopation-stability and holdover/ramp behaviour are reported as raw backend proxies only; they are NOT clock gates offline (the Musical Clock/audition is not in this harness)."
+  ],
+  "commands": [
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "testdata/rhythm/derived",
+        "--out",
+        "docs/research/tempo-variant-robustness/raw/btrack/block128",
+        "--backend",
+        "btrack",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+        "--block",
+        "128"
+      ],
+      "methodLogDirectory": null
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "testdata/rhythm/derived",
+        "--out",
+        "docs/research/tempo-variant-robustness/diagnostic/btrack",
+        "--backend",
+        "btrack",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "btrack"
+      ]
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "testdata/rhythm/derived",
+        "--out",
+        "docs/research/tempo-variant-robustness/raw/btrack-tempo-variant/block128",
+        "--backend",
+        "btrack-tempo-variant",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+        "--block",
+        "128"
+      ],
+      "methodLogDirectory": "/home/mojo/projects/worktrees/TRACK-006-variant-robustness/docs/research/tempo-variant-robustness/raw-method"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "testdata/rhythm/derived",
+        "--out",
+        "docs/research/tempo-variant-robustness/diagnostic/btrack-tempo-variant",
+        "--backend",
+        "btrack-tempo-variant",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "btrack-tempo-variant",
+        "--variant-not-default"
+      ]
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "testdata/rhythm/derived",
+        "--out",
+        "docs/research/tempo-variant-robustness/raw/aubio/block128",
+        "--backend",
+        "aubio",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+        "--block",
+        "128"
+      ],
+      "methodLogDirectory": null
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "testdata/rhythm/derived",
+        "--out",
+        "docs/research/tempo-variant-robustness/diagnostic/aubio",
+        "--backend",
+        "aubio",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "aubio"
+      ]
+    }
+  ],
+  "diagnosticOnly": true,
+  "freeze": {
+    "correctedCombinedSha256": "cd8291e6d8ad49cae64fe43768ddc88e70679a2835dad78e62b5644b0503ec77",
+    "correctionDisclosure": "The review corrections changed interval BOOKKEEPING only: a missing-vs-measured interval flag (empty cell, never a fabricated number), order-before-unsigned-subtraction, and frame-overflow rejection. The 4-interval median method, its window and the startup fallback are unchanged from the predeclared/frozen version.",
+    "files": {
+      "tools/tempo-variant/MethodLog.cpp": "7ac91b6a33324fef30e97881feb8a53eef7246f65ad534e9c5e7cf692e66d3f6",
+      "tools/tempo-variant/MethodLog.h": "017a39440dc05e53dcac0c2bf2c44bd66125161e24b7c16d6a2bb81bc0f2247e",
+      "tools/tempo-variant/TempoVariant.cpp": "363619d39033861e2fe7c4635c5d1c9caa28d73d60697ab3a84d43d03495c404",
+      "tools/tempo-variant/TempoVariant.h": "f683a8d0adcffe9508bd2bd76ec0471868460bb28a7215fa248e29d6b18078d0",
+      "tools/tempo-variant/TempoVariantPlugin.cpp": "536532c469272323cfc362043886ff00f7121cbe56861483b6f79724224b60fe"
+    },
+    "method": "median of last 4 positive finite consecutive emitted beat intervals; 5 events required (unchanged)",
+    "originalPreCorrectionCombinedSha256": "7fccdd7f2dc32d9bbaebb8a5ac0db6f7cc989c0b386403b77adc97a8dac4ba0b"
+  },
+  "g3": "OPEN",
+  "historicalScoringChecks": [
+    {
+      "all24FixturesExactExceptCpu": true,
+      "backend": "btrack"
+    },
+    {
+      "all24FixturesExactExceptCpu": true,
+      "backend": "aubio"
+    }
+  ],
+  "inputs": [
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__baseline",
+      "path": "testdata/rhythm/derived/clean_eighths__baseline.wav",
+      "sha256": "ea88817215debac00f094c8f943ef7660b4ff006c98868c37229ebb5143cca3d"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__noise_snr20db",
+      "path": "testdata/rhythm/derived/clean_eighths__noise_snr20db.wav",
+      "sha256": "9f38ffa604c26ac38338114815d2672107e40c9107b66f46ebd6dc55005676bb"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__noise_snr10db",
+      "path": "testdata/rhythm/derived/clean_eighths__noise_snr10db.wav",
+      "sha256": "ac75fabba9ebd978dcd3dffe669653231cfbf1784a525b947db24dbbb3cde5d6"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__noise_snr0db",
+      "path": "testdata/rhythm/derived/clean_eighths__noise_snr0db.wav",
+      "sha256": "cd0a6948d2e6d9c4d2a19f16aa7f83183e19feb26c97a64f0b4d985d528dc39d"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__level_-20db",
+      "path": "testdata/rhythm/derived/clean_eighths__level_-20db.wav",
+      "sha256": "b86bdced3f64c612bff147f5d51136f3f2536780f17cd69b671b0f4060dd161f"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__level_-40db",
+      "path": "testdata/rhythm/derived/clean_eighths__level_-40db.wav",
+      "sha256": "3f656b0c162b522e2be7780b05be696813d51f85b6655d184ffc7b18dbd7452a"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__level_-60db",
+      "path": "testdata/rhythm/derived/clean_eighths__level_-60db.wav",
+      "sha256": "63c29d19ab78c2197c3537203c688375a59843e31c811cca4f44fa397c556d10"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__clip_0.5",
+      "path": "testdata/rhythm/derived/clean_eighths__clip_0.5.wav",
+      "sha256": "12d0b7050645e3177acc472903436b040d0ad0b770b53cd1641e7646552556f8"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__clip_0.25",
+      "path": "testdata/rhythm/derived/clean_eighths__clip_0.25.wav",
+      "sha256": "559c0dc5073a950b64907148375b2deb7eb08885997254d056b82f49d16b9b98"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__clip_0.125",
+      "path": "testdata/rhythm/derived/clean_eighths__clip_0.125.wav",
+      "sha256": "f8fde29820fd2531b48e068217617b589d33451a32deb3f4c3717c42ec5c6d39"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__offset_40ms",
+      "path": "testdata/rhythm/derived/clean_eighths__offset_40ms.wav",
+      "sha256": "7404153cc29e0176541712aacfaa8af8253f8bf522c8c6a013f74e091bddb25c"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__offset_80ms",
+      "path": "testdata/rhythm/derived/clean_eighths__offset_80ms.wav",
+      "sha256": "532f31201fcdb5d37047808266f0e0cd636a927275812d00ebe3ccd8d1ea0b48"
+    },
+    {
+      "bytes": 528044,
+      "fixture": "clean_eighths__lead_silence_0.5s",
+      "path": "testdata/rhythm/derived/clean_eighths__lead_silence_0.5s.wav",
+      "sha256": "0bf376122d394b84c7480aa87108dd761a0cf51b46ce7b5108bb807eb1b3fda2"
+    },
+    {
+      "bytes": 528044,
+      "fixture": "clean_eighths__trail_silence_0.5s",
+      "path": "testdata/rhythm/derived/clean_eighths__trail_silence_0.5s.wav",
+      "sha256": "84998a9211d7b9d13316d0377b75cfd7368262bd0d1604c6ab060953be1c7fe6"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__silence_gap_1s",
+      "path": "testdata/rhythm/derived/clean_eighths__silence_gap_1s.wav",
+      "sha256": "d0275fe7d26301d318e23d94c7dd7880fe93e930675ae4b16349736f1fa662da"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__drop_every2",
+      "path": "testdata/rhythm/derived/clean_eighths__drop_every2.wav",
+      "sha256": "5339dd7a9d2dc9ac671d0f594e71d980e6baed0d316f0ea12ad36f6d70730669"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__drop_every4",
+      "path": "testdata/rhythm/derived/clean_eighths__drop_every4.wav",
+      "sha256": "fcab0fa3ca3e167c727f27a7ae1158f6e08307bcb68ce830a906e51827fa7b6c"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__syncop_burst1",
+      "path": "testdata/rhythm/derived/clean_eighths__syncop_burst1.wav",
+      "sha256": "f4d0eae76481ad0edf4f5bab4125561890e6bb8dbdf000dd068992e5a0af23bb"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "clean_eighths__syncop_burst4",
+      "path": "testdata/rhythm/derived/clean_eighths__syncop_burst4.wav",
+      "sha256": "81714c900b65b2c5acf8beac1c67d6fa915d07c0a3d64ea2f5801e2e66e0221f"
+    },
+    {
+      "bytes": 427336,
+      "fixture": "clean_eighths__tempo_step_1.25",
+      "path": "testdata/rhythm/derived/clean_eighths__tempo_step_1.25.wav",
+      "sha256": "974d5232f384bf743687d5885cd048e2408ac9e2a669b851c699e6411cf6fc1b"
+    },
+    {
+      "bytes": 526552,
+      "fixture": "clean_eighths__tempo_step_0.85",
+      "path": "testdata/rhythm/derived/clean_eighths__tempo_step_0.85.wav",
+      "sha256": "0e64ebed9079f8aa6716e77b0f4550e306835bfa5332f3384f0c979b224b6ae1"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "syncopated_funk__baseline",
+      "path": "testdata/rhythm/derived/syncopated_funk__baseline.wav",
+      "sha256": "932813e470ccbe7c4389202963fa299f952cd983333ca2066406ed9e8fd45bd9"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "syncopated_funk__noise_snr10db",
+      "path": "testdata/rhythm/derived/syncopated_funk__noise_snr10db.wav",
+      "sha256": "aec3e62accd700685d9b197987dcbae92efde5f6b6bd8b1f2c4866f2c0950f19"
+    },
+    {
+      "bytes": 480044,
+      "fixture": "syncopated_funk__noise_snr0db",
+      "path": "testdata/rhythm/derived/syncopated_funk__noise_snr0db.wav",
+      "sha256": "6e4949dfc6e50c634af46fe8665227ec1dea499589445fdd05ebd8bb8fc680ae"
+    }
+  ],
+  "pins": [
+    {
+      "path": "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+      "sha256": "caba565f6c6d8482443edf8d2a0a7ec40b6327ba99ccb2898f7213f8c28de552"
+    },
+    {
+      "path": "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+      "sha256": "75b0d73bdfedb5028b65a0e171d371c7ea3bc97ed6cb0b5ed60c84b30f3edee2"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+      "sha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+      "sha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41"
+    },
+    {
+      "path": "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+      "sha256": "920a30f9bb2c81b8ed743f817beb5dc51e9f90070de5ca0788a46ff1223a6717"
+    },
+    {
+      "path": "tools/rhythm-eval/Manifest.cpp",
+      "sha256": "196bb3de757af847eb70b2f49e42abacd0efd3188df61fdd4145f14487ce64f6"
+    },
+    {
+      "path": "tools/rhythm-eval/Metrics.cpp",
+      "sha256": "499b85b46cf3e92597122e9f8d75193a96f11c821d2b3db78f70b2a18103c0c9"
+    },
+    {
+      "path": "tools/rhythm-eval/Metrics.h",
+      "sha256": "79c2da10829d54aa0158180f65a6778df920e237f20b8a2a8b68f4866426a78b"
+    },
+    {
+      "path": "tools/rhythm-eval/main.cpp",
+      "sha256": "351624ea1f8969c2bcb6e3a2d07b9cce2bb37f94ab681e67100d3f1d2a576cc3"
+    },
+    {
+      "path": "tools/tempo-variant/MethodLog.cpp",
+      "sha256": "7ac91b6a33324fef30e97881feb8a53eef7246f65ad534e9c5e7cf692e66d3f6"
+    },
+    {
+      "path": "tools/tempo-variant/MethodLog.h",
+      "sha256": "017a39440dc05e53dcac0c2bf2c44bd66125161e24b7c16d6a2bb81bc0f2247e"
+    },
+    {
+      "path": "tools/tempo-variant/TempoVariant.cpp",
+      "sha256": "363619d39033861e2fe7c4635c5d1c9caa28d73d60697ab3a84d43d03495c404"
+    },
+    {
+      "path": "tools/tempo-variant/TempoVariant.h",
+      "sha256": "f683a8d0adcffe9508bd2bd76ec0471868460bb28a7215fa248e29d6b18078d0"
+    },
+    {
+      "path": "tools/tempo-variant/TempoVariantPlugin.cpp",
+      "sha256": "536532c469272323cfc362043886ff00f7121cbe56861483b6f79724224b60fe"
+    },
+    {
+      "path": "testdata/rhythm/derived/manifest.json",
+      "sha256": "3bb6d350f534b6d6f3208ca1ef5c0f29cf7c7069b3a9771c13f191385c5cc3cd"
+    },
+    {
+      "path": "/home/mojo/projects/worktrees/TRACK-006-variant-robustness/testdata/rhythm/wav/clean_eighths.wav",
+      "sha256": "7b2281c7cc02d05167ff3aba76a675e303153b403865df9954deefc453d6c402"
+    },
+    {
+      "path": "/home/mojo/projects/worktrees/TRACK-006-variant-robustness/testdata/rhythm/wav/syncopated_funk.wav",
+      "sha256": "ee8ebb3c2f01c845cd53d4d2ea89d6aa145cafa17818f373366c91e1c94396b9"
+    },
+    {
+      "path": "tools/rhythm-eval/tools/run_robustness.py",
+      "sha256": "3281d51ecabcbf69889b78b864e78b0dd1eec8497719694207e5220f43998a04"
+    },
+    {
+      "path": "tools/tempo-variant/run_paired.py",
+      "sha256": "0f4ef9e0eefdb38230fb70257ccef60e67eee8f04fbf8cf7122d67eba48fede0"
+    },
+    {
+      "path": "src/btrack/BTrackBackend.h",
+      "sha256": "77e72f3ffbfe5b9e3d068bc6068201cfe84d29be8ba75e2734f6403d89bb5e84"
+    },
+    {
+      "note": "read-only EVAL-005 build-source; matches current adapter",
+      "path": "/home/mojo/projects/build-EVAL-005/main-src/src/btrack/BTrackBackend.h",
+      "sha256": "77e72f3ffbfe5b9e3d068bc6068201cfe84d29be8ba75e2734f6403d89bb5e84"
+    },
+    {
+      "path": "src/btrack/BTrackBackend.cpp",
+      "sha256": "530bf78248068ef54ecc41e8f709da448b24a64c49345e244f21d0e45bb87480"
+    },
+    {
+      "note": "read-only EVAL-005 build-source; matches current adapter",
+      "path": "/home/mojo/projects/build-EVAL-005/main-src/src/btrack/BTrackBackend.cpp",
+      "sha256": "530bf78248068ef54ecc41e8f709da448b24a64c49345e244f21d0e45bb87480"
+    },
+    {
+      "path": "src/aubio/AubioBackend.h",
+      "sha256": "d24fbf3d8ac730a2ff0e8c9bbc45b726e8edf940b19c1eaf64a8fe5cb7701bad"
+    },
+    {
+      "note": "read-only EVAL-005 build-source; matches current adapter",
+      "path": "/home/mojo/projects/build-EVAL-005/main-src/src/aubio/AubioBackend.h",
+      "sha256": "d24fbf3d8ac730a2ff0e8c9bbc45b726e8edf940b19c1eaf64a8fe5cb7701bad"
+    },
+    {
+      "path": "src/aubio/AubioBackend.cpp",
+      "sha256": "11e7987452f24bc4af9ce84f7c1124dbdc4e13fe908101a9ab043a31874bf8d9"
+    },
+    {
+      "note": "read-only EVAL-005 build-source; matches current adapter",
+      "path": "/home/mojo/projects/build-EVAL-005/main-src/src/aubio/AubioBackend.cpp",
+      "sha256": "11e7987452f24bc4af9ce84f7c1124dbdc4e13fe908101a9ab043a31874bf8d9"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/aubio/libaubio.a",
+      "sha256": "8af311064b600f061fad5c2818d9e927d2bd032d27167d8fdab3574f93c38316"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/aubio/libjam-aubio.a",
+      "sha256": "27e3a1ecb78510e1d1653f18ee01df4e30e5117870d6dd6f5b00a0e03936818f"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libbtrack.a",
+      "sha256": "6993f8224ea626802a28475cce3c1bcf209336919746ac41d7e99b6cae39f1f8"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libjam-btrack.a",
+      "sha256": "92659b889ec7beb9e0e6d0ab0df59acd8c0b14eeff6de9b4ff5ca23561833255"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libkiss_fft.a",
+      "sha256": "fa209a29eed3ebbcb6bfb72471a48bd0b2bfa4c7b9fd33da6537ed161a932250"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/btrack/libsamplerate.a",
+      "sha256": "55c591cff00889a7207a14eac442a36c1d7348f3cf003ef14fbf1718f97be072"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/libjam-core.a",
+      "sha256": "1a2e85386feb4470dd5684e9ea0aea32588c417632d0d12844e5d055c00de000"
+    },
+    {
+      "path": "docs/research/tempo-variant-robustness/raw-method/instance_0.csv",
+      "retainedAs": "docs/research/tempo-variant-robustness/raw-method/instance_0.csv.gz",
+      "sha256": "257ce73766a941c9cb9bd9fab7a2dfd365d3844070862f3bb124313e07a40037"
+    }
+  ],
+  "scoring": "current EVAL-007, uncompensated",
+  "selection": null,
+  "task": "TRACK-006",
+  "validation": {
+    "exactBeatSeriesPairs": 24,
+    "fixturesPerBackend": 24,
+    "hardErrors": 0,
+    "matchedBaselines": 2,
+    "perturbations": 22
+  }
+}

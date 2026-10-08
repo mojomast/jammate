@@ -1,0 +1,1072 @@
+[
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.24905156,
+        "bpmRelativeError": 0.0145053561,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.827675
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234285385,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.048004
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.0234285385
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 123.048004
+      }
+    },
+    "fixture": "clean_eighths__baseline",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "baseline"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.24922656,
+        "bpmRelativeError": 0.0145754738,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.83651
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.631578947,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0116684929,
+        "fMeasure": 0.631578947,
+        "lockedBpm": 124.52977
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.0116684929
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 124.52977
+      }
+    },
+    "fixture": "clean_eighths__noise_snr20db",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "noise"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.24964219,
+        "bpmRelativeError": 0.0144598825,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.821945
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.631578947,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0116898673,
+        "fMeasure": 0.631578947,
+        "lockedBpm": 124.527077
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.0116898673
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 124.527077
+      }
+    },
+    "fixture": "clean_eighths__noise_snr10db",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "noise"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": true,
+    "backends": {
+      "aubio": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.367758736,
+        "fMeasure": 0.235294118,
+        "lockedBpm": 172.337601
+      },
+      "btrack": {
+        "acquired": true,
+        "acquisitionBars": 1.48634063,
+        "bpmRelativeError": 0.000381106422,
+        "fMeasure": 0.421052632,
+        "lockedBpm": 126.048019
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.117944566,
+        "fMeasure": 0.421052632,
+        "lockedBpm": 111.138985
+      }
+    },
+    "bpmErrorWorsened": true,
+    "defaultVariantDiffExceptCpu": {
+      "acquired": {
+        "default": true,
+        "variant": false
+      },
+      "acquisitionBars": {
+        "default": 1.48634063,
+        "variant": 0
+      },
+      "acquisitionBeats": {
+        "default": 5.9453625,
+        "variant": 0
+      },
+      "acquisitionSeconds": {
+        "default": 2.831125,
+        "variant": 0
+      },
+      "bpmRelativeError": {
+        "default": 0.000381106422,
+        "variant": 0.117944566
+      },
+      "lockedBpm": {
+        "default": 126.048019,
+        "variant": 111.138985
+      }
+    },
+    "fixture": "clean_eighths__noise_snr0db",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "noise"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.24905156,
+        "bpmRelativeError": 0.0145057194,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.827721
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.8,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0127223181,
+        "fMeasure": 0.8,
+        "lockedBpm": 127.603012
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.0127223181
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 127.603012
+      }
+    },
+    "fixture": "clean_eighths__level_-20db",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "level"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0144842844,
+        "fMeasure": 0.181818182,
+        "lockedBpm": 127.82502
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.842105263,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.000378260537,
+        "fMeasure": 0.842105263,
+        "lockedBpm": 126.047661
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.000378260537
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 126.047661
+      }
+    },
+    "fixture": "clean_eighths__level_-40db",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "level"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": null,
+        "fMeasure": 0,
+        "lockedBpm": null
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": null,
+        "fMeasure": 0,
+        "lockedBpm": null
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": null,
+        "fMeasure": 0,
+        "lockedBpm": null
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {},
+    "fixture": "clean_eighths__level_-60db",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "level"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.24921562,
+        "bpmRelativeError": 0.0140812586,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.774239
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234285385,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.048004
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.0234285385
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 123.048004
+      }
+    },
+    "fixture": "clean_eighths__clip_0.5",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "clipping"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": true,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.24968594,
+        "bpmRelativeError": 0.013441661,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.693649
+      },
+      "btrack": {
+        "acquired": true,
+        "acquisitionBars": 1.24863594,
+        "bpmRelativeError": 0.000381106422,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 126.048019
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.000378260537,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 126.047661
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "acquired": {
+        "default": true,
+        "variant": false
+      },
+      "acquisitionBars": {
+        "default": 1.24863594,
+        "variant": 0
+      },
+      "acquisitionBeats": {
+        "default": 4.99454375,
+        "variant": 0
+      },
+      "acquisitionSeconds": {
+        "default": 2.37835417,
+        "variant": 0
+      },
+      "bpmRelativeError": {
+        "default": 0.000381106422,
+        "variant": 0.000378260537
+      },
+      "lockedBpm": {
+        "default": 126.048019,
+        "variant": 126.047661
+      }
+    },
+    "fixture": "clean_eighths__clip_0.25",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "clipping"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": true,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.49670938,
+        "bpmRelativeError": 0.0135479276,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.707039
+      },
+      "btrack": {
+        "acquired": true,
+        "acquisitionBars": 1.24863594,
+        "bpmRelativeError": 0.000381106422,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 126.048019
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.000378260537,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 126.047661
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "acquired": {
+        "default": true,
+        "variant": false
+      },
+      "acquisitionBars": {
+        "default": 1.24863594,
+        "variant": 0
+      },
+      "acquisitionBeats": {
+        "default": 4.99454375,
+        "variant": 0
+      },
+      "acquisitionSeconds": {
+        "default": 2.37835417,
+        "variant": 0
+      },
+      "bpmRelativeError": {
+        "default": 0.000381106422,
+        "variant": 0.000378260537
+      },
+      "lockedBpm": {
+        "default": 126.048019,
+        "variant": 126.047661
+      }
+    },
+    "fixture": "clean_eighths__clip_0.125",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "clipping"
+  },
+  {
+    "acquisitionGained": true,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.25001406,
+        "bpmRelativeError": 0.0138576447,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.746063
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.9,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": true,
+        "acquisitionBars": 1.50191563,
+        "bpmRelativeError": 0.000378260537,
+        "fMeasure": 0.9,
+        "lockedBpm": 126.047661
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "acquired": {
+        "default": false,
+        "variant": true
+      },
+      "acquisitionBars": {
+        "default": 0,
+        "variant": 1.50191563
+      },
+      "acquisitionBeats": {
+        "default": 0,
+        "variant": 6.0076625
+      },
+      "acquisitionSeconds": {
+        "default": 0,
+        "variant": 2.86079167
+      },
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.000378260537
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 126.047661
+      }
+    },
+    "fixture": "clean_eighths__offset_40ms",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "onset_offset"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.25106406,
+        "bpmRelativeError": 0.013052683,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.644638
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.000356401716,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 126.044907
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.000356401716
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 126.044907
+      }
+    },
+    "fixture": "clean_eighths__offset_80ms",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "onset_offset"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.24550781,
+        "bpmRelativeError": 0.0138015747,
+        "fMeasure": 0.75,
+        "lockedBpm": 127.738998
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.9,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.000378260537,
+        "fMeasure": 0.9,
+        "lockedBpm": 126.047661
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.000378260537
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 126.047661
+      }
+    },
+    "fixture": "clean_eighths__lead_silence_0.5s",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "leading_silence"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.24905156,
+        "bpmRelativeError": 0.0145053561,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.827675
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234285385,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.048004
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.0234285385
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 123.048004
+      }
+    },
+    "fixture": "clean_eighths__trail_silence_0.5s",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "trailing_silence"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0141318185,
+        "fMeasure": 0.461538462,
+        "lockedBpm": 127.780609
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.588235294,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.343751272,
+        "fMeasure": 0.588235294,
+        "lockedBpm": 82.6873398
+      }
+    },
+    "bpmErrorWorsened": true,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.343751272
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 82.6873398
+      }
+    },
+    "fixture": "clean_eighths__silence_gap_1s",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "silence_gap"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.49650156,
+        "bpmRelativeError": 0.0153420463,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.933098
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.000381106422,
+        "fMeasure": 0.421052632,
+        "lockedBpm": 126.048019
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.000381106422,
+        "fMeasure": 0.421052632,
+        "lockedBpm": 126.048019
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {},
+    "fixture": "clean_eighths__drop_every2",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "drop_onset"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.49801094,
+        "bpmRelativeError": 0.0114723084,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.445511
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.000400179908,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 126.050423
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.000400179908
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 126.050423
+      }
+    },
+    "fixture": "clean_eighths__drop_every4",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "drop_onset"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.24905156,
+        "bpmRelativeError": 0.0145053561,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.827675
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234285385,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.048004
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.0234285385
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 123.048004
+      }
+    },
+    "fixture": "clean_eighths__syncop_burst1",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "syncopation_burst"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": true,
+        "acquisitionBars": 1.24918281,
+        "bpmRelativeError": 0.0139639113,
+        "fMeasure": 0.666666667,
+        "lockedBpm": 127.759453
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234375,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0234285385,
+        "fMeasure": 0.736842105,
+        "lockedBpm": 123.048004
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "bpmRelativeError": {
+        "default": 0.0234375,
+        "variant": 0.0234285385
+      },
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 123.048004
+      }
+    },
+    "fixture": "clean_eighths__syncop_burst4",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "syncopation_burst"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": null,
+        "fMeasure": 0,
+        "lockedBpm": 127.814087
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": null,
+        "fMeasure": 0.222222222,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": null,
+        "fMeasure": 0.222222222,
+        "lockedBpm": 121.598511
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 121.598511
+      }
+    },
+    "fixture": "clean_eighths__tempo_step_1.25",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "tempo_step"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": false,
+    "backends": {
+      "aubio": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": null,
+        "fMeasure": 0.125,
+        "lockedBpm": 127.796486
+      },
+      "btrack": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": null,
+        "fMeasure": 0.3,
+        "lockedBpm": 123.046875
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": null,
+        "fMeasure": 0.3,
+        "lockedBpm": 121.601082
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "lockedBpm": {
+        "default": 123.046875,
+        "variant": 121.601082
+      }
+    },
+    "fixture": "clean_eighths__tempo_step_0.85",
+    "pairedBaseline": "clean_eighths__baseline",
+    "perturbation": "tempo_step"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": true,
+    "backends": {
+      "aubio": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.00802435194,
+        "fMeasure": 0.615384615,
+        "lockedBpm": 112.898727
+      },
+      "btrack": {
+        "acquired": true,
+        "acquisitionBars": 1.00153472,
+        "bpmRelativeError": 0.0182430404,
+        "fMeasure": 0.777777778,
+        "lockedBpm": 109.956779
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.00309290205,
+        "fMeasure": 0.777777778,
+        "lockedBpm": 112.346405
+      }
+    },
+    "bpmErrorWorsened": false,
+    "defaultVariantDiffExceptCpu": {
+      "acquired": {
+        "default": true,
+        "variant": false
+      },
+      "acquisitionBars": {
+        "default": 1.00153472,
+        "variant": 0
+      },
+      "acquisitionBeats": {
+        "default": 4.00613889,
+        "variant": 0
+      },
+      "acquisitionSeconds": {
+        "default": 2.14614583,
+        "variant": 0
+      },
+      "bpmRelativeError": {
+        "default": 0.0182430404,
+        "variant": 0.00309290205
+      },
+      "lockedBpm": {
+        "default": 109.956779,
+        "variant": 112.346405
+      }
+    },
+    "fixture": "syncopated_funk__baseline",
+    "pairedBaseline": "syncopated_funk__baseline",
+    "perturbation": "baseline"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": true,
+    "backends": {
+      "aubio": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.00784839903,
+        "fMeasure": 0.615384615,
+        "lockedBpm": 112.879021
+      },
+      "btrack": {
+        "acquired": true,
+        "acquisitionBars": 1.24534861,
+        "bpmRelativeError": 0.0182430404,
+        "fMeasure": 0.470588235,
+        "lockedBpm": 109.956779
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0285681997,
+        "fMeasure": 0.470588235,
+        "lockedBpm": 108.800362
+      }
+    },
+    "bpmErrorWorsened": true,
+    "defaultVariantDiffExceptCpu": {
+      "acquired": {
+        "default": true,
+        "variant": false
+      },
+      "acquisitionBars": {
+        "default": 1.24534861,
+        "variant": 0
+      },
+      "acquisitionBeats": {
+        "default": 4.98139444,
+        "variant": 0
+      },
+      "acquisitionSeconds": {
+        "default": 2.66860417,
+        "variant": 0
+      },
+      "bpmRelativeError": {
+        "default": 0.0182430404,
+        "variant": 0.0285681997
+      },
+      "lockedBpm": {
+        "default": 109.956779,
+        "variant": 108.800362
+      }
+    },
+    "fixture": "syncopated_funk__noise_snr10db",
+    "pairedBaseline": "syncopated_funk__baseline",
+    "perturbation": "noise"
+  },
+  {
+    "acquisitionGained": false,
+    "acquisitionLost": true,
+    "backends": {
+      "aubio": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0126891136,
+        "fMeasure": 0.615384615,
+        "lockedBpm": 113.421181
+      },
+      "btrack": {
+        "acquired": true,
+        "acquisitionBars": 1.24534861,
+        "bpmRelativeError": 0.0182430404,
+        "fMeasure": 0.470588235,
+        "lockedBpm": 109.956779
+      },
+      "btrack-tempo-variant": {
+        "acquired": false,
+        "acquisitionBars": null,
+        "bpmRelativeError": 0.0285681997,
+        "fMeasure": 0.470588235,
+        "lockedBpm": 108.800362
+      }
+    },
+    "bpmErrorWorsened": true,
+    "defaultVariantDiffExceptCpu": {
+      "acquired": {
+        "default": true,
+        "variant": false
+      },
+      "acquisitionBars": {
+        "default": 1.24534861,
+        "variant": 0
+      },
+      "acquisitionBeats": {
+        "default": 4.98139444,
+        "variant": 0
+      },
+      "acquisitionSeconds": {
+        "default": 2.66860417,
+        "variant": 0
+      },
+      "bpmRelativeError": {
+        "default": 0.0182430404,
+        "variant": 0.0285681997
+      },
+      "lockedBpm": {
+        "default": 109.956779,
+        "variant": 108.800362
+      }
+    },
+    "fixture": "syncopated_funk__noise_snr0db",
+    "pairedBaseline": "syncopated_funk__baseline",
+    "perturbation": "noise"
+  }
+]

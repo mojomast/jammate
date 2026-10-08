@@ -1,0 +1,479 @@
+[
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1027,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.741333333,
+    "firstReadyEventSeconds": 2.728354167,
+    "fixture": "clean_eighths__baseline",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 848,
+    "readyBpmMax": 126.047660828,
+    "readyBpmMedian": 123.04800415,
+    "readyBpmMin": 101.333518982,
+    "staleReadyNonBeatBlocks": 843
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1023,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.730666667,
+    "firstReadyEventSeconds": 2.716729167,
+    "fixture": "clean_eighths__noise_snr20db",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 852,
+    "readyBpmMax": 126.044906616,
+    "readyBpmMedian": 124.529769897,
+    "readyBpmMin": 105.467460632,
+    "staleReadyNonBeatBlocks": 847
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1023,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.730666667,
+    "firstReadyEventSeconds": 2.716729167,
+    "fixture": "clean_eighths__noise_snr10db",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 852,
+    "readyBpmMax": 126.047660828,
+    "readyBpmMedian": 124.527076721,
+    "readyBpmMin": 111.13898468,
+    "staleReadyNonBeatBlocks": 847
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 975,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.602666667,
+    "firstReadyEventSeconds": 2.589020833,
+    "fixture": "clean_eighths__noise_snr0db",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 900,
+    "readyBpmMax": 123.04800415,
+    "readyBpmMedian": 111.13898468,
+    "readyBpmMin": 108.800361633,
+    "staleReadyNonBeatBlocks": 895
+  },
+  {
+    "beats": 10,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 848,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.264,
+    "firstReadyEventSeconds": 2.252333333,
+    "fixture": "clean_eighths__level_-20db",
+    "intervalStatesAtBeats": {
+      "accepted": 9,
+      "first_beat": 1
+    },
+    "readyBeats": 6,
+    "readyBlocks": 1027,
+    "readyBpmMax": 147.658233643,
+    "readyBpmMedian": 130.058670044,
+    "readyBpmMin": 124.529769897,
+    "staleReadyNonBeatBlocks": 1021
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1023,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.730666667,
+    "firstReadyEventSeconds": 2.716729167,
+    "fixture": "clean_eighths__level_-40db",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 852,
+    "readyBpmMax": 127.60584259,
+    "readyBpmMedian": 126.047660828,
+    "readyBpmMin": 124.529769897,
+    "staleReadyNonBeatBlocks": 847
+  },
+  {
+    "beats": 0,
+    "blocks": 1875,
+    "fallbackBeats": 0,
+    "fallbackBlocks": 1875,
+    "finalReady": false,
+    "firstReadyAvailabilitySeconds": null,
+    "firstReadyEventSeconds": null,
+    "fixture": "clean_eighths__level_-60db",
+    "intervalStatesAtBeats": {},
+    "readyBeats": 0,
+    "readyBlocks": 0,
+    "readyBpmMax": null,
+    "readyBpmMedian": null,
+    "readyBpmMin": null,
+    "staleReadyNonBeatBlocks": 0
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1027,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.741333333,
+    "firstReadyEventSeconds": 2.728354167,
+    "fixture": "clean_eighths__clip_0.5",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 848,
+    "readyBpmMax": 124.529769897,
+    "readyBpmMedian": 123.04800415,
+    "readyBpmMin": 101.333518982,
+    "staleReadyNonBeatBlocks": 843
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1027,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.741333333,
+    "firstReadyEventSeconds": 2.728354167,
+    "fixture": "clean_eighths__clip_0.25",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 848,
+    "readyBpmMax": 126.047660828,
+    "readyBpmMedian": 126.047660828,
+    "readyBpmMin": 111.13684082,
+    "staleReadyNonBeatBlocks": 843
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1027,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.741333333,
+    "firstReadyEventSeconds": 2.728354167,
+    "fixture": "clean_eighths__clip_0.125",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 848,
+    "readyBpmMax": 126.047660828,
+    "readyBpmMedian": 126.047660828,
+    "readyBpmMin": 111.13684082,
+    "staleReadyNonBeatBlocks": 843
+  },
+  {
+    "beats": 10,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 866,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.312,
+    "firstReadyEventSeconds": 2.298770833,
+    "fixture": "clean_eighths__offset_40ms",
+    "intervalStatesAtBeats": {
+      "accepted": 9,
+      "first_beat": 1
+    },
+    "readyBeats": 6,
+    "readyBlocks": 1009,
+    "readyBpmMax": 134.234451294,
+    "readyBpmMedian": 126.047660828,
+    "readyBpmMin": 126.047660828,
+    "staleReadyNonBeatBlocks": 1003
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1053,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.810666667,
+    "firstReadyEventSeconds": 2.798,
+    "fixture": "clean_eighths__offset_80ms",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 822,
+    "readyBpmMax": 126.047660828,
+    "readyBpmMedian": 126.044906616,
+    "readyBpmMin": 111.13898468,
+    "staleReadyNonBeatBlocks": 817
+  },
+  {
+    "beats": 10,
+    "blocks": 2063,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1031,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.752,
+    "firstReadyEventSeconds": 2.739958333,
+    "fixture": "clean_eighths__lead_silence_0.5s",
+    "intervalStatesAtBeats": {
+      "accepted": 9,
+      "first_beat": 1
+    },
+    "readyBeats": 6,
+    "readyBlocks": 1032,
+    "readyBpmMax": 132.511276245,
+    "readyBpmMedian": 126.826751709,
+    "readyBpmMin": 124.529769897,
+    "staleReadyNonBeatBlocks": 1026
+  },
+  {
+    "beats": 9,
+    "blocks": 2063,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1027,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.741333333,
+    "firstReadyEventSeconds": 2.728354167,
+    "fixture": "clean_eighths__trail_silence_0.5s",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 1036,
+    "readyBpmMax": 126.047660828,
+    "readyBpmMedian": 123.04800415,
+    "readyBpmMin": 101.333518982,
+    "staleReadyNonBeatBlocks": 1031
+  },
+  {
+    "beats": 7,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1397,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 3.728,
+    "firstReadyEventSeconds": 3.7151875,
+    "fixture": "clean_eighths__silence_gap_1s",
+    "intervalStatesAtBeats": {
+      "accepted": 6,
+      "first_beat": 1
+    },
+    "readyBeats": 3,
+    "readyBlocks": 478,
+    "readyBpmMax": 95.701728821,
+    "readyBpmMedian": 82.687339783,
+    "readyBpmMin": 82.687339783,
+    "staleReadyNonBeatBlocks": 475
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1057,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.821333333,
+    "firstReadyEventSeconds": 2.809604167,
+    "fixture": "clean_eighths__drop_every2",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 818,
+    "readyBpmMax": 129.197235107,
+    "readyBpmMedian": 127.603012085,
+    "readyBpmMin": 104.402671814,
+    "staleReadyNonBeatBlocks": 813
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1027,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.741333333,
+    "firstReadyEventSeconds": 2.728354167,
+    "fixture": "clean_eighths__drop_every4",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 848,
+    "readyBpmMax": 126.050422668,
+    "readyBpmMedian": 126.050422668,
+    "readyBpmMin": 103.361030579,
+    "staleReadyNonBeatBlocks": 843
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1027,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.741333333,
+    "firstReadyEventSeconds": 2.728354167,
+    "fixture": "clean_eighths__syncop_burst1",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 848,
+    "readyBpmMax": 126.047660828,
+    "readyBpmMedian": 123.04800415,
+    "readyBpmMin": 101.333518982,
+    "staleReadyNonBeatBlocks": 843
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1027,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.741333333,
+    "firstReadyEventSeconds": 2.728354167,
+    "fixture": "clean_eighths__syncop_burst4",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 848,
+    "readyBpmMax": 126.047660828,
+    "readyBpmMedian": 123.04800415,
+    "readyBpmMin": 101.333518982,
+    "staleReadyNonBeatBlocks": 843
+  },
+  {
+    "beats": 8,
+    "blocks": 1670,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1027,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.741333333,
+    "firstReadyEventSeconds": 2.728354167,
+    "fixture": "clean_eighths__tempo_step_1.25",
+    "intervalStatesAtBeats": {
+      "accepted": 7,
+      "first_beat": 1
+    },
+    "readyBeats": 4,
+    "readyBlocks": 643,
+    "readyBpmMax": 121.598510742,
+    "readyBpmMedian": 111.46601486200001,
+    "readyBpmMin": 101.333518982,
+    "staleReadyNonBeatBlocks": 639
+  },
+  {
+    "beats": 10,
+    "blocks": 2057,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1027,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.741333333,
+    "firstReadyEventSeconds": 2.728354167,
+    "fixture": "clean_eighths__tempo_step_0.85",
+    "intervalStatesAtBeats": {
+      "accepted": 9,
+      "first_beat": 1
+    },
+    "readyBeats": 6,
+    "readyBlocks": 1030,
+    "readyBpmMax": 126.044906616,
+    "readyBpmMedian": 122.325855255,
+    "readyBpmMin": 101.333518982,
+    "staleReadyNonBeatBlocks": 1024
+  },
+  {
+    "beats": 9,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 940,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 2.509333333,
+    "firstReadyEventSeconds": 2.496145833,
+    "fixture": "syncopated_funk__baseline",
+    "intervalStatesAtBeats": {
+      "accepted": 8,
+      "first_beat": 1
+    },
+    "readyBeats": 5,
+    "readyBlocks": 935,
+    "readyBpmMax": 116.133712769,
+    "readyBpmMedian": 112.346405029,
+    "readyBpmMin": 112.346405029,
+    "staleReadyNonBeatBlocks": 930
+  },
+  {
+    "beats": 8,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1136,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 3.032,
+    "firstReadyEventSeconds": 3.018604167,
+    "fixture": "syncopated_funk__noise_snr10db",
+    "intervalStatesAtBeats": {
+      "accepted": 7,
+      "first_beat": 1
+    },
+    "readyBeats": 4,
+    "readyBlocks": 739,
+    "readyBpmMax": 109.957237244,
+    "readyBpmMedian": 104.0921936035,
+    "readyBpmMin": 97.508125305,
+    "staleReadyNonBeatBlocks": 735
+  },
+  {
+    "beats": 8,
+    "blocks": 1875,
+    "fallbackBeats": 4,
+    "fallbackBlocks": 1136,
+    "finalReady": true,
+    "firstReadyAvailabilitySeconds": 3.032,
+    "firstReadyEventSeconds": 3.018604167,
+    "fixture": "syncopated_funk__noise_snr0db",
+    "intervalStatesAtBeats": {
+      "accepted": 7,
+      "first_beat": 1
+    },
+    "readyBeats": 4,
+    "readyBlocks": 739,
+    "readyBpmMax": 109.957237244,
+    "readyBpmMedian": 104.0921936035,
+    "readyBpmMin": 97.508125305,
+    "staleReadyNonBeatBlocks": 735
+  }
+]

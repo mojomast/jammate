@@ -1,0 +1,35 @@
+{
+  "acceptedWorkerSha": "ce3c96e0825fddbf02d657c6b3f5ea055cb55da0",
+  "checks": {
+    "mainCoreEnabledSuitesPassed": 20,
+    "mainCoreOffSuitesPassed": 18,
+    "variantPythonTestsPassed": 17
+  },
+  "hashes": {
+    "/home/mojo/projects/build-TRACK-006-integration/0.log": "23f65207dd77828ecf949e2bccb4990cdbf4de72707f7051b12f0eda4f596a51",
+    "/home/mojo/projects/build-TRACK-006-integration/1.log": "e878f82676f238ffb4606dc557a0d3575adafb28c9a089706da294f87b6e407a",
+    "/home/mojo/projects/build-TRACK-006-integration/core-both-1.log": "7a76ca6114cb446dc1d999c213f1d6634f6094810883a8e7e7704483a0bb35bb",
+    "/home/mojo/projects/build-TRACK-006-integration/core-off-1.log": "b1910589eea2cf994f803d02bae44dd4c0ea8d3a42c0bed2592bef53d27b2208",
+    "/home/mojo/projects/build-TRACK-006-integration/evidence/provenance.json": "20093d2aaff7b173618250373a36dea4b769aeae704218b2791bc8e2c77ca229",
+    "/home/mojo/projects/guitars/docs/research/tempo-variant-robustness/provenance.json": "bfeb8915fc40a190825fed709ee5d43c8f20c2ffac1e061568ac59d9437bca68",
+    "/home/mojo/projects/guitars/tools/tempo-variant/run_paired.py": "0f4ef9e0eefdb38230fb70257ccef60e67eee8f04fbf8cf7122d67eba48fede0",
+    "/home/mojo/projects/guitars/tools/tempo-variant/tests/test_paired.py": "b42e95e2f6eda0cfe69cf54536f3158e572cedc83874d180de72d89f2f25e285"
+  },
+  "independentReplay": {
+    "comparisonExact": true,
+    "exactBeatPairs": 24,
+    "exactNonCpuPairedRows": 3168,
+    "excludedResourceFields": [
+      "cpuSeconds",
+      "cpuSecondsTotal",
+      "resources.cpuSeconds"
+    ],
+    "fixtures": 72,
+    "methodBeatClocksExact": true,
+    "methodReadinessExact": true,
+    "nonCpuScoredFixturesAndSummariesExact": true,
+    "pairedRows": 3240
+  },
+  "integrationBase": "f3b516190edb3240971b4e27183e80208ababf0d",
+  "task": "TRACK-006"
+}

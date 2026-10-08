@@ -36,7 +36,7 @@ PARTIAL, never PASSED.
 | **G0** fork/license/baseline | **PARTIAL** | current fork builds/tests on Linux; baseline audio/device and Windows evidence incomplete |
 | **G1** real-time foundation | **PARTIAL** | bounded dry/drum and repaired example-LSTM callbacks plus editor-absent scene delivery measured; other NAM architectures, full callback/device/hosted-plugin and remote CI coverage incomplete |
 | **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam and simulated Jam shell verified; live analyzer, real DrumEngine/editor integration incomplete |
-| **G3** tracker selected | **IN PROGRESS (advanced early)** | comparison, robustness, sustain repair, version-aware silence coverage and partial BeatNet feasibility integrated; acquisition/BPM limitations and selection ADR incomplete |
+| **G3** tracker selected | **IN PROGRESS (advanced early)** | comparison and fixed-variant paired robustness measured; acquisition unmet, variant gap/noise and early-readiness regressions, selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
 | **G5** adaptive drummer | not started | — |
 | **G6/G7** UX / release | not started | — |
@@ -79,7 +79,7 @@ PARTIAL, never PASSED.
    GitHub is now the measured destination. Remote CI status is recorded only
    after execution, separately from local workflow checks.
 
-### Active resumption wave (2026-10-08)
+### Resumption wave handoffs (2026-10-08)
 
 Both Flash launch attempts failed immediately with `Insufficient Balance`.
 The user explicitly approved **OpenAI Sol** for the replacement workers.
@@ -91,6 +91,11 @@ The user explicitly approved **OpenAI Sol** for the replacement workers.
 | TEST-001 (D8) | `ses_ee6cbaba5ffep3Oe3caD334mQL` | `../worktrees/TEST-001-foundation`; new foundation tests and standalone runner |
 
 Orchestrator owns CI-003 (`.github/workflows/`, `tools/ci/`) and integration.
+All three workers have returned committed, clean handoffs; their accepted status
+and integration evidence are recorded in the task table below. CI-003's first
+remote run passed all core/NAM jobs; Windows stopped on generated CRLF bytes.
+The explicit-LF correction preserves every expected hash and passes5/5 local NAM
+suites. Remote rerun at `0820bb5` is pending.
 
 ---
 
@@ -273,7 +278,7 @@ and reports instead.
 | TRACK-005 causal BPM-report variant | **DONE: diagnostic-only variant evidence** | `wp/TRACK-005-tempo-variant`, `7b3a4d7` → main + framing corrections | B — evidence, Flash | G3 | causal readiness-gated step evidence; six runs reproduced; gains and sparse regression retained; no production/default change |
 | RT-003 LSTM callback allocation repair | **DONE: measured LSTM repair** | `wp/RT-003-nam-lstm`, `401a6c1` → main + product/verifier fixes | A — runtime repair, Flash | G1 | numerical and real processor evidence reproduced;5/5 standalone checks; fresh product builds/drum tests/probe pass; full G1 partial |
 | ANALYSIS-001 injected worker lifecycle subset | **DONE: lifecycle foundation (D6); full task PARTIAL** | `wp/ANALYSIS-001-worker`, corrected `5162e4d` → main | C — core implementation, Flash + local review completion | G4 |29 tests/1210 checks, limited synthetic TSAN and throughput verified; production tracker/processor-clock wiring still blocked |
-| TRACK-006 fixed variant paired robustness | IN PROGRESS | `wp/TRACK-006-variant-robustness`, base `45fa333` | B — evidence, Sol | G3 | replacement worker executing paired diagnostics; no accepted result yet |
+| TRACK-006 fixed variant paired robustness | **DONE: scoped paired diagnostics** | `wp/TRACK-006-variant-robustness`, `ce3c96e0` → main | B — evidence, Sol | G3 |72 scores and24 exact beat pairs independently reproduced;3240 paired rows; variant loses6 acquisitions/gains1, gap/noise regressions retained; no selection |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
 | TEST-001 foundation tests | **DONE: bounded foundation coverage (D8)** | `wp/TEST-001-foundation`, `0cfc252b` → main | C — verification, Sol | G1 |50 actual JUCE cases; root rebuild and6/6 suites pass; processor migration/concurrent edits remain uncovered |

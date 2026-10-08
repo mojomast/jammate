@@ -124,8 +124,9 @@ Latest local verification, **8 October 2026**:
   These probes cover a bounded matrix, not every model, effect, host or device.
 - **29 analyzer tests / 1,210 checks** pass, including a limited synthetic
   ThreadSanitizer run with no reported races.
-- A diagnostic-only BTrack tempo-report variant improves measured BPM error,
-  but still fails the acquisition gate and retains a sparse-train regression.
+- A diagnostic-only BTrack tempo-report variant improves some steady-material
+  BPM errors, but fails the acquisition gate. [Paired robustness measurements](docs/research/TEMPO-VARIANT-ROBUSTNESS.md)
+  retain significant gap/noise regressions and six lost per-clip acquisitions.
   It is not the default backend.
 
 The [execution ledger](EXECUTION-LEDGER.md) is the authoritative status record.

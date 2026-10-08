@@ -1472,7 +1472,7 @@ Keep this near the top of the live devplan during implementation.
 | EVAL-007 | DONE (version-aware silence coverage) | main | 514c154 + CSV citation corrections | G3 |
 | TRACK-005 | DONE (diagnostic-only causal BPM-report variant) | main | 7b3a4d7 + framing corrections | G3 |
 | RT-003 | DONE (measured LSTM repair) | main | 401a6c1 + product/verifier fixes | G1 |
-| TRACK-006 | IN PROGRESS (user-authorised Sol replacement) | wp/TRACK-006-variant-robustness | base45fa333, review pending | G3 |
+| TRACK-006 | DONE: scoped paired diagnostics; variant gap/noise regressions retained | main | ce3c96e0 + independent replay | G3 |
 | CI-003 | GitHub workflow locally verified; scope authorised, remote execution pending | main | 8f18e03 | G1 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
 | ANALYSIS-001 | lifecycle foundation DONE (D6); full task PARTIAL / BLOCKED:G3 | main | 5162e4d + CMake/CI registration | G4 |

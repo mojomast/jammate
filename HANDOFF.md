@@ -16,23 +16,29 @@ The original uncommitted seams are long since integrated. Flash launch attempts
 again failed with insufficient balance; the user explicitly authorised
 `openai/gpt-6.1-sol` workers for the current resumption wave.
 
-Active workers and path ownership are in EXECUTION-LEDGER's active resumption
-table: TRACK-006 fixed paired robustness, MOD-003 isolated simulated Jam UI,
-and TEST-001 actual JUCE foundation regressions. Their branches start at
-`45fa333`; none is accepted until reviewed and rerun. The orchestrator owns
-CI-003 GitHub Actions plus all shared build/editor/processor integration.
+Worker sessions and path ownership are in EXECUTION-LEDGER's resumption table:
+TRACK-006 fixed paired robustness, MOD-003 isolated simulated Jam UI, and TEST-001
+actual JUCE foundation regressions. All three returned committed clean handoffs;
+their reviewed integration evidence follows below. The orchestrator owns CI-003
+GitHub Actions plus shared build/editor/processor integration.
 
 TEST-001 worker `0cfc252b` accepted: 12 new compatibility/transport regressions,
 50 total cases; actual root test rebuild and all6/6 drum suites pass. Both forge
 guards require `drums.foundation`. Scope excludes full processor migration,
-concurrent control edits and device timing. MOD-003 and TRACK-006 remain under
-review/execution; their returned handoffs are not accepted merely on worker claim.
+concurrent control edits and device timing.
 
 MOD-003 worker `34ab2cb3` is now accepted: engine-independent state/intent seam,
 clearly simulated controls and telemetry, seven screenshot artifacts. Independent
 main-source preview compilation and Xvfb checks reproduce all controls, silent
 refresh, timer telemetry, queued stopping and resize coverage down to580×480.
 This is a standalone silent preview; no production editor/processor wiring.
+
+TRACK-006 worker `ce3c96e0` accepted after independent rerun: all72 current scored
+fixtures/summaries match except CPU;24 beat pairs, readiness and method clocks
+exact;3168 non-CPU paired rows and coverage exact (3240 total). The manifest has
+22 perturbations plus2 matched baselines. Variant acquisition6→1 of24 clips,
+with6 losses/1 gain; gap error34.3751%, clean0dB-noise11.7945%, funk noise2.8568%.
+These are short-window diagnostics, not release-gate rates. G3 remains open.
 
 ### Integrated since the original handoff
 

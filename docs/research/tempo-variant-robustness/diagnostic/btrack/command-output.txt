@@ -1,0 +1,1 @@
+tracker-diagnostics: btrack block 128: 24 fixtures; acq core 0/0; worst core BPM err 0; replay disagreements 0; state rows max 0 (target 700)

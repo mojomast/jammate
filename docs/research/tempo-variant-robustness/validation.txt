@@ -1,0 +1,30 @@
+TRACK-006 executed validation, 2026-10-08
+Workdir: /home/mojo/projects/worktrees/TRACK-006-variant-robustness
+PATH=/tmp/opencode/venv/bin:$PATH
+TMPDIR=/home/mojo/projects/guitars-build-resume/tmp
+
+python3 tools/tempo-variant/run_paired.py
+PASS: 3 x 24 current scores; 24 exact beat pairs; 3240 paired metric rows
+
+python3 tools/tempo-variant/tests/test_paired.py
+Ran 9 tests in 0.626s
+OK
+
+python3 -m unittest discover -s tools/tempo-variant/tests -p 'test_*.py'
+Ran 17 tests in 0.703s
+OK
+(Expected negative framing tests print two rejection messages.)
+
+python3 tools/rhythm-eval/tools/test_run_robustness.py
+Ran 29 tests in 1.916s
+OK
+
+/home/mojo/projects/build-TRACK-005-integration/TempoVariantTests
+TempoVariantTests: 67 checks, 0 failures
+
+bash tools/tempo-variant/check_failclosed.sh /home/mojo/projects/build-TRACK-005-integration /home/mojo/projects/build-EVAL-005/main-core
+check_failclosed: 22 checks, 0 failures
+
+The nine paired tests were rerun after the final independent parent-PCM
+validation improvement. Test receipts summarize observed tool output; original
+CLI run output is retained under raw/ and diagnostic/.
