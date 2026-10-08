@@ -91,9 +91,13 @@ add_library(samplerate STATIC
     ${LSR_DIR}/src/src_linear.c
     ${LSR_DIR}/src/src_sinc.c
     ${LSR_DIR}/src/src_zoh.c)
-target_include_directories(samplerate PUBLIC
-    ${CMAKE_CURRENT_BINARY_DIR} ${LSR_DIR}/src)
-target_compile_definitions(samplerate PUBLIC HAVE_CONFIG_H=1)
+# config.h and HAVE_CONFIG_H belong to libsamplerate's implementation. Exporting
+# them to a JUCE product makes its bundled PNG code include this unrelated
+# config.h (and inherit C-only feature macros such as restrict).
+target_include_directories(samplerate
+    PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
+    PUBLIC ${LSR_DIR}/src)
+target_compile_definitions(samplerate PRIVATE HAVE_CONFIG_H=1)
 set_target_properties(samplerate PROPERTIES
     C_STANDARD 99 POSITION_INDEPENDENT_CODE ON)
 if (NOT MSVC)

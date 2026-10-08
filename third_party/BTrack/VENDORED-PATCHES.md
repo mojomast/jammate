@@ -85,7 +85,14 @@ diff -r third_party/BTrack/src <(git -C <upstream-clone> show 9d61276:src)
 3. **libsamplerate and kiss_fft are built as separate static libraries.** The
    9.2 MB `high_qual_coeffs.h` is the `SRC_SINC_BEST_QUALITY` filter bank, which
    BTrack selects explicitly. There is no table-generation build step in this
-   version, so vendoring is a plain compile.
+    version, so vendoring is a plain compile.
+4. **libsamplerate's generated `config.h` and `HAVE_CONFIG_H` are private.**
+   First live-product integration exposed the earlier public usage requirement:
+   JUCE's bundled PNG code found libsamplerate's unrelated configuration header,
+   inherited C-only macros and failed to compile. The flag and generated-header
+   search directory now apply only to the samplerate target. Its public API
+   header directory and static link dependency remain exported. No BTrack,
+   libsamplerate or kiss_fft source byte changes are involved.
 
 ---
 
