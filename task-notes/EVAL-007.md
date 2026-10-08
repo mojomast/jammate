@@ -140,5 +140,8 @@ Authoritative evidence: `docs/research/SILENCE-COVERAGE.md`,
 
 ## Final commit SHA
 
-Branch head `wp/EVAL-007-silence-coverage`: recorded in the handoff to the
-orchestrator (this note is committed with the change).
+- Round 1 (implementation + tests + evidence + report + this note):
+  `3873be025eaa1af04f116851da1e50d2fc306d01`.
+- The note-SHA update is the subsequent commit on
+  `wp/EVAL-007-silence-coverage`; the branch head is the handoff SHA reported to
+  the orchestrator.
