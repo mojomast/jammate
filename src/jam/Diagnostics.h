@@ -194,6 +194,33 @@ enum class DiagnosticsField : uint32_t
     processingDuration       = 1u << 16
 };
 
+// The evidence bits (observation, envelope and clock) must occupy a contiguous
+// low range, because validate() clears exactly that range before recomputing it.
+static_assert (static_cast<uint32_t> (DiagnosticsField::energyRmsDbfs) == (1u << 7),
+               "evidence field layout changed; update kEvidenceInvalidFieldMask");
+static_assert (static_cast<uint32_t> (DiagnosticsField::clockBeatUnit) == (1u << 14),
+               "evidence field layout changed; update kEvidenceInvalidFieldMask");
+static_assert (static_cast<uint32_t> (DiagnosticsField::callbackLatency) == (1u << 15),
+               "duration field layout changed; update kDurationInvalidFieldMask");
+
+/** Bits that validate() RECOMPUTES from the raw evidence: observation, envelope
+    and clock fields. validate() clears all of these first, so replacing an
+    invalid value with a valid one clears the mark instead of leaving a stale
+    mask. Because the clock bits are part of this set, a record whose clock is no
+    longer known has its clock marks cleared as well. */
+inline constexpr uint32_t kEvidenceInvalidFieldMask = (1u << 15) - 1u;
+
+/** Bits OWNED by attachCallbackLatency()/attachProcessingDuration(). validate()
+    must not clear these: they record that an explicit measurement was rejected,
+    which is not derivable from the stored value (a rejected attachment stores an
+    unmeasured field, which is indistinguishable from never having attached one). */
+inline constexpr uint32_t kDurationInvalidFieldMask =
+    static_cast<uint32_t> (DiagnosticsField::callbackLatency)
+  | static_cast<uint32_t> (DiagnosticsField::processingDuration);
+
+static_assert ((kEvidenceInvalidFieldMask & kDurationInvalidFieldMask) == 0u,
+               "evidence and duration invalid-field masks must not overlap");
+
 /** A value that exists only when someone measured it. */
 template <typename T>
 struct MeasuredField
@@ -244,8 +271,12 @@ struct DiagnosticsEvent
 DiagnosticsEvent makeEvent (const ObservationEnvelope& envelope) noexcept;
 
 /** Recompute the invalid-field mask for the observation and clock evidence from
-    the domain policy above. Attaches are automatic; call this directly only
-    after mutating raw evidence in place. */
+    the domain policy above. This is a true recomputation: the evidence bits are
+    cleared first, so raw evidence that has since been replaced by a valid value
+    no longer masks, and a record whose clock is no longer known loses its clock
+    marks. The duration bits are left untouched, because they belong to the
+    duration attachments. Attaches are automatic; call this directly after
+    mutating raw evidence in place. */
 void validate (DiagnosticsEvent& event) noexcept;
 
 /** Attach a clock snapshot. Values outside the domain policy are kept raw and

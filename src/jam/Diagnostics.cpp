@@ -28,6 +28,9 @@ void setInvalid (DiagnosticsEvent& e, DiagnosticsField f, bool invalid = true) n
         e.invalidFieldMask &= ~bit;
 }
 
+/** Marks a field invalid if `ok` is false. Set-only by design: validate() clears
+    the evidence range before it runs, so this stays a correct recomputation
+    rather than an accumulation. */
 void badField (bool ok, DiagnosticsEvent& e, DiagnosticsField f) noexcept
 {
     if (! ok)
@@ -298,6 +301,13 @@ DiagnosticsEvent makeEvent (const ObservationEnvelope& envelope) noexcept
 
 void validate (DiagnosticsEvent& event) noexcept
 {
+    // A recomputation, not an accumulation. Clearing the evidence bits up front is
+    // what makes "valid replaces invalid" work: without it, badField could only
+    // ever set a bit, so a rate corrected from -48000 back to 48000 (or a clock
+    // re-attached with valid values) would keep masking a now-valid field.
+    // Duration bits are excluded on purpose; see kDurationInvalidFieldMask.
+    event.invalidFieldMask &= ~kEvidenceInvalidFieldMask;
+
     const RhythmObservation& o = event.envelope.observation;
 
     badField (isPositiveRate (o.sourceSampleRate), event, DiagnosticsField::observationRate);

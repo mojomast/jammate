@@ -85,8 +85,23 @@ Repeated attachments count once: validity is a property of the field, not of the
 attempt. Attaching an invalid value twice marks one field; attaching a valid
 value afterwards clears the mark.
 
-`validate()` recomputes the mask from raw evidence and is called by
-`makeEvent()` and `attachClock()`. It is idempotent, not additive.
+`validate()` is a **recomputation**, not an accumulation. It clears the evidence
+bits (observation, envelope and clock) and then re-marks whatever the raw values
+now violate, so:
+
+- correcting a raw value in place (a rate from `-48000` back to `48000`) and
+  calling `validate()` unmasks it;
+- re-attaching a valid clock clears every previous clock mark;
+- a record whose clock is no longer known loses its clock marks, because the
+  clock bits belong to the recomputed range.
+
+The duration bits are deliberately **not** cleared by `validate()`. A rejected
+measurement is not derivable from the stored value, since a rejected attachment
+stores an unmeasured field, which is indistinguishable from never having attached
+one. Only `attachCallbackLatency()` / `attachProcessingDuration()` own those bits.
+The two ranges are kept disjoint by `kEvidenceInvalidFieldMask` and
+`kDurationInvalidFieldMask`, with static asserts on the bit layout and on the
+non-overlap.
 
 ### Rejected measurements clear the field
 
@@ -256,15 +271,15 @@ Build scratch: `/home/mojo/projects/guitars-build-resume/tmp/diag001-build`
 (`/tmp` is full, so the brief's build area was used). `PATH` and `TMPDIR` as in
 the brief.
 
-- `jamTests Diagnostics.`: **30 tests, 1172 checks, 0 failed**.
-- Full jam binary: **177 tests, 211,794 checks, 0 failed**.
+- `jamTests Diagnostics.`: **34 tests, 1474 checks, 0 failed**.
+- Full jam binary: **181 tests, 212,096 checks, 0 failed**.
 - `ctest -R "jam.Diagnostics|jam.RtSignal|jam.AnalysisAudioRing"`: 3/3 passed.
 - `-Wall -Wextra -Wpedantic -Werror` on `Diagnostics.cpp` and
   `DiagnosticsTests.cpp`: clean.
-- ThreadSanitizer (`-fsanitize=thread`), 3 consecutive runs: 0 warnings,
-  30 tests / 1166 checks (fewer checks: the net-heap probe is skipped).
-- AddressSanitizer + UBSan (`-fsanitize=address,undefined`), 3 consecutive runs:
-  0 errors, 0 leaks, 30 tests / 1166 checks.
+- ThreadSanitizer (`-fsanitize=thread`): 0 warnings, 34 tests / 1468 checks
+  (fewer checks: the net-heap probe is skipped under sanitizers).
+- AddressSanitizer + UBSan (`-fsanitize=address,undefined`): 0 errors, 0 leaks,
+  34 tests / 1468 checks.
 - Locale independence: with a generated `de_DE.UTF-8` installed and selected
   thread-locally via `uselocale`, the locale test runs its full fixture
   (14 checks instead of 11) and passes. With no comma-decimal locale installed it
@@ -274,6 +289,13 @@ the brief.
 
 ### Defects found and fixed during review
 
+- **Stale invalid-field masks.** `validate()` set bits but never cleared them, so
+  a value that had been corrected (a rate from `-48000` to `48000`), a clock
+  re-attached with valid values, or a withdrawn clock kept masking a now-valid
+  field and kept inflating `invalid_field_count`, contradicting the documented
+  "valid after invalid clears the mark". `validate()` now clears the evidence
+  range before recomputing it, while duration bits stay owned by their
+  attachments.
 - **Dangling reference in the test harness.** `JsonParser` held
   `const std::string&` and was routinely constructed from a temporary
   `toJson(...)`. That is undefined behaviour and produced erratic failures in

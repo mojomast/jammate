@@ -17,7 +17,8 @@ Branch: `wp/DIAG-001-core`.
 ## Commits
 
 - `2a9a929` — initial foundation.
-- Second commit on this branch — integration review corrections (see below).
+- `6a27048` — integration review corrections (items 1-7 below).
+- Third commit on this branch — `validate()` recomputation fix (item 8 below).
 
 ## Files changed (owned only)
 
@@ -90,6 +91,18 @@ needed.
    count and its baseline are read independently and a crossing reader can
    underflow the subtraction. The allocation docs were also corrected: the drain
    path *does* allocate, since the collector's vector grows.
+8. **`validate()` made a real recomputation.** `badField()` only ever *set* a bit,
+   so invalid marks survived a later valid value, contradicting the documented
+   "valid after invalid clears the mark": a rate corrected from `-48000` to
+   `48000` stayed masked, and re-attaching a valid clock left the clock marks set
+   and `invalid_field_count` inflated. `validate()` now clears the evidence bit
+   range (`kEvidenceInvalidFieldMask`) before re-marking, so corrected evidence,
+   a re-attached clock, and a withdrawn clock (`clockKnown == false`) all recover.
+   The duration bits (`kDurationInvalidFieldMask`) are explicitly excluded and
+   remain owned by the duration attachments: a rejected measurement stores an
+   unmeasured field, which is indistinguishable from never having attached one, so
+   the rejection has to be recorded separately. The two masks are kept disjoint by
+   `static_assert`. No domain rule or schema version changed.
 
 ## Verification
 
@@ -97,13 +110,12 @@ Build scratch: `/home/mojo/projects/guitars-build-resume/tmp/diag001-build`
 (`/tmp` is full). `PATH=/tmp/opencode/venv/bin:$PATH`,
 `TMPDIR=/home/mojo/projects/guitars-build-resume/tmp`.
 
-- `jamTests Diagnostics.`: **30 tests, 1172 checks, 0 failed**
-- Full `jamTests`: **177 tests, 211,794 checks, 0 failed**
+- `jamTests Diagnostics.`: **34 tests, 1474 checks, 0 failed**
+- Full `jamTests`: **181 tests, 212,096 checks, 0 failed**
 - `ctest -R "jam.Diagnostics|jam.RtSignal|jam.AnalysisAudioRing"`: 3/3 passed
 - `-Wall -Wextra -Wpedantic -Werror` on both new .cpp files: clean
-- ThreadSanitizer, 3 consecutive runs: 0 warnings, 30 tests / 1166 checks
-- AddressSanitizer + UBSan, 3 consecutive runs: 0 errors, 0 leaks,
-  30 tests / 1166 checks
+- ThreadSanitizer: 0 warnings, 34 tests / 1468 checks
+- AddressSanitizer + UBSan: 0 errors, 0 leaks, 34 tests / 1468 checks
 - Locale independence proven with a generated `de_DE.UTF-8` selected via
   `uselocale`: the fixture engages (14 checks vs 11) and passes. Negative control
   shows `snprintf("%.17g")` produces `0,30000000000000004` under that locale while
@@ -125,6 +137,17 @@ instead of reporting a pass.
 - The quiescence test had a scheduler race (the publisher could start after
   `stop`), which flaked under ASan. It now uses a `produced`/`attempts` handshake
   and yields instead of spinning.
+- That handshake was then found to be weaker than it claimed: `produced` was
+  updated after *every* successful publish, so the wait finished after the first
+  event and the trace queue never filled. The test was asserting the post-join
+  final drain on a two-event sample while claiming full-queue coverage, and its
+  check count drifted run to run. It now waits for the queue to actually refuse
+  an event, which only happens at capacity, so the test is deterministic
+  (256 delivered events, stable across 5 consecutive runs).
+- The `validate()` recomputation defect (item 8) was found on review rather than
+  by a test, because every pre-existing test attached each field once. Four new
+  tests cover invalid -> valid observation, invalid -> valid clock re-attach,
+  withdrawn clock, and duration-bit retention across validation.
 
 ## Registration
 

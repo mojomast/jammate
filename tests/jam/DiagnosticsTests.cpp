@@ -957,6 +957,142 @@ JAM_TEST(Diagnostics, repeatedInvalidAttachmentCountsOncePerField)
     CHECK_EQ (e.invalidFieldCount(), std::size_t { 2 });
 }
 
+JAM_TEST(Diagnostics, invalidToValidObservationClearsTheMark)
+{
+    ObservationEnvelope env = makeEnvelope (1, 1000, 1000, 3048, 0);
+    env.sourceSampleRate = -48000.0;
+    env.observation.sourceSampleRate = -44100.0;
+    env.observation.beatPhase01 = 1.5f;
+
+    DiagnosticsEvent e = makeEvent (env);
+    CHECK (e.isInvalid (DiagnosticsField::envelopeRate));
+    CHECK (e.isInvalid (DiagnosticsField::observationRate));
+    CHECK (e.isInvalid (DiagnosticsField::observationBeatPhase01));
+    CHECK_EQ (e.invalidFieldCount(), std::size_t { 3 });
+
+    // Correct the raw evidence in place, exactly as an integrator would, then
+    // recompute. The stale marks must NOT survive.
+    e.envelope.sourceSampleRate = 48000.0;
+    e.envelope.observation.sourceSampleRate = 44100.0;
+    e.envelope.observation.beatPhase01 = 0.25f;
+    validate (e);
+
+    CHECK (! e.isInvalid (DiagnosticsField::envelopeRate));
+    CHECK (! e.isInvalid (DiagnosticsField::observationRate));
+    CHECK (! e.isInvalid (DiagnosticsField::observationBeatPhase01));
+    CHECK_EQ (e.invalidFieldCount(), std::size_t { 0 });
+
+    // And the export now carries the valid values instead of masking them.
+    DiagnosticsCollector collector (4);
+    DiagnosticsTrace trace;
+    trace.setEnabled (true);
+    trace.publish (e);
+    collector.drain (trace);
+
+    const CsvExport csv = parseCsvExport (toCsv (collector));
+    REQUIRE (csv.rows.size() == 1);
+    CHECK_EQ (csv.cell (0, "source_sample_rate_hz"), std::string ("48000"));
+    CHECK_EQ (csv.cell (0, "observation_source_sample_rate_hz"), std::string ("44100"));
+    CHECK_EQ (csv.cell (0, "beat_phase01"), std::string ("0.25"));
+    CHECK_EQ (csv.cell (0, "invalid_field_count"), std::string ("0"));
+}
+
+JAM_TEST(Diagnostics, invalidToValidClockReattachClearsTheMark)
+{
+    ObservationEnvelope env = makeEnvelope (2, 1000, 1000, 3048, 0);
+    DiagnosticsEvent e = makeEvent (env);
+    REQUIRE (e.invalidFieldCount() == 0u);
+
+    ClockSnapshot bad = makeClock();
+    bad.bpm = -1.0;
+    bad.beatPhase01 = 1.5;
+    bad.beatsPerBar = 0;
+    attachClock (e, bad);
+    // Four marks, not three: a zero-length bar also puts beatInBar 2 out of range.
+    CHECK (e.isInvalid (DiagnosticsField::clockBpm));
+    CHECK (e.isInvalid (DiagnosticsField::clockBeatPhase01));
+    CHECK (e.isInvalid (DiagnosticsField::clockBeatsPerBar));
+    CHECK (e.isInvalid (DiagnosticsField::clockBeatInBar));
+    CHECK_EQ (e.invalidFieldCount(), std::size_t { 4 });
+
+    // Re-attaching a valid clock must clear every clock mark, not accumulate.
+    attachClock (e, makeClock());
+    CHECK (! e.isInvalid (DiagnosticsField::clockBpm));
+    CHECK (! e.isInvalid (DiagnosticsField::clockBeatPhase01));
+    CHECK (! e.isInvalid (DiagnosticsField::clockBeatsPerBar));
+    CHECK (! e.isInvalid (DiagnosticsField::clockBeatInBar));
+    CHECK_EQ (e.invalidFieldCount(), std::size_t { 0 });
+
+    DiagnosticsCollector collector (4);
+    DiagnosticsTrace trace;
+    trace.setEnabled (true);
+    trace.publish (e);
+    collector.drain (trace);
+
+    const CsvExport csv = parseCsvExport (toCsv (collector));
+    REQUIRE (csv.rows.size() == 1);
+    CHECK_EQ (csv.cell (0, "clock_bpm"), std::string ("118"));
+    CHECK_EQ (csv.cell (0, "clock_beat_phase01"), std::string ("0.5"));
+    CHECK_EQ (csv.cell (0, "clock_beats_per_bar"), std::string ("4"));
+    CHECK_EQ (csv.cell (0, "invalid_field_count"), std::string ("0"));
+}
+
+JAM_TEST(Diagnostics, clockMarksClearWhenClockNoLongerKnown)
+{
+    ObservationEnvelope env = makeEnvelope (3, 1000, 1000, 3048, 0);
+    DiagnosticsEvent e = makeEvent (env);
+
+    ClockSnapshot bad = makeClock();
+    bad.bpm = -1.0;
+    bad.beatUnit = 0;
+    attachClock (e, bad);
+    CHECK (e.isInvalid (DiagnosticsField::clockBpm));
+    CHECK (e.isInvalid (DiagnosticsField::clockBeatUnit));
+    CHECK_EQ (e.invalidFieldCount(), std::size_t { 2 });
+
+    // Withdrawing the clock must not leave clock fields marked invalid.
+    e.clockKnown = false;
+    validate (e);
+    CHECK (! e.isInvalid (DiagnosticsField::clockBpm));
+    CHECK (! e.isInvalid (DiagnosticsField::clockBeatUnit));
+    CHECK_EQ (e.invalidFieldCount(), std::size_t { 0 });
+}
+
+JAM_TEST(Diagnostics, validateRetainsRejectedDurationBits)
+{
+    ObservationEnvelope env = makeEnvelope (4, 1000, 1000, 3048, 0);
+    DiagnosticsEvent e = makeEvent (env);
+
+    attachProcessingDuration (e, std::numeric_limits<double>::quiet_NaN());
+    attachCallbackLatency (e, -1.0);
+    CHECK_EQ (e.invalidFieldCount(), std::size_t { 2 });
+
+    // A rejected measurement is not derivable from the stored value (the field is
+    // simply unmeasured), so validate() must NOT clear these bits.
+    validate (e);
+    CHECK (e.isInvalid (DiagnosticsField::processingDuration));
+    CHECK (e.isInvalid (DiagnosticsField::callbackLatency));
+    CHECK_EQ (e.invalidFieldCount(), std::size_t { 2 });
+
+    // Same when a clock is attached afterwards, since attachClock() validates.
+    attachClock (e, makeClock());
+    CHECK (e.isInvalid (DiagnosticsField::processingDuration));
+    CHECK (e.isInvalid (DiagnosticsField::callbackLatency));
+    CHECK_EQ (e.invalidFieldCount(), std::size_t { 2 });
+
+    // The masks must not overlap, which is what makes that retention sound.
+    CHECK_EQ (kEvidenceInvalidFieldMask & kDurationInvalidFieldMask, uint32_t { 0 });
+    CHECK ((kEvidenceInvalidFieldMask
+            & static_cast<uint32_t> (DiagnosticsField::processingDuration)) == 0u);
+    CHECK ((kEvidenceInvalidFieldMask
+            & static_cast<uint32_t> (DiagnosticsField::clockBeatUnit)) != 0u);
+
+    // Only the duration attachments can clear them again.
+    attachProcessingDuration (e, 0.001);
+    CHECK (! e.isInvalid (DiagnosticsField::processingDuration));
+    CHECK_EQ (e.invalidFieldCount(), std::size_t { 1 });
+}
+
 // --- export format ----------------------------------------------------------
 
 JAM_TEST(Diagnostics, csvCarriesVersionedMetadataPreamble)
@@ -1347,7 +1483,6 @@ JAM_TEST(Diagnostics, finalDrainAfterPublisherStopsKeepsEveryEvent)
     // can require that nothing was lost.
     DiagnosticsCollector collector (kTraceCapacity + 8);
     std::atomic<bool> stop { false };
-    std::atomic<uint64_t> produced { 0 };
     std::atomic<uint64_t> attempts { 0 };
 
     std::thread publisher ([&] {
@@ -1358,16 +1493,19 @@ JAM_TEST(Diagnostics, finalDrainAfterPublisherStopsKeepsEveryEvent)
             if (! trace.publish (makeEvent (makeEnvelope (k, k, k, k + 512, 0))))
                 continue; // refused while the queue is full, and counted as a drop
             ++k;
-            produced.store (k - 1, std::memory_order_release);
         }
     });
 
-    // Wait until the publisher has completed at least one batch. The queue fills
-    // to capacity without any draining, so this terminates on its own and no
-    // sleep is used. yield() hands the CPU to the publisher, which matters under
-    // sanitizers where thread startup can outlast a pure spin loop.
-    for (int spin = 0; spin < 100000000 && produced.load (std::memory_order_acquire) == 0; ++spin)
+    // Wait until the trace queue has actually refused an event, which can only
+    // happen once all kTraceCapacity slots are occupied. Nothing drains during
+    // this wait, so the queue reaches capacity on its own and the wait terminates
+    // without sleeping. This is what makes the test a real full-queue test
+    // instead of a two-event sample.
+    for (int spin = 0;
+         spin < 1000000000 && trace.counters().droppedEvents == 0; ++spin)
+    {
         std::this_thread::yield();
+    }
 
     stop.store (true, std::memory_order_release);
     publisher.join();          // actual publisher quiescence
@@ -1375,20 +1513,22 @@ JAM_TEST(Diagnostics, finalDrainAfterPublisherStopsKeepsEveryEvent)
     trace.setEnabled (false);  // only now is disabling meaningful
     const std::size_t drained = collector.drain (trace);
 
-    const uint64_t published = produced.load (std::memory_order_acquire);
+    const DiagnosticsCounters counters = trace.counters();
     const uint64_t tried = attempts.load (std::memory_order_relaxed);
-    const uint64_t refused = trace.counters().droppedEvents;
+    const uint64_t published = static_cast<uint64_t> (drained);
 
-    REQUIRE (published > 0);
-    // Every accepted event survives to the post-join final drain, in order.
+    // The queue really did fill: every accepted event, and only those, is
+    // delivered by the post-join final drain.
+    CHECK_EQ (counters.droppedEvents > 0, true);
+    CHECK_EQ (published, static_cast<uint64_t> (kTraceCapacity));
     CHECK_EQ (drained, published);
     CHECK_EQ (collector.events().size(), published);
     CHECK_EQ (collector.collectorDropped(), uint64_t { 0 });
 
     // Refused attempts while the queue was full are counted, not silently lost:
     // every attempt is either accepted or reported as a drop.
-    CHECK_EQ (published + refused, tried);
-    CHECK_EQ (collector.traceDroppedAtDrain(), refused);
+    CHECK_EQ (published + counters.droppedEvents, tried);
+    CHECK_EQ (collector.traceDroppedAtDrain(), counters.droppedEvents);
 
     // Ordered and complete, so the export after the final drain is trustworthy.
     for (std::size_t i = 0; i < collector.events().size(); ++i)
