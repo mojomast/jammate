@@ -1,0 +1,336 @@
+{
+  "base": {
+    "sustained_chords": {
+      "floorDbfs": -64.3128,
+      "maxAbsSampleStep": 0.192047,
+      "persistence": {
+        "belowThresholdCount": 8,
+        "offsetsSeconds": [
+          0.5,
+          1.5
+        ],
+        "perOnset": [
+          {
+            "levelDbfsAtOffset": {
+              "0.5": -63.27,
+              "1.5": -63.6709
+            },
+            "onsetSeconds": 0.345645334
+          },
+          {
+            "levelDbfsAtOffset": {
+              "0.5": -63.6005,
+              "1.5": -64.0805
+            },
+            "onsetSeconds": 2.855720545
+          },
+          {
+            "levelDbfsAtOffset": {
+              "0.5": -63.6318,
+              "1.5": -63.6073
+            },
+            "onsetSeconds": 5.341555485
+          },
+          {
+            "levelDbfsAtOffset": {
+              "0.5": -63.3124,
+              "1.5": -63.0618
+            },
+            "onsetSeconds": 7.842999215
+          }
+        ],
+        "thresholdDbfs": -58.3128
+      },
+      "refDbfs": -19.0421,
+      "sha256": "e4b9297fca341e70a639fc6a51fbd9e884c1321ee4fc802c5c3497feeefe6442",
+      "signal": {
+        "clippedSampleFraction": 0.0,
+        "frames": 544800,
+        "peakDbfs": -6.001,
+        "rmsDbfs": -31.935
+      },
+      "silenceThresholdDbfs": -58.3128,
+      "trueSilenceSpans": [
+        [
+          0.0,
+          0.345645
+        ],
+        [
+          0.999602,
+          2.85572
+        ],
+        [
+          3.509678,
+          5.341555
+        ],
+        [
+          5.995513,
+          7.842999
+        ],
+        [
+          8.496956,
+          11.35
+        ]
+      ]
+    },
+    "tapping_muting_only": {
+      "beatPeriodSeconds": 0.535714286,
+      "durationSeconds": 12.064286,
+      "gapStatsSeconds": {
+        "iqr": 0.396608,
+        "max": 0.54142,
+        "mean": 0.350805,
+        "median": 0.398211,
+        "min": 0.12814
+      },
+      "medianAfterDbfs": -34.6364,
+      "minRiseDb": 34.3385,
+      "name": "tapping_muting_only",
+      "onsetCount": 30,
+      "perOnset": [
+        {
+          "afterDbfs": -29.4633,
+          "beforeDbfs": -72.3985,
+          "onsetSeconds": 0.35109509,
+          "riseDb": 42.9352
+        },
+        {
+          "afterDbfs": -36.9257,
+          "beforeDbfs": -73.0311,
+          "onsetSeconds": 0.48140061,
+          "riseDb": 36.1055
+        },
+        {
+          "afterDbfs": -35.7977,
+          "beforeDbfs": -71.8526,
+          "onsetSeconds": 0.886531329,
+          "riseDb": 36.0548
+        },
+        {
+          "afterDbfs": -32.5986,
+          "beforeDbfs": -73.11,
+          "onsetSeconds": 1.422696315,
+          "riseDb": 40.5114
+        },
+        {
+          "afterDbfs": -35.4562,
+          "beforeDbfs": -73.1948,
+          "onsetSeconds": 1.560201591,
+          "riseDb": 37.7386
+        },
+        {
+          "afterDbfs": -36.4686,
+          "beforeDbfs": -72.6569,
+          "onsetSeconds": 1.957122668,
+          "riseDb": 36.1883
+        },
+        {
+          "afterDbfs": -31.0586,
+          "beforeDbfs": -71.6052,
+          "onsetSeconds": 2.495561466,
+          "riseDb": 40.5466
+        },
+        {
+          "afterDbfs": -36.9145,
+          "beforeDbfs": -72.6254,
+          "onsetSeconds": 2.627554332,
+          "riseDb": 35.7109
+        },
+        {
+          "afterDbfs": -34.2514,
+          "beforeDbfs": -73.2904,
+          "onsetSeconds": 3.025764971,
+          "riseDb": 39.039
+        },
+        {
+          "afterDbfs": -32.8198,
+          "beforeDbfs": -73.3925,
+          "onsetSeconds": 3.560321162,
+          "riseDb": 40.5727
+        },
+        {
+          "afterDbfs": -36.3103,
+          "beforeDbfs": -73.3922,
+          "onsetSeconds": 3.700407339,
+          "riseDb": 37.0819
+        },
+        {
+          "afterDbfs": -35.3128,
+          "beforeDbfs": -72.3738,
+          "onsetSeconds": 4.095343083,
+          "riseDb": 37.061
+        },
+        {
+          "afterDbfs": -32.2269,
+          "beforeDbfs": -72.9936,
+          "onsetSeconds": 4.634649803,
+          "riseDb": 40.7667
+        },
+        {
+          "afterDbfs": -34.0229,
+          "beforeDbfs": -73.6452,
+          "onsetSeconds": 4.77155789,
+          "riseDb": 39.6223
+        },
+        {
+          "afterDbfs": -35.0931,
+          "beforeDbfs": -72.5737,
+          "onsetSeconds": 5.174995981,
+          "riseDb": 37.4806
+        },
+        {
+          "afterDbfs": -32.5197,
+          "beforeDbfs": -71.6651,
+          "onsetSeconds": 5.705776536,
+          "riseDb": 39.1454
+        },
+        {
+          "afterDbfs": -34.6623,
+          "beforeDbfs": -72.9489,
+          "onsetSeconds": 5.843907044,
+          "riseDb": 38.2865
+        },
+        {
+          "afterDbfs": -34.6106,
+          "beforeDbfs": -72.5067,
+          "onsetSeconds": 6.241426507,
+          "riseDb": 37.8961
+        },
+        {
+          "afterDbfs": -32.3652,
+          "beforeDbfs": -72.776,
+          "onsetSeconds": 6.78284685,
+          "riseDb": 40.4108
+        },
+        {
+          "afterDbfs": -35.9848,
+          "beforeDbfs": -72.5513,
+          "onsetSeconds": 6.910986801,
+          "riseDb": 36.5665
+        },
+        {
+          "afterDbfs": -34.9001,
+          "beforeDbfs": -72.2727,
+          "onsetSeconds": 7.312285481,
+          "riseDb": 37.3725
+        },
+        {
+          "afterDbfs": -33.3804,
+          "beforeDbfs": -72.3864,
+          "onsetSeconds": 7.847349166,
+          "riseDb": 39.006
+        },
+        {
+          "afterDbfs": -36.22,
+          "beforeDbfs": -73.0788,
+          "onsetSeconds": 7.98071138,
+          "riseDb": 36.8588
+        },
+        {
+          "afterDbfs": -35.7311,
+          "beforeDbfs": -72.9754,
+          "onsetSeconds": 8.38950873,
+          "riseDb": 37.2443
+        },
+        {
+          "afterDbfs": -32.652,
+          "beforeDbfs": -73.2117,
+          "onsetSeconds": 8.923705963,
+          "riseDb": 40.5598
+        },
+        {
+          "afterDbfs": -33.9193,
+          "beforeDbfs": -73.6158,
+          "onsetSeconds": 9.059162774,
+          "riseDb": 39.6965
+        },
+        {
+          "afterDbfs": -35.9046,
+          "beforeDbfs": -72.7995,
+          "onsetSeconds": 9.45880333,
+          "riseDb": 36.8949
+        },
+        {
+          "afterDbfs": -31.6428,
+          "beforeDbfs": -72.6096,
+          "onsetSeconds": 9.992916402,
+          "riseDb": 40.9668
+        },
+        {
+          "afterDbfs": -38.9364,
+          "beforeDbfs": -73.2749,
+          "onsetSeconds": 10.128926768,
+          "riseDb": 34.3385
+        },
+        {
+          "afterDbfs": -32.8321,
+          "beforeDbfs": -72.6508,
+          "onsetSeconds": 10.524454477,
+          "riseDb": 39.8187
+        }
+      ]
+    }
+  },
+  "repaired": {
+    "durationSeconds": 11.35,
+    "floorDbfs": -65.7797,
+    "maxAbsSampleStep": 0.154205,
+    "persistence": {
+      "belowThresholdCount": 0,
+      "offsetsSeconds": [
+        0.5,
+        1.5
+      ],
+      "perOnset": [
+        {
+          "levelDbfsAtOffset": {
+            "0.5": -30.1069,
+            "1.5": -45.0237
+          },
+          "onsetSeconds": 0.345645334
+        },
+        {
+          "levelDbfsAtOffset": {
+            "0.5": -29.9778,
+            "1.5": -46.204
+          },
+          "onsetSeconds": 2.855720545
+        },
+        {
+          "levelDbfsAtOffset": {
+            "0.5": -28.038,
+            "1.5": -44.7463
+          },
+          "onsetSeconds": 5.341555485
+        },
+        {
+          "levelDbfsAtOffset": {
+            "0.5": -31.7104,
+            "1.5": -45.2745
+          },
+          "onsetSeconds": 7.842999215
+        }
+      ],
+      "thresholdDbfs": -59.7797
+    },
+    "refDbfs": -17.1697,
+    "sha256": "23b8cf21eab22949abe0745b46e98e17847052c3372f4f69cc00bfee6bc30061",
+    "signal": {
+      "clippedSampleFraction": 0.0,
+      "frames": 544800,
+      "peakDbfs": -6.001,
+      "rmsDbfs": -29.017
+    },
+    "silenceThresholdDbfs": -59.7797,
+    "trueSilenceSpans": [
+      [
+        0.0,
+        0.3
+      ],
+      [
+        10.22,
+        11.35
+      ]
+    ]
+  }
+}

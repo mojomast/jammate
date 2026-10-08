@@ -1,0 +1,7 @@
+corpus=testdata/rhythm/repaired-sustain
+backend=aubio
+block=128
+cli=/home/mojo/projects/build-EVAL-005/main-cli/rhythm-eval
+backendLib=/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so
+exit=0
+elapsedSeconds=0
