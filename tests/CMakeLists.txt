@@ -17,6 +17,7 @@ target_sources(GuitarCompanionTests
         DrumClockBridgeTests.cpp
         DrumHeapProbe.cpp
         JamLiveUiTests.cpp
+        JamAdaptiveUiTests.cpp
         JamUiTestFonts.cpp
         # production code under test
         ${PROJECT_SOURCE_DIR}/src/DrumEngine.cpp

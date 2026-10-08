@@ -24,6 +24,7 @@ set(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 add_executable(LiveJamUiHarness
     main.cpp
     "${PROJECT_ROOT}/tests/JamLiveUiTests.cpp"
+    "${PROJECT_ROOT}/tests/JamAdaptiveUiTests.cpp"
     "${PROJECT_ROOT}/src/ui/JamOverlay.cpp"
     "${PROJECT_ROOT}/src/ui/JamLivePresenter.cpp"
     ${module_objects})

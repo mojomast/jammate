@@ -93,6 +93,8 @@ struct DrumPlaybackEcho
     bool injectedPlaying = false;   // the injected transport is really rendering
     std::uint64_t samplePosition = 0;
     std::uint64_t stepsFired = 0;
+    LibraryIndex groove = kNoLibraryEntry;
+    bool fillPlaying = false;
 };
 
 struct LiveJamSessionConfig

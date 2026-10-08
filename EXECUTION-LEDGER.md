@@ -94,10 +94,16 @@ measurements and are not closed by software or synthetic tests.
 
 | Task | State | Worktree / ownership |
 |---|---|---|
-| STYLE-DIRECTOR-002 | STARTING | `../worktrees/STYLE-DIRECTOR-002`; new catalog/director and portable tests |
-| DRUM-ADAPT-002 | STARTING | `../worktrees/DRUM-ADAPT-002`; bridge/engine adaptation and actual-engine tests |
-| EVAL-GUITAR-009 | STARTING | `../worktrees/EVAL-GUITAR-009`; representative-guitar import/useful-lock evaluation |
-| DEVICE-002 | STARTING | `../worktrees/DEVICE-002`; physical-device/play evidence tooling |
+| STYLE-DIRECTOR-002 | BUILDING `ses_ee48b3de2ffe1Y3nPOHAj9Hrks` | `../worktrees/STYLE-DIRECTOR-002`; new catalog/director and portable tests |
+| DRUM-ADAPT-002 | BUILDING `ses_ee48af76cffe2JZ2Uc0FTbgI1S` | `../worktrees/DRUM-ADAPT-002`; bridge/engine adaptation and actual-engine tests |
+| EVAL-GUITAR-009 | BUILDING `ses_ee48ab4e4ffe1yZOM5auV6mf2P` | `../worktrees/EVAL-GUITAR-009`; representative-guitar import/useful-lock evaluation |
+| DEVICE-002 | BUILDING `ses_ee48a7730ffe4JXF99n4BDv8R4` | `../worktrees/DEVICE-002`; physical-device/play evidence tooling |
+
+The orchestrator appended adaptive command IDs without renumbering the live
+commands, added worker-setting/audio-echo telemetry and wired the UI mapping.
+22 mock-facade UI cases plus posted-click checks pass; live adaptive integration
+is pending the reviewed core/engine handoffs. The additive processor replay
+protocol is preregistered in `docs/research/ADAPTIVE-REPLAY-PROTOCOL.md`.
 
 ### Completed live-Jam wave (base `88893e2`, 2026-10-08)
 

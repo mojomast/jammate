@@ -24,7 +24,7 @@ const ActionDef actionDefs[] {
     { "RESUME",        JamUiIntent::Kind::resume,      true,  "Resume following" },
     { "STOP NEXT BAR", JamUiIntent::Kind::stopNextBar, true,  "Stop at the next bar" },
     { "RESET",         JamUiIntent::Kind::reset,       true,  "Reset the live session" },
-    { "FILL",          JamUiIntent::Kind::fill,        false, "Fills are not implemented in this build" },
+    { "FILL",          JamUiIntent::Kind::fill,        true, "Request a one-bar fill at the next safe bar; suppressed without usable clock confidence" },
     { "BREAK",         JamUiIntent::Kind::breakBar,    false, "Breaks are not implemented in this build" },
 };
 
@@ -68,7 +68,7 @@ JamOverlay::JamOverlay()
     }
     style.setName ("Style");
     style.setTitle ("Jam style");
-    style.setDescription ("Style of the accompaniment. Only Rock is implemented.");
+    style.setDescription ("Choose Rock, Hard Rock / Metal, Blues, Funk, Pop or Shuffle. Changes start at a bar boundary.");
     style.onChange = [this] { emit (JamUiIntent::Kind::style, style.getSelectedId()); };
 
     mode.setName ("Mode");
@@ -82,7 +82,8 @@ JamOverlay::JamOverlay()
         content.addAndMakeVisible (s);
         s.setName (amountNames[i]);
         s.setTitle (amountNames[i]);
-        s.setDescription ("Not implemented in this build.");
+        s.setDescription (i == 3 ? "Not implemented in this build."
+                                : "Adaptive performance amount. Musical changes start at a bar boundary.");
         s.setRange (0.0, 100.0, 1.0);
         s.setSliderStyle (juce::Slider::LinearHorizontal);
         s.setTextBoxStyle (juce::Slider::TextBoxRight, false, 48, 24);
@@ -157,15 +158,15 @@ void JamOverlay::configureControls()
 
     style.clear (juce::dontSendNotification);
     if (demo) style.addItemList ({ "Indie Rock", "Pocket Funk", "Blues Shuffle", "Ambient Pulse" }, 1);
-    else      style.addItem ("Rock", 1);
-    style.setEnabled (demo);   // production surfaces Rock but style selection is not implemented
+    else      style.addItemList ({ "Rock", "Hard Rock / Metal", "Blues", "Funk", "Pop", "Shuffle" }, 1);
+    style.setEnabled (true);
 
     mode.clear (juce::dontSendNotification);
     if (demo) mode.addItemList ({ "Fixed", "Count Me In", "Follow", "Loose Follow", "Free Jam" }, 1);
     else      mode.addItemList ({ "Fixed", "Follow", "Loose" }, 1);
 
-    for (auto& s : amounts)
-        s.setEnabled (demo);
+    for (size_t i = 0; i < amounts.size(); ++i)
+        amounts[i].setEnabled (demo || i < 3);
 
     for (size_t i = 0; i < actions.size(); ++i)
         actions[i].setEnabled (demo || actionDefs[i].implemented);
@@ -280,7 +281,7 @@ void JamOverlay::paintContent (juce::Graphics& g)
             ? "MOCK FIXTURE  /  injected telemetry, no real audio input"
             : "LIVE PIPELINE  /  status is the engine echo, never a scheduled command";
     text (g, banner, header.removeFromTop (22), 12.5f, ui::yellow);
-    text (g, "Rock groove, one prepared style. Tap and resync the clock to lock the pocket.",
+    text (g, "Six 4/4 styles, adaptive dynamics and one-bar fills. Tap and resync to lock the pocket.",
           header, 11.5f, ui::textDim);
 
     // ---- status
@@ -358,7 +359,7 @@ void JamOverlay::paintContent (juce::Graphics& g)
     text (g, "STYLE", style.getBounds().translated (0, -22).withHeight (18), 11.0f, ui::textDim);
     text (g, "JAM MODE", mode.getBounds().translated (0, -22).withHeight (18), 11.0f, ui::textDim);
     if (! simulatedPreview)
-        text (g, "Intensity, complexity, fills and tightness are disabled: not implemented in this build.",
+        text (g, "Style and fills change on bars; fills need confidence. Break and tightness are not implemented.",
               { controlsArea.getX() + 16, controlsArea.getY() + 80, col * 2 + 12, 20 },
               11.0f, ui::yellow);
     for (size_t i = 0; i < amounts.size(); ++i)

@@ -1,6 +1,7 @@
 #include "JamLivePresenter.h"
 
 #include "../jam/RhythmTypes.h"
+#include <cmath>
 
 namespace
 {
@@ -22,6 +23,11 @@ const char* commandName (Cmd t) noexcept
         case Cmd::ResumeFollow:   return "Resume follow";
         case Cmd::SetMode:        return "Set mode";
         case Cmd::Reset:          return "Reset";
+        case Cmd::SetStyle:       return "Style";
+        case Cmd::SetIntensity:   return "Intensity";
+        case Cmd::SetComplexity:  return "Complexity";
+        case Cmd::SetFillAmount:  return "Fill amount";
+        case Cmd::RequestFill:    return "Fill";
     }
     return "Unknown";
 }
@@ -101,6 +107,8 @@ bool JamLivePresenter::mapIntent (const JamUiIntent& in, jam::JamLiveCommand& ou
 {
     using K = JamUiIntent::Kind;
     out = jam::JamLiveCommand {};
+    if (! std::isfinite (in.value))
+        return false;
     switch (in.kind)
     {
         case K::startStop:   out.type = Cmd::Start;          return true;
@@ -121,11 +129,24 @@ bool JamLivePresenter::mapIntent (const JamUiIntent& in, jam::JamLiveCommand& ou
             return true;
         }
         case K::style:
+            if (in.value < 1.0 || in.value > 6.0 || std::floor (in.value) != in.value)
+                return false;
+            out.type = Cmd::SetStyle;
+            out.value = in.value - 1.0;
+            return true;
         case K::intensity:
         case K::complexity:
         case K::fillAmount:
-        case K::followTightness:
+            if (in.value < 0.0 || in.value > 100.0)
+                return false;
+            out.type = in.kind == K::intensity ? Cmd::SetIntensity
+                     : in.kind == K::complexity ? Cmd::SetComplexity : Cmd::SetFillAmount;
+            out.value = in.value / 100.0;
+            return true;
         case K::fill:
+            out.type = Cmd::RequestFill;
+            return true;
+        case K::followTightness:
         case K::breakBar:
             return false;   // no frozen command: must not look applied
     }
@@ -141,7 +162,10 @@ bool JamLivePresenter::submit (const JamUiIntent& in) noexcept
     {
         ++rejects;
         lastAccepted = false;
-        feedback = juce::String (intentName (in.kind)) + " is not implemented in this build.";
+        const bool unsupported = in.kind == JamUiIntent::Kind::followTightness
+                                 || in.kind == JamUiIntent::Kind::breakBar;
+        feedback = juce::String (intentName (in.kind))
+                   + (unsupported ? " is not implemented in this build." : " rejected: invalid value.");
         present();
         return false;
     }
@@ -253,7 +277,8 @@ juce::String JamLivePresenter::nextIntentText() const
     if (startQueued() && ! live.requestedRunning)
         return "Start queued";
     if (live.drumsPlaying)
-        return "Playing";
+        return live.fillPlaying ? "Fill playing (audio echo)"
+             : live.adaptiveChangePending ? "Change queued for a bar" : "Playing";
     if (live.requestedRunning && live.joinPending)
         return "Waiting for a usable clock lock";
     if (live.requestedRunning)
@@ -313,7 +338,7 @@ void JamLivePresenter::present() noexcept
     v.mode = 2;                       // default presentation is Follow
     v.backendName = "unavailable";
     v.failureName = "none";
-    v.availability = "Style, intensity, complexity, fills and tightness are not implemented in this build.";
+    v.availability = "Break and follow tightness are not implemented. Style and fills change at bar boundaries.";
 
     if (haveLive)
     {
@@ -329,6 +354,9 @@ void JamLivePresenter::present() noexcept
         v.failureName = failureName (live.failure);
         v.modeId = (int) live.mode;
         v.mode = juce::jlimit (1, 3, (int) live.mode + 1);
+        v.style = live.styleIndex + 1;
+        v.amounts = { live.intensity01 * 100.0, live.complexity01 * 100.0,
+                      live.fillAmount01 * 100.0, 0.0 };
         v.sessionGeneration = live.sessionGeneration;
         v.audioSampleTime = live.audioSampleTime;
         v.receiptMeasured = live.receiptMeasured;

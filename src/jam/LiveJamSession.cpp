@@ -207,6 +207,32 @@ void LiveJamSession::publishDrumEcho (const DrumPlaybackEcho& echo) noexcept
 
 bool LiveJamSession::submitCommand (const JamLiveCommand& command) noexcept
 {
+    if (! std::isfinite (command.value))
+        return false;
+    switch (command.type)
+    {
+        case JamLiveCommandType::SetStyle:
+            if (command.value < 0.0 || command.value > 5.0
+                || std::floor (command.value) != command.value)
+                return false;
+            break;
+        case JamLiveCommandType::SetIntensity:
+        case JamLiveCommandType::SetComplexity:
+        case JamLiveCommandType::SetFillAmount:
+            if (command.value < 0.0 || command.value > 1.0)
+                return false;
+            break;
+        case JamLiveCommandType::SetMode:
+            if (command.value < 0.0 || command.value >= kTempoModeCount
+                || std::floor (command.value) != command.value)
+                return false;
+            break;
+        default:
+            if (static_cast<int> (command.type) < 0
+                || static_cast<int> (command.type) > static_cast<int> (JamLiveCommandType::RequestFill))
+                return false;
+            break;
+    }
     QueuedCommand queued;
     queued.command = command;
     queued.generation = generation_.load (std::memory_order_acquire);

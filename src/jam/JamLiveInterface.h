@@ -21,7 +21,13 @@ enum class JamLiveCommandType : int
     FreezeTempo,
     ResumeFollow,
     SetMode,
-    Reset
+    Reset,
+    // Adaptive wave additions are appended to preserve the original command IDs.
+    SetStyle,       // value: catalogue index (0..5)
+    SetIntensity,   // value: 0..1
+    SetComplexity,  // value: 0..1
+    SetFillAmount,  // value: 0..1
+    RequestFill
 };
 
 struct JamLiveCommand
@@ -45,6 +51,15 @@ struct JamLiveState
     JamLiveBackend backend = JamLiveBackend::unavailable;
     JamLiveFailure failure = JamLiveFailure::none;
     ClockSnapshot clock {};
+    // Worker-owned settings are distinct from the audio owner's pattern echo.
+    int styleIndex = 0;
+    float intensity01 = 0.5f;
+    float complexity01 = 0.5f;
+    float fillAmount01 = 0.3f;
+    float performanceIntensity01 = 0.5f;
+    int activeGroove = -1;
+    bool fillPlaying = false;
+    bool adaptiveChangePending = false;
     TempoMode mode = TempoMode::Follow;
     float candidateBpm = 0.0f;
     float inputPeak = 0.0f;

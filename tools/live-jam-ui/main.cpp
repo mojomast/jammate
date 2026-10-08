@@ -189,21 +189,21 @@ int runAsyncClickSelfCheck()
     o.setViewState (p.viewState());
     o.setSize (1100, 700);
 
-    int tap = -1, fill = -1;
+    int tap = -1, brk = -1;
     for (int i = 0; i < o.getNumActions(); ++i)
     {
         const auto n = o.getActionButton (i).getName();
         if (n == "TAP") tap = i;
-        if (n == "FILL") fill = i;
+        if (n == "BREAK") brk = i;
     }
-    if (tap < 0 || fill < 0)
+    if (tap < 0 || brk < 0)
     {
-        std::printf ("FAIL async self-check: TAP/FILL missing\n");
+        std::printf ("FAIL async self-check: TAP/BREAK missing\n");
         return 1;
     }
 
     o.getActionButton (tap).triggerClick();     // enabled -> posts a real command
-    o.getActionButton (fill).triggerClick();    // disabled -> JUCE must ignore
+    o.getActionButton (brk).triggerClick();     // disabled -> JUCE must ignore
     auto* mm = juce::MessageManager::getInstance();
     mm->callAsync ([] { juce::MessageManager::getInstance()->stopDispatchLoop(); });
     mm->runDispatchLoop();

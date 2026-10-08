@@ -11,6 +11,7 @@
 #include "../src/ui/JamOverlay.h"
 
 #include <vector>
+#include <limits>
 
 namespace
 {
@@ -228,13 +229,13 @@ TEST_CASE (uiLive_intentToFrozenCommand)
     CHECK (JamLivePresenter::mapIntent ({ K::mode, 9.0 }, c) && c.value == 2.0);
     CHECK (JamLivePresenter::mapIntent ({ K::mode, 0.0 }, c) && c.value == 0.0);
 
+    CHECK (JamLivePresenter::mapIntent ({ K::style, 2.0 }, c) && c.type == jam::JamLiveCommandType::SetStyle && c.value == 1.0);
+    CHECK (JamLivePresenter::mapIntent ({ K::intensity, 70.0 }, c) && c.type == jam::JamLiveCommandType::SetIntensity && c.value == 0.7);
+    CHECK (JamLivePresenter::mapIntent ({ K::complexity, 40.0 }, c) && c.type == jam::JamLiveCommandType::SetComplexity && c.value == 0.4);
+    CHECK (JamLivePresenter::mapIntent ({ K::fillAmount, 30.0 }, c) && c.type == jam::JamLiveCommandType::SetFillAmount && c.value == 0.3);
+    CHECK (JamLivePresenter::mapIntent ({ K::fill, 0.0 }, c) && c.type == jam::JamLiveCommandType::RequestFill);
     // Unsupported controls are never silently queued.
-    CHECK (! JamLivePresenter::mapIntent ({ K::style, 2.0 }, c));
-    CHECK (! JamLivePresenter::mapIntent ({ K::intensity, 70.0 }, c));
-    CHECK (! JamLivePresenter::mapIntent ({ K::complexity, 40.0 }, c));
-    CHECK (! JamLivePresenter::mapIntent ({ K::fillAmount, 30.0 }, c));
     CHECK (! JamLivePresenter::mapIntent ({ K::followTightness, 60.0 }, c));
-    CHECK (! JamLivePresenter::mapIntent ({ K::fill, 0.0 }, c));
     CHECK (! JamLivePresenter::mapIntent ({ K::breakBar, 0.0 }, c));
 }
 
@@ -252,7 +253,7 @@ TEST_CASE (uiLive_submitRejectIsVisibleAndNotApplied)
 
     // Unsupported intent: no command reaches the facade at all.
     const auto before = mock.commands.size();
-    CHECK (! p.submit ({ K::fill, 50.0 }));
+    CHECK (! p.submit ({ K::breakBar, 50.0 }));
     CHECK (mock.commands.size() == before);
     CHECK (p.lastFeedback().containsIgnoreCase ("not implemented"));
 }
@@ -582,22 +583,23 @@ TEST_CASE (uiLive_overlayProductionPresentation)
     o.setViewState (JamViewState {});
 
     CHECK (! o.isSimulatedPreview());
-    CHECK (o.getStyleBox().getNumItems() == 1);
+    CHECK (o.getStyleBox().getNumItems() == 6);
     CHECK (o.getStyleBox().getItemText (0) == "Rock");
-    CHECK (! o.getStyleBox().isEnabled());           // surfaced but not implemented
+    CHECK (o.getStyleBox().isEnabled());
     CHECK (o.getModeBox().getNumItems() == 3);
     CHECK (o.getModeBox().getItemText (1) == "Follow");
     CHECK (o.getModeBox().isEnabled());
 
-    for (int i = 0; i < 4; ++i)
-        CHECK (! o.getAmountSlider (i).isEnabled());
+    for (int i = 0; i < 3; ++i)
+        CHECK (o.getAmountSlider (i).isEnabled());
+    CHECK (! o.getAmountSlider (3).isEnabled());
 
     const int tap = actionIndexNamed (o, "TAP");
     const int fill = actionIndexNamed (o, "FILL");
     const int brk = actionIndexNamed (o, "BREAK");
     REQUIRE (tap >= 0 && fill >= 0 && brk >= 0);
     CHECK (o.getActionButton (tap).isEnabled());
-    CHECK (! o.getActionButton (fill).isEnabled());
+    CHECK (o.getActionButton (fill).isEnabled());
     CHECK (! o.getActionButton (brk).isEnabled());
 
     // Accessibility: every control carries a name + title/description.
@@ -679,14 +681,16 @@ TEST_CASE (uiLive_overlayClicksDrivePresenter)
     o.getActionButton (tap).onClick();
     CHECK (lastCommand (mock).type == jam::JamLiveCommandType::TapTempo);
 
-    // Disabled controls: a programmatic intensity change is rejected, not queued,
-    // and the disabled buttons report disabled (real clicks are covered in the
-    // harness).
+    // Adaptive controls reach the bounded facade, while Break remains disabled.
     const int fill = actionIndexNamed (o, "FILL");
     REQUIRE (fill >= 0);
-    CHECK (! o.getActionButton (fill).isEnabled());
+    CHECK (o.getActionButton (fill).isEnabled());
+    o.getActionButton (fill).onClick();
+    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::RequestFill);
     const auto beforeAmount = mock.commands.size();
     o.getAmountSlider (0).setValue (55.0, juce::sendNotificationSync);
-    CHECK (mock.commands.size() == beforeAmount);
-    CHECK (p.lastFeedback().containsIgnoreCase ("not implemented"));
+    CHECK (mock.commands.size() == beforeAmount + 1);
+    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::SetIntensity);
+    CHECK (lastCommand (mock).value == 0.55);
+    CHECK (! o.getActionButton (actionIndexNamed (o, "BREAK")).isEnabled());
 }
