@@ -1,0 +1,159 @@
+{
+  "schema": "live-jam-replay/predeclared/1.0",
+  "task": "EVAL-LIVE-001",
+  "title": "Actual-processor first-live-Jam replay conditions, fixture truth and metrics",
+  "frozen_before": "any replay measurement or replay evidence inference",
+  "base_commit": "88893e24be328f131b5df673078ff934a46ed5ab",
+  "purpose": "Replay the real GuitarCompanionProcessor callback and the frozen submitJamCommand/readJamLiveState facade under a fixed conditions matrix, so the first live-Jam slice has actual-processor callback-allocation/lock/overhead and audio-clock semantics evidence. Synthetic fixtures are not guitar recordings.",
+  "source_pins": {
+    "facade_header": {
+      "path": "src/jam/JamLiveInterface.h",
+      "sha256": "b24cf6c878e13ab2ce5fa1a3b56afeca31c14008e4e14e918528716f1cf56dc6"
+    },
+    "core_types_header": {
+      "path": "src/jam/RhythmTypes.h",
+      "sha256": "1ca042858c4c0ba9f014510212866384a09c9d304a88015dd6507e6a1f7e2b5d"
+    },
+    "musical_clock_header": {
+      "path": "src/jam/MusicalClock.h",
+      "sha256": "3faac7264bb63b43e3d6b5cd54a903df04484ca4fa45b8f5aabe94f3159fdd96"
+    },
+    "drum_clock_bridge_header": {
+      "path": "src/jam/DrumClockBridge.h",
+      "sha256": "d5dd30d61794a02cbc5fc0166ac8fe92cdcbd8c0dcba00fbe4f4060f411371cc"
+    },
+    "runtime_instrumentation": {
+      "origin": "tools/processor-probe/src/RtProbeInstrumentation.{h,cpp} (copied, unmodified)",
+      "header_sha256": "7cda7ca1d7511482f60a8e6fa6a1624714eddebbd475fc9731bf6d424da09959",
+      "impl_sha256": "9472b3202ce4b1e7221bcd959c7f2c72eb547ec9c0110c2526515e8f0db07f0b"
+    }
+  },
+  "matrix": {
+    "rates_hz": [48000, 96000],
+    "block_sizes": [128, 512, 4096],
+    "pipelines": ["disabled", "enabled", "enabled_pressure"],
+    "inputs": ["clean", "noise", "silence"],
+    "cell_count": 54,
+    "pacing": {
+      "enabled": "realtime",
+      "disabled": "fast",
+      "enabled_pressure": "fast"
+    },
+    "warm_blocks_rule": "round(target_seconds * rate / block), clamped to [16, 200000]; --warm-blocks overrides",
+    "target_seconds_default": 4.0,
+    "smoke_subset": [
+      "disabled_r48000_b128_silence",
+      "disabled_r48000_b128_noise",
+      "enabled_r48000_b128_clean",
+      "enabled_r48000_b128_silence"
+    ],
+    "realtime_total_budget_s": 180,
+    "notes": [
+      "enabled_pressure is the intentional offline fast-loop starvation/queue-pressure cell; it is separate from the realtime paced enabled cells and never claims worker/clock receipt.",
+      "4096 is above the 2048 analysis tap chunk ceiling, so it exercises oversized-callback chunking and remainder handling.",
+      "disabled is the control condition: the pipeline is not started but the attached bridge may still be serviced by the processor; the control does not claim a zero-overhead baseline."
+    ]
+  },
+  "backend": {
+    "required": "experimentalBTrack",
+    "description": "The accepted merged pipeline's explicit live backend. Builds without a live backend must report unavailable and reject Start; the harness then records enabled cells unmeasured and exits 3.",
+    "accepts": ["experimentalBTrack"],
+    "accepts_injected_only_with_explicit_dictionary": true
+  },
+  "metrics": {
+    "callback_alloc": {
+      "cold_fields": ["cxx_new", "cxx_new_array", "cxx_new_nothrow", "cxx_new_aligned", "c_malloc", "c_calloc", "c_realloc"],
+      "warm_fields": ["cxx_new", "cxx_new_array", "cxx_new_nothrow", "cxx_new_aligned", "c_malloc", "c_calloc", "c_realloc"],
+      "authoritative_totals": ["alloc_cxx_total", "alloc_c_total"],
+      "zero_test": "alloc_cxx_total == cxx_new + cxx_new_array + cxx_new_nothrow + cxx_new_aligned; alloc_c_total == c_malloc + c_calloc + c_realloc; each cannot undercount the plain forms"
+    },
+    "callback_free": {
+      "fields": ["cxx_delete", "cxx_delete_array", "cxx_delete_sized", "cxx_delete_aligned", "c_free", "free_total"],
+      "note": "noop_frees is free(NULL), a defined no-op, counted apart from heap frees"
+    },
+    "callback_locks": {
+      "fields": ["lock", "trylock", "cond", "unlock", "blocked_lock", "locked_ns", "max_lock_ns"],
+      "overflow": ["alloc_overflow", "lock_overflow"]
+    },
+    "timing": {
+      "fields": ["callback_count", "callback_wall_ms_sum", "callback_us_per_block", "audio_deadline_ms", "elapsed_wall_s"],
+      "claim": "instrumented wall time around the armed callback, not CPU time, not a latency gate"
+    },
+    "output": ["rms_mean", "rms_max", "peak", "nonzero_blocks"],
+    "clock_semantics": {
+      "fields": ["audio_sample_start", "audio_sample_end", "audio_sample_monotonic", "audio_sample_delta_ok", "audio_sample_delta_mismatches", "generation_changes", "receipt_count", "receipt_measured_count", "receipt_before_horizon", "event_after_horizon", "max_receipt_lag_samples"],
+      "distinct_timestamps": ["lastEventSampleTime", "lastInputHorizonSampleTime", "lastReceiptSampleTime"],
+      "rules": [
+        "audioSampleTime advances by exactly one block per callback, including while Jam is stopped",
+        "when receiptMeasured, lastReceiptSampleTime >= lastInputHorizonSampleTime",
+        "lastEventSampleTime <= lastInputHorizonSampleTime",
+        "receipt timestamps are block-resolution only: no sub-block receipt or measured device latency is claimed"
+      ]
+    }
+  },
+  "truth_expectations": {
+    "silence_enabled": {
+      "clock.lockState": "Acquiring",
+      "clock.confidence01": 0.0,
+      "drumsPlaying": false,
+      "note": "The shipped MusicalClock publishes its configured fallbackBpm while no belief exists. That is an explicit fallback, not tracker-derived tempo; the no-fabrication signal is no lock and no confidence.",
+      "reason": "no observation can lock the clock from silence; the clock advances from the audio cursor without acquiring a belief"
+    },
+    "disabled": {
+      "requestedRunning": false,
+      "reason": "no Start is submitted in the control cells"
+    },
+    "selfcheck": {
+      "must_pass_before_measurement": true
+    }
+  },
+  "fixtures": {
+    "kind": "synthetic_strum_click_noise_silence",
+    "not_guitar_recordings": true,
+    "manifest_schema": "live-jam-replay/fixtures/1.0",
+    "required_entry_fields": ["id", "path", "sha256", "sample_rate", "channels", "frames", "sample_width_bytes", "sample_exact_checksum"],
+    "sample_exact_checksum": "sha256 of the little-endian int16 sample stream as written, independent of WAV container metadata",
+    "generated_outside_git": true,
+    "reason_generated_outside_git": "keep the repository free of waveform binaries; the manifest records identity and the sample-exact checksum for cross-checking"
+  },
+  "fail_closed": {
+    "required_live_definitions": [
+      "src/jam/JamLiveInterface.h",
+      "src/PluginProcessor.h contains submitJamCommand and readJamLiveState",
+      "src/PluginProcessor.cpp defines GuitarCompanionProcessor::submitJamCommand and GuitarCompanionProcessor::readJamLiveState"
+    ],
+    "required_archive_symbols": [
+      "GuitarCompanionProcessor::submitJamCommand",
+      "GuitarCompanionProcessor::readJamLiveState"
+    ],
+    "required_backend_signals": [
+      "a live backend indicator (experimentalBTrack symbol or a JAM/BTRACK build define) in the product build"
+    ],
+    "required_identity": [
+      "product shared-code archive sha256",
+      "product libnam_core.a sha256",
+      "product libGuitarCompanionAssets.a sha256",
+      "product build.ninja sha256",
+      "source src tree hash (committed tree + working-tree content; HEAD is not assumed clean)"
+    ],
+    "detect_product_wrong_source": "the product build.ninja include path for the source tree must equal --source; otherwise the harness refuses to link a stale header against a differently-built archive",
+    "on_missing_live": "write an awaiting-product receipt naming the missing items, do not invoke any existing binary, exit 3 (never report a stale archive as clean)"
+  },
+  "verification_scope": {
+    "in_scope": [
+      "actual-processor callback allocation/free/lock counters for the tap/pipeline",
+      "audio sample-clock advance and stopped-state advance semantics",
+      "receipt availability/horizon/event timestamp distinctness",
+      "join/stop/resync/reprepare/reset command acceptance and state transitions",
+      "callback overhead contrast disabled vs enabled at the same block/rate/input",
+      "oversized 4096 callback chunking and remainder behaviour",
+      "silence no-tempo-fabrication and no-join control"
+    ],
+    "out_of_scope": [
+      "physical audio device, ASIO and latency deadlines",
+      "Windows builds and hosted VST3",
+      "representative real-guitar useful-lock >=95% within-two-bar trials",
+      "whole-program allocation safety"
+    ]
+  }
+}
