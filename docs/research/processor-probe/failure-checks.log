@@ -1,0 +1,17 @@
+RT-002 probe failure checks
+binary: /home/mojo/projects/guitars-build-resume/probe/build/processor_probe
+
+PASS  exit=64  --warm-blocks 0
+PASS  exit=64  --warm-blocks -5
+PASS  exit=64  --warm-blocks abc
+PASS  exit=64  --warm-blocks 100001
+PASS  exit=64  --warm-blocks (missing)
+PASS  exit=64  unknown option
+PASS  exit=64  unknown scene mode
+PASS  exit=5  unwriteable CSV path (full run)
+PASS  contains 'self-check PASS'  full warm=1 self-check
+PASS  contains 'scene[audio]'  full warm=1 scene
+PASS  contains 'expectation=OK'  noaudio short
+PASS  contains 'expectation=OK'  noaudio long
+
+ALL FAILURE CHECKS PASSED

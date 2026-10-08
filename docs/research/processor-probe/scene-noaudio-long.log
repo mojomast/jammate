@@ -1,0 +1,9 @@
+RT-002 processor runtime probe
+==============================
+mode=scene-noaudio-long warm blocks per case=256
+
+[scene differential: scene-noaudio-long, 400 ms window]
+  scene[noaudio]: saved=0.000000 changed=-16.799999 before=-16.799999 after=0.000000 restored=1 restore@256.2 ms (loop@256.2 ms) dispatch=400.0 ms
+  scene[noaudio]: blocks=0 signal(alloc=0 free=0 lock=0 trylock=0 cond=0 unlock=0) stopBefore=0 stopAfter=1 dispatchInBound=0 editorNull=1
+
+[scene-noaudio-long] expectation=OK

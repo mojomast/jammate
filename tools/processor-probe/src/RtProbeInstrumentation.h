@@ -115,6 +115,7 @@ void disarm() noexcept;
 // Called by the allocator wrappers. Must not allocate or lock.
 void recordAlloc (Kind k, std::size_t bytes, void* ptr, void* caller) noexcept;
 void recordLock (void* mutex, std::uint64_t waitedNs, void* caller, bool tryOnly) noexcept;
+void recordCondWait (void* mutex, std::uint64_t waitedNs, void* caller) noexcept;
 
 struct Snapshot
 {

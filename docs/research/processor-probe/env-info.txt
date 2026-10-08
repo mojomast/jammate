@@ -1,33 +1,45 @@
 RT-002 processor runtime probe - environment and artefact identity
-generated: 2026-10-08T00:20:23Z
+generated: 2026-10-08T00:28:42Z
 
 uname          : Linux mail.basilisk.online 6.12.105+deb13-cloud-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.105-1 (2026-08-24) x86_64 GNU/Linux
 g++            : g++ (Debian 14.2.0-19) 14.2.0
 ld             : GNU ld (GNU Binutils for Debian) 2.44
 
-worktree HEAD  : cd9f97fe4969630ea5a01254c32f48001897f012
+worktree HEAD  : 3daf9318147931f575e2ad40a7ac25e874689a2f
 branch         : wp/RT-002-processor-probe
-base commit    : cd9f97f (wp/RT-002-processor-probe)
-src identical to main checkout: yes
+base commit    : cd9f97f
+src worktree identical to main checkout: yes
 
-SharedCode.a   : /home/mojo/projects/guitars-build-resume/plugin/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a
-  sha256       : 46edfe5dcda44acf28c690b5a2a0eeb3401f6f7aff0f557d1863003d96f6b147
-libnam_core.a  : sha256 af023ffcafd198e7a09107b78f2c540d4d3dbdce3c717e9ea3f215097e412d1b
-assets archive : sha256 c097a68ce36cc0f46fd30b13e02988328efe1bc5dffc35957efa4efb0e04618c
-probe binary   : /home/mojo/projects/guitars-build-resume/probe/build/processor_probe
-  sha256       : c2d514adedd7c7e10a146161a0d5c28246dcc50169848481484622b5c8f2628e
+source pin (see source-pin.txt in the probe build dir):
+  src/PluginProcessor.cpp sha256=bb241d627af9c68943e299f25655c787dc103efd2d7cbe1ba6dddec744d3a7ca  main_identical=yes
+  src/PluginProcessor.h sha256=b1a1a41e117258402cd95fe4f95e8158ef74197a622b872e9e257d97b1367b4f  main_identical=yes
+  src/DrumEngine.cpp sha256=4c407bef2d5f36365e34547bba232ed5743cab468cecdbafd795a55995cbd650  main_identical=yes
+  src/DrumEngine.h sha256=331d0ecafd6edf02acb18f0ae8922ae3951f95de1f5296b748f32bd7faa8ec6c  main_identical=yes
+  src/rt/RtSignal.h sha256=9cb0fa0131d3f3b6419e7ca33c7870eb65e05b9f8292aa45ce19bde33af71e1d  main_identical=yes
+  shared_archive sha256=46edfe5dcda44acf28c690b5a2a0eeb3401f6f7aff0f557d1863003d96f6b147
+  nam_core archive sha256=af023ffcafd198e7a09107b78f2c540d4d3dbdce3c717e9ea3f215097e412d1b
+  assets archive   sha256=c097a68ce36cc0f46fd30b13e02988328efe1bc5dffc35957efa4efb0e04618c
+  probe binary     sha256=2db6bc2e4068c16c010a9a5da3909738f06c58bd5a4c85de5fea04426f3ba226
 
 NAM model      : /home/mojo/projects/guitars/third_party/NeuralAmpModelerCore/example_models/lstm.nam
-  sha256       : df9f78c49f49c2bb32411df47e3f53746075adb206b92d017e06379d1e56234a
-  size         : 2307 bytes
+  sha256       : df9f78c49f49c2bb32411df47e3f53746075adb206b92d017e06379d1e56234a  size=2307 bytes
+  architecture : LSTM (per-sample heap allocations observed in the callback)
 
 JUCE pin       : 91ad83ae34a81e0833b1a2b0866f54846370ae53
 NAM pin        : 1f42f88535884450104b8711d7595019afa0495b
 
-run: warm blocks = 256; rates 44100/48000/96000; blocks 64/128/512;
-     drums stopped/playing; NAM lstm.nam at 48000 & 96000, blocks 128 & 512;
-     scene case: 48000/128, 11 processBlock calls, 100 ms JUCE message loop.
+run           : warm=256 (1 cold + 256 warm per case); rates 44.1/48/96 kHz;
+                blocks 64/128/512; drums stopped/playing; inputs refilled
+                with a deterministic finite non-zero signal every callback.
+case duration : 257 * block / rate seconds (1 cold + 256 warm); NOT a full
+                4-bar pattern (at 120 BPM that is 8 s).
+NAM cases     : lstm.nam at 48/96 kHz, blocks 128/512, drums off/on.
+scene         : 48 kHz/128, 11 processBlock calls to raise the flag;
+                genuine JUCE message loop bounded to 100 ms (audio), and
+                differential no-audio runs at 150 ms / 400 ms.
 
-display/Xvfb   : not used; JUCE message loop runs headless (no window created,
-                 no editor constructed).
-audio device   : none opened; processBlock invoked directly on the probe thread.
+clock note    : reported per-block times are instrumented WALL time around
+                the armed processBlock call (hooks included), not CPU time
+                and not a latency/dropout gate.
+display/Xvfb  : not used; JUCE message loop runs headless.
+audio device  : none opened; processBlock invoked on the probe thread.

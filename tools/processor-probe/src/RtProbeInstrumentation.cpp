@@ -65,6 +65,20 @@ void* callerOffset (void* caller) noexcept
 namespace rtprobe
 {
 
+// The instrumentation relies on genuinely lock-free atomics: a hook must never
+// take a lock (it would be measured as a lock and could deadlock). Reject at
+// compile time on any target where these are not always lock-free.
+static_assert (std::atomic<std::uint64_t>::is_always_lock_free,
+               "rtprobe requires lock-free 64-bit atomics");
+static_assert (std::atomic<std::uint32_t>::is_always_lock_free,
+               "rtprobe requires lock-free 32-bit atomics");
+static_assert (std::atomic<void*>::is_always_lock_free,
+               "rtprobe requires lock-free pointer atomics");
+static_assert (std::atomic<bool>::is_always_lock_free,
+               "rtprobe requires lock-free bool atomics");
+static_assert (std::atomic<int>::is_always_lock_free,
+               "rtprobe requires lock-free int atomics");
+
 std::atomic<std::uint64_t> gAllocCalls[kKindCount];
 std::atomic<std::uint64_t> gAllocBytes[kKindCount];
 std::atomic<std::uint64_t> gAllocRecordCount { 0 };
@@ -146,22 +160,25 @@ void recordAlloc (Kind k, std::size_t bytes, void* ptr, void* caller) noexcept
     }
 }
 
-void recordLock (void* mutex, std::uint64_t waitedNs, void* caller, bool tryOnly) noexcept
+namespace
 {
-    if (tryOnly)
-        gTrylockCalls.fetch_add (1, std::memory_order_relaxed);
-    else
-        gLockCalls.fetch_add (1, std::memory_order_relaxed);
+// Single-writer max publish: the only writer is the armed probe thread, so a
+// relaxed load + conditional relaxed store is sufficient and bounded. No CAS
+// retry loop (the probe contract forbids one on this path).
+inline void publishMaxLockNs (std::uint64_t waitedNs) noexcept
+{
+    if (waitedNs > gMaxLockNs.load (std::memory_order_relaxed))
+        gMaxLockNs.store (waitedNs, std::memory_order_relaxed);
+}
 
+inline void recordLockDetail (void* mutex, std::uint64_t waitedNs, void* caller,
+                              bool tryOnly) noexcept
+{
     gLockedNanos.fetch_add (waitedNs, std::memory_order_relaxed);
     if (waitedNs > kBlockedLockNs)
         gBlockedLockCalls.fetch_add (1, std::memory_order_relaxed);
 
-    std::uint64_t cur = gMaxLockNs.load (std::memory_order_relaxed);
-    while (waitedNs > cur
-           && ! gMaxLockNs.compare_exchange_weak (cur, waitedNs,
-                                                  std::memory_order_relaxed))
-    {}
+    publishMaxLockNs (waitedNs);
 
     const auto r = gLockRecordCount.fetch_add (1, std::memory_order_relaxed);
     if (r < kMaxLockRecords)
@@ -177,6 +194,23 @@ void recordLock (void* mutex, std::uint64_t waitedNs, void* caller, bool tryOnly
     {
         gLockRecordOverflow.fetch_add (1, std::memory_order_relaxed);
     }
+}
+} // namespace
+
+void recordLock (void* mutex, std::uint64_t waitedNs, void* caller, bool tryOnly) noexcept
+{
+    if (tryOnly)
+        gTrylockCalls.fetch_add (1, std::memory_order_relaxed);
+    else
+        gLockCalls.fetch_add (1, std::memory_order_relaxed);
+
+    recordLockDetail (mutex, waitedNs, caller, tryOnly);
+}
+
+void recordCondWait (void* mutex, std::uint64_t waitedNs, void* caller) noexcept
+{
+    gCondWaitCalls.fetch_add (1, std::memory_order_relaxed);
+    recordLockDetail (mutex, waitedNs, caller, false);
 }
 
 Snapshot snapshot() noexcept
@@ -280,7 +314,10 @@ inline void* keepAlive (void* p) noexcept
 
 void* rawAlloc (std::size_t n) noexcept
 {
-    return __real_malloc (n != 0 ? n : 1);
+    // Preserve exact C semantics: malloc(0)/new(0) must not be rewritten to
+    // malloc(1). glibc returns a unique non-null pointer for size 0, which
+    // satisfies the C++ new-expression contract.
+    return __real_malloc (n);
 }
 
 void* rawAllocAligned (std::size_t n, std::size_t alignment) noexcept
@@ -288,7 +325,7 @@ void* rawAllocAligned (std::size_t n, std::size_t alignment) noexcept
     if (alignment < sizeof (void*))
         alignment = sizeof (void*);
     void* p = nullptr;
-    if (posix_memalign (&p, alignment, n != 0 ? n : 1) != 0)
+    if (posix_memalign (&p, alignment, n) != 0)
         return nullptr;
     return p;
 }
@@ -453,7 +490,7 @@ void operator delete[] (void* p, std::size_t, std::align_val_t) noexcept
 
 extern "C" void* __wrap_malloc (std::size_t n)
 {
-    void* p = __real_malloc (n != 0 ? n : 1);
+    void* p = __real_malloc (n);
     if (rtprobe::tArmed)
         rtprobe::recordAlloc (rtprobe::Kind::cMalloc, n, p,
                               __builtin_return_address (0));
@@ -471,7 +508,10 @@ extern "C" void* __wrap_calloc (std::size_t count, std::size_t size)
 
 extern "C" void* __wrap_realloc (void* old, std::size_t n)
 {
-    void* p = __real_realloc (old, n != 0 ? n : 1);
+    // Exact C semantics preserved. A realloc that moves or frees the old block
+    // does so inside libc; only the realloc call itself is counted, and no
+    // implied free is added to the free counters.
+    void* p = __real_realloc (old, n);
     if (rtprobe::tArmed)
         rtprobe::recordAlloc (rtprobe::Kind::cRealloc, n, p,
                               __builtin_return_address (0));
@@ -522,11 +562,10 @@ extern "C" int __wrap_pthread_cond_clockwait (pthread_cond_t* c, pthread_mutex_t
     if (! rtprobe::tArmed)
         return __real_pthread_cond_clockwait (c, m, clockId, abstime);
 
-    rtprobe::gCondWaitCalls.fetch_add (1, std::memory_order_relaxed);
     const auto t0 = rtprobe::monotonicNs();
     const int r = __real_pthread_cond_clockwait (c, m, clockId, abstime);
     const auto dt = rtprobe::monotonicNs() - t0;
-    rtprobe::recordLock (m, dt, __builtin_return_address (0), true);
+    rtprobe::recordCondWait (m, dt, __builtin_return_address (0));
     return r;
 }
 
@@ -566,12 +605,15 @@ int runSelfCheck (std::FILE* out)
             fail ("unarmed region recorded allocation/free traffic");
         if (s.lockCalls != 0 || s.unlockCalls != 0)
             fail ("unarmed region recorded lock traffic");
+        if (s.trylockCalls != 0 || s.condWaitCalls != 0)
+            fail ("unarmed region recorded trylock/cond traffic");
     }
 
     // Phase 1: the same operations, armed, must be recorded under the correct
-    // categories. This is the positive detection proof. The unsized C++
-    // families are exercised through direct operator calls so they cannot be
-    // elided or replaced by the compiler's sized-delete lowering.
+    // categories, with exact counts. The unsized C++ families are exercised
+    // through direct operator calls so they cannot be elided or rewritten by
+    // the compiler's sized-delete lowering. trylock and a timed cond wait are
+    // exercised too, so every detector is positively proven.
     resetAll();
     arm();
     {
@@ -584,9 +626,21 @@ int runSelfCheck (std::FILE* out)
         volatile void* raw   = keepAlive (std::malloc (24));
         raw = keepAlive (std::realloc ((void*) raw, 48));
         volatile void* zed   = keepAlive (std::calloc (2, 8));
+
         pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
         pthread_mutex_lock (&m);
+        pthread_mutex_trylock (&m);          // EBUSY, still counted as a try
         pthread_mutex_unlock (&m);
+
+        pthread_mutex_t cm = PTHREAD_MUTEX_INITIALIZER;
+        pthread_cond_t  cv = PTHREAD_COND_INITIALIZER;
+        pthread_mutex_lock (&cm);
+        struct timespec ts;
+        clock_gettime (CLOCK_MONOTONIC, &ts);
+        ts.tv_nsec += 1000000;               // 1 ms timeout -> ETIMEDOUT
+        if (ts.tv_nsec >= 1000000000) { ts.tv_sec += 1; ts.tv_nsec -= 1000000000; }
+        pthread_cond_clockwait (&cv, &cm, CLOCK_MONOTONIC, &ts);
+        pthread_mutex_unlock (&cm);
 
         delete scalar;
         delete[] array;
@@ -600,22 +654,28 @@ int runSelfCheck (std::FILE* out)
     {
         const Snapshot s = snapshot();
         const auto calls = [&] (Kind k) { return s.allocCalls[(std::size_t) k]; };
+        const auto deleteTotal = calls (Kind::cxxDelete)
+                               + calls (Kind::cxxDeleteArray)
+                               + calls (Kind::cxxDeleteSized);
 
-        if (calls (Kind::cxxNew)         < 1) fail ("armed new not detected");
-        if (calls (Kind::cxxNewArray)    < 1) fail ("armed new[] not detected");
-        if (calls (Kind::cxxDelete)      < 1) fail ("armed delete not detected");
-        if (calls (Kind::cxxDeleteArray) < 1) fail ("armed delete[] not detected");
-        if (calls (Kind::cMalloc)        < 1) fail ("armed malloc not detected");
-        if (calls (Kind::cRealloc)       < 1) fail ("armed realloc not detected");
-        if (calls (Kind::cCalloc)        < 1) fail ("armed calloc not detected");
-        if (calls (Kind::cFree)          < 2) fail ("armed free not detected (need 2)");
-        if (s.lockCalls                  < 1) fail ("armed pthread_mutex_lock not detected");
-        if (s.unlockCalls                < 1) fail ("armed pthread_mutex_unlock not detected");
+        if (calls (Kind::cxxNew)      != 2) fail ("armed new count != 2");
+        if (calls (Kind::cxxNewArray) != 2) fail ("armed new[] count != 2");
+        if (calls (Kind::cxxDelete)      < 1) fail ("armed unsized delete not detected");
+        if (calls (Kind::cxxDeleteArray) < 1) fail ("armed unsized delete[] not detected");
+        if (deleteTotal                != 4) fail ("armed delete family total != 4");
+        if (calls (Kind::cMalloc)  != 1) fail ("armed malloc count != 1");
+        if (calls (Kind::cCalloc)  != 1) fail ("armed calloc count != 1");
+        if (calls (Kind::cRealloc) != 1) fail ("armed realloc count != 1");
+        if (calls (Kind::cFree)    != 2) fail ("armed free count != 2");
+        if (s.lockCalls       != 2) fail ("armed lock count != 2");
+        if (s.unlockCalls     != 2) fail ("armed unlock count != 2");
+        if (s.trylockCalls    != 1) fail ("armed trylock count != 1");
+        if (s.condWaitCalls   != 1) fail ("armed cond wait count != 1");
 
         std::fprintf (out,
-                      "  armed: new=%llu new[]=%llu del=%llu del[]=%llu del(sized)=%llu"
+                      "  armed exact: new=%llu new[]=%llu del=%llu del[]=%llu del(sized)=%llu"
                       " malloc=%llu calloc=%llu realloc=%llu free=%llu"
-                      " lock=%llu unlock=%llu\n",
+                      " lock=%llu unlock=%llu trylock=%llu cond=%llu\n",
                       (unsigned long long) calls (Kind::cxxNew),
                       (unsigned long long) calls (Kind::cxxNewArray),
                       (unsigned long long) calls (Kind::cxxDelete),
@@ -626,7 +686,9 @@ int runSelfCheck (std::FILE* out)
                       (unsigned long long) calls (Kind::cRealloc),
                       (unsigned long long) calls (Kind::cFree),
                       (unsigned long long) s.lockCalls,
-                      (unsigned long long) s.unlockCalls);
+                      (unsigned long long) s.unlockCalls,
+                      (unsigned long long) s.trylockCalls,
+                      (unsigned long long) s.condWaitCalls);
     }
 
     return failures == 0 ? 0 : 1;
