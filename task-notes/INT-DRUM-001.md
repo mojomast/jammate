@@ -159,6 +159,7 @@ in `/home/mojo/projects/build-INT-DRUM-001-worker/manifest.json`.
   bridge, so this is net-new wiring, not a toggle.
 
 ## Final commit
-`8950873cb32a796590b730d7a7bf84a81459142d` on `wp/INT-DRUM-001-clock-bridge`.
-This note is finalized in the immediate follow-up commit; the worktree is clean
-after both.
+- Original implementation: `8950873cb32a796590b730d7a7bf84a81459142d`.
+- Review correction (this handoff): `57dcefe1a0e13f22a3647b52a26d53cf21853cc9`
+  on `wp/INT-DRUM-001-clock-bridge`; the note is finalized in the immediate
+  follow-up commit.
