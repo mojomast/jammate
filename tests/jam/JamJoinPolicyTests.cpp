@@ -129,6 +129,11 @@ JAM_TEST (jamjoinpolicy, lostStopsButKeepsIntentAndCanRecover)
     CHECK (policy.requestedRunning());
     policy.notifyStopAccepted (true);
 
+    // The accepted stop is respected: the join waits for the stopped echo.
+    CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
+           == JamJoinAction::none);
+    policy.notifyPlaybackEcho (false);
+
     // A recovered lock rejoins without a new Start.
     const auto recovered = policy.update (snapshotWith (ClockLockState::Locked), false);
     CHECK (recovered.action == JamJoinAction::joinAtNextBar);
@@ -265,4 +270,168 @@ JAM_TEST (jamjoinpolicy, engineDropoutReArmsJoinWhileRunning)
     CHECK (! policy.engaged());
     CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
            == JamJoinAction::joinAtNextBar);
+}
+
+//============================================================================
+// P2: a persistent Lost must issue exactly ONE accepted stop, not one Clear per
+// control tick, and must not re-issue after the stopped echo.
+//============================================================================
+
+JAM_TEST (jamjoinpolicy, lostIssuesExactlyOneAcceptedStop)
+{
+    JamJoinPolicy policy;
+    engage (policy);
+
+    int stopActions = 0;
+    for (int i = 0; i < 10; ++i)
+    {
+        const auto d = policy.update (snapshotWith (ClockLockState::Lost), false);
+        if (d.action == JamJoinAction::stopNow)
+        {
+            ++stopActions;
+            policy.notifyStopAccepted (true);
+        }
+    }
+    CHECK_EQ (stopActions, 1);
+    CHECK (policy.stopPending());
+}
+
+JAM_TEST (jamjoinpolicy, lostRetriesBoundedUntilAccepted)
+{
+    JamJoinPolicy policy;
+    engage (policy);
+
+    int attempts = 0;
+    for (int i = 0; i < 10; ++i)
+    {
+        const auto d = policy.update (snapshotWith (ClockLockState::Lost), false);
+        if (d.action == JamJoinAction::stopNow)
+            ++attempts;
+        policy.notifyStopAccepted (false); // queue full
+    }
+    CHECK_EQ (attempts, 10); // retried every tick while rejected
+
+    const auto accepted = policy.update (snapshotWith (ClockLockState::Lost), false);
+    CHECK (accepted.action == JamJoinAction::stopNow);
+    policy.notifyStopAccepted (true);
+    CHECK (policy.update (snapshotWith (ClockLockState::Lost), false).action
+           == JamJoinAction::none);
+    CHECK (policy.stopPending());
+}
+
+JAM_TEST (jamjoinpolicy, lostAwaitingEchoDoesNotReClearAndAfterAckNoMore)
+{
+    JamJoinPolicy policy;
+    engage (policy);
+
+    CHECK (policy.update (snapshotWith (ClockLockState::Lost), false).action
+           == JamJoinAction::stopNow);
+    policy.notifyStopAccepted (true);
+
+    // Still playing: the stop waits, no re-clear.
+    for (int i = 0; i < 10; ++i)
+    {
+        policy.notifyPlaybackEcho (true);
+        CHECK (policy.update (snapshotWith (ClockLockState::Lost), false).action
+               == JamJoinAction::none);
+    }
+
+    policy.notifyPlaybackEcho (false); // stopped ack
+    CHECK (! policy.stopPending());
+
+    // Still Lost: no new Clear and no Join.
+    for (int i = 0; i < 20; ++i)
+        CHECK (policy.update (snapshotWith (ClockLockState::Lost), false).action
+               == JamJoinAction::none);
+}
+
+JAM_TEST (jamjoinpolicy, lostIdleIssuesNothing)
+{
+    JamJoinPolicy policy;
+    policy.notifyStart(); // running, but never joined (Acquiring then Lost)
+
+    for (int i = 0; i < 10; ++i)
+        CHECK (policy.update (snapshotWith (ClockLockState::Lost), false).action
+               == JamJoinAction::none);
+    CHECK (! policy.stopPending());
+}
+
+JAM_TEST (jamjoinpolicy, recoveredLockedJoinsOnceAfterStoppedEcho)
+{
+    JamJoinPolicy policy;
+    engage (policy);
+
+    CHECK (policy.update (snapshotWith (ClockLockState::Lost), false).action
+           == JamJoinAction::stopNow);
+    policy.notifyStopAccepted (true);
+    policy.notifyPlaybackEcho (false);
+
+    const auto d = policy.update (snapshotWith (ClockLockState::Locked), false);
+    CHECK (d.action == JamJoinAction::joinAtNextBar);
+    policy.notifyJoinAccepted (true);
+    CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
+           == JamJoinAction::none); // exactly one join
+    policy.notifyPlaybackEcho (true);
+    CHECK (policy.engaged());
+    CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
+           == JamJoinAction::none);
+}
+
+//============================================================================
+// P3: stop-kind upgrade. StopNow overrides an accepted bar stop; StopNow is
+// never downgraded; Start respects an accepted stop.
+//============================================================================
+
+JAM_TEST (jamjoinpolicy, stopNowUpgradesAcceptedBarStop)
+{
+    JamJoinPolicy policy;
+    engage (policy);
+
+    policy.notifyStop (JamStopKind::nextBar);
+    CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
+           == JamJoinAction::stopAtNextBar);
+    policy.notifyStopAccepted (true); // bar stop accepted
+
+    // StopNow must still publish an immediate cancel/Clear.
+    policy.notifyStop (JamStopKind::now);
+    CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
+           == JamJoinAction::stopNow);
+    policy.notifyStopAccepted (true);
+    CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
+           == JamJoinAction::none);
+}
+
+JAM_TEST (jamjoinpolicy, stopAtNextBarNeverDowngradesStopNow)
+{
+    JamJoinPolicy policy;
+    engage (policy);
+
+    policy.notifyStop (JamStopKind::now);
+    CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
+           == JamJoinAction::stopNow);
+    policy.notifyStopAccepted (true);
+
+    policy.notifyStop (JamStopKind::nextBar); // must not downgrade or emit
+    CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
+           == JamJoinAction::none);
+}
+
+JAM_TEST (jamjoinpolicy, startRespectsAcceptedStopThenJoinsAfterEcho)
+{
+    JamJoinPolicy policy;
+    engage (policy);
+
+    policy.notifyStop (JamStopKind::nextBar);
+    CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
+           == JamJoinAction::stopAtNextBar);
+    policy.notifyStopAccepted (true);
+
+    // Start cannot retroactively cancel an accepted stop: it waits.
+    policy.notifyStart();
+    CHECK (policy.update (snapshotWith (ClockLockState::Locked), false).action
+           == JamJoinAction::none);
+
+    policy.notifyPlaybackEcho (false); // the bar stop fired
+    const auto d = policy.update (snapshotWith (ClockLockState::Locked), false);
+    CHECK (d.action == JamJoinAction::joinAtNextBar);
 }

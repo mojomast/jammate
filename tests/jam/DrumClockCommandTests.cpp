@@ -648,3 +648,33 @@ JAM_TEST (DrumClockBridge, requestStopNowQueueFullLeavesGridStateUntouched)
     CHECK_EQ (bridge.playing(), true);         // grid state not flipped on reject
     CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (1));
 }
+
+//==============================================================================
+// INT-LIVE-001 P2: the control worker may apply a fresh snapshot every tick
+// (the clock generation advances as phase changes). A tempo staged for a future
+// bar boundary must be published once per target value, not once per tick, or
+// it floods the bounded queue; a changed target still republishes.
+//==============================================================================
+JAM_TEST (DrumClockBridge, repeatedSnapshotDoesNotRepublishStagedTempo)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    bridge.applySnapshot (lockedSnapshot (150.0, 1));
+    (void) popOne (bridge); // the single SetTempo
+
+    for (int i = 0; i < 20; ++i)
+        bridge.applySnapshot (lockedSnapshot (150.0, static_cast<std::uint64_t> (2 + i)));
+
+    DrumClockCommand command;
+    CHECK_EQ (bridge.popCommand (command), false); // no flood, no drops
+    CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (0));
+
+    // A changed tempo target still publishes.
+    bridge.applySnapshot (lockedSnapshot (160.0, 100));
+    const DrumClockCommand changed = popOne (bridge);
+    CHECK_EQ (static_cast<int> (changed.type),
+              static_cast<int> (DrumClockCommandType::SetTempo));
+    CHECK_NEAR (changed.bpm, 160.0, 1e-12);
+}

@@ -177,6 +177,14 @@ void DrumClockBridge::stageTempo (double bpm) noexcept
     if (clamped == bpm_ && ! haveStagedTempo_)
         return; // no change, nothing to stage or publish
 
+    // The control worker may call applySnapshot() every tick while the clock's
+    // snapshot generation advances (phase changes each tick). Without this
+    // dedupe, a tempo staged for a future bar boundary would be republished on
+    // every tick until that boundary, flooding the bounded command queue. The
+    // tempo is staged once per target value; a changed target republishes.
+    if (haveStagedTempo_ && clamped == stagedBpm_)
+        return;
+
     const std::uint64_t boundary =
         haveStagedTempo_ ? stagedBoundary_ : nextBarBoundarySample();
 

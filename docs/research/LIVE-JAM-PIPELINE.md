@@ -93,14 +93,22 @@ contract, not the full Jam Director. **Intent, sent and echo-ack are separate**:
 - a wanted stop persists until the audio owner echoes that it actually stopped.
   A still-playing echo does **not** clear a pending stop, so a next-bar stop
   cannot be dropped;
+- **one accepted stop across a persistent Lost.** A sustained Lost clock issues
+  exactly one stop (retried only while the bridge rejects it) and then waits for
+  the stopped echo; it does **not** re-publish a Clear every control tick. After
+  the echo, while still Lost, it issues neither a Clear nor a Join. An idle Lost
+  (nothing engaged, no pending join/stop) issues nothing. The running intent may
+  recover only once the clock is Locked again;
 - `Stop`/`Reset`/`Lost` immediately cancel any future join, and a stopped policy
   never auto-rejoins from a snapshot; only an explicit Start re-arms a join;
-- `Holdover` **holds**; a discontinuity forces a cancel stop.
+- `Holdover` **holds**; a discontinuity forces a cancel stop (once).
 
-The previous P1 defects are covered by regressions: queue-full join then drain
+The earlier P1/P2 defects are covered by regressions: queue-full join then drain
 joins; queue-full Stop under an ongoing playing echo retries and stops; a
 Start/Stop before the downbeat cannot resurrect a queued join; an echo from
-another generation is ignored.
+another generation is ignored; 10 Lost ticks produce exactly one accepted stop;
+10 rejected Lost ticks retry and then stop once; 20 Lost ticks after the stopped
+echo issue nothing; a recovered lock joins exactly once.
 
 ## Bridge / tempo / stop authority
 
@@ -119,7 +127,17 @@ Stop verbs are distinct (STOPDECISION):
 | `Stop` | `requestStopNow()` | bounded cancel/**Clear** at the next serviced block; cancels queued join/tempo/resync; releases injected mode |
 | `StopAtNextBar` | `requestStopAtNextBar()` | musical stop at the next bar boundary |
 | `Reset` | `requestStopNow()` + clock forget | immediate-serviced stop; no quiescent bridge reset while audio is active |
-| Loss / discontinuity | `requestStopNow()` | cancel the grid and any future join |
+| Loss / discontinuity | `requestStopNow()` | cancel the grid and any future join (once) |
+
+**Stop-kind upgrade.** `StopNextBar -> StopNow` (or Reset) publishes an
+immediate bounded cancel/Clear even when a bar stop was already accepted, so the
+engine applies the Clear after the queued bar stop and drops its delayed event.
+`StopNow -> StopAtNextBar` is never downgraded, and a repeated immediate Stop
+coalesces. A `Start` during an accepted stop is an intent to re-arm: the
+accepted stop cannot be retroactively cancelled without an engine API, so it is
+respected and the join is re-armed only after the stopped echo (a `Start` does
+abandon an *unlanded*, not-yet-accepted stop). `Reset` still publishes a Clear
+to flush even if the engine is already silent.
 
 `requestStopNow()` returns false (and counts) on a full queue and leaves the
 worker grid state untouched, so the policy can retry. It updates `playing_`,
@@ -184,22 +202,33 @@ ordering means an already-queued join is cancelled by the Clear ordered after it
    corrupt/overflowed caller. Forward jumps beyond one minute are discontinuities
    and are counted **once** per event (the cursor re-anchor and the bridge's
    `setClockSample` rejection are the same event).
+6. **Staged-tempo dedupe.** The control worker applies a fresh snapshot every
+   tick (the clock generation advances as phase changes). `stageTempo` now
+   publishes a staged tempo once per target value, not once per tick, so a
+   tempo staged for a future bar cannot flood the bounded queue; a changed
+   target still republishes. (The bridge header is unchanged from the
+   preregistered pin; this is a `.cpp`-only guard.)
 
 ## Verification performed by this task
 
 - `jam-core` standalone build (`-Wall -Wextra -Wpedantic`) and full `jamTests`:
-  **250 tests, 212605 checks, 0 failed** (was 234 before this extension).
-- New/updated deterministic portable suites: `jamjoinpolicy` (13 cases) and
-  `livejamsession` (32 cases), plus 4 new `DrumClockBridge` cases; runnable as
-  `ctest -R 'jam\.(livejamsession|jamjoinpolicy|DrumClockBridge)'`.
+  **260 tests, 212702 checks, 0 failed** (234 before the first extension, 250
+  before this one).
+- Deterministic portable suites: `jamjoinpolicy` (21 cases) and
+  `livejamsession` (33 cases), plus 5 new `DrumClockBridge` stop/dedupe cases;
+  runnable as `ctest -R 'jam\.(livejamsession|jamjoinpolicy|DrumClockBridge)'`.
 - Actual `DrumEngine` + bridge driver, linked against the **readonly** prebuilt
   JUCE objects of `build-INT-DRUM-001-integration/product` with the changed
   `DrumEngine.cpp`/`DrumClockBridge.cpp`/`DrumClockBridgeTests.cpp` recompiled
-  from this worktree: **79 cases, 0 failed**, including 3 new
-  join→Stop→manual-resume engine cases and the callback allocation probe.
+  from this worktree: **81 cases, 0 failed**, including the new
+  bar-stop-then-clear cancellation case and a Clear/StopAtBar callback
+  allocation probe.
 - `tools/live-jam-pipeline/live_jam_pipeline_driver` end-to-end trace: PASS.
 - `src/PluginProcessor.cpp` and `src/PluginEditor.cpp` syntax-checked against
   the prebuilt JUCE/NAM include environment (0 errors).
+- `src/jam/DrumClockBridge.h` sha256 unchanged at
+  `c115eb8b24f0918f7a375f6507d094cf94d5a0fc99019bba6cf5b3b4459d1025`
+  (the preregistered additive pin).
 
 Not verified here (orchestrator / EVAL-LIVE-001): actual-processor callback
 allocation/lock counters, device/ASIO deadlines, and real-guitar lock trials.

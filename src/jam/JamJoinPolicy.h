@@ -10,20 +10,25 @@
 // INTENT / SENT / ECHO-ACK ARE SEPARATE
 //   A join is only "sent" once the bridge accepted the command (queue space),
 //   and only "engaged" once the audio owner echoes real playback. A rejected
-//   join stays wanted and is retried on the next tick; it is never latched as
-//   pending-forever. A stop wanted persists until the audio owner echoes that
-//   it actually stopped — a still-playing echo does NOT clear it, so a stop
-//   cannot be silently dropped.
+//   command stays wanted and is retried; it is never latched as pending-forever.
+//   A stop wanted persists until the audio owner echoes that it actually
+//   stopped — a still-playing echo does NOT clear it.
 //
-// WHAT IT DOES
-//   - a join is requested only from a `Locked` clock;
-//   - `Holdover` HOLDS: the drummer keeps the last anchored grid;
-//   - `Lost` stops the grid safely (cancelling any future join) and keeps the
-//     running intent, so a re-locked clock rejoins (loss recovery, not an
-//     automatic resume after a UI Stop);
-//   - an explicit UI Stop (`stopNow`) or StopAtNextBar commits a bounded stop;
-//     a later Start is a new intent, never an automatic resume;
-//   - a discontinuity clears the engagement and forces a cancel stop.
+// ONE ACCEPTED STOP ACROSS A PERSISTENT LOSS
+//   A sustained Lost clock must NOT re-issue a Clear every control tick. The
+//   stop intent/sent state is preserved across Lost: exactly one accepted stop
+//   is issued (retried only while the bridge rejects it) until the stopped echo
+//   arrives. After that, while still Lost, no new Clear and no Join is issued;
+//   the running intent may recover only once the clock is Locked again. An idle
+//   Lost (no engagement, no pending join, no wanted stop) issues nothing.
+//
+// STOP-KIND UPGRADE
+//   StopNextBar -> StopNow (or Reset) MUST publish an immediate bounded
+//   cancel/Clear even when a bar stop was already accepted: the engine will
+//   apply the Clear after the queued bar stop and cancel its delayed event.
+//   StopNow -> StopAtNextBar is never downgraded. A Start during an accepted
+//   stop is an intent to re-arm: the accepted stop is respected and the join is
+//   re-armed only after the stopped echo.
 //
 // THREADING: pure data, owned and called by the single control worker (or by a
 // deterministic test). No allocation, no locks, no time source.
@@ -91,20 +96,23 @@ class JamJoinPolicy
 public:
     explicit JamJoinPolicy (const JamJoinPolicyConfig& config = {}) noexcept;
 
-    /** Forget all state. Called on prepare / explicit Reset. */
+    /** Forget all state. Called on prepare. */
     void reset() noexcept;
 
     // --- accepted user intent (one control owner) ---------------------------
 
-    /** Start: run, joining once a usable lock exists. Cancels an unlanded stop
-        intent, but never reactivates a join cancelled by a prior Stop. */
+    /** Start: run, joining once a usable lock exists. It abandons only an
+        UNLANDED stop (wanted but not yet accepted); an accepted stop is
+        respected and the join waits for the stopped echo. */
     void notifyStart() noexcept;
 
-    /** Stop: requestedRunning=false and a bounded stop is wanted. Any future
-        join is cancelled immediately. */
+    /** Stop: requestedRunning=false and a bounded stop is wanted. A `now` stop
+        upgrades (and overrides) a pending/accepted `nextBar` stop; a `nextBar`
+        stop never downgrades an immediate one. Any future join is cancelled. */
     void notifyStop (JamStopKind kind) noexcept;
 
-    /** Reset: forget the belief, cancel everything, force an immediate stop. */
+    /** Reset: forget the belief, cancel everything, force an immediate stop that
+        must be published even if the engine is already silent (to flush). */
     void notifyReset() noexcept;
 
     // --- per-tick decision --------------------------------------------------
@@ -117,12 +125,7 @@ public:
 
     // --- bridge accept/reject feedback -------------------------------------
 
-    /** The bridge accepted (true) or rejected (false) the join command. A
-        rejected join remains wanted and is retried next tick. */
     void notifyJoinAccepted (bool accepted) noexcept;
-
-    /** The bridge accepted (true) or rejected (false) the stop command. A
-        rejected stop remains wanted and is retried next tick. */
     void notifyStopAccepted (bool accepted) noexcept;
 
     /** Audio-owner echo. A playing echo confirms an outstanding join; it never
@@ -149,6 +152,9 @@ private:
     bool stopWanted_ = false;    // we want to stop; retried until accepted
     bool stopSent_ = false;      // bridge accepted a stop; awaiting echo stop
     JamStopKind stopKind_ = JamStopKind::none;
+    bool stopForced_ = false;    // Reset: emit even if the engine is silent
+    bool stopCancelNeeded_ = false; // an engine join/engagement must be cancelled
+    bool echoPlaying_ = false;   // last audio-owner echo
 };
 
 } // namespace jam

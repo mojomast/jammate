@@ -1161,6 +1161,54 @@ TEST_CASE (intdrum_stop_at_next_bar_releases_mode_and_manual_resumes)
 }
 
 //==============================================================================
+// INT-LIVE-001 P3: a StopNow after an accepted StopAtNextBar must cancel the
+// delayed bar stop at the engine (no stop event / voice flush at the old bar),
+// leaving a clean transport for the manual sequencer.
+//==============================================================================
+TEST_CASE (intdrum_bar_stop_then_clear_cancels_delayed_bar_stop)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 512u, 512);
+    CHECK (rig.engine.injectedPlaying());
+
+    REQUIRE (rig.bridge.requestStopAtNextBar()); // queued for 192000
+    REQUIRE (rig.bridge.requestStopNow());       // immediate cancel/Clear
+    rig.block (512);                              // services both in order
+
+    CHECK (! rig.engine.injectedActive());
+    CHECK (! rig.engine.injectedPlaying());
+    const std::uint64_t clearAt = rig.lastBlockStart;
+
+    rig.hits.clear();
+    rig.noteOffs.clear();
+    rig.render (200000u, 512); // well past the cancelled bar boundary
+
+    // The delayed StopAtBar must not be applied at 192000, and no stale voice
+    // is released there.
+    CHECK_EQ (countHitsIn (rig.noteOffs, 192000u, 192001u, -1),
+              static_cast<std::size_t> (0));
+    CHECK_EQ (countHitsIn (rig.hits, clearAt, 200000u, -1),
+              static_cast<std::size_t> (0));
+
+    // Manual transport resumes with a clean new note.
+    rig.engine.playing.store (true);
+    rig.engine.bpm.store (120.0f);
+    rig.engine.barUsed[0].store (true);
+    for (int s = 0; s < drum::maxStepsPerBar; ++s)
+        rig.engine.pattern[0][drum::kick][s].store (1);
+    rig.hits.clear();
+    const std::uint64_t start = rig.elapsed;
+    rig.render (start + 4096u, 512);
+    CHECK (firstHit (rig.hits, kKick) >= 0);
+}
+
+//==============================================================================
 // The injected audio callback allocates nothing when the MIDI scratch is
 // reserved (measured with the shared ELF wrapping).
 //==============================================================================
@@ -1193,5 +1241,47 @@ TEST_CASE (intdrum_injected_callback_allocates_nothing)
 
     CHECK_EQ (totalAlloc, static_cast<std::size_t> (0));
     CHECK_EQ (totalFree, static_cast<std::size_t> (0));
+}
+
+// INT-LIVE-001: the stop paths (StopAtBar application and Clear/Cancel) must
+// also allocate nothing. The probe above only covered a tempo/join loop.
+TEST_CASE (intdrum_stop_callbacks_allocate_nothing)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 512u, 512);
+    REQUIRE (rig.bridge.requestStopAtNextBar());
+
+    std::size_t alloc = 0;
+    std::size_t freeN = 0;
+    const std::uint64_t boundary = rig.bridge.nextBarBoundarySample();
+    const auto measureBlock = [&] (int n)
+    {
+        rig.bridge.setClockSample (rig.elapsed); // worker side, outside the probe
+        drumprobe::beginMeasure();
+        rig.engine.process (rig.audio, n, &rig.sink, rig.midi);
+        drumprobe::endMeasure();
+        alloc += drumprobe::allocations();
+        freeN += drumprobe::deallocations();
+        rig.elapsed += static_cast<std::uint64_t> (n);
+    };
+
+    // Measure every callback through the StopAtBar application at the boundary.
+    while (rig.elapsed <= boundary)
+        measureBlock (512);
+
+    // Measure the Clear/Cancel service block.
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (rig.elapsed + 1024u, 512);
+    REQUIRE (rig.bridge.requestStopNow());
+    measureBlock (512);
+
+    CHECK_EQ (alloc, static_cast<std::size_t> (0));
+    CHECK_EQ (freeN, static_cast<std::size_t> (0));
 }
 #endif

@@ -834,6 +834,50 @@ JAM_TEST (livejamsession, clockAdvancesDuringSilence)
     CHECK (std::fabs (state.clock.beatPhase01 - phase0) > 0.1);
 }
 
+JAM_TEST (livejamsession, clockHoldoverThenLostIssuesOneClearNoDrops)
+{
+    auto session = makeSession();
+    REQUIRE (session->prepare (48000.0, 512, false));
+    lockClockWithTaps (*session); // Locked, cursor 24000
+    session->submitCommand (JamLiveCommand { JamLiveCommandType::Start, 0.0 });
+    session->stepControlForTesting();
+    session->publishDrumEcho (echoFor (*session, true));
+    session->stepControlForTesting();
+    CHECK (stateOf (*session).drumsPlaying);
+    (void) drainCommands (*session);
+
+    // Two seconds of silence (no observations): the clock enters Holdover and
+    // the policy HOLDS — no stop command.
+    session->publishAudioCursor (24000 + 2ull * 48000ull);
+    session->stepControlForTesting();
+    {
+        const JamLiveState state = stateOf (*session);
+        CHECK (state.clock.lockState == jam::ClockLockState::Holdover);
+        CHECK_EQ (countType (drainCommands (*session), DrumClockCommandType::Clear), 0);
+    }
+
+    // Advance past the loss threshold: exactly one bounded Clear, no drops.
+    session->publishAudioCursor (24000 + 7ull * 48000ull);
+    session->stepControlForTesting();
+    {
+        const JamLiveState state = stateOf (*session);
+        CHECK (state.clock.lockState == jam::ClockLockState::Lost);
+        CHECK_EQ (countType (drainCommands (*session), DrumClockCommandType::Clear), 1);
+        CHECK_EQ (state.drumCommandDrops, (uint64_t) 0);
+        CHECK (state.requestedRunning); // telemetry stays honest
+    }
+
+    // A persistent Lost must not re-issue a Clear every tick.
+    for (int i = 0; i < 20; ++i)
+        session->stepControlForTesting();
+    session->stepControlForTesting(); // one more so a fresh state is published
+    {
+        const JamLiveState state = stateOf (*session);
+        CHECK_EQ (countType (drainCommands (*session), DrumClockCommandType::Clear), 0);
+        CHECK_EQ (state.drumCommandDrops, (uint64_t) 0);
+    }
+}
+
 JAM_TEST (livejamsession, largeForwardJumpIsDiscontinuity)
 {
     auto session = makeSession();

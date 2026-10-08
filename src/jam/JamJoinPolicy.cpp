@@ -17,30 +17,66 @@ void JamJoinPolicy::reset() noexcept
     stopWanted_ = false;
     stopSent_ = false;
     stopKind_ = JamStopKind::none;
+    stopForced_ = false;
+    stopCancelNeeded_ = false;
+    echoPlaying_ = false;
 }
 
 void JamJoinPolicy::notifyStart() noexcept
 {
     requestedRunning_ = true;
-    // A Start is a fresh intent: an unlanded stop is abandoned. It does NOT
-    // revive a join that a prior Stop cancelled — the join is re-armed only when
-    // update() next sees a usable Locked clock.
-    stopWanted_ = false;
-    stopSent_ = false;
-    stopKind_ = JamStopKind::none;
+
+    // A Start abandons an UNLANDED stop (wanted but not accepted). An accepted
+    // stop is respected: it cannot be retroactively cancelled without an engine
+    // API, so the join waits for the stopped echo and re-arms then.
+    if (! stopSent_)
+    {
+        stopWanted_ = false;
+        stopForced_ = false;
+        stopKind_ = JamStopKind::none;
+        stopCancelNeeded_ = false;
+    }
 }
 
 void JamJoinPolicy::notifyStop (JamStopKind kind) noexcept
 {
     requestedRunning_ = false;
-    stopKind_ = kind;
+
     // Cancel any future join immediately (Stop/Reset/Lost must not leave a
-    // queued join that could resurrect playback).
+    // queued join that could resurrect playback). Remember that an accepted
+    // join/engagement may still be in the engine so a cancel Clear is emitted
+    // even when the audio echo has not started yet.
+    stopCancelNeeded_ = stopCancelNeeded_ || joinSent_ || joinWanted_ || engaged_;
     joinWanted_ = false;
     joinSent_ = false;
-    stopWanted_ = true;
-    // A previous stop may already be in flight; keep stopSent_ so we do not
-    // publish a second stop command until the first is resolved.
+
+    const bool immediate = (kind == JamStopKind::now);
+
+    if (! stopWanted_)
+    {
+        stopWanted_ = true;
+        stopKind_ = kind;
+        stopSent_ = false;
+        return;
+    }
+
+    if (immediate && stopKind_ == JamStopKind::nextBar)
+    {
+        // Upgrade: an immediate stop must publish a bounded cancel/Clear even if
+        // the bar stop was already accepted, so the engine's delayed bar stop is
+        // invalidated. Never downgrade an immediate stop.
+        stopKind_ = JamStopKind::now;
+        stopSent_ = false;
+        return;
+    }
+
+    if (! immediate && stopKind_ == JamStopKind::now)
+    {
+        // StopNow -> StopAtNextBar: no extra event, no downgrade.
+        return;
+    }
+
+    // Same kind while already wanted/sent: coalesce.
 }
 
 void JamJoinPolicy::notifyReset() noexcept
@@ -52,29 +88,35 @@ void JamJoinPolicy::notifyReset() noexcept
     stopWanted_ = true;
     stopSent_ = false;
     stopKind_ = JamStopKind::now;
+    stopForced_ = true;          // flush even if the engine is already silent
+    stopCancelNeeded_ = true;
 }
 
 void JamJoinPolicy::notifyJoinAccepted (bool accepted) noexcept
 {
     if (accepted)
         joinSent_ = true;
-    // On rejection, joinWanted_ stays true and update() retries next tick.
 }
 
 void JamJoinPolicy::notifyStopAccepted (bool accepted) noexcept
 {
     if (accepted)
+    {
         stopSent_ = true;
-    // On rejection, stopWanted_ stays true and update() retries next tick.
+        stopForced_ = false;
+        stopCancelNeeded_ = false; // the cancel is in flight; wait for the echo
+    }
 }
 
 void JamJoinPolicy::notifyPlaybackEcho (bool playing) noexcept
 {
+    echoPlaying_ = playing;
+
     if (playing)
     {
         // Real playback confirms an outstanding join. It must NOT clear a
         // pending stop: the engine can still be rendering the final bar of a
-        // next-bar stop, and clearing here would drop the stop forever.
+        // next-bar stop.
         if (joinWanted_ || joinSent_)
         {
             joinWanted_ = false;
@@ -85,13 +127,16 @@ void JamJoinPolicy::notifyPlaybackEcho (bool playing) noexcept
     else
     {
         // The engine really stopped: resolve a pending stop.
-        if (stopSent_ || stopWanted_)
+        if (stopWanted_ || stopSent_)
         {
-            stopSent_ = false;
             stopWanted_ = false;
+            stopSent_ = false;
+            stopForced_ = false;
+            stopCancelNeeded_ = false;
         }
+
         // The engine dropped out under us without a stop: re-arm a join if the
-        // running intent survives, so recovery is automatic.
+        // running intent survives.
         if (engaged_)
         {
             engaged_ = false;
@@ -110,42 +155,65 @@ JamJoinDecision JamJoinPolicy::update (const ClockSnapshot& clock, bool disconti
         joinWanted_ = false;
         joinSent_ = false;
         engaged_ = false;
-        stopSent_ = false;
-        stopWanted_ = true;
-        stopKind_ = JamStopKind::now;
-        if (config_.stopOnDiscontinuity)
-            decision.action = JamJoinAction::stopNow;
+        if (! stopSent_)
+        {
+            stopWanted_ = true;
+            stopKind_ = JamStopKind::now;
+            stopForced_ = false;
+            if (config_.stopOnDiscontinuity)
+                decision.action = JamJoinAction::stopNow;
+        }
+        // If a stop is already accepted, the bridge already published a Clear
+        // for this discontinuity; do not issue a second one.
         return decision;
     }
 
     if (! requestedRunning_)
     {
-        // Commit a wanted stop, retrying until the bridge accepts it. Once
-        // accepted (stopSent_) wait for the stopped echo.
         if (stopWanted_ && ! stopSent_)
+        {
+            // Do not emit a redundant Clear when the engine is already silent and
+            // there is nothing to cancel; a Reset forces it (to flush).
+            const bool needed = stopForced_ || stopCancelNeeded_ || echoPlaying_
+                                || engaged_ || joinWanted_ || joinSent_;
+            if (! needed)
+            {
+                stopWanted_ = false;
+                return decision;
+            }
             decision.action = (stopKind_ == JamStopKind::nextBar)
                                   ? JamJoinAction::stopAtNextBar
                                   : JamJoinAction::stopNow;
+        }
         return decision;
     }
 
     // Running intent.
-    if (stopWanted_ || stopSent_)
+
+    // An accepted stop is respected: wait for the stopped echo before rejoining.
+    if (stopSent_)
+        return decision;
+
+    // A wanted-but-unaccepted stop (e.g. a Lost stop whose request was rejected)
+    // is retried until the bridge accepts it.
+    if (stopWanted_)
     {
-        // A Start cancelled an unlanded stop; the engine is about to be rejoined.
-        stopWanted_ = false;
-        stopSent_ = false;
-        stopKind_ = JamStopKind::none;
+        decision.action = (stopKind_ == JamStopKind::nextBar)
+                              ? JamJoinAction::stopAtNextBar
+                              : JamJoinAction::stopNow;
+        return decision;
     }
 
     if (clock.lockState == ClockLockState::Lost)
     {
-        if (config_.stopOnLost)
+        // Only stop if something is actually engaged/playing/joining. An idle
+        // Lost issues nothing, so a persistent Lost cannot spam the queue.
+        const bool active = engaged_ || echoPlaying_ || joinWanted_ || joinSent_;
+        joinWanted_ = false;
+        joinSent_ = false;
+        engaged_ = false;
+        if (active && config_.stopOnLost)
         {
-            joinWanted_ = false;
-            joinSent_ = false;
-            engaged_ = false;
-            stopSent_ = false;
             stopWanted_ = true;
             stopKind_ = JamStopKind::now;
             decision.action = JamJoinAction::stopNow;
