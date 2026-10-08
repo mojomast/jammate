@@ -1,0 +1,24 @@
+{
+  "schema": "live-jam-replay/artifact/1.0",
+  "artifact": "correction-selftest-receipt",
+  "note": "Post-correction self-test receipt. This is a LABELLED SYNTHETIC self-test (accepted only with --allow-synthetic-selftest); it is NOT an actual-processor measurement. The original synthetic-validation.json is preserved and not reused.",
+  "synthetic": true,
+  "status": "measured",
+  "hard_checks": 3405,
+  "hard_failures": 0,
+  "advisory_checks": 36,
+  "advisory_failures": 0,
+  "hard_pass": true,
+  "validator_unit_tests": 67,
+  "validator_unit_tests_pass": true,
+  "default_rejects_synthetic": true,
+  "scope_self_tests": [
+    "full",
+    "smoke"
+  ],
+  "backend_macro_exact_detection": true,
+  "source_pin_immutable_headers_ok": true,
+  "link_closure_source": "ninja:GuitarCompanion_Standalone",
+  "failed_check_ids": [],
+  "errors": []
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "live-jam-replay/source-pin-overrides/1.0",
+  "task": "EVAL-LIVE-001",
+  "note": "TEMPLATE. Preregister exact hashes for the pipeline's changed headers before measurement. Immutable frozen headers are listed for reference and must still match their original hashes; do not place them here. Never use this file to skip the original pin for an arbitrary source.",
+  "immutable_headers_must_still_match": [
+    "src/jam/JamLiveInterface.h",
+    "src/jam/RhythmTypes.h",
+    "src/jam/MusicalClock.h",
+    "src/jam/JamConfig.h"
+  ],
+  "overrides": [
+    {"path": "src/jam/DrumClockBridge.h", "sha256": "REPLACE_WITH_PREREGISTERED_SHA256"},
+    {"path": "src/PluginProcessor.h", "sha256": "REPLACE_WITH_PREREGISTERED_SHA256"},
+    {"path": "src/PluginProcessor.cpp", "sha256": "REPLACE_WITH_PREREGISTERED_SHA256"}
+  ]
+}

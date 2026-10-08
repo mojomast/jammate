@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""EVAL-LIVE-001 replay runner.
+"""EVAL-LIVE-001 replay runner (corrected, fail-closed).
 
-Fail-closed orchestration:
-
-  * refuses to reuse a non-empty --out (preserves old results);
-  * runs the build/preflight; if the product is not live-ready it writes an
-    ``awaiting-product`` receipt and exits 3 WITHOUT invoking any binary;
-  * otherwise invokes the freshly built actual-processor harness, merges the
-    measured cells with source/product/archive identity and the fixture manifest
-    into ``evidence.json``, and runs the standalone validator.
-
-A backend-capable facade whose live backend is unavailable yields an
-``awaiting-backend`` receipt (exit 3); it is never reported as clean.
+  * refuses to reuse a non-empty --out;
+  * builds/preflights; a non-live product yields an awaiting-product receipt
+    (exit 3) without invoking any binary;
+  * invokes the freshly built harness under a preregistered bounded timeout; a
+    timeout yields status=timed-out with invoked_binary=true and partial
+    evidence preserved (never an awaiting receipt);
+  * a facade-bearing product whose default backend is not experimentalBTrack
+    yields awaiting-backend;
+  * merges the measured cells with identity/protocol/scope/allocation scope and
+    runs the validator (which rejects synthetic evidence by default).
 """
 import argparse
 import json
@@ -25,18 +24,35 @@ import build_replay
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
+DEFAULT_TIMEOUT_S = 300.0
 
 
 def report_fresh(out):
-    if os.path.exists(out) and os.listdir(out):
-        return False
-    return True
+    return not (os.path.exists(out) and os.listdir(out))
 
 
-def merge_evidence(predeclared_path, pf, build_manifest, cells, fixtures):
+def load_fixtures(fixtures_dir):
+    if not fixtures_dir:
+        return {"unmeasured": True, "reason": "no --fixtures-dir supplied to the runner"}, {}
+    manifest_path = os.path.join(fixtures_dir, "manifest.json")
+    if not os.path.isfile(manifest_path):
+        return {"unmeasured": True, "reason": f"no fixture manifest at {manifest_path}"}, {}
+    with open(manifest_path, encoding="utf-8") as f:
+        manifest = json.load(f)
+    entries = manifest["entries"]
+    block = {"manifest_sha256": rl.sha256_file(manifest_path), "entries": entries}
+    by_id = {e["id"]: os.path.join(fixtures_dir, e["path"]) for e in entries}
+    return block, by_id
+
+
+def merge_evidence(predeclared_path, pf, build_manifest, cells, fixtures, scope, scope_reason):
     def sha(p):
         return rl.sha256_file(p) if p and os.path.isfile(p) else None
 
+    findings = cells.get("findings", [])
+    status = "measured-findings" if findings else "measured"
+    backend_kind = cells.get("backend_kind", "unknown")
+    backend_usable = bool(cells.get("backend_usable_at_start")) and backend_kind == "experimentalBTrack"
     identity = {
         "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "runner_git_head": pf["identity"]["source"].get("head"),
@@ -45,9 +61,12 @@ def merge_evidence(predeclared_path, pf, build_manifest, cells, fixtures):
         "facade_symbols": pf["identity"]["facade_symbols"],
         "backend": {
             "required": "experimentalBTrack",
-            "signals": pf["identity"]["backend"]["signals"],
-            "usable": bool(cells.get("backend_usable_at_start")),
+            "kind": backend_kind,
+            "macro_defined": pf["identity"]["backend"].get("macro_defined", False),
+            "signals": pf["identity"]["backend"].get("signals", []),
+            "usable": backend_usable,
         },
+        "live_seams": pf["identity"].get("live_seams", {}),
         "instrument": {
             "selfcheck_pass": bool(build_manifest.get("instrument_selfcheck_ok")),
             "selfcheck_binary_sha256": build_manifest.get("outputs", {}).get("instrument_selfcheck"),
@@ -60,38 +79,34 @@ def merge_evidence(predeclared_path, pf, build_manifest, cells, fixtures):
         "harness_source_sha256": sha(os.path.join(HERE, "src", "LiveJamReplay.cpp")),
         "predeclared_freeze_commit": pf["identity"]["source"].get("head"),
     }
-    predeclared = json.load(open(predeclared_path))
+    with open(predeclared_path, encoding="utf-8") as f:
+        predeclared = json.load(f)
     return {
-        "schema": "live-jam-replay/evidence/1.0",
+        "schema": "live-jam-replay/evidence/1.1",
         "task": "EVAL-LIVE-001",
-        "status": "measured",
+        "status": status,
         "synthetic": False,
+        "scope": scope,
+        "scope_reason": scope_reason or "",
+        "allocation_scope": "callback-thread-path-only",
+        "worker_allocations": cells.get("worker_allocations",
+                                        {"measured": False,
+                                         "reason": "thread-local arming counts only the callback thread"}),
         "identity": identity,
         "protocol": protocol,
         "matrix": predeclared["matrix"],
         "fixtures": fixtures,
         "cells": cells["cells"],
-        "semantics": cells.get("semantics", {}),
+        "expected_cell_ids": cells.get("expected_cell_ids", [c["id"] for c in cells["cells"]]),
+        "findings": findings,
+        "scenarios": cells.get("scenarios", []),
         "counts": cells.get("counts", {}),
         "notes": [
             "Non-device replay: not latency/dropout/device or Windows/ASIO evidence.",
-            "Callback overhead is instrumented wall time, not CPU time and not a deadline.",
-            "disabled is a control with the pipeline not started; it is not a zero-overhead baseline.",
+            "Allocation counters are the callback-thread path only; worker allocations are unmeasured.",
+            "The 54-cell matrix proves callback coverage; join/stop end-to-end is proven by the supplemental scenarios only.",
         ],
     }
-
-
-def load_fixtures(fixtures_dir):
-    if not fixtures_dir:
-        return {"unmeasured": True, "reason": "no --fixtures-dir supplied to the runner"}, {}
-    manifest_path = os.path.join(fixtures_dir, "manifest.json")
-    if not os.path.isfile(manifest_path):
-        return {"unmeasured": True, "reason": f"no fixture manifest at {manifest_path}"}, {}
-    manifest = json.load(open(manifest_path))
-    entries = manifest["entries"]
-    block = {"manifest_sha256": rl.sha256_file(manifest_path), "entries": entries}
-    by_id = {e["id"]: os.path.join(fixtures_dir, e["path"]) for e in entries}
-    return block, by_id
 
 
 def write_awaiting(out, status, pf, extra_missing=None):
@@ -104,10 +119,7 @@ def write_awaiting(out, status, pf, extra_missing=None):
         "invoked_binary": False,
         "missing": missing,
         "identity": pf.get("identity", {}),
-        "notes": [
-            "No existing binary was invoked and no measurement was claimed.",
-            "Build the actual merged live pipeline and pass --source/--product-build.",
-        ],
+        "notes": ["No binary was invoked and no measurement was claimed."],
     }
     path = os.path.join(out, "evidence.json")
     with open(path, "w", encoding="utf-8") as f:
@@ -118,24 +130,51 @@ def write_awaiting(out, status, pf, extra_missing=None):
     return path
 
 
+def write_timed_out(out, timeout_s, partial_path):
+    ev = {
+        "schema": "live-jam-replay/evidence/1.1",
+        "task": "EVAL-LIVE-001",
+        "status": "timed-out",
+        "invoked_binary": True,
+        "measured_partial": os.path.isfile(partial_path),
+        "timeout_s": timeout_s,
+        "notes": ["The replay exceeded the preregistered bounded timeout; the child was terminated."],
+    }
+    path = os.path.join(out, "evidence.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(ev, f, indent=2)
+        f.write("\n")
+    print(f"timed-out receipt: {path}")
+    return path
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--source", required=True)
     ap.add_argument("--product-build", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--predeclared", default=os.path.join(HERE, "predeclared.json"))
+    ap.add_argument("--source-pin-overrides")
     ap.add_argument("--fixtures-dir")
     ap.add_argument("--sysroot-lib",
                     default="/home/mojo/projects/guitars-build-resume/sysroot/usr/lib/x86_64-linux-gnu")
-    ap.add_argument("--mode", default="full", choices=["smoke", "full"])
-    ap.add_argument("--fast", action="store_true", help="disable realtime pacing")
+    ap.add_argument("--scope", default="full", choices=["smoke", "full", "diagnostic"])
+    ap.add_argument("--scope-reason")
+    ap.add_argument("--timeout-s", type=float, default=DEFAULT_TIMEOUT_S)
+    ap.add_argument("--fast", action="store_true")
     ap.add_argument("--warm-blocks", type=int, default=0)
     ap.add_argument("--target-seconds", type=float, default=4.0)
+    ap.add_argument("--supplemental-seconds", type=float, default=16.0)
     ap.add_argument("--seed", type=int, default=20261008)
     ap.add_argument("--pipeline", default="all")
+    ap.add_argument("--no-supplemental", action="store_true")
     ap.add_argument("--allow-unavailable-backend", action="store_true")
     ap.add_argument("--skip-build", action="store_true")
     args = ap.parse_args(argv)
+
+    if args.scope == "diagnostic" and not args.scope_reason:
+        print("error: --scope diagnostic requires --scope-reason", file=sys.stderr)
+        return 64
 
     out = os.path.abspath(args.out)
     if not report_fresh(out):
@@ -144,7 +183,10 @@ def main(argv=None):
     os.makedirs(out, exist_ok=True)
 
     build_dir = os.path.join(out, "build")
-    pf = rl.preflight(os.path.abspath(args.source), os.path.abspath(args.product_build), args.sysroot_lib)
+    immutable_pins = build_replay.immutable_pins_from_predeclared(args.predeclared)
+    overrides = build_replay.load_overrides(args.source_pin_overrides)
+    pf = rl.preflight(os.path.abspath(args.source), os.path.abspath(args.product_build),
+                      args.sysroot_lib, immutable_pins, overrides)
     with open(os.path.join(out, "preflight.json"), "w", encoding="utf-8") as f:
         json.dump(pf, f, indent=2)
         f.write("\n")
@@ -157,10 +199,9 @@ def main(argv=None):
         rc = build_replay.main([
             "--source", os.path.abspath(args.source),
             "--product-build", os.path.abspath(args.product_build),
-            "--out", build_dir,
-            "--predeclared", args.predeclared,
+            "--out", build_dir, "--predeclared", args.predeclared,
             "--sysroot-lib", args.sysroot_lib,
-        ])
+        ] + (["--source-pin-overrides", args.source_pin_overrides] if args.source_pin_overrides else []))
         if rc != 0:
             print("error: harness build failed", file=sys.stderr)
             return 5
@@ -169,22 +210,27 @@ def main(argv=None):
         write_awaiting(out, "awaiting-product", pf, ["harness_binary"])
         return 3
 
-    build_manifest = json.load(open(os.path.join(build_dir, "build-manifest.json")))
+    with open(os.path.join(build_dir, "build-manifest.json"), encoding="utf-8") as f:
+        build_manifest = json.load(f)
     fixtures, fixture_paths = load_fixtures(args.fixtures_dir)
 
     harness_args = [harness, "--source", os.path.abspath(args.source),
                     "--product-build", os.path.abspath(args.product_build),
                     "--out", out, "--predeclared", args.predeclared,
-                    "--mode", args.mode, "--seed", str(args.seed),
+                    "--scope", args.scope, "--seed", str(args.seed),
                     "--target-seconds", str(args.target_seconds),
+                    "--supplemental-seconds", str(args.supplemental_seconds),
                     "--pipeline", args.pipeline]
+    if args.scope_reason:
+        harness_args += ["--scope-reason", args.scope_reason]
     if args.fast:
         harness_args.append("--fast")
     if args.warm_blocks > 0:
         harness_args += ["--warm-blocks", str(args.warm_blocks)]
+    if args.no_supplemental:
+        harness_args.append("--no-supplemental")
     if args.allow_unavailable_backend:
         harness_args.append("--allow-unavailable-backend")
-    # Explicit fixture dictionary (no assumed injection API).
     if fixture_paths.get("strum_120"):
         harness_args += ["--fixture-clean", fixture_paths["strum_120"]]
     if fixture_paths.get("noise"):
@@ -193,46 +239,58 @@ def main(argv=None):
         harness_args += ["--fixture-silence", fixture_paths["silence"]]
 
     log_path = os.path.join(out, "live-jam-replay.log")
-    t0 = time.time()
-    with open(log_path, "w", encoding="utf-8") as logf:
-        p = subprocess.run(harness_args, stdout=logf, stderr=subprocess.STDOUT, text=True)
-    run_seconds = time.time() - t0
-    harness_rc = p.returncode
-    print(f"harness exit={harness_rc} elapsed={run_seconds:.1f}s log={log_path}")
-
     cells_path = os.path.join(out, "cells.json")
+    t0 = time.time()
+    timed_out = False
+    try:
+        with open(log_path, "w", encoding="utf-8") as logf:
+            p = subprocess.run(harness_args, stdout=logf, stderr=subprocess.STDOUT,
+                               text=True, timeout=args.timeout_s)
+        harness_rc = p.returncode
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        harness_rc = -1
+    run_seconds = time.time() - t0
+    print(f"harness exit={harness_rc} elapsed={run_seconds:.1f}s timeout={timed_out} log={log_path}")
+
+    if timed_out:
+        write_timed_out(out, args.timeout_s, cells_path)
+        vr = subprocess.run([sys.executable, os.path.join(HERE, "validate_evidence.py"),
+                             "--evidence", os.path.join(out, "evidence.json")],
+                            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        print(vr.stdout, end="")
+        return 1
+
     if not os.path.isfile(cells_path):
         print("error: harness produced no cells.json", file=sys.stderr)
         return 5
-    cells = json.load(open(cells_path))
+    with open(cells_path, encoding="utf-8") as f:
+        cells = json.load(f)
 
-    if not cells.get("backend_usable_at_start") or harness_rc == 3:
-        write_awaiting(out, "awaiting-backend", pf, ["backend_usable_at_start"])
+    if harness_rc == 3 or cells.get("backend_kind") != "experimentalBTrack":
+        write_awaiting(out, "awaiting-backend", pf, ["backend_usable", "backend_exact"])
         return 3
 
-    evidence = merge_evidence(args.predeclared, pf, build_manifest, cells, fixtures)
+    evidence = merge_evidence(args.predeclared, pf, build_manifest, cells, fixtures,
+                              args.scope, args.scope_reason)
     ev_path = os.path.join(out, "evidence.json")
     with open(ev_path, "w", encoding="utf-8") as f:
         json.dump(evidence, f, indent=2)
         f.write("\n")
 
-    validator = os.path.join(HERE, "validate_evidence.py")
-    report_path = os.path.join(out, "validation-report.json")
-    summary_path = os.path.join(out, "summary.md")
-    vcmd = [sys.executable, validator, "--evidence", ev_path,
-            "--predeclared", args.predeclared,
+    vcmd = [sys.executable, os.path.join(HERE, "validate_evidence.py"),
+            "--evidence", ev_path, "--predeclared", args.predeclared,
             "--source", os.path.abspath(args.source),
-            "--json", report_path, "--summary-md", summary_path]
+            "--json", os.path.join(out, "validation-report.json"),
+            "--summary-md", os.path.join(out, "summary.md")]
     if args.fixtures_dir:
         vcmd += ["--fixtures-dir", args.fixtures_dir]
     vr = subprocess.run(vcmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     print(vr.stdout, end="")
 
     manifest = {
-        "task": "EVAL-LIVE-001",
-        "out": out,
-        "harness_exit": harness_rc,
-        "run_seconds": run_seconds,
+        "task": "EVAL-LIVE-001", "out": out, "harness_exit": harness_rc,
+        "run_seconds": run_seconds, "timeout_s": args.timeout_s, "scope": args.scope,
         "evidence": rl.sha256_file(ev_path),
         "harness_binary": rl.sha256_file(harness),
         "build_manifest": rl.sha256_file(os.path.join(build_dir, "build-manifest.json")),

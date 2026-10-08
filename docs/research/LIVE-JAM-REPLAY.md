@@ -169,6 +169,62 @@ When the merged live pipeline exists, `run_replay.py` invokes the linked harness
 and validates `evidence.json`; otherwise it writes `evidence.json` with status
 `awaiting-product` and exits 3.
 
+## Correction pass (independent BLOCK on 07021ae)
+
+The independent review blocked `07021ae` before measurement. The additive
+correction contract (`docs/research/live-jam-replay/CORRECTION-CONTRACT.md`) and
+`tools/live-jam-replay/protocol-amendment.json` were committed **before** any
+changed tool was reevaluated. The originals (`predeclared.json`,
+`protocol.sha256`, and every pre-existing artifact under
+`docs/research/live-jam-replay/`) are preserved byte-for-byte; updated pins are
+recorded separately in `tool-pins-after-correction.sha256`.
+
+What changed:
+
+- **C1 async UI coalescing.** Per-callback advancement is now measured from the
+  audio-owner plain getter `DrumEngine::injectedSamplePosition()` on the
+  callback-owner thread, outside the armed region. `readJamLiveState` is treated
+  as a coalescing-tolerant report (`reported_monotonic`, `reported_future`,
+  `coalesced_reads`, `skipped_publications`, `worker_cursor_lag`); the expected
+  cursor is never seeded from it. Pressure/unpaced cells may have no receipt,
+  recorded as `receipt_measured=false` with `null` lag fields, never a measured
+  zero.
+- **M8 allocation scope.** Counters are the callback-thread path only; worker
+  allocations are explicitly unmeasured. Callback findings are listed and the
+  status becomes `measured-findings`; hidden findings fail validation.
+- **M9 lag metrics.** `receipt_availability_lag = receipt − horizon`,
+  `event_delay = receipt − event`, `worker_cursor_lag = produced − reported`;
+  `null` exactly when unmeasured; repeated identical observations are not new
+  receipts.
+- **M5 smoke scope.** `--scope smoke|full|diagnostic` with the exact expected
+  cell set; smoke is the 4 preregistered IDs, full requires all 54, diagnostic
+  needs a reason and cannot claim the full matrix.
+- **M6 timeout.** The runner enforces a preregistered bounded timeout (default
+  300 s) and emits `status=timed-out` with `invoked_binary=true`,
+  `measured_partial`, and preserved logs.
+- **M7 synthetic rejection.** Default validation rejects synthetic evidence;
+  `--allow-synthetic-selftest` accepts a clearly labelled self-test.
+- **C2 backend/link.** Preflight detects the exact `JAM_LIVE_BTRACK_AVAILABLE`
+  macro (not the substring `Backend`), extracts the real Standalone link closure
+  (pinned by hash, grouped with `--start-group/--end-group`), and requires the
+  default usable backend to be exactly `experimentalBTrack`; otherwise
+  `awaiting-backend`.
+- **M10 Stop contract.** `Stop`/`Reset` are the bounded next-serviced-block stop
+  (`requestStopNow`) that cancels a future join; `StopAtNextBar` stays deferred.
+  `--source-pin-overrides` accepts exact preregistered hashes for changed
+  pipeline headers while the immutable headers must still match.
+- **Supplemental scenarios.** `default_clean_long` (16 s) and
+  `injected_join_stop_resync` (guarded by the pipeline
+  `setJamTrackerForTesting` seam) are preregistered and recorded separately;
+  the 54-cell matrix proves callback coverage only.
+
+Post-correction self-tests: validator unit tests **67/67**, a labelled synthetic
+tree passes with **3405** hard checks (0 failures) under
+`--allow-synthetic-selftest` and is rejected by default, the instrumentation and
+support self-tests pass, the facade tests pass, the harness smoke-compiles
+(both with and without the injected seam), and preflight against the current
+non-live product fails closed with `backend_macro` among the missing items.
+
 ## Limitations (not claimed)
 
 - Not a whole-program allocation-safety proof. It is a bounded matrix over the

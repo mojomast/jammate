@@ -52,11 +52,23 @@ python3 tools/live-jam-replay/run_replay.py \
   --source <merged-pipeline-source> \
   --product-build <freshly-built-product> \
   --fixtures-dir <generated-fixtures> \
+  --scope full \
   --out <fresh-evidence-dir>
 ```
 
-Refuses a non-empty `--out` (preserves old results). Writes `evidence.json` and
-a validator verdict, or an `awaiting-product` / `awaiting-backend` receipt.
+Refuses a non-empty `--out` (preserves old results). Enforces a preregistered
+bounded timeout (`--timeout-s`, default 300); a timeout yields `status=timed-out`
+with `invoked_binary=true` and partial evidence preserved. Writes `evidence.json`
+and a validator verdict, or an `awaiting-product` / `awaiting-backend` receipt.
+`--scope smoke|full|diagnostic` selects exactly the preregistered smoke IDs, the
+full 54-cell matrix, or a declared diagnostic subset (`--scope-reason` required).
+
+For the pipeline's changed headers, pass a preregistered override file:
+
+```sh
+python3 tools/live-jam-replay/run_replay.py ... \
+  --source-pin-overrides <source-pin-overrides.json>
+```
 
 ## Validate
 
@@ -64,11 +76,13 @@ a validator verdict, or an `awaiting-product` / `awaiting-backend` receipt.
 python3 tools/live-jam-replay/validate_evidence.py \
   --evidence <evidence.json> [--predeclared predeclared.json] \
   [--source <src>] [--fixtures-dir <fixtures>] \
+  [--allow-synthetic-selftest] \
   [--json report.json] [--summary-md summary.md]
 ```
 
-Portable by default (recorded evidence only). Optional arguments add explicit
-local cross-checks. Exits non-zero on any hard-check failure.
+Portable by default (recorded evidence only). Synthetic evidence is rejected
+unless `--allow-synthetic-selftest` is given, in which case it is labelled
+unmistakably as a synthetic self-test. Exits non-zero on any hard-check failure.
 
 ## Fixtures
 

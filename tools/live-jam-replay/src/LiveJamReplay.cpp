@@ -1,32 +1,30 @@
-// EVAL-LIVE-001 — actual-processor first-live-Jam replay harness.
+// EVAL-LIVE-001 — actual-processor first-live-Jam replay harness (corrected).
 //
-// WHAT THIS IS
-//   A bounded, non-device replay that constructs the real
-//   `GuitarCompanionProcessor`, calls its real
-//   `prepareToPlay` / `processBlock` / `releaseResources`, and drives the frozen
-//   `submitJamCommand` / `readJamLiveState` facade. While replayed, the copied RT
-//   probe instrumentation counts C++/C allocations, frees and pthread
-//   lock/cond operations *inside the real callback*. No processor, editor,
-//   engine or frozen-interface source is modified; no stub processor is ever
-//   substituted for callback evidence.
+// Corrections applied under docs/research/live-jam-replay/CORRECTION-CONTRACT.md
+// and tools/live-jam-replay/protocol-amendment.json:
 //
-// WHAT THIS IS NOT
-//   It is not latency, dropout, device or Windows/ASIO evidence. It is not a
-//   whole-program safety proof. It does not claim the >=95% within-two-bar
-//   useful-lock target; device/ASIO deadlines and real-guitar trials are
-//   separate gates. Synthetic strum/click fixtures are explicitly NOT guitar
-//   recordings and carry their own identity.
+//   C1  Per-callback advancement is measured from the AUDIO-OWNER plain engine
+//       getter DrumEngine::injectedSamplePosition(), read on the callback-owner
+//       thread immediately after processBlock and outside the instrumented
+//       region. readJamLiveState is a worker-owned coherent latest-value slot
+//       and is treated as a coalescing-tolerant report, never as a synchronous
+//       per-callback cursor. The expected cursor is never seeded from it.
+//   M8  Counters are the CALLBACK-THREAD PATH ONLY (thread-local arming);
+//       worker allocations are explicitly unmeasured and no pipeline-wide zero
+//       is claimed. Legitimate callback allocations become positive findings.
+//   M9  Lag metrics are receipt-horizon, receipt-event and produced-reported;
+//       null when no receipt is measured; repeated identical observations are
+//       not counted as new receipts.
+//   M5  Scope is explicit (smoke | full | diagnostic) and never hides cells.
+//   C2  Backend identity is exact; a non-experimentalBTrack default is
+//       awaiting-backend, never measured clean.
 //
-// BUILD GATING
-//   This translation unit is compiled (object -c) against the frozen headers on
-//   every base. It is *linked and run* only when the product shared archive
-//   actually defines the live facade (`tools/live-jam-replay/run_replay.py`
-//   enforces this fail-closed). On a base whose product has no Jam definitions
-//   the tool reports "harness ready, awaiting actual product" and never invokes
-//   a stale binary as if it were clean.
+// No processor/editor/engine/frozen-interface source is modified and no stub
+// processor is created.
 #include "PluginProcessor.h"
 #include "ReplaySupport.h"
 #include "RtProbeInstrumentation.h"
+#include "jam/IRhythmTracker.h"
 
 #include <juce_events/juce_events.h>
 
@@ -37,6 +35,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
@@ -56,21 +55,20 @@ using replay::loadWavMono;
 
 constexpr int kMinWarmBlocks = 16;
 constexpr int kMaxWarmBlocks = 200000;
-constexpr int kMaxStateSamples = 64;
 
-//------------------------------------------------------------------------------
-// Reporting is done through the shared replay::json* helpers (see
-// ReplaySupport.h) so a non-finite or unmeasured value becomes an explicit JSON
-// null, never NaN.
-//------------------------------------------------------------------------------
+void jsonMaybeU64 (std::FILE* f, bool measured, std::uint64_t v)
+{
+    if (measured) jsonU64 (f, v);
+    else std::fprintf (f, "null");
+}
 
 const char* backendName (jam::JamLiveBackend b)
 {
     switch (b)
     {
-        case jam::JamLiveBackend::unavailable:      return "unavailable";
+        case jam::JamLiveBackend::unavailable:        return "unavailable";
         case jam::JamLiveBackend::experimentalBTrack: return "experimentalBTrack";
-        case jam::JamLiveBackend::injectedTest:     return "injectedTest";
+        case jam::JamLiveBackend::injectedTest:       return "injectedTest";
     }
     return "unknown";
 }
@@ -79,10 +77,10 @@ const char* failureName (jam::JamLiveFailure x)
 {
     switch (x)
     {
-        case jam::JamLiveFailure::none:             return "none";
+        case jam::JamLiveFailure::none:               return "none";
         case jam::JamLiveFailure::unavailableBackend: return "unavailableBackend";
-        case jam::JamLiveFailure::invalidDevice:    return "invalidDevice";
-        case jam::JamLiveFailure::workerFailure:    return "workerFailure";
+        case jam::JamLiveFailure::invalidDevice:      return "invalidDevice";
+        case jam::JamLiveFailure::workerFailure:      return "workerFailure";
     }
     return "unknown";
 }
@@ -127,8 +125,7 @@ void writeState (std::FILE* f, const jam::JamLiveState& s)
 }
 
 //------------------------------------------------------------------------------
-// Deterministic synthetic input. Never a guitar recording; the four generators
-// are distinct and their identity is recorded in the evidence by name.
+// Synthetic input.
 //------------------------------------------------------------------------------
 enum class InputKind { clean, noise, silence };
 
@@ -147,7 +144,6 @@ struct InputSet
 {
     const WavMono* wav[3] = { nullptr, nullptr, nullptr };
     const std::string* path[3] = { nullptr, nullptr, nullptr };
-
     const WavMono* wavFor (InputKind k) const { return wav[(int) k]; }
     const std::string* pathFor (InputKind k) const { return path[(int) k]; }
 };
@@ -156,7 +152,7 @@ struct InputGen
 {
     InputKind kind = InputKind::clean;
     std::uint32_t cursor = 1u;
-    const WavMono* wav = nullptr;   // when set, drives the callback input
+    const WavMono* wav = nullptr;
     std::size_t wpos = 0;
 
     void reset (std::uint32_t seed) noexcept { cursor = seed ? seed : 1u; wpos = 0; }
@@ -169,11 +165,7 @@ struct InputGen
             if (wav != nullptr && wav->ok && ! wav->samples.empty())
             {
                 const std::size_t total = wav->samples.size();
-                for (int i = 0; i < n; ++i)
-                {
-                    p[i] = wav->samples[wpos % total];
-                    ++wpos;
-                }
+                for (int i = 0; i < n; ++i) { p[i] = wav->samples[wpos % total]; ++wpos; }
                 continue;
             }
             if (kind == InputKind::silence)
@@ -191,8 +183,6 @@ struct InputGen
                 }
                 else
                 {
-                    // Deterministic strum-ish click train: a decaying pluck
-                    // envelope every 16th of a 120 BPM beat plus a low bed.
                     const int period = 6000;
                     const int phase = (int) ((cursor >> 3) % (std::uint32_t) period);
                     const float env = std::exp (-6.0f * (float) phase / (float) period);
@@ -206,16 +196,16 @@ struct InputGen
 };
 
 //------------------------------------------------------------------------------
-// Per-cell measured record.
+// Per-cell record.
 //------------------------------------------------------------------------------
 struct Cell
 {
     std::string id;
     double rate = 0.0;
     int block = 0;
-    std::string pipeline;   // disabled | enabled | enabled_pressure
+    std::string pipeline;
     InputKind input = InputKind::clean;
-    std::string inputSource;   // builtin:<kind> or wav:<path>
+    std::string inputSource;
     int warmBlocks = 0;
     bool realtimePaced = false;
 
@@ -229,34 +219,61 @@ struct Cell
     std::uint64_t callbackCount = 0;
     double elapsedWallS = 0.0;
 
-    double outRmsMean = 0.0;
-    double outRmsMax = 0.0;
+    double outRmsMean = 0.0, outRmsMax = 0.0;
     float outPeak = 0.0f;
     std::uint64_t nonzeroBlocks = 0;
 
-    // State progression.
-    jam::JamLiveState stateStart {};
-    jam::JamLiveState stateEnd {};
-    std::uint64_t audioSampleStart = 0;
-    std::uint64_t audioSampleEnd = 0;
-    bool audioMonotonic = true;
-    bool audioDeltaOk = true;
-    std::uint64_t audioDeltaMismatches = 0;
-    bool preparedSeen = false;
-    bool requestedRunningSeen = false;
-    bool joinPendingSeen = false;
-    bool drumsPlayingSeen = false;
+    jam::JamLiveState stateStart {}, stateEnd {};
+
+    // Audio-owner cursor (true per-callback advancement).
+    bool audioOwnerMeasured = false;
+    bool audioOwnerDeltaOk = true;
+    std::uint64_t audioOwnerDeltaMismatches = 0;
+    std::uint64_t audioOwnerBackward = 0;
+    std::uint64_t audioOwnerStart = 0, audioOwnerEnd = 0;
+
+    // Reported (facade) cursor, coalescing tolerant.
+    bool reportedMonotonic = true;
+    std::uint64_t reportedFuture = 0;
+    std::uint64_t coalescedReads = 0;
+    std::uint64_t skippedPublications = 0;
+    std::uint64_t reportedCursorStart = 0, reportedCursorEnd = 0;
+
+    // Receipts and lag (measured-flag gated).
+    std::uint64_t receiptReads = 0;
+    std::uint64_t receiptMeasuredReads = 0;
+    std::uint64_t newReceipts = 0;
+    std::uint64_t repeatedReceiptReads = 0;
+    bool receiptAnyMeasured = false;
+    bool receiptOrderViolation = false;
+    std::uint64_t receiptAvailLagLast = 0, receiptAvailLagMax = 0;
+    std::uint64_t eventDelayLast = 0, eventDelayMax = 0;
+    bool workerCursorLagMeasured = false;
+    std::uint64_t workerCursorLagLast = 0, workerCursorLagMax = 0;
+
+    bool preparedSeen = false, requestedRunningSeen = false;
+    bool joinPendingSeen = false, drumsPlayingSeen = false;
     std::uint64_t generationChanges = 0;
     std::uint64_t candidateBpmNonzero = 0;
-    std::uint64_t receiptCount = 0;
-    std::uint64_t receiptMeasuredCount = 0;
-    std::uint64_t receiptBeforeHorizon = 0;
-    std::uint64_t eventAfterHorizon = 0;
-    std::uint64_t maxReceiptLagSamples = 0;
-    std::uint64_t lastReceiptSample = 0;
+    std::uint64_t analysisDrops = 0, observationDrops = 0, userCommandDrops = 0;
+    std::uint64_t drumCommandDrops = 0, discontinuities = 0;
 
-    std::vector<std::string> commandLog;   // bounded text lines
+    std::vector<std::string> commandLog;
 };
+
+struct Finding
+{
+    std::string cell;
+    std::string kind;
+    std::string detail;
+};
+
+void recordCommand (Cell& c, const char* name, bool accepted, int atBlock)
+{
+    char line[96];
+    std::snprintf (line, sizeof (line), "%s@%d:%s", name, atBlock, accepted ? "accepted" : "rejected");
+    if (c.commandLog.size() < 64) c.commandLog.push_back (line);
+}
 
 void fillSnapshotJson (std::FILE* f, const rtprobe::Snapshot& s)
 {
@@ -294,20 +311,15 @@ void fillSnapshotJson (std::FILE* f, const rtprobe::Snapshot& s)
 }
 
 //------------------------------------------------------------------------------
-// Argument parsing.
+// Options.
 //------------------------------------------------------------------------------
 struct Options
 {
-    std::string mode = "full";              // preflight | smoke | full
-    std::string productBuild;
-    std::string source;
-    std::string out;
-    std::string predeclared;
-    std::string fixturesDir;
-    std::string pipeline = "all";           // disabled | enabled | enabled_pressure | all
-    std::string fixtureClean;
-    std::string fixtureNoise;
-    std::string fixtureSilence;
+    std::string scope = "full";     // smoke | full | diagnostic
+    std::string scopeReason;
+    std::string productBuild, source, out, predeclared, fixturesDir;
+    std::string fixtureClean, fixtureNoise, fixtureSilence;
+    std::string pipeline = "all";
     std::vector<double> rates { 48000.0, 96000.0 };
     std::vector<int> blocks { 128, 512, 4096 };
     std::vector<std::string> inputs { "clean", "noise", "silence" };
@@ -315,6 +327,8 @@ struct Options
     double targetSeconds = 4.0;
     std::uint32_t seed = 20261008u;
     bool realtime = true;
+    bool supplemental = true;
+    double supplementalSeconds = 16.0;
     bool listMatrix = false;
     bool allowUnavailable = false;
 };
@@ -374,7 +388,8 @@ bool parseOptions (int argc, char** argv, Options& o)
         const std::string a = argv[i];
         const bool hasNext = (i + 1 < argc);
         auto next = [&]() -> const char* { return argv[++i]; };
-        if (a == "--mode" && hasNext) o.mode = next();
+        if (a == "--scope" && hasNext) o.scope = next();
+        else if (a == "--scope-reason" && hasNext) o.scopeReason = next();
         else if (a == "--product-build" && hasNext) o.productBuild = next();
         else if (a == "--source" && hasNext) o.source = next();
         else if (a == "--out" && hasNext) o.out = next();
@@ -397,6 +412,8 @@ bool parseOptions (int argc, char** argv, Options& o)
         else if (a == "--seed" && hasNext) o.seed = (std::uint32_t) std::strtoul (next(), nullptr, 10);
         else if (a == "--fast") o.realtime = false;
         else if (a == "--realtime") o.realtime = true;
+        else if (a == "--no-supplemental") o.supplemental = false;
+        else if (a == "--supplemental-seconds" && hasNext) o.supplementalSeconds = std::strtod (next(), nullptr);
         else if (a == "--allow-unavailable-backend") o.allowUnavailable = true;
         else if (a == "--list-matrix") o.listMatrix = true;
         else
@@ -426,6 +443,13 @@ std::vector<std::string> pipelineValues (const Options& o)
     return { "disabled", "enabled", "enabled_pressure" };
 }
 
+std::string makeCellId (const std::string& pipe, double rate, int block, InputKind in)
+{
+    char id[160];
+    std::snprintf (id, sizeof (id), "%s_r%.0f_b%d_%s", pipe.c_str(), rate, block, inputName (in));
+    return id;
+}
+
 std::vector<Cell> buildMatrix (const Options& o)
 {
     std::vector<Cell> cells;
@@ -435,19 +459,35 @@ std::vector<Cell> buildMatrix (const Options& o)
                 for (const auto& in : o.inputs)
                 {
                     Cell c;
-                    c.rate = rate;
-                    c.block = block;
-                    c.pipeline = pipe;
+                    c.rate = rate; c.block = block; c.pipeline = pipe;
                     c.input = parseInput (in);
                     c.warmBlocks = computeWarmBlocks (o, rate, block);
                     c.realtimePaced = (pipe == "enabled");
-                    char id[160];
-                    std::snprintf (id, sizeof (id), "%s_r%.0f_b%d_%s",
-                                   pipe.c_str(), rate, block, inputName (c.input));
-                    c.id = id;
+                    c.id = makeCellId (pipe, rate, block, c.input);
                     cells.push_back (std::move (c));
                 }
     return cells;
+}
+
+const char* const kSmokeIds[] = {
+    "disabled_r48000_b128_silence",
+    "disabled_r48000_b128_noise",
+    "enabled_r48000_b128_clean",
+    "enabled_r48000_b128_silence",
+};
+
+std::vector<Cell> selectScope (const Options& o, std::vector<Cell> all)
+{
+    if (o.scope == "full") return all;
+    if (o.scope == "smoke")
+    {
+        std::vector<Cell> out;
+        for (auto& c : all)
+            for (const char* id : kSmokeIds)
+                if (c.id == id) out.push_back (c);
+        return out;
+    }
+    return all;   // diagnostic: filters already applied by --pipeline/--blocks/--inputs
 }
 
 //------------------------------------------------------------------------------
@@ -463,13 +503,6 @@ double cellOutputRms (const juce::AudioBuffer<float>& buf, int n)
     }
     const double count = (double) n * (double) buf.getNumChannels();
     return count > 0.0 ? std::sqrt (sum / count) : 0.0;
-}
-
-void recordCommand (Cell& c, const char* name, bool accepted, int atBlock)
-{
-    char line[96];
-    std::snprintf (line, sizeof (line), "%s@%d:%s", name, atBlock, accepted ? "accepted" : "rejected");
-    if (c.commandLog.size() < 64) c.commandLog.push_back (line);
 }
 
 bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FILE* log,
@@ -497,11 +530,11 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
     }
     gen.reset (o.seed ^ (std::uint32_t) c.block ^ (std::uint32_t) (unsigned) c.rate);
 
-    // Initial telemetry read: must be zero/unavailable before any callback.
     if (! proc.readJamLiveState (c.stateStart))
         c.stateStart = jam::JamLiveState {};
 
-    // Cold callback (armed).
+    // Cold callback (armed). The audio-owner cursor is read after the callback on
+    // this same callback-owner thread, outside the armed region.
     gen.fill (buf, c.block);
     rtprobe::resetAll();
     const auto c0 = rtprobe::snapshot();
@@ -512,56 +545,52 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
     }
     c.cold = rtprobe::delta (c0, rtprobe::snapshot());
     c.callbackCount = 1;
-    c.audioSampleStart = c.stateStart.audioSampleTime;
 
-    // Enabled Pressure is the intentional offline fast-loop starvation cell: it
-    // exercises queue pressure instead of worker/clock receipt. Enabled is
-    // real-time paced so the analyzer worker and control worker get wall time.
-    const bool pace = o.realtime && (c.pipeline == "enabled");
+    std::uint64_t prevActual = proc.drumEngine.injectedSamplePosition();
+    c.audioOwnerStart = prevActual;
+    if (prevActual != 0) c.audioOwnerMeasured = true;
 
     if (enabled)
     {
-        jam::JamLiveCommand start;
-        start.type = jam::JamLiveCommandType::Start;
-        const bool accepted = proc.submitJamCommand (start);
+        const bool accepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
         recordCommand (c, "Start", accepted, 0);
         if (! accepted)
         {
             c.measured = false;
             c.unmeasuredReason = "start_rejected_backend_unavailable";
-            std::fprintf (log, "  [%s] Start rejected (backend unavailable)\n", c.id.c_str());
             proc.releaseResources();
+            std::fprintf (log, "  [%s] Start rejected (backend unavailable)\n", c.id.c_str());
             return false;
         }
     }
 
-    jam::JamLiveState prev {};
-    proc.readJamLiveState (prev);
-    c.audioSampleStart = prev.audioSampleTime;
-    std::uint64_t expectedSample = prev.audioSampleTime;
-    std::uint64_t lastGeneration = prev.clock.generation;
-    std::uint64_t lastReceipt = 0;
+    const bool pace = o.realtime && (c.pipeline == "enabled");
 
-    // Warm loop.
     rtprobe::resetAll();
     const auto w0 = rtprobe::snapshot();
     double rmsSum = 0.0, rmsMax = 0.0;
     float peak = 0.0f;
     std::uint64_t nonzero = 0;
 
+    bool haveReported = false;
+    std::uint64_t lastReported = 0;
+    std::uint64_t lastActualAtRead = 0;
+    std::uint64_t lastGeneration = 0;
+    bool haveLastKey = false;
+    std::uint64_t keyGen = 0, keyEvent = 0, keyHorizon = 0, keyReceipt = 0;
+
     const auto startWall = Clock::now();
     TimePoint nextDeadline = startWall;
 
     for (int i = 0; i < c.warmBlocks; ++i)
     {
-        gen.fill (buf, c.block);      // outside the armed region
+        gen.fill (buf, c.block);
 
         if (pace)
         {
             nextDeadline += std::chrono::nanoseconds ((std::int64_t) (1e9 * (double) c.block / c.rate));
             const auto now = Clock::now();
-            if (nextDeadline > now)
-                std::this_thread::sleep_until (nextDeadline);
+            if (nextDeadline > now) std::this_thread::sleep_until (nextDeadline);
         }
 
         const auto t0 = Clock::now();
@@ -571,6 +600,20 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
         const auto t1 = Clock::now();
         c.callbackWallSumMs += std::chrono::duration<double, std::milli> (t1 - t0).count();
         ++c.callbackCount;
+
+        // TRUE audio-owner per-callback advancement.
+        const std::uint64_t actual = proc.drumEngine.injectedSamplePosition();
+        if (actual != 0) c.audioOwnerMeasured = true;
+        if (c.audioOwnerMeasured)
+        {
+            if (actual < prevActual) ++c.audioOwnerBackward;
+            else if (actual != prevActual + (std::uint64_t) c.block)
+            {
+                ++c.audioOwnerDeltaMismatches;
+                c.audioOwnerDeltaOk = false;
+            }
+        }
+        prevActual = actual;
 
         const double rms = cellOutputRms (buf, c.block);
         rmsSum += rms;
@@ -582,52 +625,84 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
         }
         if (rms > 1.0e-7) ++nonzero;
 
-        // Single-consumer read after the callback (the replay owner is the one
-        // reader; the producer is the callback/worker side).
         jam::JamLiveState s {};
-        const bool ok = proc.readJamLiveState (s);
-        if (! ok) continue;
+        if (! proc.readJamLiveState (s)) continue;
 
-        if (s.audioSampleTime < expectedSample) c.audioMonotonic = false;
-        if (s.audioSampleTime != expectedSample + (std::uint64_t) c.block)
-        {
-            ++c.audioDeltaMismatches;
-            c.audioDeltaOk = false;
-        }
-        expectedSample = s.audioSampleTime;
+        const std::uint64_t reported = s.audioSampleTime;
+        if (haveReported && reported < lastReported) c.reportedMonotonic = false;
+        if (c.audioOwnerMeasured && reported > actual) ++c.reportedFuture;
+        if (haveReported && reported == lastReported) ++c.coalescedReads;
+        if (c.audioOwnerMeasured && haveReported && reported == lastReported
+            && actual > lastActualAtRead)
+            ++c.skippedPublications;
+        lastActualAtRead = actual;
+        lastReported = reported;
+        haveReported = true;
+
+        if (! haveReported) c.reportedCursorStart = reported;
+        c.reportedCursorEnd = reported;
 
         if (s.prepared) c.preparedSeen = true;
         if (s.requestedRunning) c.requestedRunningSeen = true;
         if (s.joinPending) c.joinPendingSeen = true;
         if (s.drumsPlaying) c.drumsPlayingSeen = true;
-        if (s.clock.generation != lastGeneration)
-        {
-            ++c.generationChanges;
-            lastGeneration = s.clock.generation;
-        }
+        if (s.clock.generation != lastGeneration) { ++c.generationChanges; lastGeneration = s.clock.generation; }
         if (s.candidateBpm > 0.0f) ++c.candidateBpmNonzero;
 
-        ++c.receiptCount;
+        c.analysisDrops = s.analysisDrops;
+        c.observationDrops = s.observationDrops;
+        c.userCommandDrops = s.userCommandDrops;
+        c.drumCommandDrops = s.drumCommandDrops;
+        c.discontinuities = s.discontinuities;
+
+        ++c.receiptReads;
         if (s.receiptMeasured)
         {
-            ++c.receiptMeasuredCount;
-            c.lastReceiptSample = s.lastReceiptSampleTime;
-            if (s.lastReceiptSampleTime < s.lastInputHorizonSampleTime)
-                ++c.receiptBeforeHorizon;
-            if (s.lastEventSampleTime > s.lastInputHorizonSampleTime)
-                ++c.eventAfterHorizon;
-            if (s.lastReceiptSampleTime >= s.audioSampleTime)
+            c.receiptAnyMeasured = true;
+            ++c.receiptMeasuredReads;
+
+            const bool sameKey = haveLastKey
+                && s.clock.generation == keyGen
+                && s.lastEventSampleTime == keyEvent
+                && s.lastInputHorizonSampleTime == keyHorizon
+                && s.lastReceiptSampleTime == keyReceipt;
+            if (sameKey)
             {
-                const std::uint64_t lag = s.lastReceiptSampleTime - s.audioSampleTime;
-                if (lag > c.maxReceiptLagSamples) c.maxReceiptLagSamples = lag;
+                ++c.repeatedReceiptReads;
             }
-            if (lastReceipt != 0 && s.lastReceiptSampleTime < lastReceipt)
-                c.receiptBeforeHorizon = c.receiptBeforeHorizon; // keep monotonic receipt tracked below
-            if (s.lastReceiptSampleTime > lastReceipt) lastReceipt = s.lastReceiptSampleTime;
+            else
+            {
+                ++c.newReceipts;
+                keyGen = s.clock.generation; keyEvent = s.lastEventSampleTime;
+                keyHorizon = s.lastInputHorizonSampleTime; keyReceipt = s.lastReceiptSampleTime;
+                haveLastKey = true;
+
+                if (s.lastReceiptSampleTime < s.lastInputHorizonSampleTime
+                    || s.lastReceiptSampleTime < s.lastEventSampleTime)
+                    c.receiptOrderViolation = true;
+                else
+                {
+                    const std::uint64_t avail = s.lastReceiptSampleTime - s.lastInputHorizonSampleTime;
+                    const std::uint64_t ev = s.lastReceiptSampleTime - s.lastEventSampleTime;
+                    c.receiptAvailLagLast = avail;
+                    c.eventDelayLast = ev;
+                    if (avail > c.receiptAvailLagMax) c.receiptAvailLagMax = avail;
+                    if (ev > c.eventDelayMax) c.eventDelayMax = ev;
+                }
+            }
         }
 
-        // Bounded command sequence for the enabled (paced) cells so join/resync/
-        // next-bar-stop semantics are exercised, not just Start.
+        if (c.audioOwnerMeasured && haveReported)
+        {
+            c.workerCursorLagMeasured = true;
+            if (actual >= reported)
+            {
+                const std::uint64_t lag = actual - reported;
+                c.workerCursorLagLast = lag;
+                if (lag > c.workerCursorLagMax) c.workerCursorLagMax = lag;
+            }
+        }
+
         if (c.pipeline == "enabled")
         {
             const int third = c.warmBlocks / 3;
@@ -647,8 +722,9 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
     c.outPeak = peak;
     c.nonzeroBlocks = nonzero;
 
+    c.audioOwnerEnd = proc.drumEngine.injectedSamplePosition();
+
     proc.readJamLiveState (c.stateEnd);
-    c.audioSampleEnd = c.stateEnd.audioSampleTime;
 
     if (enabled)
     {
@@ -660,12 +736,15 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
     c.measured = true;
 
     std::fprintf (log,
-                  "  [%-36s] cold(alloc_cxx=%llu alloc_c=%llu lock=%llu) "
-                  "warm(alloc_cxx=%llu alloc_c=%llu free=%llu lock=%llu try=%llu cond=%llu) "
-                  "%d blocks %.2fs %s rms=%.6f peak=%.4f gen_changes=%llu receipts=%llu/%llu "
-                  "before_horizon=%llu\n",
+                  "  [%-36s] cold(cxx=%llu c=%llu lock=%llu) "
+                  "warm(cxx=%llu c=%llu free=%llu lock=%llu) %d blocks %.2fs %s "
+                  "ao=%s(delta_bad=%llu back=%llu) rep(coalesced=%llu skipped=%llu future=%llu) "
+                  "new_receipts=%llu repeat=%llu rms=%.6f\n",
                   c.id.c_str(),
-                  (unsigned long long) (rtprobe::allocCallTotal (c.cold)),
+                  (unsigned long long) (c.cold.allocCalls[(std::size_t) rtprobe::Kind::cxxNew]
+                       + c.cold.allocCalls[(std::size_t) rtprobe::Kind::cxxNewArray]
+                       + c.cold.allocCalls[(std::size_t) rtprobe::Kind::cxxNewNothrow]
+                       + c.cold.allocCalls[(std::size_t) rtprobe::Kind::cxxNewAligned]),
                   (unsigned long long) (c.cold.allocCalls[(std::size_t) rtprobe::Kind::cMalloc]
                        + c.cold.allocCalls[(std::size_t) rtprobe::Kind::cCalloc]
                        + c.cold.allocCalls[(std::size_t) rtprobe::Kind::cRealloc]),
@@ -679,113 +758,230 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
                        + c.warm.allocCalls[(std::size_t) rtprobe::Kind::cRealloc]),
                   (unsigned long long) rtprobe::freeCallTotal (c.warm),
                   (unsigned long long) c.warm.lockCalls,
-                  (unsigned long long) c.warm.trylockCalls,
-                  (unsigned long long) c.warm.condWaitCalls,
                   c.warmBlocks, c.elapsedWallS, c.realtimePaced ? "rt" : "fast",
-                  c.outRmsMean, (double) c.outPeak,
-                  (unsigned long long) c.generationChanges,
-                  (unsigned long long) c.receiptMeasuredCount,
-                  (unsigned long long) c.receiptCount,
-                  (unsigned long long) c.receiptBeforeHorizon);
+                  c.audioOwnerMeasured ? "measured" : "unmeasured",
+                  (unsigned long long) c.audioOwnerDeltaMismatches,
+                  (unsigned long long) c.audioOwnerBackward,
+                  (unsigned long long) c.coalescedReads,
+                  (unsigned long long) c.skippedPublications,
+                  (unsigned long long) c.reportedFuture,
+                  (unsigned long long) c.newReceipts,
+                  (unsigned long long) c.repeatedReceiptReads,
+                  c.outRmsMean);
 
     return true;
 }
 
 //------------------------------------------------------------------------------
-// Dedicated semantics sequence (next-bar vs immediate stop, re-prepare, reset).
+// Supplemental scenarios.
 //------------------------------------------------------------------------------
-struct SemanticsResult
+struct ScenarioResult
 {
+    std::string id;
     bool ran = false;
+    bool injected = false;
+    std::string backendKind;
+    std::string unmeasuredReason;
     bool startAccepted = false;
+    bool joinObserved = false;
+    std::uint64_t blocksToJoin = 0;
+    bool stopAtNextBarDeferred = false;
+    std::uint64_t blocksToStopAtNextBar = 0;
+    bool stopNowStopped = false;
+    std::uint64_t blocksToStopNow = 0;
+    bool resyncAccepted = false;
     std::uint64_t generationBeforeReprepare = 0;
     std::uint64_t generationAfterReprepare = 0;
-    bool stopAtNextBarWasDeferred = false;
-    bool stopWasImmediate = false;
-    int blocksToStopAtNextBar = -1;
-    int blocksToImmediateStop = -1;
-    std::uint64_t audioSampleBeforeRelease = 0;
-    std::uint64_t audioSampleAfterReprepareFirstBlock = 0;
-    bool silentStartNoLock = false;
+    bool generationChangedOnReprepare = false;
+    bool shutdownReleased = false;
+    std::uint64_t callbackAllocCxx = 0, callbackAllocC = 0, callbackFree = 0, callbackLocks = 0;
+    bool audioOwnerDeltaOk = true;
+    std::uint64_t audioOwnerDeltaMismatches = 0;
+    double audioOwnerObservedS = 0.0;
 };
 
-void runSemantics (GuitarCompanionProcessor& proc, double rate, int block, std::FILE* /*log*/,
-                   SemanticsResult& r)
+void runDefaultCleanLong (GuitarCompanionProcessor& proc, const Options& o, ScenarioResult& r,
+                          std::FILE* log)
 {
+    r.id = "default_clean_long";
+    r.injected = false;
     r.ran = true;
+    const double rate = 48000.0;
+    const int block = 512;
     proc.prepareToPlay (rate, block);
 
     juce::AudioBuffer<float> buf (2, block);
     juce::MidiBuffer midi;
     midi.ensureSize (4096);
-    InputGen gen;
-    gen.kind = InputKind::clean;
-    gen.reset (777);
+    InputGen gen; gen.kind = InputKind::clean; gen.reset (4242);
+
+    r.startAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
+
+    const std::uint64_t totalBlocks = (std::uint64_t) (o.supplementalSeconds * rate / block);
+    std::uint64_t prev = proc.drumEngine.injectedSamplePosition();
+    bool measured = prev != 0;
+    const auto startWall = Clock::now();
+    TimePoint nextDeadline = startWall;
+
+    rtprobe::resetAll();
+    const auto s0 = rtprobe::snapshot();
+    for (std::uint64_t i = 0; i < totalBlocks; ++i)
+    {
+        gen.fill (buf, block);
+        nextDeadline += std::chrono::nanoseconds ((std::int64_t) (1e9 * (double) block / rate));
+        if (nextDeadline > Clock::now()) std::this_thread::sleep_until (nextDeadline);
+
+        rtprobe::arm(); proc.processBlock (buf, midi); rtprobe::disarm();
+
+        const std::uint64_t actual = proc.drumEngine.injectedSamplePosition();
+        if (actual != 0) measured = true;
+        if (measured && actual != prev + (std::uint64_t) block) { ++r.audioOwnerDeltaMismatches; r.audioOwnerDeltaOk = false; }
+        prev = actual;
+
+        jam::JamLiveState s {};
+        if (proc.readJamLiveState (s))
+        {
+            if (! r.joinObserved && s.drumsPlaying)
+            {
+                r.joinObserved = true;
+                r.blocksToJoin = (std::uint64_t) (i + 1);
+                r.backendKind = backendName (s.backend);
+            }
+        }
+    }
+    r.audioOwnerObservedS = std::chrono::duration<double> (Clock::now() - startWall).count();
+    const auto s1 = rtprobe::snapshot();
+    const auto d = rtprobe::delta (s0, s1);
+    r.callbackAllocCxx = d.allocCalls[(std::size_t) rtprobe::Kind::cxxNew]
+        + d.allocCalls[(std::size_t) rtprobe::Kind::cxxNewArray]
+        + d.allocCalls[(std::size_t) rtprobe::Kind::cxxNewNothrow]
+        + d.allocCalls[(std::size_t) rtprobe::Kind::cxxNewAligned];
+    r.callbackAllocC = d.allocCalls[(std::size_t) rtprobe::Kind::cMalloc]
+        + d.allocCalls[(std::size_t) rtprobe::Kind::cCalloc]
+        + d.allocCalls[(std::size_t) rtprobe::Kind::cRealloc];
+    r.callbackFree = rtprobe::freeCallTotal (d);
+    r.callbackLocks = d.lockCalls + d.trylockCalls + d.condWaitCalls;
+    proc.releaseResources();
+    std::fprintf (log, "  scenario[%s] start=%d join=%d blocks_to_join=%llu %.1fs\n",
+                  r.id.c_str(), (int) r.startAccepted, (int) r.joinObserved,
+                  (unsigned long long) r.blocksToJoin, r.audioOwnerObservedS);
+}
+
+#ifdef LIVE_JAM_HAVE_TRACKER_INJECTION
+class ScriptedInjectedTracker : public jam::IRhythmTracker
+{
+public:
+    void reset (double sampleRate) override { rate_ = sampleRate; }
+    jam::RhythmObservation process (const jam::AnalysisFrame& frame) override
+    {
+        jam::RhythmObservation o;
+        o.inputSampleTime = frame.sampleTime;
+        o.sourceSampleRate = rate_;
+        o.bpmCandidate = 120.0f;
+        o.beatConfidence01 = 1.0f;
+        o.onsetStrength01 = 0.8f;
+        o.energyRmsDbfs = -20.0f;
+        o.transientDensity01 = 0.5f;
+        o.phaseValid = true;
+        const double samplesPerBeat = rate_ * 60.0 / 120.0;
+        const double pos = std::fmod ((double) frame.sampleTime, samplesPerBeat);
+        o.beatPhase01 = (float) (pos / samplesPerBeat);
+        o.beatEvent = (frame.sampleTime % (std::uint64_t) samplesPerBeat) < frame.numSamples;
+        o.silence = false;
+        return o;
+    }
+    const char* id() const noexcept override { return "scripted-injected-120"; }
+private:
+    double rate_ = 48000.0;
+};
+#endif
+
+void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, ScenarioResult& r,
+                          std::FILE* log)
+{
+    r.id = "injected_join_stop_resync";
+    r.injected = true;
+    r.backendKind = "injectedTest";
+#ifdef LIVE_JAM_HAVE_TRACKER_INJECTION
+    (void) o;
+    r.ran = true;
+    if (! proc.setJamTrackerForTesting (std::make_unique<ScriptedInjectedTracker>()))
+    {
+        r.ran = false;
+        r.unmeasuredReason = "setJamTrackerForTesting rejected (session prepared)";
+        return;
+    }
+    const double rate = 48000.0;
+    const int block = 512;
+    proc.prepareToPlay (rate, block);
+
+    juce::AudioBuffer<float> buf (2, block);
+    juce::MidiBuffer midi;
+    midi.ensureSize (4096);
+    InputGen gen; gen.kind = InputKind::clean; gen.reset (999);
 
     auto step = [&] { gen.fill (buf, block); proc.processBlock (buf, midi); };
 
     r.startAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
 
-    // Advance a couple of bars.
-    const std::uint64_t grace = (std::uint64_t) (rate * 2.0);
-    int blocks = 0;
-    while ((std::uint64_t) blocks * (std::uint64_t) block < grace && blocks < 4096)
+    // Run up to 8 s for a join.
+    const int maxBlocks = (int) (8.0 * rate / block);
+    for (int i = 0; i < maxBlocks && ! r.joinObserved; ++i)
     {
-        step(); ++blocks;
+        step();
+        jam::JamLiveState s {};
+        if (proc.readJamLiveState (s) && s.drumsPlaying)
+        {
+            r.joinObserved = true; r.blocksToJoin = (std::uint64_t) (i + 1); r.backendKind = backendName (s.backend);
+        }
     }
+
+    // StopAtNextBar must be deferred.
+    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::StopAtNextBar, 0.0 });
+    {
+        jam::JamLiveState s {};
+        proc.readJamLiveState (s);
+        r.stopAtNextBarDeferred = s.drumsPlaying;
+    }
+    for (int i = 0; i < (int) (4.0 * rate / block); ++i)
+    {
+        step();
+        jam::JamLiveState s {};
+        if (proc.readJamLiveState (s) && ! s.drumsPlaying) { r.blocksToStopAtNextBar = (std::uint64_t) (i + 1); break; }
+    }
+
+    // Restart, then bounded StopNow.
+    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
+    for (int i = 0; i < 16; ++i) step();
+    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Stop, 0.0 });
+    for (int i = 0; i < (int) (2.0 * rate / block); ++i)
+    {
+        step();
+        jam::JamLiveState s {};
+        if (proc.readJamLiveState (s) && ! s.drumsPlaying) { r.stopNowStopped = true; r.blocksToStopNow = (std::uint64_t) (i + 1); break; }
+    }
+
+    r.resyncAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::ResyncNextBar, 0.0 });
 
     jam::JamLiveState s {};
     proc.readJamLiveState (s);
-
-    // StopAtNextBar: the audio owner must keep rendering until the boundary.
-    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::StopAtNextBar, 0.0 });
-    jam::JamLiveState afterReq {};
-    proc.readJamLiveState (afterReq);
-    r.stopAtNextBarWasDeferred = afterReq.drumsPlaying;
-    int blocksToStop = 0;
-    while (blocksToStop < 4096)
-    {
-        step(); ++blocksToStop;
-        jam::JamLiveState now {};
-        proc.readJamLiveState (now);
-        if (! now.drumsPlaying) break;
-    }
-    r.blocksToStopAtNextBar = blocksToStop;
-
-    // Restart then immediate Stop.
-    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
-    for (int i = 0; i < 8; ++i) step();
-    proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Stop, 0.0 });
-    int blocksToImmediate = 0;
-    jam::JamLiveState imm {};
-    proc.readJamLiveState (imm);
-    r.stopWasImmediate = ! imm.drumsPlaying;
-    while (blocksToImmediate < 32)
-    {
-        step(); ++blocksToImmediate;
-        jam::JamLiveState now {};
-        proc.readJamLiveState (now);
-        if (! now.drumsPlaying) break;
-    }
-    r.blocksToImmediateStop = blocksToImmediate;
-
-    proc.readJamLiveState (s);
     r.generationBeforeReprepare = s.sessionGeneration;
-    r.audioSampleBeforeRelease = s.audioSampleTime;
-
-    // Quiescent release, then re-prepare: a new generation/origin is expected.
     proc.releaseResources();
     proc.prepareToPlay (rate, block);
     for (int i = 0; i < 4; ++i) step();
-    jam::JamLiveState after {};
-    proc.readJamLiveState (after);
-    r.generationAfterReprepare = after.sessionGeneration;
-    r.audioSampleAfterReprepareFirstBlock = after.audioSampleTime;
-    r.silentStartNoLock = (after.clock.lockState == jam::ClockLockState::Acquiring
-                           && after.clock.confidence01 == 0.0f
-                           && ! after.requestedRunning);
-
+    proc.readJamLiveState (s);
+    r.generationAfterReprepare = s.sessionGeneration;
+    r.generationChangedOnReprepare = (r.generationAfterReprepare != r.generationBeforeReprepare);
     proc.releaseResources();
+    r.shutdownReleased = true;
+    std::fprintf (log, "  scenario[%s] join=%d stopNow=%d resync=%d genChanged=%d\n",
+                  r.id.c_str(), (int) r.joinObserved, (int) r.stopNowStopped,
+                  (int) r.resyncAccepted, (int) r.generationChangedOnReprepare);
+#else
+    r.ran = false;
+    r.unmeasuredReason = "pipeline setJamTrackerForTesting seam absent at build time";
+    (void) proc; (void) o; (void) log;
+#endif
 }
 
 } // namespace
@@ -797,11 +993,22 @@ int main (int argc, char** argv)
     if (! parseOptions (argc, argv, o))
         return 64;
 
-    const std::vector<Cell> matrix = buildMatrix (o);
+    if (o.scope != "smoke" && o.scope != "full" && o.scope != "diagnostic")
+    {
+        std::fprintf (stderr, "error: --scope must be smoke|full|diagnostic\n");
+        return 64;
+    }
+    if (o.scope == "diagnostic" && o.scopeReason.empty())
+    {
+        std::fprintf (stderr, "error: --scope diagnostic requires --scope-reason\n");
+        return 64;
+    }
+
+    const std::vector<Cell> matrix = selectScope (o, buildMatrix (o));
 
     if (o.listMatrix)
     {
-        std::printf ("%zu cells\n", matrix.size());
+        std::printf ("scope=%s cells=%zu\n", o.scope.c_str(), matrix.size());
         for (const auto& c : matrix)
             std::printf ("%s warm=%d %s\n", c.id.c_str(), c.warmBlocks,
                          c.realtimePaced ? "realtime" : "fast");
@@ -810,21 +1017,16 @@ int main (int argc, char** argv)
 
     std::FILE* log = stdout;
 
-    if (o.out.empty())
+    if (o.out.empty() || o.productBuild.empty() || o.source.empty())
     {
-        std::fprintf (stderr, "error: --out is required\n");
-        return 64;
-    }
-    if (o.productBuild.empty() || o.source.empty())
-    {
-        std::fprintf (stderr, "error: --product-build and --source are required\n");
+        std::fprintf (stderr, "error: --out, --product-build and --source are required\n");
         return 64;
     }
 
-    std::fprintf (log, "EVAL-LIVE-001 actual-processor live-Jam replay\n");
-    std::fprintf (log, "=============================================\n");
-    std::fprintf (log, "source=%s\nproduct=%s\nmode=%s cells=%zu realtime=%d\n\n",
-                  o.source.c_str(), o.productBuild.c_str(), o.mode.c_str(),
+    std::fprintf (log, "EVAL-LIVE-001 actual-processor live-Jam replay (corrected)\n");
+    std::fprintf (log, "=========================================================\n");
+    std::fprintf (log, "source=%s\nproduct=%s\nscope=%s cells=%zu realtime=%d\n\n",
+                  o.source.c_str(), o.productBuild.c_str(), o.scope.c_str(),
                   matrix.size(), (int) o.realtime);
 
     std::fprintf (log, "[instrument self-check]\n");
@@ -838,13 +1040,10 @@ int main (int argc, char** argv)
     juce::ScopedJuceInitialiser_GUI gui;
     GuitarCompanionProcessor proc;
 
-    // Optional synthetic WAV fixtures, loaded OUTSIDE any measured region. An
-    // explicitly supplied fixture that fails to load is a hard error; the
-    // built-in generators are used only when no fixture path is given.
     WavMono wavClean, wavNoise, wavSilence;
     InputSet inputs;
     auto loadFixture = [&] (const std::string& path, WavMono& wav, const std::string*& pathRef,
-                            const WavMono*& wavRef)
+                            const WavMono*& wavRef) -> bool
     {
         if (path.empty()) return true;
         if (! loadWavMono (path, wav))
@@ -852,8 +1051,7 @@ int main (int argc, char** argv)
             std::fprintf (stderr, "error: fixture '%s': %s\n", path.c_str(), wav.error.c_str());
             return false;
         }
-        pathRef = &path;
-        wavRef = &wav;
+        pathRef = &path; wavRef = &wav;
         return true;
     };
     const std::string* pClean = nullptr, *pNoise = nullptr, *pSilence = nullptr;
@@ -861,21 +1059,16 @@ int main (int argc, char** argv)
         || ! loadFixture (o.fixtureNoise, wavNoise, pNoise, inputs.wav[1])
         || ! loadFixture (o.fixtureSilence, wavSilence, pSilence, inputs.wav[2]))
         return 6;
-    inputs.path[0] = pClean;
-    inputs.path[1] = pNoise;
-    inputs.path[2] = pSilence;
+    inputs.path[0] = pClean; inputs.path[1] = pNoise; inputs.path[2] = pSilence;
 
-    // Probe the facade once before replaying so a facade-bearing but
-    // backend-less product is reported honestly instead of as clean.
     jam::JamLiveState probe {};
     const bool probeOk = proc.readJamLiveState (probe);
-    const bool backendUsable = probeOk && probe.backend != jam::JamLiveBackend::unavailable;
+    const std::string backendKind = probeOk ? backendName (probe.backend) : "unknown";
+    const bool backendUsable = probeOk && probe.backend == jam::JamLiveBackend::experimentalBTrack;
 
     std::vector<Cell> results;
     results.reserve (matrix.size());
-    int anyMeasured = 0;
-    int enabledRejected = 0;
-
+    int anyMeasured = 0, enabledRejected = 0;
     for (const auto& base : matrix)
     {
         Cell c = base;
@@ -885,10 +1078,41 @@ int main (int argc, char** argv)
         results.push_back (std::move (c));
     }
 
-    SemanticsResult sem;
-    runSemantics (proc, o.rates.front(), o.blocks.front(), log, sem);
+    // Findings: callback-path allocations/frees/locks that actually occurred.
+    std::vector<Finding> findings;
+    for (const auto& c : results)
+    {
+        if (! c.measured) continue;
+        auto add = [&] (const rtprobe::Snapshot& s, const char* phase)
+        {
+            const std::uint64_t a = rtprobe::allocCallTotal (s);
+            const std::uint64_t fr = rtprobe::freeCallTotal (s);
+            const std::uint64_t lk = s.lockCalls + s.trylockCalls + s.condWaitCalls;
+            if (a || fr || lk)
+            {
+                char d[160];
+                std::snprintf (d, sizeof (d), "alloc=%llu free=%llu lock=%llu",
+                               (unsigned long long) a, (unsigned long long) fr, (unsigned long long) lk);
+                findings.push_back ({ c.id, phase, d });
+            }
+        };
+        add (c.cold, "cold_callback_alloc");
+        add (c.warm, "warm_callback_alloc");
+    }
 
-    // ---- Evidence JSON (measured cells; identity/protocol added by the runner).
+    std::vector<ScenarioResult> scenarios;
+    if (o.supplemental)
+    {
+        std::fprintf (log, "\n[supplemental scenarios]\n");
+        ScenarioResult def;
+        runDefaultCleanLong (proc, o, def, log);
+        scenarios.push_back (def);
+        GuitarCompanionProcessor injectedProc;
+        ScenarioResult inj;
+        runInjectedJoinStop (injectedProc, o, inj, log);
+        scenarios.push_back (inj);
+    }
+
     std::string jsonPath = o.out + "/cells.json";
     std::FILE* f = std::fopen (jsonPath.c_str(), "w");
     if (f == nullptr)
@@ -898,31 +1122,31 @@ int main (int argc, char** argv)
     }
 
     std::fprintf (f, "{\n");
-    std::fprintf (f, "  \"schema\": \"live-jam-replay/cells/1.0\",\n");
+    std::fprintf (f, "  \"schema\": \"live-jam-replay/cells/1.1\",\n");
     std::fprintf (f, "  \"harness\": \"live-jam-replay\",\n");
-    std::fprintf (f, "  \"harness_version\": \"1.0\",\n");
+    std::fprintf (f, "  \"harness_version\": \"1.1\",\n");
     std::fprintf (f, "  \"processor_constructed\": true,\n");
     std::fprintf (f, "  \"instrument_selfcheck_pass\": true,\n");
+    std::fprintf (f, "  \"scope\": \"%s\",\n", o.scope.c_str());
+    std::fprintf (f, "  \"scope_reason\": \"%s\",\n", o.scopeReason.c_str());
+    std::fprintf (f, "  \"allocation_scope\": \"callback-thread-path-only\",\n");
+    std::fprintf (f, "  \"worker_allocations\": {\"measured\": false, \"reason\": \"thread-local arming counts only the replay/callback thread; analyzer/worker allocations are unmeasured\"},\n");
+    std::fprintf (f, "  \"backend_kind\": \"%s\",\n", backendKind.c_str());
     std::fprintf (f, "  \"backend_usable_at_start\": "); jsonBool (f, backendUsable);
     std::fprintf (f, ",\n  \"realtime_paced\": "); jsonBool (f, o.realtime);
     std::fprintf (f, ",\n  \"seed\": "); jsonU64 (f, o.seed);
     std::fprintf (f, ",\n  \"initial_state\": "); writeState (f, probe);
-    std::fprintf (f, ",\n  \"semantics\": {");
-    std::fprintf (f, "\"ran\":");              jsonBool (f, sem.ran);
-    std::fprintf (f, ",\"startAccepted\":");   jsonBool (f, sem.startAccepted);
-    std::fprintf (f, ",\"stopAtNextBarWasDeferred\":"); jsonBool (f, sem.stopAtNextBarWasDeferred);
-    std::fprintf (f, ",\"stopWasImmediate\":"); jsonBool (f, sem.stopWasImmediate);
-    std::fprintf (f, ",\"blocksToStopAtNextBar\":"); jsonI64 (f, sem.blocksToStopAtNextBar);
-    std::fprintf (f, ",\"blocksToImmediateStop\":"); jsonI64 (f, sem.blocksToImmediateStop);
-    std::fprintf (f, ",\"generationBeforeReprepare\":"); jsonU64 (f, sem.generationBeforeReprepare);
-    std::fprintf (f, ",\"generationAfterReprepare\":");  jsonU64 (f, sem.generationAfterReprepare);
-    std::fprintf (f, ",\"generationChangedOnReprepare\":");
-    jsonBool (f, sem.generationAfterReprepare != sem.generationBeforeReprepare);
-    std::fprintf (f, ",\"audioSampleBeforeRelease\":"); jsonU64 (f, sem.audioSampleBeforeRelease);
-    std::fprintf (f, ",\"audioSampleAfterReprepareFirstBlock\":");
-    jsonU64 (f, sem.audioSampleAfterReprepareFirstBlock);
-    std::fprintf (f, ",\"silentStartNoLock\":"); jsonBool (f, sem.silentStartNoLock);
-    std::fprintf (f, "},\n");
+    std::fprintf (f, ",\n  \"expected_cell_ids\": [");
+    for (std::size_t i = 0; i < matrix.size(); ++i)
+        std::fprintf (f, "%s\"%s\"", i ? "," : "", matrix[i].id.c_str());
+    std::fprintf (f, "],\n");
+
+    std::fprintf (f, "  \"findings\": [");
+    for (std::size_t i = 0; i < findings.size(); ++i)
+        std::fprintf (f, "%s{\"cell\":\"%s\",\"kind\":\"%s\",\"detail\":\"%s\"}",
+                      i ? "," : "", findings[i].cell.c_str(),
+                      findings[i].kind.c_str(), findings[i].detail.c_str());
+    std::fprintf (f, "],\n");
 
     std::fprintf (f, "  \"cells\": [\n");
     for (std::size_t i = 0; i < results.size(); ++i)
@@ -966,23 +1190,48 @@ int main (int argc, char** argv)
         std::fprintf (f, ",\"state_end\":");   writeState (f, c.stateEnd);
 
         std::fprintf (f, ",\"progression\":{");
-        std::fprintf (f, "\"audio_sample_start\":"); jsonU64 (f, c.audioSampleStart);
-        std::fprintf (f, ",\"audio_sample_end\":");   jsonU64 (f, c.audioSampleEnd);
-        std::fprintf (f, ",\"audio_sample_monotonic\":"); jsonBool (f, c.audioMonotonic);
-        std::fprintf (f, ",\"audio_sample_delta_ok\":"); jsonBool (f, c.audioDeltaOk);
-        std::fprintf (f, ",\"audio_sample_delta_mismatches\":"); jsonU64 (f, c.audioDeltaMismatches);
+        std::fprintf (f, "\"audio_owner_measured\":"); jsonBool (f, c.audioOwnerMeasured);
+        std::fprintf (f, ",\"audio_owner_delta_ok\":"); jsonBool (f, c.audioOwnerDeltaOk);
+        std::fprintf (f, ",\"audio_owner_delta_mismatches\":"); jsonU64 (f, c.audioOwnerDeltaMismatches);
+        std::fprintf (f, ",\"audio_owner_backward\":"); jsonU64 (f, c.audioOwnerBackward);
+        std::fprintf (f, ",\"audio_owner_start\":"); jsonU64 (f, c.audioOwnerStart);
+        std::fprintf (f, ",\"audio_owner_end\":"); jsonU64 (f, c.audioOwnerEnd);
+        std::fprintf (f, ",\"reported_monotonic\":"); jsonBool (f, c.reportedMonotonic);
+        std::fprintf (f, ",\"reported_future\":"); jsonU64 (f, c.reportedFuture);
+        std::fprintf (f, ",\"coalesced_reads\":"); jsonU64 (f, c.coalescedReads);
+        std::fprintf (f, ",\"skipped_publications\":"); jsonU64 (f, c.skippedPublications);
+        std::fprintf (f, ",\"reported_cursor_start\":"); jsonU64 (f, c.reportedCursorStart);
+        std::fprintf (f, ",\"reported_cursor_end\":"); jsonU64 (f, c.reportedCursorEnd);
+        std::fprintf (f, ",\"receipt_reads\":"); jsonU64 (f, c.receiptReads);
+        std::fprintf (f, ",\"receipt_measured_reads\":"); jsonU64 (f, c.receiptMeasuredReads);
+        std::fprintf (f, ",\"new_receipts\":"); jsonU64 (f, c.newReceipts);
+        std::fprintf (f, ",\"repeated_receipt_reads\":"); jsonU64 (f, c.repeatedReceiptReads);
+        std::fprintf (f, ",\"receipt_any_measured\":"); jsonBool (f, c.receiptAnyMeasured);
+        std::fprintf (f, ",\"receipt_order_violation\":"); jsonBool (f, c.receiptOrderViolation);
+        std::fprintf (f, ",\"receipt_availability_lag_last\":");
+        jsonMaybeU64 (f, c.receiptAnyMeasured, c.receiptAvailLagLast);
+        std::fprintf (f, ",\"receipt_availability_lag_max\":");
+        jsonMaybeU64 (f, c.receiptAnyMeasured, c.receiptAvailLagMax);
+        std::fprintf (f, ",\"event_delay_last\":");
+        jsonMaybeU64 (f, c.receiptAnyMeasured, c.eventDelayLast);
+        std::fprintf (f, ",\"event_delay_max\":");
+        jsonMaybeU64 (f, c.receiptAnyMeasured, c.eventDelayMax);
+        std::fprintf (f, ",\"worker_cursor_lag_measured\":"); jsonBool (f, c.workerCursorLagMeasured);
+        std::fprintf (f, ",\"worker_cursor_lag_last\":");
+        jsonMaybeU64 (f, c.workerCursorLagMeasured, c.workerCursorLagLast);
+        std::fprintf (f, ",\"worker_cursor_lag_max\":");
+        jsonMaybeU64 (f, c.workerCursorLagMeasured, c.workerCursorLagMax);
         std::fprintf (f, ",\"prepared_seen\":"); jsonBool (f, c.preparedSeen);
         std::fprintf (f, ",\"requested_running_seen\":"); jsonBool (f, c.requestedRunningSeen);
         std::fprintf (f, ",\"join_pending_seen\":"); jsonBool (f, c.joinPendingSeen);
         std::fprintf (f, ",\"drums_playing_seen\":"); jsonBool (f, c.drumsPlayingSeen);
         std::fprintf (f, ",\"generation_changes\":"); jsonU64 (f, c.generationChanges);
         std::fprintf (f, ",\"candidate_bpm_nonzero\":"); jsonU64 (f, c.candidateBpmNonzero);
-        std::fprintf (f, ",\"receipt_count\":"); jsonU64 (f, c.receiptCount);
-        std::fprintf (f, ",\"receipt_measured_count\":"); jsonU64 (f, c.receiptMeasuredCount);
-        std::fprintf (f, ",\"receipt_before_horizon\":"); jsonU64 (f, c.receiptBeforeHorizon);
-        std::fprintf (f, ",\"event_after_horizon\":"); jsonU64 (f, c.eventAfterHorizon);
-        std::fprintf (f, ",\"max_receipt_lag_samples\":"); jsonU64 (f, c.maxReceiptLagSamples);
-        std::fprintf (f, ",\"last_receipt_sample\":"); jsonU64 (f, c.lastReceiptSample);
+        std::fprintf (f, ",\"analysis_drops\":"); jsonU64 (f, c.analysisDrops);
+        std::fprintf (f, ",\"observation_drops\":"); jsonU64 (f, c.observationDrops);
+        std::fprintf (f, ",\"user_command_drops\":"); jsonU64 (f, c.userCommandDrops);
+        std::fprintf (f, ",\"drum_command_drops\":"); jsonU64 (f, c.drumCommandDrops);
+        std::fprintf (f, ",\"discontinuities\":"); jsonU64 (f, c.discontinuities);
         std::fprintf (f, "}");
 
         std::fprintf (f, ",\"commands\":[");
@@ -992,10 +1241,46 @@ int main (int argc, char** argv)
         std::fprintf (f, "%s\n", i + 1 < results.size() ? "," : "");
     }
     std::fprintf (f, "  ],\n");
+
+    std::fprintf (f, "  \"scenarios\": [");
+    for (std::size_t i = 0; i < scenarios.size(); ++i)
+    {
+        const auto& r = scenarios[i];
+        std::fprintf (f, "%s{", i ? "," : "");
+        std::fprintf (f, "\"id\":\"%s\",\"ran\":", r.id.c_str()); jsonBool (f, r.ran);
+        std::fprintf (f, ",\"injected\":"); jsonBool (f, r.injected);
+        std::fprintf (f, ",\"backend_kind\":\"%s\"", r.backendKind.c_str());
+        std::fprintf (f, ",\"unmeasured_reason\":");
+        if (r.ran) std::fprintf (f, "null");
+        else std::fprintf (f, "\"%s\"", r.unmeasuredReason.c_str());
+        std::fprintf (f, ",\"start_accepted\":"); jsonBool (f, r.startAccepted);
+        std::fprintf (f, ",\"join_observed\":"); jsonBool (f, r.joinObserved);
+        std::fprintf (f, ",\"blocks_to_join\":"); jsonU64 (f, r.blocksToJoin);
+        std::fprintf (f, ",\"stop_at_next_bar_deferred\":"); jsonBool (f, r.stopAtNextBarDeferred);
+        std::fprintf (f, ",\"blocks_to_stop_at_next_bar\":"); jsonU64 (f, r.blocksToStopAtNextBar);
+        std::fprintf (f, ",\"stop_now_stopped\":"); jsonBool (f, r.stopNowStopped);
+        std::fprintf (f, ",\"blocks_to_stop_now\":"); jsonU64 (f, r.blocksToStopNow);
+        std::fprintf (f, ",\"resync_accepted\":"); jsonBool (f, r.resyncAccepted);
+        std::fprintf (f, ",\"generation_before_reprepare\":"); jsonU64 (f, r.generationBeforeReprepare);
+        std::fprintf (f, ",\"generation_after_reprepare\":"); jsonU64 (f, r.generationAfterReprepare);
+        std::fprintf (f, ",\"generation_changed_on_reprepare\":"); jsonBool (f, r.generationChangedOnReprepare);
+        std::fprintf (f, ",\"shutdown_released\":"); jsonBool (f, r.shutdownReleased);
+        std::fprintf (f, ",\"audio_owner_delta_ok\":"); jsonBool (f, r.audioOwnerDeltaOk);
+        std::fprintf (f, ",\"audio_owner_delta_mismatches\":"); jsonU64 (f, r.audioOwnerDeltaMismatches);
+        std::fprintf (f, ",\"audio_owner_observed_s\":"); jsonNumber (f, r.audioOwnerObservedS);
+        std::fprintf (f, ",\"callback_alloc_cxx\":"); jsonU64 (f, r.callbackAllocCxx);
+        std::fprintf (f, ",\"callback_alloc_c\":"); jsonU64 (f, r.callbackAllocC);
+        std::fprintf (f, ",\"callback_free\":"); jsonU64 (f, r.callbackFree);
+        std::fprintf (f, ",\"callback_locks\":"); jsonU64 (f, r.callbackLocks);
+        std::fprintf (f, "}");
+    }
+    std::fprintf (f, "],\n");
+
     std::fprintf (f, "  \"counts\": {");
     std::fprintf (f, "\"cells\":%zu", results.size());
     std::fprintf (f, ",\"measured\":%d", anyMeasured);
     std::fprintf (f, ",\"enabled_rejected\":%d", enabledRejected);
+    std::fprintf (f, ",\"findings\":%zu", findings.size());
     std::fprintf (f, "}\n");
     std::fprintf (f, "}\n");
 
@@ -1007,15 +1292,12 @@ int main (int argc, char** argv)
         return 5;
     }
 
-    std::fprintf (log, "\ncells.json: %s (%zu cells, %d measured, %d enabled rejected)\n",
-                  jsonPath.c_str(), results.size(), anyMeasured, enabledRejected);
+    std::fprintf (log, "\ncells.json: %s (scope=%s cells=%zu measured=%d findings=%zu)\n",
+                  jsonPath.c_str(), o.scope.c_str(), results.size(), anyMeasured, findings.size());
 
-    // Fail closed: if the live backend is unavailable, enabled evidence is not
-    // measurable. The runner treats exit 3 as "harness ready, awaiting a
-    // backend-capable product".
     if (! backendUsable && ! o.allowUnavailable)
     {
-        std::fprintf (log, "backend unavailable: enabled cells recorded unmeasured (exit 3)\n");
+        std::fprintf (log, "backend not experimentalBTrack (%s): awaiting-backend (exit 3)\n", backendKind.c_str());
         return 3;
     }
     return 0;

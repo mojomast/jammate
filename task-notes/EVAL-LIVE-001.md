@@ -162,6 +162,61 @@ only asserts the predeclared truth. This is recorded as an explicit,
 unresolved contract question for the orchestrator; no interface change is made
 here.
 
+## Correction pass — independent BLOCK on 07021ae
+
+The independent review blocked `07021ae` before measurement. The additive
+correction contract and protocol amendment were committed first
+(`a293c20`), before any changed tool was reevaluated. The original
+`predeclared.json`, `protocol.sha256` and every pre-existing
+`docs/research/live-jam-replay/` artifact are preserved byte-for-byte; updated
+pins are in `tool-pins-after-correction.sha256` and a separate labelled
+self-test receipt is in `correction-selftest-receipt.json`.
+
+Concrete fixes:
+
+- **C1 async UI coalescing.** The harness no longer seeds the expected cursor
+  from `readJamLiveState` nor asserts exact equality on it. True per-callback
+  advancement comes from the audio-owner getter
+  `DrumEngine::injectedSamplePosition()` read on the callback-owner thread
+  outside the armed region; the facade cursor is checked only for
+  coalescing-tolerant monotonicity and never exceeding the produced cursor.
+  Pressure/unpaced cells record `receipt_measured=false` with `null` lag.
+- **C2 link/backend.** Preflight detects the exact `JAM_LIVE_BTRACK_AVAILABLE`
+  macro (not the substring `Backend`); the build extracts the real Standalone
+  link closure (pinned, `--start-group/--end-group`) and requires the default
+  usable backend to be exactly `experimentalBTrack`; otherwise
+  `awaiting-backend`. `setJamTrackerForTesting`/`requestStopNow` seams are
+  detected and the injected scenario is compiled only when present.
+- **M5 smoke scope.** `--scope smoke|full|diagnostic`; smoke is exactly the 4
+  preregistered IDs, full requires 54, diagnostic needs a reason and cannot
+  claim the full matrix.
+- **M6 timeout.** Bounded subprocess timeout (default 300 s) producing
+  `status=timed-out`, `invoked_binary=true`, `measured_partial`, logs preserved.
+- **M7 synthetic rejection.** Default validation rejects synthetic evidence;
+  `--allow-synthetic-selftest` accepts a labelled self-test.
+- **M8 allocation scope.** Callback-thread-path only; worker allocations
+  unmeasured; callback findings listed and status `measured-findings`; hidden
+  findings fail.
+- **M9 lag metrics.** receipt-horizon, receipt-event and produced-reported, null
+  exactly when unmeasured; repeated observations are not new receipts.
+- **M10 Stop contract + source pins.** `Stop`/`Reset` = bounded
+  next-serviced-block stop (`requestStopNow`); `StopAtNextBar` deferred.
+  `--source-pin-overrides` accepts exact preregistered hashes for changed
+  pipeline headers while immutable frozen headers must still match.
+- **Supplemental scenarios.** `default_clean_long` (16 s) and
+  `injected_join_stop_resync` (guarded) preregistered and recorded separately;
+  the 54-cell matrix proves callback coverage only.
+
+Post-correction executed self-tests: validator unit tests **67/67**; labelled
+synthetic tree passes **3405** hard checks (0 failures) under
+`--allow-synthetic-selftest` and is rejected by default; instrumentation and
+support self-tests pass; facade tests pass; harness smoke-compiles both with and
+without the injected seam; preflight against the current non-live product fails
+closed with `backend_macro` among the missing items.
+
+Counts are stated explicitly per run; the earlier "41" is historical and not
+reused.
+
 ## Limitations (not claimed)
 
 - The actual live measurement is pending the merged pipeline. Only the harness,
