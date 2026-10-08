@@ -29,6 +29,18 @@ The dry-run requires the shared-code and product-test targets to be current;
 Standalone/VST3 are built separately. Their wrappers are not reused by replay,
 and JUCE's always-dirty VST3 manifest helper must not invalidate a current closure.
 
+### Additive harness correction after actual004
+
+The first measured run at `a2f9362` failed the original fill-duration assertion:
+observed92672 samples instead of96000 +/-512. All other assertions passed.
+The injected120 BPM candidate did not establish the clock-owned tempo; the
+clock intentionally retains its belief within the follow deadband. Preserve
+that rejected run. Before the next measurement, explicitly establish tempo with
+two taps separated by47 512-sample callbacks, then Freeze. The intended tap
+interval24064 samples yields119.681 BPM and a96256-sample bar, still inside the
+original96000 +/-512 criterion. Print the measured duration and engine tempo.
+No production thresholds or fill-duration tolerances change.
+
 - All106 unique catalogue patterns prepared before processing callbacks.
 - Actual join within the declared 1400-block (~14.93 s audio-time) wiring window.
   This is not a two-bar guitar-acquisition test.

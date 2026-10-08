@@ -103,7 +103,29 @@ int main (int argc, char** argv)
     };
     auto send = [&] (jam::JamLiveCommandType type, double value = 0.0)
     { check (proc->submitJamCommand ({ type, value }), "live command accepted by bounded queue"); };
+    // A tracker candidate is not the clock-owned tempo. Establish the test
+    // grid with explicit taps: 47 * 512 = 24064 samples (119.681 BPM), whose
+    // four-beat bar is 96256 samples, inside the frozen 96000 +/-512 criterion.
+    send (jam::JamLiveCommandType::TapTempo);
+    send (jam::JamLiveCommandType::FreezeTempo);
+    // Hold the cursor while the worker drains each tap. A following observable
+    // command confirms ordering without relying on scheduler timing.
+    for (int i = 0; i < 500 && ! state.clock.tempoFrozen; ++i)
+    {
+        std::this_thread::sleep_for (std::chrono::milliseconds (1));
+        proc->readJamLiveState (state);
+    }
+    check (state.clock.tempoFrozen, "first tap applied before advancing the fixed interval");
+    for (int i = 0; i < 47; ++i) block();
+    send (jam::JamLiveCommandType::TapTempo);
     send (jam::JamLiveCommandType::Start);
+    for (int i = 0; i < 500 && ! state.requestedRunning; ++i)
+    {
+        std::this_thread::sleep_for (std::chrono::milliseconds (1));
+        proc->readJamLiveState (state);
+    }
+    check (state.requestedRunning && std::abs (state.clock.bpm - 48000.0 * 60.0 / 24064.0) < 0.001,
+           "second tap establishes the frozen clock-owned test tempo");
     for (int i = 0; i < 1400 && ! proc->drumEngine.injectedPlaying(); ++i) block();
     check (proc->drumEngine.injectedPlaying(), "actual initial join");
     send (jam::JamLiveCommandType::SetFillAmount, 0.0); // explicit fills only
@@ -158,6 +180,9 @@ int main (int argc, char** argv)
     }
     check (fill && reverted && fillEcho && fillEnd > fillStart,
            "actual engine fill, audio-owner echo and reversion");
+    std::printf ("FILL start=%llu end=%llu duration=%llu engine_bpm=%.9g\n",
+                 static_cast<unsigned long long> (fillStart), static_cast<unsigned long long> (fillEnd),
+                 static_cast<unsigned long long> (fillEnd - fillStart), proc->drumEngine.injectedTempo());
     check (fillEnd > fillStart && std::abs (static_cast<double> (fillEnd - fillStart) - 96000.0) <= 512.0,
            "fill duration is one 120 BPM bar within callback observation resolution");
     check (proc->drumEngine.injectedRejectedCount() == adaptationRejectBase,
