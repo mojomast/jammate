@@ -84,6 +84,21 @@ PARTIAL, never PASSED.
     No production analyzer/clock/editor integration is authorised by this task;
     full DIAG-001 stays partial until that integration and overhead are measured.
 
+### Active adaptive/evaluation/device wave (base `c8f87a8`, 2026-10-08)
+
+The user authorised Flash subagents to build the remaining work. Four isolated
+workers use `opencode-go/deepseek-v4.1-flash`; contract:
+`docs/research/ADAPTIVE-WAVE-CONTRACT.md`. Orchestrator owns shared build/CI,
+live/UI integration and independent review. Physical/guitar gates require real
+measurements and are not closed by software or synthetic tests.
+
+| Task | State | Worktree / ownership |
+|---|---|---|
+| STYLE-DIRECTOR-002 | STARTING | `../worktrees/STYLE-DIRECTOR-002`; new catalog/director and portable tests |
+| DRUM-ADAPT-002 | STARTING | `../worktrees/DRUM-ADAPT-002`; bridge/engine adaptation and actual-engine tests |
+| EVAL-GUITAR-009 | STARTING | `../worktrees/EVAL-GUITAR-009`; representative-guitar import/useful-lock evaluation |
+| DEVICE-002 | STARTING | `../worktrees/DEVICE-002`; physical-device/play evidence tooling |
+
 ### Completed live-Jam wave (base `88893e2`, 2026-10-08)
 
 The user authorised the first audible live loop after the reviewed bridge wave.
