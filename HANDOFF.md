@@ -16,7 +16,9 @@ processor/live-session integration, UI-LIVE-001 owns editor/Jam UI connection,
 and EVAL-LIVE-001 owns preregistered actual-processor replay/validation. Worktrees,
 sessions and exact ownership are in the ledger's Active live-Jam table.
 `docs/research/LIVE-JAM-CONTRACT.md` and `src/jam/JamLiveInterface.h` freeze the
-shared facade. No new handoff is accepted. Default BTrack is experimental;
+shared facade. UI `8ac4517` and pipeline `016c0c8` are accepted and merged locally
+after fresh product verification; replay corrections and actual scoring remain
+pending. Default BTrack is experimental;
 TRACK-008 stays diagnostic and G3 remains open. Shared CMake/CI are
 orchestrator-owned. Prior final head `b7e3be1` is published and fully green in
 run37729980845: core23/24/24/25, NAM9/9, Windows Standalone/VST3 with7/7 drum
@@ -144,6 +146,12 @@ probes before prepare, and scenario/measurement/finding/timeout validator gates
 need tightening; worker fix is active. No accepted implementation merge or
 actual processor measurement yet; preserved source pins still match the pipeline
 processor and bridge headers.
+
+Final UI and pipeline handoffs are accepted/merged: UI `8ac4517` has20/20 fresh
+product UI cases and accepted focused review; pipeline `016c0c8` has fresh
+Standalone/VST3 builds,36/36 registered suites/linkage guards and accepted
+orchestrator review of the dropped-tempo latch fix. Replay worker is correcting
+runtime readiness and validator gates. No actual processor scoring yet.
 
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:

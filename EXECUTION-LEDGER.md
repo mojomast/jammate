@@ -103,7 +103,9 @@ cursor at receipt stay distinct. UI receives coherent telemetry and actual
 audio-owner playback echo. Default BTrack is experimental live wiring, not a G3
 selection or TRACK-008 promotion. Advanced style/fill controls are unavailable
 for the one-Rock-groove slice. Shared build/CI and integration remain
-orchestrator-owned. No handoff is accepted yet.
+orchestrator-owned. Final UI `8ac4517` and pipeline `016c0c8` are accepted and
+integrated after focused review and fresh product verification. Replay correction
+and actual processor measurements remain pending.
 
 All three implementation workers have submitted clean handoffs: INT-LIVE-001
 `f3151f0`, UI-LIVE-001 `f9d1d15`, EVAL-LIVE-001 `07021ae`. Independent reviews
@@ -169,6 +171,13 @@ the initial ten findings and links to the product, but runtime backend probing
 must occur after prepare, and validators must gate scenarios, measured counters
 and complete findings/timeout semantics. Those fixes are active. All original
 protocol/raw artifacts remain preserved; no actual processor measurement has run.
+
+Final acceptance update: UI `8ac4517` passes20/20 fresh product UI cases and
+focused review accepts its effective-intent reconciliation. Pipeline `016c0c8`
+passes fresh Linux Standalone/VST3 builds,36/36 registered suites and core
+linkage guards; orchestrator review confirms staged tempo is latched only on
+accepted publication. Both handoffs are merged locally. Replay readiness/
+validator correction remains with the worker; actual scoring has not run.
 
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The
