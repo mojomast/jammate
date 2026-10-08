@@ -1457,7 +1457,7 @@ Keep this near the top of the live devplan during implementation.
 | MOD-001 | DONE (offline seam) | main | 89db28d + efb820b | G2 |
 | MOD-002 | DONE (offline seam); real engine wiring open | main | 86544f1 | G2 |
 | MOD-003 | BLOCKED:G1 | | | G2 |
-| EVAL-001 | integrated; sustained/tapping synthesis defects open | main | f5f5a11 + c68df60 | G3 |
+| EVAL-001 | integrated historical corpus; versioned sustain repair + tapping audit in EVAL-006 | main | f5f5a11 + c68df60 + EVAL-006 | G3 |
 | EVAL-002 | integrated; timestamp/gate follow-up underway | main | 3e5bb7b + wp/EVAL-002R | G3 |
 | TRACK-001 | DONE (offline candidate) | main | c3dad10 | G3 |
 | TRACK-002 | DONE (offline candidate) | main | wp/TRACK-002 + eac59ba | G3 |
@@ -1466,7 +1466,7 @@ Keep this near the top of the live devplan during implementation.
 | EVAL-004 | DONE (timing/gate audit + real comparison) | main | 64b39ee | G3 |
 | EVAL-005 | DONE (scoped paired diagnostics; G3 open) | main | 816a955 | G3 |
 | CI-002 | DONE (definitions + local execution; remote/Windows open) | main | 480f15f + research-suite guards | G1/G3 |
-| EVAL-006 | review corrections running (versioned sustain repair) | wp/EVAL-006-sustain | initial d6e36ff, not merged | G3 |
+| EVAL-006 | DONE (versioned synthetic sustain repair + tapping audit) | main | e0e3bde + integration registration | G3 |
 | TRACK-004 | review corrections running (causal acquisition/BPM diagnosis) | wp/TRACK-004-acquisition | initial 51554f1, not merged | G3 |
 | RT-002 | RUNNING (real processor callback/timer evidence) | wp/RT-002-processor-probe | base cd9f97f | G1 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |

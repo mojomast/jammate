@@ -196,6 +196,13 @@ if (JAM_CORE_BUILD_TESTS AND JAM_TEST_SOURCES)
             set_tests_properties(jam.RhythmRobustness PROPERTIES
                 WORKING_DIRECTORY "${JAM_ROOT}")
         endif()
+        if (EXISTS "${JAM_ROOT}/tools/rhythm-eval/tools/test_repair_sustained.py")
+            add_test(NAME jam.RhythmSustainRepair
+                COMMAND ${Python3_EXECUTABLE}
+                    "${JAM_ROOT}/tools/rhythm-eval/tools/test_repair_sustained.py")
+            set_tests_properties(jam.RhythmSustainRepair PROPERTIES
+                WORKING_DIRECTORY "${JAM_ROOT}")
+        endif()
         if (EXISTS "${JAM_ROOT}/tools/beatnet-eval/tests/test_score.py")
             add_test(NAME jam.BeatNetResearch
                 COMMAND ${Python3_EXECUTABLE} -m unittest discover

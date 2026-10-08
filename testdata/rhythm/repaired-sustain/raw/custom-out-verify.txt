@@ -1,0 +1,5 @@
+custom --out CLI resolution check
+corpus=/home/mojo/projects/build-EVAL-006/custom-corpus
+built with: repair_sustained.py --out /home/mojo/projects/build-EVAL-006/custom-corpus
+backend=btrack exit=0 fixtureCount=19
+backend=aubio exit=0 fixtureCount=19

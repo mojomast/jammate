@@ -38,12 +38,19 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
 - CI-002 revised workflows (`480f15f`) integrated with required research-suite
   guards. Executed locally against `6e03b40`: OFF/BTrack/aubio/both **11/12/12/13
   suites**; separate core workflow **11/11**. No remote or Windows CI run.
+- EVAL-006 versioned long-decay sustain repair (`e0e3bde`) integrated with **37
+  tests passing**, preserved original hashes, all 19 referenced WAVs and four raw
+  result hashes checked. Repaired corpus acquisition is BTrack **5/11**, aubio
+  **7/11** (both fail); original corpus evidence remains unchanged. By-name
+  CorpusDefect label still requires a version-aware follow-up. See
+  `docs/research/SUSTAIN-REPAIR.md` and `testdata/rhythm/repaired-sustain/`.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
-  pass **13/13**, including the derived generator's Python acoustic checks,
-  robustness aggregation and BeatNet research-tool contracts. Default-OFF is
-  **11/11**; tests-OFF registers zero tests.
+  pass **14/14**, including derived/sustain Python acoustic checks, robustness
+  aggregation and BeatNet research-tool contracts. Default-OFF has 12 registered
+  suites; the new sustain check passes (last full OFF run was **11/11**).
+  Tests-OFF registers zero tests.
 - Drum MIDI prepare-time reservation now uses a scheduling bound. Old 256-byte
   storage grows to **2115 bytes** in the test; bounded storage shows zero observed
   allocations/frees across 16 rate/block combinations. Cosmetic meter CAS no
@@ -65,7 +72,7 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | CI-002 integrated workflows (worker finished) | `wp/CI-002-trackers`, `../worktrees/CI-002-trackers` | `ses_ee75a1084ffep3AxLvnl0Kqa3d` |
 | TRACK-003 integrated partial feasibility (worker finished) | `wp/TRACK-003-beatnet`, `../worktrees/TRACK-003-beatnet` | `ses_ee745589effeU0Q5VSCHfvX51T` |
 | EVAL-005 integrated paired diagnostics (worker finished) | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
-| EVAL-006 sustained repair + tapping audit (review corrections) | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
+| EVAL-006 integrated sustain repair + tapping audit (worker finished) | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
 | TRACK-004 acquisition/BPM diagnosis (review corrections) | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
 | RT-002 real processor runtime probe | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
 
@@ -94,12 +101,11 @@ No legacy callback changes authorised; any runtime/build blocker must be
 recorded as measured partial evidence. Device latency, NAM/arbitrary plugins
 and full G1 coverage are not inferred from a bounded non-device probe.
 
-EVAL-006 initial `d6e36ff` has returned (31 worker tests, versioned long-decay
-audio and four real tracker runs) but is not integrated. Same worker is fixing
-custom `--out` references to the 18 original WAVs, running acoustic validators
-during generation, and tightening claims about continuity/physical realism and
-metric-grid detections versus four actual onsets. The name-based CorpusDefect
-scorer caveat remains reported. Await a revised clean SHA.
+EVAL-006 corrected `e0e3bde` is integrated: custom-output WAV references resolve,
+generation runs acoustic validators, and physical-realism/continuity claims are
+limited to the measured evidence. The recorded raw tracker runs used the earlier
+manifest before metadata-only correction; waveform, truth and silence spans are
+unchanged. The by-name CorpusDefect scorer caveat remains reported.
 
 TRACK-004 initial `51554f1` returned real causal traces and acquisition replay.
 The 123.046875 report equals integer lag42 exactly while lag41 represents126;
@@ -114,10 +120,11 @@ is not accepted. No tracker selected; G3 remains open.
 
 G0/G1 remain partial: Windows/ASIO, hardware timing, full callback heap/locking
 and scene delivery need evidence. G2 lacks live analyzer/UI and real DrumEngine
-transport wiring. G3 still needs corpus-duration repair/acquisition improvement and an
-evidence-backed selection ADR. `sustained_chords` collapses to the noise floor
-within about 0.5 s; sparse tapping alone is not proof of a defect. See the
-independent `CORPUS-ACOUSTIC-REVIEW.md`. G4's deterministic implementation does
+transport wiring. G3 still needs version-aware silence-defect classification,
+acquisition improvement and an evidence-backed selection ADR. The historical
+`sustained_chords` collapses within about 0.5 s; the separate repaired fixture has
+measured persistence at 1.5 s. Tapping's onset-energy audit supports retaining
+the fixture. See `SUSTAIN-REPAIR.md` and `CORPUS-ACOUSTIC-REVIEW.md`. G4's deterministic implementation does
 not establish live musical behavior. Keep the earliest join/follow slice small.
 
 ---

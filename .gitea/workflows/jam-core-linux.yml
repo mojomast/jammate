@@ -265,9 +265,12 @@ jobs:
              && grep -q 'RhythmDerivedGenerator' jam-core/CMakeLists.txt; then
              expected="$expected jam.RhythmDerivedGenerator"
            fi
-           if [ -f tools/rhythm-eval/tools/test_run_robustness.py ]; then
-             expected="$expected jam.RhythmRobustness"
-           fi
+          if [ -f tools/rhythm-eval/tools/test_run_robustness.py ]; then
+            expected="$expected jam.RhythmRobustness"
+          fi
+          if [ -f tools/rhythm-eval/tools/test_repair_sustained.py ]; then
+            expected="$expected jam.RhythmSustainRepair"
+          fi
            if [ -f tools/beatnet-eval/tests/test_score.py ]; then
              expected="$expected jam.BeatNetResearch"
            fi

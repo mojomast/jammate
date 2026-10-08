@@ -21,7 +21,7 @@ task note + commit SHA + successful integration.
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **13/13 suites** | deterministic seams, derived generator, paired robustness and BeatNet research-tool contracts; not all SPEC acceptance conditions |
+| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **14/14 suites** | deterministic seams, derived/sustain generators, paired robustness and BeatNet research-tool contracts; not all SPEC acceptance conditions |
 | **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **5/5 passed**; **Standalone and VST3 built** | Windows/ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
@@ -36,7 +36,7 @@ PARTIAL, never PASSED.
 | **G0** fork/license/baseline | **PARTIAL** | current fork builds/tests on Linux; baseline audio/device and Windows evidence incomplete |
 | **G1** real-time foundation | **PARTIAL** | scene code compiled against JUCE; engine-generated MIDI bound measured; full callback, scene delivery and actual CI runs incomplete |
 | **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport seam tested; live analyzer, real DrumEngine integration and Jam UI incomplete |
-| **G3** tracker selected | **IN PROGRESS (advanced early)** | candidate comparison, paired robustness and partial BeatNet feasibility integrated; corpus repairs, acquisition/BPM limitations and selection ADR incomplete |
+| **G3** tracker selected | **IN PROGRESS (advanced early)** | comparison, robustness, versioned sustain repair and partial BeatNet feasibility integrated; defect-label follow-up, acquisition/BPM limitations and selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | deterministic CLOCK-001 tests pass; live end-to-end and broader gate evidence incomplete |
 | **G5** adaptive drummer | not started | — |
 | **G6/G7** UX / release | not started | — |
@@ -86,6 +86,15 @@ PARTIAL, never PASSED.
 - Corrected corpus comparison: BTrack F=0.7099, acquisition 4/11, worst core BPM
   error 2.34%; aubio F=0.5357, acquisition 7/11, worst core BPM error 1.33%.
   Acquisition fails for both. No tracker selected and no G0/G1/G3 pass claimed.
+- EVAL-006 integration: corrected handoff `e0e3bde`, **37 acoustic/integrity/
+  regeneration tests pass**. All 19 repaired-manifest WAV references and four
+  raw-run hashes independently verified. Both-enabled core now **14/14 passes**;
+  the newly registered sustain suite also passes with trackers OFF (12 suites
+  registered; prior full OFF run was 11/11). Tests-OFF still registers zero.
+  All 19 workflow shell bodies pass syntax checks after adding the required
+  sustain-suite guard. New fixture F=0.7273/0.5882 (BTrack/aubio); repaired-corpus
+  acquisition=5/11 and 7/11, so both still fail. By-name CorpusDefect label remains
+  conservative/stale for the repaired fixture; no silence gate pass inferred.
 
 ### Returned handoffs under integration review (2026-10-07)
 
@@ -173,7 +182,7 @@ and reports instead.
 | TRACK-003 BeatNet feasibility | INTEGRATED:PARTIAL; benchmark unavailable | `wp/TRACK-003-beatnet`, `1ef3d5c` → main + scorer corrections | C — research, Flash | G3 | pinned source/weight terms and measured dependency blockers; 51 scorer tests; no inference; redistribution review unresolved |
 | CI-002 tracker CI repair | **DONE: definitions + local execution** | `wp/CI-002-trackers`, `480f15f` → main + research-suite guards | C — evidence, Flash | G1/G3 | current-main 11/12/12/13 suites; ON/OFF symbols and fail-closed nm; remote/Windows execution still unverified |
 | EVAL-005 paired robustness curves | **DONE: scoped paired diagnostics** | `wp/EVAL-005-robustness`, `816a955` → main | B — evidence, Flash | G3 | 29 tests; 2160 rows exactly reproduced; all 24 derived WAV hashes/sizes checked; short-window/missing-data caveats retained |
-| EVAL-006 sustained-corpus repair + tapping audit | REVIEW CORRECTIONS RUNNING | `wp/EVAL-006-sustain`, initial `d6e36ff`, base `6287288` | C — evidence, Flash | G3 | versioned repair/raw pairs returned; fix custom-output WAV references, execute validators during generation, tighten continuity/physical-realism and grid/onset claims |
+| EVAL-006 sustained-corpus repair + tapping audit | **DONE: versioned synthetic repair** | `wp/EVAL-006-sustain`, `e0e3bde` → main + suite registration | C — evidence, Flash | G3 | 37 tests; 1.5 s measured persistence; historical hashes preserved; both real tracker pairs verified; stale name-based defect label reported |
 | TRACK-004 acquisition/BPM diagnosis | REVIEW CORRECTIONS RUNNING | `wp/TRACK-004-acquisition`, initial `51554f1`, base `6287288` | B — evidence, Flash | G3 | real traces/replay returned; correct missing values, per-clause evidence, framing/rate/licence claims and factory lifecycle before integration |
 | RT-002 real processor runtime probe | RUNNING | `wp/RT-002-processor-probe`, base `cd9f97f` | A — runtime evidence, Flash | G1 | actual JUCE processBlock heap/lock probes and editor-absent timer delivery; independent tools only; scope limits explicit |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
