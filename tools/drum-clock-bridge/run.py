@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
 """Build and run the INT-DRUM-001 clock-bridge tests without touching the product build.
 
-Fresh-compiles ONLY the sources this task owns or changes:
+Fresh-compiles, in ONE combined binary:
 
    tests/TestMain.cpp                  (JUCE test harness)
    tests/DrumClockBridgeTests.cpp      (new: actual DrumEngine integration)
+   tests/DrumHeapProbe.cpp             (new: single shared malloc/new probe TU)
+   tests/DrumSpecTests.cpp             (existing)
+   tests/DrumLibraryTests.cpp          (existing)
+   tests/DrumGeneratorTests.cpp        (existing)
+   tests/DrumCodecTests.cpp            (existing)
+   tests/DrumMidiTests.cpp             (existing, refactored onto the shared probe)
+   tests/DrumFoundationTests.cpp       (existing)
    src/DrumEngine.cpp                  (changed: injected-clock audio owner)
    src/DrumLibrary.cpp                 (unchanged, needed by the engine)
    src/DrumGenerator.cpp               (unchanged, needed by the engine)
    src/jam/DrumClockBridge.cpp         (new: worker-side bridge)
 
-and reuses the read-only JUCE module objects + GuitarCompanionAssets archive
-from an existing product build. It then:
-
-   * runs the new actual-engine integration suite;
-   * compiles and runs the portable, JUCE-free bridge suite with the jam-core
-     test harness and the bare compiler;
-   * compiles and runs the EXISTING drum suites (foundation/midi/codec/...) from
-     this worktree against the changed engine, as a standalone-behavior
-     regression.
+and reuses the read-only JUCE module objects + GuitarCompanionAssets archive from
+an existing product build. Putting the new suite and all six existing drum suites
+in ONE link with the same `DRUM_MIDI_HEAP_PROBE`/`--wrap` flags proves the shared
+probe has a single symbol definition. The portable, JUCE-free bridge suite is
+compiled separately with the bare compiler and the jam-core harness.
 
 The product Ninja build is read for its compile/link flags only; nothing in it is
 written. Usage:
@@ -109,7 +112,6 @@ def main():
     parser.add_argument("--output", type=Path,
                         default=Path("/home/mojo/projects/build-INT-DRUM-001-worker"))
     parser.add_argument("--no-portable", action="store_true")
-    parser.add_argument("--no-legacy", action="store_true")
     args = parser.parse_args()
 
     source = args.source.resolve()
@@ -121,15 +123,22 @@ def main():
     # The worktree's own headers must win over the product's source include.
     flags = [f"-I{source / 'src'}"] + product_flags
 
-    fresh = [
+    all_sources = [
         source / "tests" / "TestMain.cpp",
         source / "tests" / "DrumClockBridgeTests.cpp",
+        source / "tests" / "DrumHeapProbe.cpp",
+        source / "tests" / "DrumSpecTests.cpp",
+        source / "tests" / "DrumLibraryTests.cpp",
+        source / "tests" / "DrumGeneratorTests.cpp",
+        source / "tests" / "DrumCodecTests.cpp",
+        source / "tests" / "DrumMidiTests.cpp",
+        source / "tests" / "DrumFoundationTests.cpp",
         source / "src" / "DrumEngine.cpp",
         source / "src" / "DrumLibrary.cpp",
         source / "src" / "DrumGenerator.cpp",
         source / "src" / "jam" / "DrumClockBridge.cpp",
     ]
-    for path in fresh:
+    for path in all_sources:
         if not path.is_file():
             raise FileNotFoundError(f"Missing fresh source: {path}")
 
@@ -141,36 +150,18 @@ def main():
         executed.append(cmd)
         subprocess.run(cmd, cwd=product, stdout=build_log, stderr=build_log, check=True)
 
-    def link_binary(objs, name):
-        binary = output / name
-        cmd = [cxx, *objs, *retained, "-o", str(binary)]
-        executed.append(cmd)
-        subprocess.run(cmd, cwd=product, stdout=build_log, stderr=build_log, check=True)
-        return binary
-
     try:
-        fresh_objs = []
-        for src in fresh:
+        objects = []
+        for src in all_sources:
             obj = output / "obj" / (src.stem + ".o")
             compile_one(src, obj)
-            fresh_objs.append(str(obj))
+            objects.append(str(obj))
 
-        intdrum_binary = link_binary(fresh_objs, "DrumClockBridgeTests")
-
-        legacy_test_sources = [source / "tests" / n for n in (
-            "DrumSpecTests.cpp", "DrumLibraryTests.cpp", "DrumGeneratorTests.cpp",
-            "DrumCodecTests.cpp", "DrumMidiTests.cpp", "DrumFoundationTests.cpp")]
-        legacy_objs = []
-        for src in legacy_test_sources:
-            obj = output / "obj" / ("legacy_" + src.stem + ".o")
-            compile_one(src, obj)
-            legacy_objs.append(str(obj))
-
-        # Reuse the freshly compiled TestMain + engine objects for the legacy
-        # binary (same harness, same changed engine); only the test sources differ.
-        shared = [str(output / "obj" / (s.stem + ".o")) for s in fresh
-                  if s.stem in ("TestMain", "DrumEngine", "DrumLibrary", "DrumGenerator")]
-        legacy_binary = link_binary([*shared, *legacy_objs], "LegacyDrumTests")
+        combined_binary = output / "DrumAllTests"
+        link_cmd = [cxx, *objects, *retained, "-o", str(combined_binary)]
+        executed.append(link_cmd)
+        subprocess.run(link_cmd, cwd=product, stdout=build_log,
+                       stderr=build_log, check=True)
     finally:
         build_log.close()
 
@@ -186,7 +177,8 @@ def main():
         print(result.stdout, end="")
         exit_code = max(exit_code, result.returncode)
 
-    run_binary(intdrum_binary, "INT-DRUM-001 actual DrumEngine integration")
+    run_binary(combined_binary,
+               "combined: INT-DRUM-001 + all six existing drum suites (one link)")
 
     portable_binary = None
     if not args.no_portable:
@@ -204,19 +196,16 @@ def main():
         subprocess.run(portable_cmd, check=True)
         run_binary(portable_binary, "portable JUCE-free DrumClockBridge")
 
-    if not args.no_legacy:
-        run_binary(legacy_binary, "existing drum regression suites (changed engine)")
-
     manifest = {
         "source": str(source),
         "sourceHead": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=source, text=True).strip(),
-        "freshSources": {str(p): digest(p) for p in fresh},
+        "freshSources": {str(p): digest(p) for p in all_sources},
         "reusedInputs": {p: digest(p) for p in reused},
         "commands": executed,
         "binaries": {
             b.name: digest(b) for b in
-            [intdrum_binary, legacy_binary] + ([portable_binary] if portable_binary else [])
+            [combined_binary] + ([portable_binary] if portable_binary else [])
         },
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

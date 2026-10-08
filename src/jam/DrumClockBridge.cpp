@@ -53,6 +53,33 @@ void DrumClockBridge::prepare (double sampleRate, int maximumBlockSize) noexcept
     sampleRate_ = sampleRate;
     maximumBlockSize_ = maximumBlockSize > 0 ? maximumBlockSize : 0;
     prepared_ = true;
+
+    // Full grid reset. A re-prepare is a new session; leaving anchors or staged
+    // changes behind would let the old grid leak into the new rate.
+    playing_ = false;
+    stopPending_ = false;
+    stopBoundary_ = 0;
+    haveClockSample_ = false;
+    now_ = 0;
+    anchorSample_ = 0;
+    anchorBeat_ = 0.0;
+    bpm_ = clampBpm (config_.initialBpm);
+    haveStagedTempo_ = false;
+    haveStagedResync_ = false;
+    haveSnapshot_ = false;
+    lastSnapshotGeneration_ = 0;
+    commandSeq_ = 0;
+    publishedCount_ = 0;
+    staleSnapshotCount_ = 0;
+    discontinuityCount_ = 0;
+    invalidRequestCount_ = 0;
+
+    // All roles must be quiescent for prepare(); drain any commands left by the
+    // previous session so the new grid cannot be reinterpreted by stale ones.
+    DrumClockCommand discarded;
+    while (queue_.pop (discarded))
+    {
+    }
 }
 
 double DrumClockBridge::clampBpm (double bpm) const noexcept
@@ -197,6 +224,15 @@ void DrumClockBridge::applyStagedResync (std::uint64_t atSample) noexcept
 
 bool DrumClockBridge::setClockSample (std::uint64_t explicitSample) noexcept
 {
+    // Domain reject: above maxExplicitSample the double sample->beat map loses
+    // integer samples. Refuse rather than publish an unrepresentable grid; the
+    // previous state is left untouched.
+    if (explicitSample > config_.maxExplicitSample)
+    {
+        ++invalidRequestCount_;
+        return false;
+    }
+
     // First call establishes the origin: nothing before it can be a
     // discontinuity because there was no grid to be discontinuous with.
     if (! haveClockSample_)
@@ -226,6 +262,7 @@ bool DrumClockBridge::setClockSample (std::uint64_t explicitSample) noexcept
         // JoinAtBar is required to play again.
         ++discontinuityCount_;
         playing_ = false;
+        stopPending_ = false;
         haveStagedTempo_ = false;
         haveStagedResync_ = false;
         anchorSample_ = explicitSample;
@@ -241,6 +278,15 @@ bool DrumClockBridge::setClockSample (std::uint64_t explicitSample) noexcept
 
     applyStagedState (explicitSample);
     applyStagedResync (explicitSample);
+
+    // The stop only becomes real when its boundary is reached: until then the
+    // engine is still rendering and the worker position must say so.
+    if (stopPending_ && explicitSample >= stopBoundary_)
+    {
+        playing_ = false;
+        stopPending_ = false;
+    }
+
     return true;
 }
 
@@ -288,11 +334,18 @@ bool DrumClockBridge::requestJoinAtNextBar (LibraryIndex groove) noexcept
 
     const std::uint64_t boundary = nextBarBoundarySample();
 
+    // Effective tempo at the join boundary: if a tempo change is already staged
+    // for that same boundary, the join must carry it. Otherwise a snapshot that
+    // arrives before the join would be published as a SetTempo command that the
+    // join then supersedes, and the new bar would start at the stale tempo.
+    const double effectiveBpm =
+        (haveStagedTempo_ && stagedBoundary_ <= boundary) ? stagedBpm_ : bpm_;
+
     DrumClockCommand command;
     command.type = DrumClockCommandType::JoinAtBar;
     command.sampleTime = boundary;
     command.generation = lastSnapshotGeneration_;
-    command.bpm = bpm_;
+    command.bpm = effectiveBpm;
     command.groove = groove;
     command.beatsPerBar = beatsPerBar_;
     command.beatUnit = beatUnit_;
@@ -305,6 +358,8 @@ bool DrumClockBridge::requestJoinAtNextBar (LibraryIndex groove) noexcept
         return false; // queue full: the join was dropped, not half-published
     }
 
+    // A join supersedes a stop that has not yet reached its boundary.
+    stopPending_ = false;
     playing_ = true;
     return true;
 }
@@ -327,10 +382,13 @@ bool DrumClockBridge::requestStopAtNextBar() noexcept
     if (queue_.droppedCount() != dropsBefore)
     {
         ++invalidRequestCount_;
-        return false;
+        return false; // dropped: do not enter a pending-stop state
     }
 
-    playing_ = false;
+    // Pending commitment, not an immediate state change: the engine keeps
+    // rendering until the boundary, so playing() must stay true until then.
+    stopPending_ = true;
+    stopBoundary_ = command.sampleTime;
     return true;
 }
 
@@ -346,6 +404,16 @@ bool DrumClockBridge::requestResyncNextBeat (std::uint64_t targetSample) noexcep
     command.type = DrumClockCommandType::ResyncBeat;
     command.sampleTime = targetSample;
     command.generation = lastSnapshotGeneration_;
+    // The beat that contains the target (floor, no rewind), expressed as a step
+    // within the bar. The engine applies this exact phase, so both grids agree
+    // on every later downbeat.
+    {
+        long long within = static_cast<long long> (std::floor (beatsAt (targetSample)))
+                           % beatsPerBar_;
+        if (within < 0)
+            within += beatsPerBar_;
+        command.phaseStep = static_cast<std::int32_t> (within) * 4;
+    }
 
     const std::uint64_t dropsBefore = queue_.droppedCount();
     publish (command);
@@ -373,6 +441,7 @@ bool DrumClockBridge::requestResyncNextBar (std::uint64_t targetSample) noexcept
     command.type = DrumClockCommandType::ResyncBar;
     command.sampleTime = targetSample;
     command.generation = lastSnapshotGeneration_;
+    command.phaseStep = 0; // the target becomes a downbeat
 
     const std::uint64_t dropsBefore = queue_.droppedCount();
     publish (command);
@@ -393,6 +462,8 @@ void DrumClockBridge::resetForNewSession (double bpm) noexcept
     // The caller guarantees the audio consumer is quiescent: a lock-free queue
     // cannot be drained from here.
     playing_ = false;
+    stopPending_ = false;
+    stopBoundary_ = 0;
     haveClockSample_ = false;
     haveStagedTempo_ = false;
     haveStagedResync_ = false;

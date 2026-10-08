@@ -304,5 +304,138 @@ JAM_TEST (DrumClockBridge, sameSequenceProducesIdenticalCommands)
         CHECK_EQ (a[i].sequence, b[i].sequence);
         CHECK_NEAR (a[i].bpm, b[i].bpm, 0.0);
         CHECK_EQ (a[i].groove, b[i].groove);
+        CHECK_EQ (a[i].phaseStep, b[i].phaseStep);
     }
+}
+
+//==============================================================================
+// BLOCK1: a join must carry the staged effective tempo, in BOTH command orders,
+// so the first joined bar never starts at the stale tempo.
+//==============================================================================
+JAM_TEST (DrumClockBridge, joinCarriesStagedEffectiveTempo)
+{
+    {
+        DrumClockBridge bridge (config120());
+        bridge.prepare (kSr, 512);
+        bridge.setClockSample (0);
+
+        bridge.applySnapshot (lockedSnapshot (150.0, 1)); // stages SetTempo @96000
+        CHECK (bridge.requestJoinAtNextBar (0));          // join must carry 150
+
+        const DrumClockCommand tempo = popOne (bridge);
+        const DrumClockCommand join = popOne (bridge);
+        CHECK_EQ (static_cast<int> (tempo.type),
+                  static_cast<int> (DrumClockCommandType::SetTempo));
+        CHECK_EQ (static_cast<int> (join.type),
+                  static_cast<int> (DrumClockCommandType::JoinAtBar));
+        CHECK_EQ (join.sampleTime, kBar120);
+        CHECK_NEAR (join.bpm, 150.0, 1e-12);
+    }
+
+    {
+        DrumClockBridge bridge (config120());
+        bridge.prepare (kSr, 512);
+        bridge.setClockSample (0);
+
+        CHECK (bridge.requestJoinAtNextBar (0));          // join at 120
+        bridge.applySnapshot (lockedSnapshot (150.0, 1)); // then tempo @96000
+
+        const DrumClockCommand join = popOne (bridge);
+        const DrumClockCommand tempo = popOne (bridge);
+        CHECK_EQ (static_cast<int> (join.type),
+                  static_cast<int> (DrumClockCommandType::JoinAtBar));
+        CHECK_NEAR (join.bpm, 120.0, 1e-12);
+        CHECK_EQ (static_cast<int> (tempo.type),
+                  static_cast<int> (DrumClockCommandType::SetTempo));
+        CHECK_NEAR (tempo.bpm, 150.0, 1e-12);
+    }
+}
+
+//==============================================================================
+// GAP7: a stop is a pending commitment, not an immediate state flip.
+//==============================================================================
+JAM_TEST (DrumClockBridge, stopIsPendingUntilItsBoundary)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+    CHECK (bridge.requestJoinAtNextBar (0));
+    popOne (bridge); // join
+
+    CHECK (bridge.requestStopAtNextBar());
+    CHECK_EQ (bridge.stopPending(), true);
+    CHECK_EQ (bridge.playing(), true); // still rendering to the boundary
+    CHECK_EQ (bridge.pendingStopBoundary(), kBar120);
+
+    bridge.setClockSample (kBar120 - 1);
+    CHECK_EQ (bridge.playing(), true);
+    CHECK_EQ (bridge.stopPending(), true);
+
+    bridge.setClockSample (kBar120);
+    CHECK_EQ (bridge.playing(), false);
+    CHECK_EQ (bridge.stopPending(), false);
+}
+
+//==============================================================================
+// BLOCK2: resync carries an explicit phase step so worker and engine agree.
+//==============================================================================
+JAM_TEST (DrumClockBridge, resyncCarriesPhaseStep)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+    bridge.setClockSample (120000); // beat 5 at 120 BPM
+
+    // 125000 contains beat 5 -> beat 1 of the bar -> step 4.
+    CHECK (bridge.requestResyncNextBeat (125000));
+    const DrumClockCommand beat = popOne (bridge);
+    CHECK_EQ (static_cast<int> (beat.type),
+              static_cast<int> (DrumClockCommandType::ResyncBeat));
+    CHECK_EQ (beat.sampleTime, static_cast<std::uint64_t> (125000));
+    CHECK_EQ (beat.phaseStep, 4);
+
+    CHECK (bridge.requestResyncNextBar (126000));
+    const DrumClockCommand bar = popOne (bridge);
+    CHECK_EQ (bar.phaseStep, 0);
+}
+
+//==============================================================================
+// GAP3: prepare clears the grid and drains the queue.
+//==============================================================================
+JAM_TEST (DrumClockBridge, prepareClearsGridAndDrainsQueue)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+    bridge.setClockSample (24000);
+    bridge.applySnapshot (lockedSnapshot (150.0, 1));
+    CHECK (bridge.requestJoinAtNextBar (0));
+
+    bridge.prepare (kSr, 512); // quiescent re-prepare
+    CHECK_EQ (bridge.samplePosition(), static_cast<std::uint64_t> (0));
+    CHECK_EQ (bridge.playing(), false);
+    CHECK_EQ (bridge.stopPending(), false);
+    CHECK_NEAR (bridge.bpm(), 120.0, 1e-12); // back to the configured initial
+
+    DrumClockCommand command;
+    CHECK_EQ (bridge.popCommand (command), false); // queue drained
+
+    // Snapshot bookkeeping was reset, so generation 1 is accepted again.
+    bridge.setClockSample (0);
+    bridge.applySnapshot (lockedSnapshot (130.0, 1));
+    CHECK_EQ (bridge.staleSnapshotCount(), static_cast<std::uint64_t> (0));
+}
+
+//==============================================================================
+// GAP2 domain: above maxExplicitSample the grid is unrepresentable and refused.
+//==============================================================================
+JAM_TEST (DrumClockBridge, hugeExplicitSampleRejected)
+{
+    DrumClockBridgeConfig config = config120();
+    config.maxExplicitSample = 1000;
+
+    DrumClockBridge bridge (config);
+    bridge.prepare (kSr, 512);
+    CHECK_EQ (bridge.setClockSample (1001), false);
+    CHECK_GE (bridge.invalidRequestCount(), static_cast<std::uint64_t> (1));
 }

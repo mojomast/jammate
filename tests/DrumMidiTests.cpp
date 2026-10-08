@@ -6,46 +6,7 @@
 #include <cstdlib>
 #include <new>
 
-// ELF linker wrapping observes the C heap calls made by the statically linked
-// JUCE/engine objects, including MidiBuffer's realloc. C++ new is routed through
-// the same probe. This measures our engine with a no-op guest, not arbitrary VSTs.
-namespace
-{
-thread_local bool measuring = false;
-thread_local std::size_t allocations = 0;
-thread_local std::size_t deallocations = 0;
-}
-
-#if defined(DRUM_MIDI_HEAP_PROBE)
-extern "C" void* __real_malloc (std::size_t);
-extern "C" void* __real_realloc (void*, std::size_t);
-extern "C" void __real_free (void*);
-extern "C" void* __wrap_malloc (std::size_t bytes)
-{
-    if (measuring) ++allocations;
-    return __real_malloc (bytes);
-}
-extern "C" void* __wrap_realloc (void* p, std::size_t bytes)
-{
-    if (measuring) ++allocations;
-    return __real_realloc (p, bytes);
-}
-extern "C" void __wrap_free (void* p)
-{
-    if (measuring && p != nullptr) ++deallocations;
-    __real_free (p);
-}
-void* operator new (std::size_t bytes)
-{
-    if (void* p = std::malloc (bytes > 0 ? bytes : 1)) return p;
-    throw std::bad_alloc();
-}
-void* operator new[] (std::size_t bytes) { return ::operator new (bytes); }
-void operator delete (void* p) noexcept { std::free (p); }
-void operator delete[] (void* p) noexcept { std::free (p); }
-void operator delete (void* p, std::size_t) noexcept { std::free (p); }
-void operator delete[] (void* p, std::size_t) noexcept { std::free (p); }
-#endif
+#include "DrumHeapProbe.h"
 
 namespace
 {
@@ -118,12 +79,11 @@ Result exercise (double rate, int block, std::size_t reservation)
         engine.swingPct.store ((i % 2 == 0) ? 0.0f : 60.0f);
         if (i + 1 == blocks) engine.playing.store (false);
 
-        allocations = deallocations = 0;
-        measuring = true;
+        drumprobe::beginMeasure();
         engine.process (audio, block, &guest, midi);
-        measuring = false;
-        result.heapAllocations += allocations;
-        result.heapDeallocations += deallocations;
+        drumprobe::endMeasure();
+        result.heapAllocations += drumprobe::allocations();
+        result.heapDeallocations += drumprobe::deallocations();
         result.maxBytes = std::max (result.maxBytes, static_cast<std::size_t> (midi.data.size()));
         result.stableStorage &= storage == midi.data.begin();
     }

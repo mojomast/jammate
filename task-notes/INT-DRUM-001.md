@@ -64,33 +64,69 @@ cmake --build /home/mojo/projects/build-INT-DRUM-001-worker/jamcore -j 2
 ctest --test-dir /home/mojo/projects/build-INT-DRUM-001-worker/jamcore --output-on-failure
 ```
 
-## Results
+## Results (post-review)
 - Driver build log: **0 warnings, 0 errors**.
-- Actual `DrumEngine` integration (`DrumClockBridgeTests`): **10 cases, 0 failed**.
-  - exact next-bar join across block sizes 333/700/1000;
-  - phase-continuous boundary tempo change (120→150 BPM);
-  - exact stop + sample-exact note release; resync bar/beat on arbitrary targets;
-  - pressure drops counted, invalid/late commands handled without partial apply;
-  - **30-minute** horizon with zero drift (step count + exact last-step sample);
-  - standalone manual transport unchanged;
-  - injected callback allocates nothing under `DRUM_MIDI_HEAP_PROBE`.
-- Portable bridge suite: **11 tests, 96 checks, 0 failed**.
-- Existing drum regression suites against the changed engine: **50 cases, 0 failed**.
-- `jam-core`: new ctest `jam.DrumClockBridge` **1/1 Passed**; full ctest
-  **21/21** with `TMPDIR` set. (Without `TMPDIR`, `jam.RhythmDerivedGenerator`
-  fails with `OSError: [Errno 28] No space left on device` — the environment's
-  `/tmp` is a 100%-full tmpfs, unrelated to this change.)
+- Combined JUCE binary (new integration + all six existing drum suites in ONE
+  link, same `DRUM_MIDI_HEAP_PROBE`/`--wrap` flags): **72 cases, 0 failed**. This
+  proves the shared probe (`tests/DrumHeapProbe.cpp`) has a single definition.
+- Portable bridge suite: **16 tests, 140 checks, 0 failed**.
+- `jam-core`: `jam.DrumClockBridge` **1/1 Passed**; full ctest **21/21** with
+  `TMPDIR` set. (Without `TMPDIR`, `jam.RhythmDerivedGenerator` fails with
+  `ENOSPC` because the environment's `/tmp` is a full tmpfs, unrelated.)
+
+## Review correction (BLOCK1–BLOCK3, GAP1–GAP8)
+- **BLOCK1** — a join now carries the staged effective BPM, and supersedes only
+  events at/before its boundary, so snapshot-then-join and join-then-snapshot
+  produce the same first bar (test `intdrum_join_coherent_tempo_snapshot_before_and_after`
+  + portable `joinCarriesStagedEffectiveTempo`).
+- **BLOCK2** — resync is a single absolute phase statement (`phaseStep`, floor of
+  the containing beat) applied identically by both roles; the worker's next bar
+  and the engine's next downbeat now coincide (tests
+  `intdrum_resync_reconciles_worker_and_engine_phase`,
+  `intdrum_resync_then_tempo_at_actual_downbeat`, portable `resyncCarriesPhaseStep`).
+- **BLOCK3** — the malloc/new probe is a single shared TU
+  (`tests/DrumHeapProbe.h/.cpp`); `tests/DrumMidiTests.cpp` was minimally
+  refactored onto it; the driver links the new suite and all six existing suites
+  into one binary to prove no duplicate symbols.
+- **GAP1** — `isAudible()` includes an attached bridge so the processor skip
+  guard serves the first join on the internal path; added embedded-sampler and
+  fallback-synth energy tests and a processor-like guarded test; added
+  `samplesLoaded()`.
+- **GAP2** — `attachClockBridge(queue, audioSampleAtAttach)` declares the absolute
+  timeline origin; late attach at 48000 puts the first join at 144000 with no
+  delay; `maxExplicitSample` (2^53) domain reject and uint64-wrap note documented.
+- **GAP3** — `DrumClockBridge::prepare` clears the grid and drains the queue;
+  `DrumEngine::prepare` preserves a prepared groove, so a second prepare at
+  96 kHz still works (tests `intdrum_second_prepare_at_new_rate_keeps_groove`,
+  portable `prepareClearsGridAndDrainsQueue`).
+- **GAP4** — same-type/same-target events coalesce (last wins); distinct-target
+  overflow is rejected and counted (test `intdrum_same_boundary_tempo_snaps_coalesce`).
+- **GAP5** — documented that `injected*()` getters are audio-owner/quiescent-only
+  and `prepareInjectedGroove` is message-thread with all roles quiescent.
+- **GAP6** — Clear/Stop release hosted notes immediately at the correct offset,
+  before any later Join in the same callback (test
+  `intdrum_clear_then_join_same_callback_orders_release_first`).
+- **GAP7** — stop is a pending state committed at its boundary; `playing()` stays
+  true until then (tests `intdrum_stop_pending_keeps_position_until_boundary`,
+  portable `stopIsPendingUntilItsBoundary`).
+- **GAP8** — real `injectedLateCount()` replaces the fake claim; the 30-minute
+  drift test now also runs a non-divisor BPM (127) and verifies an actual late
+  MIDI kick against the closed form; tautological queue getter checks were
+  replaced with asserted counts (24 drops / 16 serviced).
 
 ## Evidence (actual engine)
 The integration tests host a real `juce::AudioPluginInstance` MIDI sink and read
-the engine's `MidiBuffer` note-ons/offs with their absolute sample positions. The
-join test proves the first kick lands on sample 96000 for block sizes that do not
-divide a bar; the tempo test proves the old bar's last interval stays 6000 while
-the new bar's first interval is 4800 with the downbeat unmoved; the stop test
-proves no note fires at/after 192000 and note-offs are emitted on 192000; the
-30-minute test proves the last fired step is exactly on the closed-form grid.
-Portable and JUCE binaries and the reused-input hashes are recorded in
-`/home/mojo/projects/build-INT-DRUM-001-worker/manifest.json`.
+the engine's `MidiBuffer` note-ons/offs with their absolute sample positions, and
+separately render the internal sampler (embedded GMRockKit, `samplesLoaded`) and
+the fallback synth to real audio energy. They prove: the first kick lands on
+sample 96000 for block sizes that do not divide a bar; the old bar's last interval
+stays 6000 while the new bar's first interval is 4800 with the downbeat unmoved,
+in both command orders; a resync on a non-aligned target makes the worker's next
+bar and the engine's next downbeat the same sample (207000), where a subsequent
+stop/tempo land exactly; stop/Clear release hosted notes before any same-callback
+join's note-ons; a 30-minute run at 127 BPM has an actual late MIDI kick on the
+closed-form sample. Combined binary SHA-256 and per-source/reused-input hashes are
+in `/home/mojo/projects/build-INT-DRUM-001-worker/manifest.json`.
 
 ## Limitations
 - Not full production wiring and no G4/G1 safety claim. The orchestrator must

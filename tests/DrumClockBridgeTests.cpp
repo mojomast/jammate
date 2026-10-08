@@ -1,20 +1,26 @@
 // INT-DRUM-001 — Musical Clock -> actual DrumEngine integration.
 //
 // These drive the REAL DrumEngine (internal sampler + embedded assets path,
-// hosting a real juce::AudioPluginInstance MIDI sink) through the bounded
+// hosted MIDI sink, and the fallback synth) through the bounded
 // jam::DrumClockBridge command queue. They assert the properties the task
 // requires and that unit tests on the adapter alone cannot:
 //
-//   * a join lands exactly on the next bar boundary, at the correct within-block
+//   * a join lands exactly on the next bar boundary at the correct within-block
 //     offset, for block sizes that do not divide a bar;
-//   * a tempo change is applied on a bar boundary without shifting the grid
-//     (phase continuity);
-//   * stop / resync land on their exact target sample;
-//   * queue pressure drops are counted and late/invalid commands are never
-//     partially applied;
-//   * 30 minutes of injected playback do not drift;
-//   * standalone manual transport behavior is unchanged when no bridge is
-//     attached;
+//   * tempo is coherent with the join in BOTH command orders and phase-
+//     continuous across a bar boundary;
+//   * resync puts worker and renderer on the SAME absolute phase, so later
+//     downbeats agree;
+//   * stop / resync / Clear+Join are sample-exact and correctly ordered;
+//   * repeated tempo snaps for one boundary coalesce, and genuine pressure
+//     drops/rejections are counted without partial application;
+//   * late attach / late commands apply on the absolute audio timeline;
+//   * a second prepare at a new rate keeps working;
+//   * 30 minutes do not drift, including a fractional-step BPM verified through
+//     actual MIDI events;
+//   * the internal sampler and the fallback synth both render, and the processor
+//     skip guard is served before the first join;
+//   * standalone manual transport behavior is unchanged;
 //   * the injected callback allocates nothing when the MIDI scratch is reserved.
 //
 // This is an integration seam, NOT a claim of full production wiring, G4 or G1
@@ -25,13 +31,12 @@
 
 #include "DrumEngine.h"
 #include "DrumMidiCapacity.h"
+#include "DrumHeapProbe.h"
 #include "jam/DrumClockBridge.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <cstdlib>
-#include <new>
 #include <vector>
 
 // The JUCE harness provides CHECK / CHECK_MSG / REQUIRE only; give this file the
@@ -39,51 +44,6 @@
 // failure is still a real recorded failure.
 #define CHECK_EQ(a, b) CHECK ((a) == (b))
 #define CHECK_NEAR(a, b, tol) CHECK (std::abs ((double) (a) - (double) (b)) <= (double) (tol))
-
-//==============================================================================
-// ELF linker wrapping observes the C heap calls made by the statically linked
-// JUCE/engine objects, including MidiBuffer's realloc. C++ new is routed through
-// the same probe. This measures our engine with a no-op guest, not arbitrary
-// VSTs. (Mirrors tests/DrumMidiTests.cpp; that file is not part of this driver.)
-namespace probe
-{
-#if defined(DRUM_MIDI_HEAP_PROBE)
-thread_local bool measuring = false;
-thread_local std::size_t allocations = 0;
-thread_local std::size_t deallocations = 0;
-#endif
-}
-
-#if defined(DRUM_MIDI_HEAP_PROBE)
-extern "C" void* __real_malloc (std::size_t);
-extern "C" void* __real_realloc (void*, std::size_t);
-extern "C" void __real_free (void*);
-extern "C" void* __wrap_malloc (std::size_t bytes)
-{
-    if (probe::measuring) ++probe::allocations;
-    return __real_malloc (bytes);
-}
-extern "C" void* __wrap_realloc (void* p, std::size_t bytes)
-{
-    if (probe::measuring) ++probe::allocations;
-    return __real_realloc (p, bytes);
-}
-extern "C" void __wrap_free (void* p)
-{
-    if (probe::measuring && p != nullptr) ++probe::deallocations;
-    __real_free (p);
-}
-void* operator new (std::size_t bytes)
-{
-    if (void* p = std::malloc (bytes > 0 ? bytes : 1)) return p;
-    throw std::bad_alloc();
-}
-void* operator new[] (std::size_t bytes) { return ::operator new (bytes); }
-void operator delete (void* p) noexcept { std::free (p); }
-void operator delete[] (void* p) noexcept { std::free (p); }
-void operator delete (void* p, std::size_t) noexcept { std::free (p); }
-void operator delete[] (void* p, std::size_t) noexcept { std::free (p); }
-#endif
 
 namespace
 {
@@ -118,6 +78,7 @@ struct Hit
     std::uint64_t blockStart = 0;  // start of the block it was rendered in
     int note = 0;
     int velocity = 0;
+    int order = 0;                 // insertion order within its block
 };
 
 // The first 4/4 ROCK groove, used by every test.
@@ -144,10 +105,14 @@ struct Rig
     std::vector<Hit> hits;
     std::vector<Hit> noteOffs;
     std::uint64_t elapsed = 0;
+    std::uint64_t lastBlockStart = 0;
+    int lastBlockSize = 0;
+    float peakMagnitude = 0.0f;
     bool storeHits = true;
+    bool useGuest = true;
     double sampleRate = 48000.0;
 
-    bool setup (double rate, int block, LibraryIndex rock)
+    bool setup (double rate, int block, LibraryIndex rock, std::uint64_t attachSample = 0)
     {
         sampleRate = rate;
         engine.prepare (rate, block);
@@ -156,40 +121,71 @@ struct Rig
         engine.humanRR.store (0.0f);
         engine.clickOn.store (false);
         const bool ok = engine.prepareInjectedGroove (rock);
-        engine.attachClockBridge (&bridge.commandQueue());
+        engine.attachClockBridge (&bridge.commandQueue(), attachSample);
         bridge.prepare (rate, block);
         midi.ensureSize (drum::midiScratchBytesForBlock (8192));
         return ok;
     }
 
-    void block (int n)
+    void capture()
     {
-        const std::uint64_t blockStart = elapsed;
-        bridge.setClockSample (elapsed); // explicit clock == audio timeline
-        engine.process (audio, n, &sink, midi);
-
-        if (storeHits)
-            for (const auto event : midi)
-            {
-                const auto message = event.getMessage();
-                if (message.isNoteOn())
-                    hits.push_back ({ blockStart + (std::uint64_t) event.samplePosition,
-                                      blockStart, message.getNoteNumber(),
-                                      message.getVelocity() });
-                else if (message.isNoteOff())
-                    noteOffs.push_back ({ blockStart + (std::uint64_t) event.samplePosition,
-                                          blockStart, message.getNoteNumber(), 0 });
-            }
-        elapsed += static_cast<std::uint64_t> (n);
+        if (! storeHits)
+            return;
+        int order = 0;
+        for (const auto event : midi)
+        {
+            const auto message = event.getMessage();
+            if (message.isNoteOn())
+                hits.push_back ({ lastBlockStart + (std::uint64_t) event.samplePosition,
+                                  lastBlockStart, message.getNoteNumber(),
+                                  message.getVelocity(), order++ });
+            else if (message.isNoteOff())
+                noteOffs.push_back ({ lastBlockStart + (std::uint64_t) event.samplePosition,
+                                      lastBlockStart, message.getNoteNumber(), 0, order++ });
+        }
     }
 
-    void render (std::uint64_t total, int blockSize)
+    void process (int n) { engine.process (audio, n, useGuest ? &sink : nullptr, midi); }
+
+    void block (int n)
+    {
+        lastBlockStart = elapsed;
+        lastBlockSize = n;
+        bridge.setClockSample (elapsed); // explicit clock == audio timeline
+        process (n);
+        if (! useGuest)
+            peakMagnitude = std::max (peakMagnitude, audio.getMagnitude (0, 0, n));
+        capture();
+        elapsed += (std::uint64_t) n;
+    }
+
+    // Processor-like guard: PluginProcessor skips process() when the engine is
+    // not audible and no hosted kit is present.
+    void blockGuarded (int n)
+    {
+        lastBlockStart = elapsed;
+        lastBlockSize = n;
+        bridge.setClockSample (elapsed);
+        if (engine.isAudible())
+            process (n);
+        else
+            midi.clear();
+        if (! useGuest)
+            peakMagnitude = std::max (peakMagnitude, audio.getMagnitude (0, 0, n));
+        capture();
+        elapsed += (std::uint64_t) n;
+    }
+
+    void render (std::uint64_t total, int blockSize, bool guarded = false)
     {
         while (elapsed < total)
         {
             const int n = static_cast<int> (
                 juce::jmin<std::uint64_t> (total - elapsed, (std::uint64_t) blockSize));
-            block (n);
+            if (guarded)
+                blockGuarded (n);
+            else
+                block (n);
         }
     }
 };
@@ -218,9 +214,21 @@ std::size_t countHitsIn (const std::vector<Hit>& hits,
 {
     std::size_t count = 0;
     for (const auto& hit : hits)
-        if (hit.note == note && hit.sample >= lo && hit.sample < hi)
+        if ((note < 0 || hit.note == note) && hit.sample >= lo && hit.sample < hi)
             ++count;
     return count;
+}
+
+bool hasHitNear (const std::vector<Hit>& hits, int note, std::uint64_t sample, std::uint64_t tol)
+{
+    for (const auto& hit : hits)
+        if (hit.note == note)
+        {
+            const std::uint64_t d = hit.sample > sample ? hit.sample - sample : sample - hit.sample;
+            if (d <= tol)
+                return true;
+        }
+    return false;
 }
 } // namespace
 
@@ -246,7 +254,6 @@ TEST_CASE (intdrum_join_lands_exactly_on_next_bar_boundary)
         CHECK_MSG (kick == 96000, "block=" + std::to_string (block)
                    + " first kick=" + std::to_string (kick));
 
-        // The hit is genuinely inside its block, not snapped to the block start.
         for (const auto& hit : rig.hits)
             if (hit.note == kKick)
             {
@@ -254,6 +261,55 @@ TEST_CASE (intdrum_join_lands_exactly_on_next_bar_boundary)
                 CHECK_EQ (offset, static_cast<std::uint64_t> (96000 % block));
                 break;
             }
+    }
+}
+
+//==============================================================================
+// Tempo is coherent with the join in BOTH command orders: a snapshot applied
+// before or after the join in the same bar must make the first joined bar run at
+// the new tempo (first interval 4800, not 6000).
+//==============================================================================
+TEST_CASE (intdrum_join_coherent_tempo_snapshot_before_and_after)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    std::vector<Hit> hits[2];
+    double tempo[2] = { 0.0, 0.0 };
+
+    for (int order = 0; order < 2; ++order)
+    {
+        const bool snapshotFirst = (order == 0);
+        Rig rig;
+        REQUIRE (rig.setup (48000.0, 512, rock));
+        rig.block (512); // now = 512, mid bar-1
+
+        if (snapshotFirst)
+            rig.bridge.applySnapshot (lockedSnapshot (150.0, 1));
+        REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+        if (! snapshotFirst)
+            rig.bridge.applySnapshot (lockedSnapshot (150.0, 1));
+
+        rig.render (140000u, 512);
+        hits[order] = rig.hits;
+        tempo[order] = rig.engine.injectedTempo();
+    }
+
+    for (int order = 0; order < 2; ++order)
+    {
+        // First joined bar: downbeat at 96000, step 8 at 96000 + 8*4800 = 134400.
+        CHECK_MSG (firstHit (hits[order], kKick) == 96000,
+                   order == 0 ? "snapshot-first" : "join-first");
+        CHECK (hasHitNear (hits[order], kKick, 134400, 0));
+        CHECK_NEAR (tempo[order], 150.0, 0.0);
+    }
+
+    // The two orders must produce byte-identical MIDI timing.
+    REQUIRE (hits[0].size() == hits[1].size());
+    for (std::size_t i = 0; i < hits[0].size(); ++i)
+    {
+        CHECK_EQ (hits[0][i].sample, hits[1][i].sample);
+        CHECK_EQ (hits[0][i].note, hits[1][i].note);
     }
 }
 
@@ -271,21 +327,19 @@ TEST_CASE (intdrum_tempo_change_lands_on_bar_boundary_phase_continuous)
     REQUIRE (rig.setup (48000.0, 512, rock));
     rig.block (512);
     REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
-    rig.render (96000u + 512u, 512); // joined; bar 2 runs 96000..192000 at 120 BPM
+    rig.render (96000u + 512u, 512);
 
     rig.bridge.applySnapshot (lockedSnapshot (150.0, 1));
     CHECK_EQ (rig.bridge.nextBarBoundarySample(), static_cast<std::uint64_t> (192000));
 
     rig.render (210000u, 512);
 
-    // Old bar at 120 BPM: step 14 (a hat) at 180000, then nothing until the
-    // downbeat. New bar at 150 BPM: step 2 (hat) at 192000 + 2*4800 = 201600.
     CHECK (firstHit (rig.hits, kKick) == 96000);
-    CHECK (countHitsIn (rig.hits, 180000, 180001, 42) == 1); // hat at 180000
-    CHECK (countHitsIn (rig.hits, 180001, 192000, -1) == 0); // nothing skipped
-    CHECK (countHitsIn (rig.hits, 192000, 192001, kKick) == 1); // downbeat kept
-    CHECK (countHitsIn (rig.hits, 192001, 201600, -1) == 0); // one 4800 interval
-    CHECK (countHitsIn (rig.hits, 201600, 201601, 42) == 1); // new-tempo hat
+    CHECK (countHitsIn (rig.hits, 180000, 180001, 42) == 1);
+    CHECK (countHitsIn (rig.hits, 180001, 192000, -1) == 0);
+    CHECK (countHitsIn (rig.hits, 192000, 192001, kKick) == 1);
+    CHECK (countHitsIn (rig.hits, 192001, 201600, -1) == 0);
+    CHECK (countHitsIn (rig.hits, 201600, 201601, 42) == 1);
 }
 
 //==============================================================================
@@ -307,13 +361,98 @@ TEST_CASE (intdrum_stop_at_next_bar_is_exact_and_releases_notes)
     rig.render (200000u, 512);
 
     for (const auto& hit : rig.hits)
-        CHECK (hit.sample < 192000u); // nothing fires on/after the stop boundary
+        CHECK (hit.sample < 192000u);
 
     std::size_t stopReleases = 0;
     for (const auto& off : rig.noteOffs)
         if (off.sample == 192000u)
             ++stopReleases;
-    CHECK (stopReleases >= 1u); // the stop released the hosted notes on the boundary
+    CHECK (stopReleases >= 1u);
+}
+
+//==============================================================================
+// GAP7: a pending stop must not move the worker position before its boundary.
+//==============================================================================
+TEST_CASE (intdrum_stop_pending_keeps_position_until_boundary)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 512u, 512);
+
+    REQUIRE (rig.bridge.requestStopAtNextBar());
+    CHECK_EQ (rig.bridge.stopPending(), true);
+    CHECK_EQ (rig.bridge.playing(), true); // still rendering to the boundary
+
+    rig.render (100000u, 512);
+    CHECK_EQ (rig.bridge.playing(), true);
+    CHECK_EQ (rig.engine.injectedPlaying(), true);
+
+    rig.render (200000u, 512);
+    CHECK_EQ (rig.bridge.stopPending(), false);
+    CHECK_EQ (rig.bridge.playing(), false);
+    for (const auto& hit : rig.hits)
+        CHECK (hit.sample < 192000u);
+}
+
+//==============================================================================
+// BLOCK2: after a ResyncBeat on a non-aligned target, the worker's next bar
+// boundary and the engine's next downbeat must be the SAME sample. Then a stop
+// and a tempo change at that boundary must land on that actual downbeat.
+//==============================================================================
+TEST_CASE (intdrum_resync_reconciles_worker_and_engine_phase)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (100000u, 512);
+
+    REQUIRE (rig.bridge.requestResyncNextBeat (111000));
+    rig.render (120000u, 512); // cross the resync target
+
+    // The containing beat of 111000 at 120 BPM is beat 4 (bar 2 beat 1), so the
+    // coherent next bar boundary is 111000 + 4 beats = 207000, not 183000.
+    const std::uint64_t nextBar = rig.bridge.nextBarBoundarySample();
+    CHECK_EQ (nextBar, static_cast<std::uint64_t> (207000));
+
+    // A stop at that boundary must stop exactly on it (engine downbeat == worker).
+    REQUIRE (rig.bridge.requestStopAtNextBar());
+    rig.render (nextBar + 4096u, 512);
+    for (const auto& hit : rig.hits)
+        CHECK (hit.sample < nextBar);
+    CHECK (countHitsIn (rig.noteOffs, nextBar, nextBar + 1, -1) >= 1);
+}
+
+TEST_CASE (intdrum_resync_then_tempo_at_actual_downbeat)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (100000u, 512);
+    REQUIRE (rig.bridge.requestResyncNextBar (130000)); // non-aligned downbeat target
+    rig.render (140000u, 512);
+
+    const std::uint64_t nextBar = rig.bridge.nextBarBoundarySample();
+    rig.bridge.applySnapshot (lockedSnapshot (150.0, 1));
+    rig.render (nextBar + 16384u, 512); // past the new-tempo step 2 (nextBar + 9600)
+
+    // The downbeat is exactly on the worker boundary and the next interval uses
+    // the new tempo (4800), proving the two roles share the absolute phase.
+    CHECK (countHitsIn (rig.hits, nextBar, nextBar + 1, kKick) == 1);
+    CHECK (countHitsIn (rig.hits, nextBar + 1, nextBar + 9600, -1) == 0);
+    CHECK (countHitsIn (rig.hits, nextBar + 9600, nextBar + 9600 + 1, 42) == 1);
 }
 
 //==============================================================================
@@ -359,6 +498,89 @@ TEST_CASE (intdrum_resync_beat_places_a_step_on_target)
 }
 
 //==============================================================================
+// BLOCK6: Clear then Join in the same callback must release old notes BEFORE the
+// new downbeat hits (no stale flush after the new note-ons).
+//==============================================================================
+TEST_CASE (intdrum_clear_then_join_same_callback_orders_release_first)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 512u, 512);
+
+    // Clear, then re-join at the current block origin so both are applied in the
+    // same callback and the new downbeat fires at offset 0.
+    DrumClockCommand clear;
+    clear.type = DrumClockCommandType::Clear;
+    clear.sampleTime = rig.elapsed;
+    DrumClockCommand join;
+    join.type = DrumClockCommandType::JoinAtBar;
+    join.sampleTime = rig.elapsed;
+    join.bpm = 120.0;
+    join.groove = rock;
+    REQUIRE (rig.bridge.commandQueue().push (clear));
+    REQUIRE (rig.bridge.commandQueue().push (join));
+
+    rig.block (512);
+    const std::uint64_t at = rig.lastBlockStart;
+
+    int releaseOrder = 1 << 30;
+    int firstOnOrder = 1 << 30;
+    for (const auto& off : rig.noteOffs)
+        if (off.sample == at)
+            releaseOrder = std::min (releaseOrder, off.order);
+    for (const auto& hit : rig.hits)
+        if (hit.sample == at)
+            firstOnOrder = std::min (firstOnOrder, hit.order);
+
+    REQUIRE (releaseOrder < (1 << 30));
+    REQUIRE (firstOnOrder < (1 << 30));
+    CHECK (releaseOrder < firstOnOrder); // release inserted before the new hits
+}
+
+//==============================================================================
+// GAP4: many tempo snaps for one boundary coalesce; the engine uses the last
+// accepted tempo, and genuine capacity overflow is counted.
+//==============================================================================
+TEST_CASE (intdrum_same_boundary_tempo_snaps_coalesce)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 512u, 512);
+
+    const double tempos[5] = { 140.0, 150.0, 160.0, 170.0, 180.0 };
+    for (int i = 0; i < 5; ++i)
+        rig.bridge.applySnapshot (lockedSnapshot (tempos[i], (std::uint64_t) (1 + i)));
+
+    // Render across the boundary at 192000: the coalesced event applies the last
+    // accepted tempo there, not the first.
+    rig.render (192000u + 1024u, 512);
+    CHECK_NEAR (rig.engine.injectedTempo(), 180.0, 0.0);
+
+    // Distinct-target overflow: the bounded event store rejects and counts.
+    const std::uint64_t base = rig.elapsed;
+    for (int i = 0; i < 10; ++i)
+    {
+        DrumClockCommand command;
+        command.type = DrumClockCommandType::SetTempo;
+        command.sampleTime = base + 100000u + (std::uint64_t) i * 1000u;
+        command.bpm = 100.0 + i;
+        REQUIRE (rig.bridge.commandQueue().push (command));
+    }
+    rig.render (base + 8u * 512u, 512);
+    CHECK (rig.engine.injectedRejectedCount() >= 2u);
+}
+
+//==============================================================================
 // Pressure: the bounded queue drops and counts the incoming command; the engine
 // rejects invalid commands as a whole without touching transport state.
 //==============================================================================
@@ -376,12 +598,14 @@ TEST_CASE (intdrum_pressure_drops_counted_and_no_partial_commands)
         if (! rig.bridge.requestJoinAtNextBar (rock))
             ++rejectedByBridge;
 
-    CHECK (rejectedByBridge >= 1);
-    CHECK (rig.bridge.queueDropCount() >= 1u);
+    // Capacity is 16: 40 requests mean 24 dropped incoming joins.
+    CHECK_EQ (rejectedByBridge, 24);
+    CHECK_EQ (rig.bridge.queueDropCount(), static_cast<std::uint64_t> (24));
 
-    // Let the engine drain the queue (max 4 commands per block).
-    rig.render (512u + 64u * 512u, 512);
-    CHECK_EQ (rig.engine.injectedDropCount(), rig.bridge.queueDropCount());
+    // Drain (4 per block): all 16 queued joins are serviced, none invented.
+    rig.render (512u + 8u * 512u, 512);
+    CHECK_EQ (rig.engine.injectedCommandCount(), static_cast<std::uint64_t> (16));
+    CHECK_EQ (rig.engine.injectedDropCount(), static_cast<std::uint64_t> (24));
 
     // An invalid bpm is rejected as a whole; the running tempo is untouched.
     const double tempoBefore = rig.engine.injectedTempo();
@@ -394,8 +618,7 @@ TEST_CASE (intdrum_pressure_drops_counted_and_no_partial_commands)
     CHECK (rig.engine.injectedRejectedCount() >= 1u);
     CHECK_NEAR (rig.engine.injectedTempo(), tempoBefore, 0.0);
 
-    // A join naming a groove that was never prepared is refused, not partially
-    // engaged.
+    // A join naming an unprepared groove is refused, not partially engaged.
     DrumClockCommand wrongGroove;
     wrongGroove.type = DrumClockCommandType::JoinAtBar;
     wrongGroove.sampleTime = rig.elapsed;
@@ -408,8 +631,8 @@ TEST_CASE (intdrum_pressure_drops_counted_and_no_partial_commands)
 }
 
 //==============================================================================
-// A late command (target already in the past) is applied at the block origin,
-// never silently dropped.
+// A late command (target already in the past) is applied at the block origin and
+// counted as late, never silently dropped.
 //==============================================================================
 TEST_CASE (intdrum_late_command_applies_at_block_origin)
 {
@@ -424,12 +647,170 @@ TEST_CASE (intdrum_late_command_applies_at_block_origin)
 
     DrumClockCommand late;
     late.type = DrumClockCommandType::SetTempo;
-    late.sampleTime = 0; // far in the past
+    late.sampleTime = 0;
     late.bpm = 150.0;
     REQUIRE (rig.bridge.commandQueue().push (late));
     rig.block (512);
 
     CHECK_NEAR (rig.engine.injectedTempo(), 150.0, 0.0);
+    CHECK (rig.engine.injectedLateCount() >= 1u);
+}
+
+//==============================================================================
+// GAP1: the internal sampler (embedded GMRockKit) actually renders the injected
+// groove, and the processor skip guard is served before the first join.
+//==============================================================================
+TEST_CASE (intdrum_internal_sampler_renders_injected_groove)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    rig.useGuest = false;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.engine.loadEmbeddedSamples();
+    CHECK (rig.engine.samplesLoaded());
+    CHECK (rig.engine.isAudible()); // attached bridge keeps the callback running
+
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 2048u, 512); // guarded path is exercised separately
+
+    CHECK (rig.peakMagnitude > 0.0f); // real sampled audio, not silence
+    CHECK (firstHit (rig.hits, kKick) == -1); // no hosted MIDI on this path
+}
+
+//==============================================================================
+// GAP1: with no embedded samples the fallback synth still renders energy.
+//==============================================================================
+TEST_CASE (intdrum_fallback_synth_renders_injected_groove)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    rig.useGuest = false;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    CHECK (! rig.engine.samplesLoaded()); // fallback path
+
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 2048u, 512);
+
+    CHECK (rig.peakMagnitude > 0.0f);
+}
+
+//==============================================================================
+// GAP1: with the processor's isAudible() skip guard, the first join is still
+// consumed (the bridge term keeps the engine audible).
+//==============================================================================
+TEST_CASE (intdrum_processor_skip_guard_services_bridge_before_first_join)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    rig.useGuest = false;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+
+    CHECK (rig.engine.isAudible()); // otherwise process() would be skipped
+
+    rig.blockGuarded (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 2048u, 512, /*guarded=*/true);
+
+    CHECK (rig.peakMagnitude > 0.0f);
+}
+
+//==============================================================================
+// GAP2: a late attach declares the current absolute audio sample, so the first
+// join lands on the next bar with no extra silence.
+//==============================================================================
+TEST_CASE (intdrum_late_attach_uses_absolute_timeline)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    rig.bridge.prepare (48000.0, 512);
+    rig.engine.prepare (48000.0, 512);
+    rig.engine.humanVel.store (0.0f);
+    rig.engine.humanTime.store (0.0f);
+    rig.engine.humanRR.store (0.0f);
+    rig.engine.clickOn.store (false);
+    REQUIRE (rig.engine.prepareInjectedGroove (rock));
+    rig.audio.setSize (2, 8192);
+    rig.midi.ensureSize (drum::midiScratchBytesForBlock (8192));
+
+    // Run 48000 samples with no bridge attached. This only advances the engine's
+    // absolute timeline; the worker grid does not exist yet.
+    rig.audio.setSize (2, 8192);
+    rig.midi.ensureSize (drum::midiScratchBytesForBlock (8192));
+    while (rig.elapsed < 48000u)
+    {
+        const int n = static_cast<int> (
+            juce::jmin<std::uint64_t> (48000u - rig.elapsed, 512u));
+        rig.engine.process (rig.audio, n, nullptr, rig.midi);
+        rig.elapsed += (std::uint64_t) n;
+    }
+
+    // Late attach at the current absolute sample, then the explicit clock starts
+    // at that same sample.
+    rig.engine.attachClockBridge (&rig.bridge.commandQueue(), 48000);
+    rig.bridge.setClockSample (48000); // explicit origin at 48000
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock)); // next bar = 144000
+
+    rig.render (150000u, 512);
+
+    // No extra delay: the first downbeat is exactly at 48000 + 96000.
+    const std::int64_t kick = firstHit (rig.hits, kKick);
+    CHECK_EQ (kick, static_cast<std::int64_t> (144000));
+}
+
+//==============================================================================
+// GAP3: a second prepare at a different rate keeps the prepared groove and
+// rebuilds a coherent grid; the bridge's re-prepare clears its old state.
+//==============================================================================
+TEST_CASE (intdrum_second_prepare_at_new_rate_keeps_groove)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 512u, 512);
+    CHECK (rig.engine.injectedGroove() == rock);
+    CHECK (rig.bridge.samplePosition() > 0u);
+
+    // Quiescent re-prepare at 96 kHz. Patterns are rate-independent and survive;
+    // the bridge forgets its old grid and drains stale commands.
+    DrumClockCommand junk;
+    junk.type = DrumClockCommandType::SetTempo;
+    junk.sampleTime = 5u;
+    junk.bpm = 100.0;
+    REQUIRE (rig.bridge.commandQueue().push (junk));
+
+    rig.engine.prepare (96000.0, 512);
+    rig.bridge.prepare (96000.0, 512);
+    CHECK_EQ (rig.engine.injectedGroove(), rock);
+    CHECK_EQ (rig.engine.injectedActive(), false);
+    CHECK_EQ (rig.bridge.samplePosition(), static_cast<std::uint64_t> (0));
+    CHECK_EQ (rig.bridge.playing(), false);
+
+    // Old queued commands were drained by prepare().
+    DrumClockCommand leftover;
+    CHECK_EQ (rig.bridge.popCommand (leftover), false);
+
+    rig.hits.clear();
+    rig.noteOffs.clear();
+    rig.elapsed = 0;
+    rig.bridge.setClockSample (0);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock)); // 96 kHz bar = 192000
+    rig.render (96000u + 98304u, 512); // past 192000 + a bit
+
+    CHECK_EQ (firstHit (rig.hits, kKick), static_cast<std::int64_t> (192000));
 }
 
 //==============================================================================
@@ -442,14 +823,14 @@ TEST_CASE (intdrum_thirty_minute_horizon_does_not_drift)
     REQUIRE (rock >= 0);
 
     Rig rig;
-    rig.storeHits = false; // millions of hits would dominate the run time
+    rig.storeHits = false;
     REQUIRE (rig.setup (48000.0, 4096, rock));
     rig.block (4096);
     REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
 
-    const std::uint64_t join = 96000u;      // first bar boundary
-    const std::uint64_t step = 6000u;       // 120 BPM @ 48 kHz
-    const std::uint64_t total = 48000ull * 1800ull; // 30 minutes
+    const std::uint64_t join = 96000u;
+    const std::uint64_t step = 6000u;
+    const std::uint64_t total = 48000ull * 1800ull;
 
     rig.render (total, 4096);
 
@@ -457,10 +838,46 @@ TEST_CASE (intdrum_thirty_minute_horizon_does_not_drift)
     const std::uint64_t expected = ((total - 1u) - join) / step + 1u;
 
     CHECK_NEAR (static_cast<double> (fired), static_cast<double> (expected), 1.0);
-    // Anti-drift: the last step is exactly on the closed-form grid, not merely
-    // close, so no per-step rounding has accumulated over the run.
     CHECK_EQ (rig.engine.injectedLastStepSample(), join + (fired - 1u) * step);
     CHECK_EQ (rig.engine.injectedSamplePosition(), total);
+}
+
+//==============================================================================
+// GAP8: 30 minutes at a NON-divisor BPM whose sixteenth is fractional, verified
+// through actual MIDI note events (not just tick counts).
+//==============================================================================
+TEST_CASE (intdrum_thirty_minute_fractional_bpm_midi_no_drift)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 1024, rock));
+    rig.block (1024);
+    rig.bridge.applySnapshot (lockedSnapshot (127.0, 1)); // 720000/127 = 5669.29...
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+
+    const std::uint64_t join = 96000u;
+    const double step = 720000.0 / 127.0;
+    const std::uint64_t total = 48000ull * 1800ull;
+
+    rig.render (total, 1024);
+
+    CHECK (firstHit (rig.hits, kKick) == static_cast<std::int64_t> (join));
+
+    // Last rendered step against the closed form.
+    const std::uint64_t last = rig.engine.injectedLastStepSample();
+    const long long k = std::llround ((double) (last - join) / step);
+    CHECK_NEAR ((double) last, (double) join + (double) k * step, 2.0);
+
+    // A late downbeat must still land on the closed-form sample (verified through
+    // an actual kick event, not an internal counter).
+    const std::uint64_t barSteps = 16u;
+    const std::uint64_t m = static_cast<std::uint64_t> (
+        ((double) (total - 1u) - (double) join) / (step * (double) barSteps));
+    const std::uint64_t expectedDownbeat = static_cast<std::uint64_t> (
+        std::floor ((double) join + (double) m * step * (double) barSteps));
+    CHECK (hasHitNear (rig.hits, kKick, expectedDownbeat, 2u));
 }
 
 //==============================================================================
@@ -472,7 +889,7 @@ TEST_CASE (intdrum_standalone_manual_transport_is_unchanged)
     DrumEngine engine;
     MidiSink sink;
     engine.prepare (8000.0, 8192);
-    engine.bpm.store (120.0f); // 1000 samples per sixteenth at 8 kHz
+    engine.bpm.store (120.0f);
     engine.humanVel.store (0.0f);
     engine.humanTime.store (0.0f);
     engine.humanRR.store (0.0f);
@@ -509,7 +926,7 @@ TEST_CASE (intdrum_standalone_manual_transport_is_unchanged)
 
 //==============================================================================
 // The injected audio callback allocates nothing when the MIDI scratch is
-// reserved (measured with the same ELF wrapping the foundation tests use).
+// reserved (measured with the shared ELF wrapping).
 //==============================================================================
 #if defined(DRUM_MIDI_HEAP_PROBE)
 TEST_CASE (intdrum_injected_callback_allocates_nothing)
@@ -523,7 +940,6 @@ TEST_CASE (intdrum_injected_callback_allocates_nothing)
     REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
     rig.render (96000u + 512u, 512);
 
-    // Publish a tempo change that will be applied during the measured window.
     rig.bridge.applySnapshot (lockedSnapshot (150.0, 2));
 
     std::size_t totalAlloc = 0;
@@ -531,12 +947,11 @@ TEST_CASE (intdrum_injected_callback_allocates_nothing)
     for (int i = 0; i < 4000; ++i)
     {
         rig.bridge.setClockSample (rig.elapsed); // worker side, outside the probe
-        probe::allocations = probe::deallocations = 0;
-        probe::measuring = true;
+        drumprobe::beginMeasure();
         rig.engine.process (rig.audio, 512, &rig.sink, rig.midi);
-        probe::measuring = false;
-        totalAlloc += probe::allocations;
-        totalFree += probe::deallocations;
+        drumprobe::endMeasure();
+        totalAlloc += drumprobe::allocations();
+        totalFree += drumprobe::deallocations();
         rig.elapsed += 512;
     }
 

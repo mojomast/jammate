@@ -13,19 +13,19 @@ python3 tools/drum-clock-bridge/run.py
 
 1. reads the product build's compile/link recipe from
    `ninja -t commands GuitarCompanionTests` (read-only);
-2. fresh-compiles the changed/owned sources — `src/DrumEngine.cpp`,
-   `src/jam/DrumClockBridge.cpp`, `tests/DrumClockBridgeTests.cpp` (plus
-   `tests/TestMain.cpp`, `src/DrumLibrary.cpp`, `src/DrumGenerator.cpp`);
+2. fresh-compiles, into ONE combined binary, the new integration suite
+   (`tests/DrumClockBridgeTests.cpp`), the shared heap probe
+   (`tests/DrumHeapProbe.cpp`), all six existing drum suites (so the new and old
+   probe users share one symbol definition), the changed `src/DrumEngine.cpp`,
+   `src/DrumLibrary.cpp`, `src/DrumGenerator.cpp` and the new
+   `src/jam/DrumClockBridge.cpp`;
 3. links against the reused read-only JUCE module objects and
    `libGuitarCompanionAssets.a` from `--product-build`;
-4. runs the actual `DrumEngine` integration suite;
+4. runs the combined binary (new integration + standalone regressions);
 5. compiles and runs the portable JUCE-free bridge suite with the jam-core
-   harness and the bare compiler;
-6. compiles and runs the existing drum suites (foundation/midi/codec/...) from
-   this worktree against the changed engine as a standalone-behavior regression.
+   harness and the bare compiler.
 
-Useful flags: `--source`, `--product-build`, `--output`, `--no-portable`,
-`--no-legacy`.
+Useful flags: `--source`, `--product-build`, `--output`, `--no-portable`.
 
 Outputs: `build.log`, `*-results.log`, `manifest.json` (source HEAD, fresh-source
 hashes, reused-input hashes, exact commands, binary hashes) under `--output`

@@ -83,8 +83,19 @@ public:
 
     bool isAudible() const noexcept
     {
-        return playing.load() || auditionOn.load() || anyVoiceActive.load();
+        // An attached bridge means the audio callback must run even while no
+        // voice is sounding: the injected transport has to service commands and
+        // advance its absolute timeline, and PluginProcessor skips process()
+        // when this is false and no hosted kit is present. Without the bridge
+        // term, a pending Join would never be consumed on the internal-sampler
+        // path.
+        return clockQueue_ != nullptr
+            || playing.load() || auditionOn.load() || anyVoiceActive.load();
     }
+
+    /// True once the embedded GMRockKit samples decoded successfully (message
+    /// thread / quiescent read; the internal sampler then uses real samples).
+    bool samplesLoaded() const noexcept { return samplesReady.load(); }
 
     // ---- timeline compartilhada UI <-> áudio --------------------------------
     std::atomic<juce::uint8> pattern[drum::maxBars][drum::numVoices][drum::maxStepsPerBar] = {};
@@ -105,15 +116,22 @@ public:
     // UI timeline (playing/uiBar/uiStep) and only engages when a Join command
     // arrives, so standalone manual drum behavior is untouched.
     //
-    // LIFECYCLE (message thread, before audio): prepare(), then
-    // prepareInjectedGroove(), then attachClockBridge(). A join is refused until
-    // a 4/4 groove is prepared.
-    void attachClockBridge (jam::DrumClockCommandQueue* queue) noexcept;
+    // LIFECYCLE (message thread, all roles quiescent): prepare(), optionally
+    // prepareInjectedGroove(), then attachClockBridge(). prepare() preserves a
+    // previously prepared groove; only detachClockBridge() clears it. A join is
+    // refused until a 4/4 groove is prepared.
+    //
+    // THREADING CONTRACT: the injected*() getters are audio-owner/quiescent-only
+    // diagnostics. They read plain audio-thread state and MUST NOT be polled from
+    // the message thread or the director while the callback is running.
+    void attachClockBridge (jam::DrumClockCommandQueue* queue,
+                            std::uint64_t audioSampleAtAttach = 0) noexcept;
     void detachClockBridge() noexcept;
 
-    /// Message thread: resolve `drum::library()[index]` into the POD pattern the
-    /// injected transport renders. Returns false for an out-of-range index or a
-    /// groove that is not the 4/4 contract this task supports.
+    /// Message thread, all roles quiescent: resolve `drum::library()[index]` into
+    /// the POD pattern the injected transport renders. Must not run during audio.
+    /// Returns false for an out-of-range index or a groove that is not the 4/4
+    /// contract this task supports.
     bool prepareInjectedGroove (jam::LibraryIndex index);
 
     bool injectedActive() const noexcept { return injActive_; }
@@ -123,6 +141,7 @@ public:
     std::uint64_t injectedSamplePosition() const noexcept { return injSample_; }
     std::uint64_t injectedCommandCount() const noexcept { return injCommands_; }
     std::uint64_t injectedRejectedCount() const noexcept { return injRejected_; }
+    std::uint64_t injectedLateCount() const noexcept { return injLateCommandCount_; }
     std::uint64_t injectedStepsFired() const noexcept { return injStepsFired_; }
     std::uint64_t injectedLastStepSample() const noexcept { return injLastStepSample_; }
     std::uint64_t injectedDropCount() const noexcept;
@@ -301,23 +320,41 @@ private:
         jam::DrumClockCommandType type = jam::DrumClockCommandType::None;
         std::uint64_t target = 0;   // absolute injected-timeline sample
         double bpm = 0.0;
+        int phaseStep = -1;         // Resync: step within the bar that lands on target
     };
 
     /// Audio thread: consume up to kMaxInjectedCommandsPerBlock commands. Each
     /// command is validated as a whole; an invalid or over-capacity command is
-    /// rejected and counted, never partially applied.
-    int serviceInjectedClock() noexcept;
-    bool applyInjectedCommand (const jam::DrumClockCommand& command) noexcept;
-    bool insertInjectedEvent (jam::DrumClockCommandType type,
-                              std::uint64_t target, double bpm) noexcept;
-    void applyInjectedEvent (std::uint64_t nowSample, int offset) noexcept;
+    /// rejected and counted, never partially applied. A Clear releases hosted
+    /// notes immediately, before any later Join in the same callback can fire.
+    int serviceInjectedClock (juce::AudioPluginInstance* vst,
+                              juce::MidiBuffer& midi) noexcept;
+    bool applyInjectedCommand (const jam::DrumClockCommand& command,
+                               juce::AudioPluginInstance* vst,
+                               juce::MidiBuffer& midi) noexcept;
+
+    /// Insert one bounded event. Same type + same target coalesces (last wins),
+    /// so repeated tempo snaps for one boundary cannot exhaust the capacity.
+    bool insertInjectedEvent (const jam::DrumClockCommand& command) noexcept;
+
+    void applyInjectedEvent (std::uint64_t nowSample, int offset,
+                             juce::AudioPluginInstance* vst,
+                             juce::MidiBuffer& midi) noexcept;
     void runInjectedLoop (int n, juce::AudioPluginInstance* vst,
                           juce::MidiBuffer& midi) noexcept;
     void fireInjectedStep (int step, int sampleOffset,
                            juce::AudioPluginInstance* vst,
                            juce::MidiBuffer& midi) noexcept;
+    void flushInjectedNotes (juce::AudioPluginInstance* vst,
+                             juce::MidiBuffer& midi, int offset) noexcept;
     double injectedStepLen (int stepIdx) const noexcept;
-    void resetInjectedState() noexcept;
+
+    /// Remove scheduled events at or before `sample`; a fresh join supersedes
+    /// only what it replaces, never tempo/resync aimed at a later boundary.
+    void dropInjectedEventsUpTo (std::uint64_t sample) noexcept;
+
+    void resetInjectedTransport() noexcept; // keeps a prepared groove
+    void resetInjectedState() noexcept;     // also forgets a prepared groove
 
     jam::DrumClockCommandQueue* clockQueue_ = nullptr;
 
@@ -329,8 +366,6 @@ private:
 
     bool injActive_ = false;      // injected mode engaged by a Join
     bool injPlaying_ = false;     // injected transport currently rendering
-    bool injFlushRequested_ = false;
-    int injFlushOffset_ = 0;      // within-block offset of a stop/Clear release
     double injBpm_ = 100.0;
     int injNextStep_ = 0;
     int injPlayBar_ = 0;
@@ -341,6 +376,7 @@ private:
     std::uint64_t injStepsFired_ = 0;
     std::uint64_t injCommands_ = 0;
     std::uint64_t injRejected_ = 0;
+    std::uint64_t injLateCommandCount_ = 0;
 
     InjectedEvent injEvents_[kMaxInjectedEvents] = {};
     int injEventCount_ = 0;

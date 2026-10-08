@@ -94,10 +94,15 @@ struct DrumClockCommand
     std::uint64_t sampleTime = 0;    // absolute audio sample the command applies at
     std::uint64_t generation = 0;    // ClockSnapshot generation that produced it
     std::uint64_t sequence = 0;      // bridge-assigned monotonic publication order
-    double bpm = 0.0;                // SetTempo / JoinAtBar
+    double bpm = 0.0;                // SetTempo / JoinAtBar (effective at sampleTime)
     std::int32_t groove = kNoLibraryEntry; // JoinAtBar
     std::int32_t beatsPerBar = 4;
     std::int32_t beatUnit = 4;
+    // ResyncBeat / ResyncBar: the step index within the bar (0..barSteps-1) that
+    // must land on `sampleTime`. This is the single absolute phase statement
+    // both roles apply, so the worker grid and the rendered grid cannot drift
+    // into a permanent beat/bar offset.
+    std::int32_t phaseStep = -1;
 };
 
 /** Compile-time capacity of the worker -> audio command queue. Structural, not
@@ -138,6 +143,14 @@ struct DrumClockBridgeConfig
     // time. One minute at 48 kHz; large enough never to fire on a real callback
     // gap (a block is milliseconds), small enough to catch a session restart.
     std::uint64_t maxForwardJumpSamples = 60ull * 48000ull;
+
+    // Domain ceiling for the explicit sample. Above 2^53 a double can no longer
+    // represent every integer, so the sample->beat map silently loses samples.
+    // setClockSample() refuses (and counts) any sample beyond this instead of
+    // publishing an unrepresentable grid. At 48 kHz this is ~5900 years, so it
+    // only ever fires on a corrupt/overflowed caller. uint64 sample wrap itself
+    // is out of scope: reaching it would take 2^64 samples.
+    std::uint64_t maxExplicitSample = 1ull << 53;
 };
 
 class DrumClockBridge
@@ -151,8 +164,13 @@ public:
     // --- worker/control side -------------------------------------------------
 
     /** [worker] Fix the sample rate and clear the grid. Invalid domain values
-     *  (rate <= 0) leave the bridge unprepared; every later request is then
-     *  refused and counted instead of publishing a bogus grid. */
+     *  (rate <= 0, non-finite) leave the bridge unprepared; every later request
+     *  is then refused and counted instead of publishing a bogus grid.
+     *
+     *  A re-prepare at a new rate is a full session reset: anchors, staged
+     *  tempo/resync, stop state, snapshot bookkeeping and counters are cleared,
+     *  and the command queue is drained. All callers/roles must be quiescent
+     *  (no audio consumer mid-pop) while this runs. */
     void prepare (double sampleRate, int maximumBlockSize) noexcept;
 
     bool isPrepared() const noexcept { return prepared_; }
@@ -198,6 +216,8 @@ public:
     // --- diagnostics / state (worker side) -----------------------------------
 
     bool playing() const noexcept { return playing_; }
+    bool stopPending() const noexcept { return stopPending_; }
+    std::uint64_t pendingStopBoundary() const noexcept { return stopBoundary_; }
     double bpm() const noexcept { return bpm_; }
     int beatsPerBar() const noexcept { return beatsPerBar_; }
     int beatUnit() const noexcept { return beatUnit_; }
@@ -239,6 +259,12 @@ private:
 
     bool   playing_ = false;
     bool   haveClockSample_ = false;
+
+    // A stop is a pending commitment, not an immediate state change: the engine
+    // keeps rendering until the boundary, so the worker's position must too.
+    bool          stopPending_ = false;
+    std::uint64_t stopBoundary_ = 0;
+
     double bpm_ = 100.0;
     int    beatsPerBar_ = 4;
     int    beatUnit_ = 4;
@@ -257,7 +283,7 @@ private:
     std::uint64_t stagedBoundary_ = 0;
 
     // Resync staged to re-anchor the worker grid at the same instant the engine
-    // re-phases.
+    // re-phases, using the same absolute phase statement (phaseStep).
     bool          haveStagedResync_ = false;
     bool          stagedResyncBar_ = false;
     std::uint64_t stagedResyncTarget_ = 0;

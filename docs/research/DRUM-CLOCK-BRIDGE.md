@@ -5,7 +5,7 @@
 beat tracking exists and without any UI-setter or atomic hack pretending to be
 timing.
 
-**Status:** implemented and tested in worktree
+**Status:** implemented, reviewed and corrected in worktree
 `/home/mojo/projects/worktrees/INT-DRUM-001-clock-bridge`
 (branch `wp/INT-DRUM-001-clock-bridge`, base `677727c`). This is a verified
 integration seam, **not** full production wiring, and it makes **no G4 or G1
@@ -17,9 +17,10 @@ safety claim**.
 |---|---|---|
 | Worker-side bridge | `src/jam/DrumClockBridge.h/.cpp` | turns a `ClockSnapshot` + director intent into bounded POD commands, timed on an explicit audio sample |
 | Audio owner | `src/DrumEngine.h/.cpp` | consumes the commands on the audio thread and renders the prepared groove at exact sample offsets |
+| Shared heap probe | `tests/DrumHeapProbe.h/.cpp` | one symbol definition of the malloc/new wrapper for ALL drum test TUs |
 | Portable tests | `tests/jam/DrumClockCommandTests.cpp` | device-free contract tests (queue/state/clock) in jam-core |
-| Integration tests | `tests/DrumClockBridgeTests.cpp` | actual `DrumEngine` + hosted MIDI sink against the bridge |
-| Driver | `tools/drum-clock-bridge/run.py` | fresh-compiles the changed sources, reuses read-only JUCE objects from an existing product build, runs all suites |
+| Integration tests | `tests/DrumClockBridgeTests.cpp` | actual `DrumEngine` + hosted MIDI sink + internal/fallback audio |
+| Driver | `tools/drum-clock-bridge/run.py` | fresh-compiles into ONE combined binary, reuses read-only JUCE objects, runs portable suite too |
 
 ## The boundary
 
@@ -33,85 +34,73 @@ MusicalClock (worker)            DrumClockBridge (worker)                 DrumEn
 
 - The queue is `jam::rt::CommandQueue<DrumClockCommand, 16>`: fixed capacity,
   inline storage, no allocation, no locking, no blocking. On overflow it drops
-  the **incoming** command and counts it (same policy as `AnalysisAudioRing`,
-  SPEC.md 8.1/8.3).
-- A command is a trivially-copyable POD with an absolute `sampleTime`,
-  so publication copies bytes and never constructs anything.
-- The engine consumes at most 4 commands per callback (`kMaxInjectedCommandsPerBlock`)
-  and validates each command **as a whole**: an unknown type, a non-finite/out
-  of-range BPM, an unprepared groove, or an over-capacity event schedule is
-  rejected and counted, never half-applied.
+  the **incoming** command and counts it (SPEC.md 8.1/8.3).
+- A command is a trivially-copyable POD with an absolute `sampleTime`. The engine
+  maps it to an exact within-block offset.
+- The engine consumes at most 4 commands per callback and validates each command
+  **as a whole**: unknown type, non-finite/out-of-range BPM, unprepared groove,
+  invalid phase, or over-capacity schedule is rejected and counted, never
+  half-applied.
 
-## Why this is not `DrumTransportAdapter`
-
-MOD-002's adapter is the right semantics (boundary quantisation, last-write-wins,
-stale-generation drops, overflow policy) but the wrong time source for this
-task: `advance(numSamples)` accumulates a free-running block counter. The bridge
-has no such counter. `setClockSample(explicitSample)` is handed the absolute
-audio sample and re-anchors its grid from it, so:
-
-- the worker cannot drift from what is rendered;
-- a backwards or implausibly large forward jump is detected as a
-  **discontinuity** (re-anchor + publish `Clear`) instead of being absorbed;
-- `position()` is a pure function of the explicit clock, not of how many blocks
-  happened to have been processed.
-
-The boundary arithmetic (anchored sample→beat map, ceil-snapped boundary,
-phase-preserving re-anchor) mirrors the adapter and `MusicalClock::applyResync`.
-
-## Contract decisions (judgement calls)
+## Correctness decisions (all test-backed)
 
 1. **Tempo is quantised to the next bar boundary.** The clock is the only tempo
-   authority; the bridge never smooths, predicts or re-derives. This is stricter
-   than the adapter (which applies tempo at the next block start) and is what
-   makes "tempo updates only at musical boundaries" true. Phase is preserved:
-   the interval entering the boundary is unchanged; only the new bar uses the
-   new tempo.
-2. **Meter is fixed and single-authority.** `beatsPerBar`/`beatUnit` from the
-   snapshot are ignored; accepting them live would reinterpret the grid. The
-   engine's `prepareInjectedGroove` refuses non-4/4 grooves.
-3. **Lost holds, it does not clear.** `ClockLockState::Lost` means the clock
-   stopped asserting a grid, so the bridge holds the last tempo and ignores new
-   snapshots until the lock recovers. `Clear` is reserved for the explicit
-   `Reset`/lifecycle and for discontinuities.
-4. **A discontinuity loses the injected transport.** `Clear` stops rendering and
-   flushes hosted notes at the block origin; a fresh `JoinAtBar` is required to
-   play again.
-5. **Stale snapshots never win.** A snapshot whose generation is not newer than
-   the last accepted one is dropped and counted.
-6. **Late commands apply, never vanish.** A command whose target sample is
-   already in the past is applied at the current block origin and still counted.
-7. **The engine owns note release.** `StopAtBar`/`Clear` cause the engine to add
-   note-offs for every GM voice at the exact stop sample; the worker never
-   reaches into MIDI/UI state.
+   authority. Phase is preserved: the interval entering the boundary is
+   unchanged; only the new bar uses the new tempo.
+2. **A join carries the effective (staged) BPM, and both command orders
+   agree.** If a `SetTempo` for the same boundary is already staged, the
+   `JoinAtBar` command carries that tempo; a join only supersedes events at or
+   before its own boundary. Snapshot-then-join and join-then-snapshot therefore
+   produce identical first-bar MIDI.
+3. **Resync is one absolute phase statement.** `ResyncBeat`/`ResyncBar` carry
+   `phaseStep` (the step within the bar that must land on `sampleTime`), computed
+   by the worker with the same *floor-the-containing-beat* rule. The engine sets
+   that exact step, so both grids agree on every later downbeat. (An earlier
+   version rounded differently and produced a permanent one-beat/one-bar offset.)
+4. **Stop is a pending commitment.** `requestStopAtNextBar` does not flip the
+   worker's `playing`; it stays true until the boundary is crossed, mirroring the
+   engine which keeps rendering to the boundary. A dropped stop command does not
+   enter the pending state.
+5. **Clear/Stop release hosted notes immediately, in order.** The note-off flush
+   is emitted when the stop/clear is applied (offset 0 for Clear, the exact
+   stop offset for Stop), so a Clear+Join in the same callback orders the release
+   before the new downbeat's note-ons. `MidiBuffer` preserves insertion order for
+   equal timestamps, and the test asserts that order.
+6. **Same-boundary events coalesce; genuine overflow is counted.** Repeated tempo
+   snaps for one boundary replace the existing event (last wins) instead of
+   filling the 8-slot store; distinct-target overflow is rejected and counted.
+7. **Late attach declares the absolute origin.** `attachClockBridge(queue,
+   audioSampleAtAttach)` sets the engine's injected timeline to the current audio
+   device sample, so a late attach cannot delay the first join by the elapsed
+   distance. The worker's first `setClockSample` uses the same absolute timeline.
+8. **Late commands apply at the block origin and are counted** (`injectedLateCount`),
+   never silently dropped.
+9. **A re-prepare is a full reset.** `DrumClockBridge::prepare` clears anchors,
+   staged state, stop/snapshot bookkeeping and drains the queue; `DrumEngine::prepare`
+   resets transport runtime but **preserves a prepared groove** (patterns are
+   rate-independent), so a second prepare at a new rate keeps working.
+10. **Discontinuity / domain.** Backwards or implausibly large movement re-anchors
+    and publishes `Clear`; samples above `maxExplicitSample` (2^53, where doubles
+    stop representing consecutive integers) are refused and counted. uint64 wrap
+    is out of scope (2^64 samples).
+11. **Getters are audio-owner/quiescent-only diagnostics.** `injected*()` reads
+    plain audio-thread state and must not be polled from the message thread or the
+    director during the callback; `prepareInjectedGroove` is message-thread and
+    all roles must be quiescent. This is documented in the header.
 
-## Timing properties proven by tests
+## Threading / RT safety
 
-- **Next-bar join is exact.** For block sizes that do not divide a bar
-  (333/700/1000), the first downbeat lands on sample 96000 exactly, at the
-  correct within-block offset — not rounded to the block start.
-- **Tempo change is phase-continuous and boundary-exact.** Joining at 120 BPM
-  and applying a 150 BPM snapshot: the last interval of the old bar is 6000
-  samples, the downbeat stays at 192000, and the first interval of the new bar is
-  4800 samples.
-- **Stop / resync are sample-exact.** Stop fires no note at/after its boundary
-  and releases the hosted kit there; resync-bar and resync-beat place their
-  target on an arbitrary sample (110000 / 111000).
-- **Pressure is bounded.** 40 join requests into capacity 16 drop 24, each drop
-  is counted by the queue and reported by the engine; invalid commands are
-  rejected whole and leave the running tempo untouched.
-- **No drift over 30 minutes.** At 120 BPM / 48 kHz, after 30 minutes the fired
-  step count matches the closed form and the last step sample is exactly
-  `96000 + (steps-1)*6000` — no per-step rounding accumulated.
-- **Standalone is unchanged.** With no bridge attached, the manual transport
-  reproduces the historical sample timings (and the existing 50-case drum
-  regression suite passes against the changed engine).
-- **The injected callback allocates nothing** when the MIDI scratch is reserved
-  (`DRUM_MIDI_HEAP_PROBE`, ELF-wrapped malloc/realloc, 4000 blocks with a tempo
-  event applied mid-window).
+- Publication (`setClockSample`, `applySnapshot`, `request*`) allocates nothing
+  and never blocks; consumption (`process`) services a fixed ≤4 commands/block
+  from inline arrays. Measured allocation-free with the ELF `--wrap` probe when
+  the MIDI scratch is reserved (4000 blocks, tempo event applied mid-window).
+- `isAudible()` returns true while a bridge is attached, so `PluginProcessor`'s
+  skip guard does not starve the injected transport before the first join on the
+  internal-sampler path.
 
-## Reproduction
+## Evidence (actual engine, actual audio)
 
+Run:
 ```sh
 export PATH=/tmp/opencode/venv/bin:$PATH
 export TMPDIR=/home/mojo/projects/build-INT-DRUM-001-worker/tmp   # /tmp is a full tmpfs
@@ -119,30 +108,36 @@ cd /home/mojo/projects/worktrees/INT-DRUM-001-clock-bridge
 python3 tools/drum-clock-bridge/run.py
 ```
 
-The product Ninja build is only read for its compile/link flags; nothing in it is
-modified. The driver fresh-compiles `DrumEngine.cpp`, the new bridge and the new
-tests, and reuses the read-only JUCE module objects plus
-`libGuitarCompanionAssets.a` from
-`/home/mojo/projects/build-RT-003-integration/product`.
+- **Combined JUCE binary** (new integration + all six existing drum suites in one
+  link, same `DRUM_MIDI_HEAP_PROBE` / `--wrap` flags — proves the shared probe has
+  a single definition): **72 cases, 0 failed**, build **0 warnings / 0 errors**.
+  New cases include: exact next-bar join for blocks 333/700/1000; coherent tempo
+  in both orders; phase-continuous boundary tempo change; exact stop + ordered
+  release; pending-stop position; resync worker/engine phase agreement then
+  stop and tempo at the same actual downbeat; resync bar/beat; Clear+Join
+  ordering; coalesced tempo snaps + counted overflow; pressure drops with asserted
+  counts; late command; **internal sampler** (embedded GMRockKit, `samplesLoaded`)
+  and **fallback synth** energy; processor skip guard; late attach at a nonzero
+  sample; second prepare at 96 kHz; 30-minute zero-drift; 30-minute **fractional
+  BPM (127) verified through actual MIDI events**; standalone manual regression;
+  measured allocation-free callback.
+- **Portable JUCE-free suite:** **16 tests, 140 checks, 0 failed**.
+- **jam-core:** `jam.DrumClockBridge` passes; full ctest 21/21 with `TMPDIR` set.
 
 ## Honest limitations
 
 - **Not full production wiring.** Nothing in `PluginProcessor`/`PluginEditor`/
   `JamDirector` was changed. The orchestrator owns calling `setClockSample` with
   the real device sample position, `applySnapshot` with the clock belief, and
-  `prepareInjectedGroove`/`attachClockBridge` on the message thread.
-- **No safety claim for third-party plugins.** The no-allocation result measures
-  *this* engine with a no-op `juce::AudioPluginInstance` sink. Arbitrary VST3
-  guests can allocate; the hosted MIDI scratch is bounded by
+  `prepareInjectedGroove`/`attachClockBridge` on the message thread before audio.
+  The plugin links neither `jam-core` nor the bridge today.
+- **No safety claim for arbitrary third-party plugins.** The allocation result
+  measures *this* engine with a no-op `juce::AudioPluginInstance` sink; arbitrary
+  VST3 guests can allocate. The hosted MIDI scratch is bounded by
   `drum::midiScratchBytesForBlock()` for this engine's generation only.
 - **One 4/4 Rock groove.** No style/fill/planner policy, no swing in the injected
-  grid, no crash/break handling. Velocity humanisation still comes from the
-  existing `humanVel`/`humanTime`/`humanRR` atomics (tests zero them for exact
-  timing); swing is not applied in the injected grid.
-- **`prepareInjectedGroove` is a message-thread preload** that must run before
-  the injected transport is used; it parses the library spec with JUCE and
-  writes plain POD bytes the audio thread reads.
-- **No `JamTypes.h` exists** in this repository: `ClockSnapshot` and the other
-  frozen core types live in `src/jam/RhythmTypes.h`.
+  grid. Velocity humanisation still comes from the existing `humanVel`/`humanTime`/
+  `humanRR` atomics (tests zero them for exact timing).
+- **No `JamTypes.h` exists**; the frozen core types are in `src/jam/RhythmTypes.h`.
 - **G1/G4 remain open.** No live callback-timing trace and no full end-to-end
   director run were performed.
