@@ -80,8 +80,10 @@ advance exactly in the audio-owner domain; UI state remains coalescing-tolerant.
 Source snapshots, exact harness/product archive identities, link closure, raw
 cells, log, verdict and hashes are preserved. Actual001/002 remain rejected.
 Independent final audit accepts both code and measurement gates and re-hashes
-the harness/evidence and all eight linked archives successfully. Publication CI
-is the remaining promotion check.
+the harness/evidence and all eight linked archives successfully.
+[Publication CI](LIVE-JAM-PUBLICATION.md) passes all six jobs at74cdde4,
+including Windows Standalone/VST3 and8/8 drum/Jam UI suites. The MSVC-only
+portability overlay preserves Linux tracker bytes and passes independent review.
 
 ## Scope
 

@@ -1,0 +1,482 @@
+{
+  "conclusion": "success",
+  "createdAt": "2026-10-08T08:09:52Z",
+  "databaseId": 37748022994,
+  "headSha": "74cdde43f0534ff7598e614711e303bcf85ebb72",
+  "jobs": [
+    {
+      "completedAt": "2026-10-08T08:11:17Z",
+      "conclusion": "success",
+      "databaseId": 113214091766,
+      "name": "NAM / allocation repairs",
+      "startedAt": "2026-10-08T08:09:55Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Initialize only the pinned NAM dependency tree",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build repair checks",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Require and run all repair suites",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Keep failure evidence",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 12,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/mojomast/jammate/actions/runs/37748022994/job/113214091766"
+    },
+    {
+      "completedAt": "2026-10-08T08:11:21Z",
+      "conclusion": "success",
+      "databaseId": 113214091916,
+      "name": "Core / btrack",
+      "startedAt": "2026-10-08T08:09:56Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Verify fail-closed CI guards",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Configure and build the portable core",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Require suites and verify tracker linkage boundaries",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run all registered core suites",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Keep failure evidence",
+          "number": 7,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 14,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 15,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/mojomast/jammate/actions/runs/37748022994/job/113214091916"
+    },
+    {
+      "completedAt": "2026-10-08T08:11:07Z",
+      "conclusion": "success",
+      "databaseId": 113214091970,
+      "name": "Core / aubio",
+      "startedAt": "2026-10-08T08:09:55Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Verify fail-closed CI guards",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Configure and build the portable core",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Require suites and verify tracker linkage boundaries",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run all registered core suites",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Keep failure evidence",
+          "number": 7,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 14,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 15,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/mojomast/jammate/actions/runs/37748022994/job/113214091970"
+    },
+    {
+      "completedAt": "2026-10-08T08:19:24Z",
+      "conclusion": "success",
+      "databaseId": 113214092002,
+      "name": "Windows / Standalone + VST3 + drums + Jam UI",
+      "startedAt": "2026-10-08T08:09:56Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Initialize the pinned product dependencies",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Configure the WASAPI/DirectSound application",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Build both formats and drum tests",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Require and run drum and live Jam UI suites",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Keep failure evidence",
+          "number": 7,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 14,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 15,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/mojomast/jammate/actions/runs/37748022994/job/113214092002"
+    },
+    {
+      "completedAt": "2026-10-08T08:11:17Z",
+      "conclusion": "success",
+      "databaseId": 113214092069,
+      "name": "Core / both",
+      "startedAt": "2026-10-08T08:09:57Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Verify fail-closed CI guards",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Configure and build the portable core",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Require suites and verify tracker linkage boundaries",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run all registered core suites",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Keep failure evidence",
+          "number": 7,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 14,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 15,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/mojomast/jammate/actions/runs/37748022994/job/113214092069"
+    },
+    {
+      "completedAt": "2026-10-08T08:11:13Z",
+      "conclusion": "success",
+      "databaseId": 113214092159,
+      "name": "Core / depfree",
+      "startedAt": "2026-10-08T08:09:57Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Verify fail-closed CI guards",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Configure and build the portable core",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Require suites and verify tracker linkage boundaries",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run all registered core suites",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "name": "Keep failure evidence",
+          "number": 7,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "number": 14,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 15,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/mojomast/jammate/actions/runs/37748022994/job/113214092159"
+    }
+  ],
+  "status": "completed",
+  "updatedAt": "2026-10-08T08:19:24Z",
+  "url": "https://github.com/mojomast/jammate/actions/runs/37748022994",
+  "downloaded_log_archive": {
+    "external_path": "/home/mojo/projects/build-EVAL-LIVE-001-integration/github-ci/run-37748022994-logs.zip",
+    "sha256": "b5084e46d4b0f52a79a3feb112004fd51f62ba28e0a619e17914b0f0a0e8b373",
+    "entries": {
+      "0_Core _ depfree.txt": "549a7bfd049bd443b9bcc10413e422bfbb86bdd8e809e7d9bd21ecc21047d176",
+      "Core _ depfree/system.txt": "9f6fb249fa60bf3a0ad1aac26044dec7dc83163d1db051c1b0c4e73791fe25bb",
+      "Core _ depfree/1_Set up job.txt": "2f8cfea16ade5b543c89648f3f5abafbc9e09bd9a0837ee0b1b9b66a1f198a55",
+      "Core _ depfree/2_Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "717b02be3004ef9ea3863860e0f89847920f66af1cd09f9072d9a413087be374",
+      "Core _ depfree/3_Verify fail-closed CI guards.txt": "e17db0c23a6dd2b73319a456ca8ff7bdd518fc571c5d1fd12b4e4f908804df7a",
+      "Core _ depfree/4_Configure and build the portable core.txt": "bd194c38fc5f3a8c89f6a951a6a9656e808344d8f1bae893a1095df95e363280",
+      "Core _ depfree/5_Require suites and verify tracker linkage boundaries.txt": "aa1c7c5ffde8600bd83ce7f7a15320e800a6976e7bb6427415a5480f9cca907b",
+      "Core _ depfree/6_Run all registered core suites.txt": "01ad12c6008514f71f9b1a6b935698cb1aa48ce94bf2ee93e4547f746be90c6c",
+      "Core _ depfree/14_Post Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "0e62b2f279e3d717e51f89706236416cd231c04232a0d05f687c370e15c7e842",
+      "Core _ depfree/15_Complete job.txt": "414848477a6714c205d0678d63748300885170e2451ad0d60f6e37c27e866fbf",
+      "1_Core _ both.txt": "74a3d94e9f8508d9a1c2865e95a3a0a3cbc78ca86591f8ed10e6028f74085610",
+      "Core _ both/system.txt": "63a494d089af9b2953eb262b363b708dad39c7693d8af0cf131750d90132cc89",
+      "Core _ both/1_Set up job.txt": "10f23df576acb78449c290606ba43d8da6b57ba485b8b29488b09565c18e3c43",
+      "Core _ both/2_Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "9c760be6266d8f4a085a7f8fa7bfd9eb1f93c090f4db09859ecaf37a2672de5c",
+      "Core _ both/3_Verify fail-closed CI guards.txt": "f76becc42556bce4c9910929fbdfd6c1d22a6e5eab6d1643e270cfec852e9879",
+      "Core _ both/4_Configure and build the portable core.txt": "16752d53224a2cfaba443164edde58e49d5ab12f1b6bcb88151faa7b683a91b8",
+      "Core _ both/5_Require suites and verify tracker linkage boundaries.txt": "e8a708659e9ca11238b0e824b9c4471972cf5dc74db7e044e1bf79806ab2dc3b",
+      "Core _ both/6_Run all registered core suites.txt": "f316dffb089b578338071b5507b9b2c830ce1e3a997f3617de25123c40e10dd3",
+      "Core _ both/14_Post Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "226e39ca7af7a39c69f3b310f35eda8c3ce643d8d7465e03ad5f40a1bb019d7a",
+      "Core _ both/15_Complete job.txt": "f06f9055bfb954a61b4809018ad7016e9498fcdb43c83c82a52b586656a680ee",
+      "2_Windows _ Standalone + VST3 + drums + Jam UI.txt": "49a646f485a1ea97689f1e55d018e5b5b558bdbff88ad2548549601f06a45014",
+      "Windows _ Standalone + VST3 + drums + Jam UI/system.txt": "a781f089d63a7459dd18d267cd9d2ee12d7bbbe59bd54284aeaa844d8454aa8d",
+      "Windows _ Standalone + VST3 + drums + Jam UI/1_Set up job.txt": "0f133c35b853358f3a61377d723312c5de2a8d2c7c1f3d3dbc035b0a60190c3b",
+      "Windows _ Standalone + VST3 + drums + Jam UI/2_Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "b793815457bd3ff2bc2145731e21b94ddd9e2f57e9c7e6099a4f1766a187ff09",
+      "Windows _ Standalone + VST3 + drums + Jam UI/3_Initialize the pinned product dependencies.txt": "0d821252c6b96bf7b2cb882f499ae7d3827d7c49204e87bc83655dc88c584192",
+      "Windows _ Standalone + VST3 + drums + Jam UI/4_Configure the WASAPI_DirectSound application.txt": "0f970981bb6db069a2ccee8e3335dbdc8fa9adeec63d73ad663aa8d2a374436d",
+      "Windows _ Standalone + VST3 + drums + Jam UI/5_Build both formats and drum tests.txt": "3f5fbaeedd47550921de02bb0a184d215b371919bbc044e4509747e2f815c073",
+      "Windows _ Standalone + VST3 + drums + Jam UI/6_Require and run drum and live Jam UI suites.txt": "5665c2f61c0dd17a944fe1eb5ab6f96c981db013bfb9c266856571283cb42d69",
+      "Windows _ Standalone + VST3 + drums + Jam UI/14_Post Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "ddcc2cb57999a344f9a08f8b011331ba622371799b190dfc1e09fade028c586e",
+      "Windows _ Standalone + VST3 + drums + Jam UI/15_Complete job.txt": "146a4eb1dd3f1614eb6da22473bc902326484c269e82181864b6293ef9795d43",
+      "3_Core _ aubio.txt": "654cc5a3ef0e1c7807693747fede07b6323b896fd946e90596dbccadae6ca042",
+      "Core _ aubio/system.txt": "2299bad15830363d2c18674472938697411b4ce1c24c0a1769b6cf247631f86b",
+      "Core _ aubio/1_Set up job.txt": "c98d481c54d83ce31574cc4a03ad9acd202b0c1a2c8c0e9494cb90dcba712b19",
+      "Core _ aubio/2_Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "ce301dacfe99404cfa7caa42c22c80ee284803185e69404b1f0105d20778d990",
+      "Core _ aubio/3_Verify fail-closed CI guards.txt": "3f9cb9c6dde657f77117b1138b59127f07e658fb39deaf9a45ec2b2771310056",
+      "Core _ aubio/4_Configure and build the portable core.txt": "c0c3b083fd7122bbf38d23e5c1c3c69e6ee477dc239a86e2d52181237d6064f2",
+      "Core _ aubio/5_Require suites and verify tracker linkage boundaries.txt": "5681992d8b49aa060ba05972a9b6f71683627510296815fc32c535a2b3dbd7f5",
+      "Core _ aubio/6_Run all registered core suites.txt": "0dd42ba538a18a1d57975df366b1e18f3cd0fc32fc0e3cc1511f5ece35ddd10b",
+      "Core _ aubio/14_Post Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "fe67337680b11a1fe4abbb54b2cea96f84d9d13f4766dfdb6681d813e37cbca7",
+      "Core _ aubio/15_Complete job.txt": "93d14bbd45b6eb0b19a4776a6aa60c0286c46bcf1925055cfe5b7e2aaa00aeae",
+      "4_Core _ btrack.txt": "464aa6220f5cff3e36211c720a502ee8ac7e9d02f4c0d2d394105b103c66fdd0",
+      "Core _ btrack/system.txt": "fc515c73e43c091ce0e014a99b3775057df5907a7a187472352659dfe28fb1f0",
+      "Core _ btrack/1_Set up job.txt": "b2788a52c891bb76438be8a3e527a2c8bf5f8443698e5b56cffdea67ce7c4d2a",
+      "Core _ btrack/2_Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "20c88e892cb14d13d315f3df6d7cbfc0dc37b098abddc03e6ebce865bc0fe738",
+      "Core _ btrack/3_Verify fail-closed CI guards.txt": "b4069d5a21c4651fb33fce7cb2a99de50dd861d9d21b5eeb3e0b7bcc954e3407",
+      "Core _ btrack/4_Configure and build the portable core.txt": "7cdf9d3664ab3c229269c2767370e1247353a119a573cd41dc96c4d409f4d6d6",
+      "Core _ btrack/5_Require suites and verify tracker linkage boundaries.txt": "baa845fa563f521336ef0400d13aac58816d319474a7ef9f2ce677c7b6cddd0a",
+      "Core _ btrack/6_Run all registered core suites.txt": "688c8669667f9743f3f3adf865d5369d0bc416b28d8e97595b5029b827488893",
+      "Core _ btrack/14_Post Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "459f49c63b76a7145c1e08fadff12456fd8cc6aa9bffc9c5a8c6c05641ec2087",
+      "Core _ btrack/15_Complete job.txt": "ba2e6c7f7d4643df47069176811ca9f2d06da5f28a892509e7032a81acfcc81c",
+      "5_NAM _ allocation repairs.txt": "51acb76ec3821369ae1ba3a0daf20c3331bca44462ee58311f603daf39e3a2f5",
+      "NAM _ allocation repairs/system.txt": "80e740b80079a402db9931adcf9fe3f0de5b8a59a758a597062ca841d73e6cd5",
+      "NAM _ allocation repairs/1_Set up job.txt": "8d40d0abb36a9590dedab1c32a997393084d75880f31dd4df9074a1f3727fced",
+      "NAM _ allocation repairs/2_Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "e9c66288286282baeba318c626b21e5fc068cdb481dd9cd915400dd17e604ec5",
+      "NAM _ allocation repairs/3_Initialize only the pinned NAM dependency tree.txt": "3b006d5854f5c9ad6e6e5bac26ca7003c0c1907f09028164fb21b1fe9057a18b",
+      "NAM _ allocation repairs/4_Build repair checks.txt": "7255ae77aa7c62feb053d530b146ffb8d145e79e5e33103df9d0074b121b6f1b",
+      "NAM _ allocation repairs/5_Require and run all repair suites.txt": "f150ec5b898f4b94905b6b7d58e7e904d6972245fb3948ebdf0e26f40a4e1dfd",
+      "NAM _ allocation repairs/12_Post Run actions_checkout@11d5960a326750d5838078e36cf38b85af677262.txt": "910179d54d7ee703628d2dc40be6b44387637a4b5fec097d8cdbc3e41c8bfbd3",
+      "NAM _ allocation repairs/13_Complete job.txt": "3673d68d5d3c57d7454476a7f8ebd9dd772f26e2d7b6e57d4ea9a1e94c86b749"
+    }
+  },
+  "ctest_suite_counts": {
+    "0_Core _ depfree.txt": [
+      27
+    ],
+    "1_Core _ both.txt": [
+      29
+    ],
+    "2_Windows _ Standalone + VST3 + drums + Jam UI.txt": [
+      8
+    ],
+    "3_Core _ aubio.txt": [
+      28
+    ],
+    "4_Core _ btrack.txt": [
+      28
+    ],
+    "5_NAM _ allocation repairs.txt": [
+      9
+    ]
+  },
+  "accepted_actual_replay": "docs/research/live-jam-replay/actual-full-003/",
+  "note": "All six jobs pass. Windows builds Standalone/VST3 and runs eight registered drum/Jam UI suites; no physical-device/ASIO deadline claim."
+}

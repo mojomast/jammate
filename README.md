@@ -129,10 +129,11 @@ Latest local verification, **8 October 2026**:
   without JUCE or an audio device.
 - **36/36** combined Linux product suites pass, including drum bridge, live
   pipeline, replay validator and Jam UI registration. **Standalone + VST3**
-  build successfully. Prior Windows verification passed; the final live-wave
-  Windows build is pending publication.
-- [GitHub verification](https://github.com/mojomast/jammate/actions/runs/37729980845)
-  passes the four core configurations, NAM repair checks, and Windows build/tests.
+  build successfully. The final live-wave Windows Standalone/VST3 build and
+  **8/8 drum/Jam UI suites** also pass.
+- [GitHub verification](https://github.com/mojomast/jammate/actions/runs/37748022994)
+  passes all six jobs: four core configurations,9 NAM repair suites, and the
+  Windows build with drums and live Jam UI tests.
 - **26** real-processor probe cases show zero detected heap allocation/free or
   lock/wait operations after the scoped LSTM repair, including eight NAM cases.
   These probes cover a bounded matrix, not every model, effect, host or device.

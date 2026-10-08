@@ -25,9 +25,13 @@ minimum. Actual003 passes4090 checks and all54-cell/default/injected gates with
 the preregistered12-second transport wait; clock/tracker settings are unchanged.
 Raw evidence/identities are in `docs/research/live-jam-replay/actual-full-003/`.
 Independent final audit accepts code and actual003 measurement, including all
-eight linked archive hashes. Published `23c4299` CI passes core/NAM but Windows
-fails on BTrack GNU VLAs/`M_PI`; a pinned MSVC-only generated overlay is being
-promoted, with36,000 bit-identical native comparison rows. Default BTrack is experimental;
+eight linked archive hashes. Published `74cdde4` CI run37748022994 passes all six
+jobs: core27/28/28/29, NAM9/9, Windows Standalone/VST3 and8/8 drum/Jam UI suites.
+The pinned MSVC portability overlay passes independent review and36,000
+bit-identical native comparisons. Receipt/log hashes are in
+`docs/research/github-ci/run-37748022994.json`. First live slice is DONE and
+published; next are representative guitar/device play tests and broader
+adaptation gates. Default BTrack is experimental;
 TRACK-008 stays diagnostic and G3 remains open. Shared CMake/CI are
 orchestrator-owned. Prior final head `b7e3be1` is published and fully green in
 run37729980845: core23/24/24/25, NAM9/9, Windows Standalone/VST3 with7/7 drum

@@ -49,7 +49,9 @@ Final live integration: actual003 passes4051 hard/36 advisory checks and3 gates
 with54 callback cells, actual initial/restarted joins, distinct stops, rendered
 resync, released/reprepared state and zero-input internal-kit output. Independent
 code/measurement audit accepts. Original rejected001/002 runs are preserved;
-publication CI is next. Useful guitar acquisition/device gates remain open.
+publication CI passes all six jobs at74cdde4/run37748022994, including core
+27/28/28/29, NAM9/9 and Windows Standalone/VST3 with8/8 drum/Jam UI suites.
+Useful guitar acquisition/device gates remain open.
 
 ---
 

@@ -8,7 +8,7 @@ constitute remote execution evidence.
 ## Required jobs
 
 - **Core matrix:** dependency-free, BTrack-only, aubio-only and both enabled.
-  No submodules are materialized. All registered suites execute; 23 base suites
+  No submodules are materialized. All registered suites execute;27 base suites
   are required, plus each enabled tracker suite. `nm` must succeed and produce
   actual symbol lines; the core archive/tests cannot contain tracker symbols,
   each enabled tracker binary must contain its own real symbols, and the fully
@@ -19,8 +19,8 @@ constitute remote execution evidence.
   This rechecks numerical evidence and committed callback artifacts; it does
   not rerun the actual processor callback probe.
 - **Windows:** fetch only JUCE and NAM product dependencies, configure MSVC,
-  build Standalone, VST3 and the actual drum test executable, require all seven
-  drum suites (including the injected-clock bridge), and execute them. This uses WASAPI/DirectSound, with the
+  build Standalone, VST3 and the actual test executable, require all seven
+  drum suites plus live Jam UI (eight total), and execute them. This uses WASAPI/DirectSound, with the
   embedded browser disabled. ASIO/device/latency execution is separate.
 
 Actions are pinned to immutable commits; checkout does not persist credentials.
@@ -38,7 +38,7 @@ python3 tools/ci/verify_registration.py --lane drums --build <linux-product>
 actionlint -shellcheck= -pyflakes= .github/workflows/verify.yml
 ```
 
-Seven guard acceptance tests pass, including every required suite's removal,
+Nine guard acceptance tests pass, including every required suite's removal,
 enabled/disabled tracker contradictions, duplicate registration, failed/empty
 `nm`, and directory-name false positives. Initial CI-003 OFF/ON artifacts
 passed registration/symbol checks at 18/20 suites; the NAM and Linux drum build

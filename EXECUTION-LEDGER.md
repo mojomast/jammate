@@ -14,7 +14,7 @@ task note + commit SHA + successful integration.
 | Branch | `main` (single integration branch; workers branch from it) |
 | Frozen upstream SHA | `88f7e7c805c9c5e17388154a678c2c6a3633ff23` (verified zero drift) |
 | Submodules initialised | JUCE, NAM Core, and NAM's pinned Eigen / AudioDSPTools; no reference repositories |
-| Forge | Public GitHub repository `mojomast/jammate`; GitHub verification being integrated; historical Gitea definitions retained |
+| Forge | Public GitHub repository `mojomast/jammate`; GitHub verification green; historical Gitea definitions retained |
 | Build seam | `jam-core/` — platform-neutral, no `juce::`, tests via ctest |
 
 ## Verification lanes
@@ -22,7 +22,7 @@ task note + commit SHA + successful integration.
 | Lane | Buildable here | Verifies |
 |---|---|---|
 | **core** (`jam-core`, CMake + Ninja, no audio device) |27/28/28/29 suites OFF/BTrack/aubio/both pass | deterministic seams, worker lifecycle, live policy/session, injected drum bridge, acquisition/tempo diagnostics and replay validators; not all SPEC acceptance conditions |
-| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | Linux36/36 registered suites and20 UI cases pass; Standalone/VST3 build; prior Windows7/7 passed | live wiring integrated; actual003 full54-cell/lifecycle/audio gates pass; final audit/live-wave Windows CI pending; ASIO/device gates remain open |
+| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | Linux36/36 registered suites and20 UI cases pass; Windows8/8 suites; Standalone/VST3 build on both | live wiring and actual003 full54-cell/lifecycle/audio proof accepted; all six CI jobs green at74cdde4; ASIO/device gates remain open |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
 PARTIAL, never PASSED.
@@ -84,17 +84,17 @@ PARTIAL, never PASSED.
     No production analyzer/clock/editor integration is authorised by this task;
     full DIAG-001 stays partial until that integration and overhead are measured.
 
-### Active live-Jam wave (base `88893e2`, 2026-10-08)
+### Completed live-Jam wave (base `88893e2`, 2026-10-08)
 
 The user authorised the first audible live loop after the reviewed bridge wave.
 The orchestrator committed the JUCE-free command/telemetry facade and lifecycle
 contract before launching three **`opencode-go/deepseek-v4.1-flash`** workers:
 
-| Task | Session | Ownership |
-|---|---|---|
-| INT-LIVE-001 live processor pipeline | `ses_ee61b0353ffeSHR8l1MAWzTbHT` | `../worktrees/INT-LIVE-001-pipeline`; processor implementation, new live session/join policy and portable checks |
-| UI-LIVE-001 real Jam screen | `ses_ee61a7b1fffeYYPxryxjoq8po3` | `../worktrees/UI-LIVE-001-jam-screen`; editor/overlay, live-state presentation/intent mapping and JUCE checks |
-| EVAL-LIVE-001 actual processor replay | `ses_ee619cf9affebFyi8MbdHaUD1Y` | `../worktrees/EVAL-LIVE-001-replay`; new preregistered replay harness, evidence validator and checks |
+| Task | State | Session | Ownership |
+|---|---|---|---|
+| INT-LIVE-001 live processor pipeline | DONE `016c0c8` | `ses_ee61b0353ffeSHR8l1MAWzTbHT` | `../worktrees/INT-LIVE-001-pipeline`; processor implementation, new live session/join policy and portable checks |
+| UI-LIVE-001 real Jam screen | DONE `8ac4517` | `ses_ee61a7b1fffeYYPxryxjoq8po3` | `../worktrees/UI-LIVE-001-jam-screen`; editor/overlay, live-state presentation/intent mapping and JUCE checks |
+| EVAL-LIVE-001 actual processor replay | DONE `f554884` + `24af413`/actual003 | `ses_ee619cf9affebFyi8MbdHaUD1Y` | `../worktrees/EVAL-LIVE-001-replay`; preregistered actual replay, validator and preserved evidence |
 
 Contract: `docs/research/LIVE-JAM-CONTRACT.md` and
 `src/jam/JamLiveInterface.h`. Start/Stop do bounded command publication; lifecycle
@@ -238,6 +238,16 @@ passes strict C++17 plus changed-pin/original-VLA negative controls. Native
 original/overlay beat/tempo/cumulative outputs are bit-identical across36,000
 rows. This repair does not alter clock thresholds or the measured Linux path;
 Windows promotion is being retried.
+
+Live wave publication completes: `74cdde4` run37748022994 passes all six jobs:
+core27/28/28/29, NAM9/9, Windows Standalone/VST3 and8/8 drum/Jam UI suites.
+Downloaded-log hashes are committed in
+`docs/research/github-ci/run-37748022994.json`; archive SHA256
+`b5084e46d4b0f52a79a3feb112004fd51f62ba28e0a619e17914b0f0a0e8b373`.
+Independent review accepts the MSVC overlay;36,000 native comparison rows are
+bit-identical and Linux implementation bytes remain unchanged. First live slice
+is DONE/published; representative guitar, ASIO/device, worker allocation and
+broader adaptive/release gates remain open.
 
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The
