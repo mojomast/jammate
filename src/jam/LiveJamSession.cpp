@@ -372,6 +372,10 @@ void LiveJamSession::applyCommand (const JamLiveCommand& command,
             if (failure_ == JamLiveFailure::unavailableBackend)
                 failure_ = JamLiveFailure::none;
             policy_.notifyStart();
+            // Resolve a cancelled, unpublished stop before processing later
+            // same-tick intents, so Start followed by Fill retains the pulse.
+            if (director_.state() == DirectorState::Stopping && ! policy_.stopPending())
+                director_.notifyStopCompleted();
             director_.notifySessionStarted();
             break;
 

@@ -13,7 +13,7 @@ struct QuietTracker final : jam::IRhythmTracker
     { return {}; }
 };
 
-void checkCoalescedStopStart (jam::JamLiveCommandType stopType)
+void checkCoalescedStopStart (jam::JamLiveCommandType stopType, bool sameTickFill = false)
 {
     jam::LiveJamSession session;
     REQUIRE (session.setTracker (std::make_unique<QuietTracker>(), jam::JamLiveBackend::injectedTest));
@@ -48,15 +48,21 @@ void checkCoalescedStopStart (jam::JamLiveCommandType stopType)
 
     REQUIRE (session.submitCommand ({ stopType, 0.0 }));
     REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::Start, 0.0 }));
+    if (sameTickFill)
+        REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::RequestFill, 0.0 }));
     session.publishAudioCursor (25024);
     session.stepControlForTesting();
+    bool fill = false;
     while (session.drumCommandQueue().pop (command))
+    {
         CHECK (command.type != jam::DrumClockCommandType::Clear
                && command.type != jam::DrumClockCommandType::StopAtBar);
-    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::RequestFill, 0.0 }));
+        fill = fill || (command.type == jam::DrumClockCommandType::BarChange && command.fill >= 0);
+    }
+    if (! sameTickFill)
+        REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::RequestFill, 0.0 }));
     session.publishAudioCursor (25536);
     session.stepControlForTesting();
-    bool fill = false;
     while (session.drumCommandQueue().pop (command))
         fill = fill || (command.type == jam::DrumClockCommandType::BarChange && command.fill >= 0);
     CHECK (fill);
@@ -75,6 +81,16 @@ JAM_TEST (AdaptiveLiveSession, sameTickStopStartKeepsDirectorResponsive)
 JAM_TEST (AdaptiveLiveSession, sameTickBarStopStartKeepsDirectorResponsive)
 {
     checkCoalescedStopStart (jam::JamLiveCommandType::StopAtNextBar);
+}
+
+JAM_TEST (AdaptiveLiveSession, sameTickStopStartFillRetainsNewPulse)
+{
+    checkCoalescedStopStart (jam::JamLiveCommandType::Stop, true);
+}
+
+JAM_TEST (AdaptiveLiveSession, sameTickBarStopStartFillRetainsNewPulse)
+{
+    checkCoalescedStopStart (jam::JamLiveCommandType::StopAtNextBar, true);
 }
 
 JAM_TEST (AdaptiveLiveSession, selectedStyleJoinsAndFillWaitsForActualPlayback)
