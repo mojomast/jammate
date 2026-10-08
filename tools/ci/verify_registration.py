@@ -24,6 +24,7 @@ NAM = {
 DRUMS = {
     'drums.parseSpec', 'drums.library', 'drums.generator', 'drums.barCodec',
     'drums.midiCapacity',
+    'drums.foundation',
 }
 TRACKERS = {
     'btrack': ('jam.BTrackBackend', 'jamBTrackTests', r'BTrack::'),

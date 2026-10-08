@@ -13,6 +13,7 @@ target_sources(GuitarCompanionTests
         DrumGeneratorTests.cpp
         DrumCodecTests.cpp
         DrumMidiTests.cpp
+        DrumFoundationTests.cpp
         # production code under test
         ${PROJECT_SOURCE_DIR}/src/DrumEngine.cpp
         ${PROJECT_SOURCE_DIR}/src/DrumLibrary.cpp
@@ -49,6 +50,7 @@ add_test(NAME drums.library    COMMAND GuitarCompanionTests library_)
 add_test(NAME drums.generator  COMMAND GuitarCompanionTests generator_)
 add_test(NAME drums.barCodec   COMMAND GuitarCompanionTests codec_)
 add_test(NAME drums.midiCapacity COMMAND GuitarCompanionTests midi_)
+add_test(NAME drums.foundation COMMAND GuitarCompanionTests foundation_)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_definitions(GuitarCompanionTests PRIVATE DRUM_MIDI_HEAP_PROBE=1)

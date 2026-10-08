@@ -1453,7 +1453,7 @@ Keep this near the top of the live devplan during implementation.
 | FND-003 | DONE | main | 931be23 | G0 |
 | RT-001 | F1 JUCE-compiled; F2 engine heap bound verified; full runtime open | main | 135b4b7 + resumption fixes | G1 |
 | CI-001 | definitions integrated; actual runner execution open | main | 4376672 | G1 |
-| TEST-001 | IN PROGRESS (D8: actual local JUCE lane) | wp/TEST-001-foundation | base45fa333 | G1 |
+| TEST-001 | DONE: bounded foundation coverage (D8) | main | 0cfc252b + suite registration | G1 |
 | MOD-001 | DONE (offline seam) | main | 89db28d + efb820b | G2 |
 | MOD-002 | DONE (offline seam); real engine wiring open | main | 86544f1 | G2 |
 | MOD-003 | IN PROGRESS (D7: isolated simulation shell) | wp/MOD-003-jam-ui | base45fa333 | G2 |
@@ -1472,7 +1472,8 @@ Keep this near the top of the live devplan during implementation.
 | EVAL-007 | DONE (version-aware silence coverage) | main | 514c154 + CSV citation corrections | G3 |
 | TRACK-005 | DONE (diagnostic-only causal BPM-report variant) | main | 7b3a4d7 + framing corrections | G3 |
 | RT-003 | DONE (measured LSTM repair) | main | 401a6c1 + product/verifier fixes | G1 |
-| TRACK-006 | BLOCKED: Flash insufficient balance | wp/TRACK-006-variant-robustness | base85e1cf4, no result | G3 |
+| TRACK-006 | IN PROGRESS (user-authorised Sol replacement) | wp/TRACK-006-variant-robustness | base45fa333, review pending | G3 |
+| CI-003 | GitHub workflow locally verified; scope authorised, remote execution pending | main | 8f18e03 | G1 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
 | ANALYSIS-001 | lifecycle foundation DONE (D6); full task PARTIAL / BLOCKED:G3 | main | 5162e4d + CMake/CI registration | G4 |
 | DIAG-001 | BLOCKED:G3 | | | G4 |

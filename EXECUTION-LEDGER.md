@@ -22,7 +22,7 @@ task note + commit SHA + successful integration.
 | Lane | Buildable here | Verifies |
 |---|---|---|
 | **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **20/20 suites**; default-OFF **18/18** | deterministic seams, worker lifecycle, acquisition/tempo diagnostics, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
-| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **5/5 passed**; **Standalone and VST3 built** | Windows/ASIO, full callback and device measurements still required |
+| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **6/6 passed**; **Standalone and VST3 built on Linux** | Windows/ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
 PARTIAL, never PASSED.
@@ -276,7 +276,7 @@ and reports instead.
 | TRACK-006 fixed variant paired robustness | IN PROGRESS | `wp/TRACK-006-variant-robustness`, base `45fa333` | B — evidence, Sol | G3 | replacement worker executing paired diagnostics; no accepted result yet |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |
-| TEST-001 foundation tests | IN PROGRESS (D8) | `wp/TEST-001-foundation` | C — verification, Sol | G1 | actual JUCE regression checks; production behavior unchanged |
+| TEST-001 foundation tests | **DONE: bounded foundation coverage (D8)** | `wp/TEST-001-foundation`, `0cfc252b` → main | C — verification, Sol | G1 |50 actual JUCE cases; root rebuild and6/6 suites pass; processor migration/concurrent edits remain uncovered |
 | MOD-003 Jam UI shell | IN PROGRESS (D7) | `wp/MOD-003-jam-ui` | C — UI, Sol | G2 | isolated fake-data shell; live editor wiring pending |
 | CI-003 GitHub verification | IN PROGRESS | main | orchestrator | G1 | portable four-config matrix, NAM checks and first Windows product build |
 

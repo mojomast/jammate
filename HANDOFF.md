@@ -22,6 +22,12 @@ and TEST-001 actual JUCE foundation regressions. Their branches start at
 `45fa333`; none is accepted until reviewed and rerun. The orchestrator owns
 CI-003 GitHub Actions plus all shared build/editor/processor integration.
 
+TEST-001 worker `0cfc252b` accepted: 12 new compatibility/transport regressions,
+50 total cases; actual root test rebuild and all6/6 drum suites pass. Both forge
+guards require `drums.foundation`. Scope excludes full processor migration,
+concurrent control edits and device timing. MOD-003 and TRACK-006 remain under
+review/execution; their returned handoffs are not accepted merely on worker claim.
+
 ### Integrated since the original handoff
 
 - Standalone JUCE-free core: ring, deterministic MusicalClock, transport seam,
