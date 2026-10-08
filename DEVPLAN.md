@@ -19,7 +19,9 @@ the ledger; TRACK-007's final DeepSeek corrections completed successfully.
 The user has now authorised a new three-worker Flash build wave at that base:
 RT-005 activation allocation repair, TRACK-008 frozen tempo-stability candidate,
 and INT-DRUM-001 actual clock-to-drum bridge. Ownership and sessions are in the
-ledger's Active build wave table. Hand-offs are pending independent review.
+ledger's Active build wave table. TRACK-008 is accepted and integrated with
+core24/22 suites; RT-005 validator and INT-DRUM-001 timing corrections remain
+pending. Production tracker selection and live processor wiring stay open.
 
 ---
 

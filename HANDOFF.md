@@ -22,16 +22,22 @@ documented in EXECUTION-LEDGER's completed-wave history.
 TRACK-008 builds and freezes a new tempo-stability diagnostic candidate;
 INT-DRUM-001 builds the bounded bridge to the actual DrumEngine with injected
 clock input. Three isolated worker sessions and ownership are in the ledger's
-Active build wave table. No handoff has yet been integrated. Orchestrator owns
+Active build wave table. TRACK-008 is integrated; RT-005 and INT-DRUM-001
+corrections remain pending. Orchestrator owns
 shared build/CI registration, processor/editor wiring and integration.
 
-Review update: TRACK-008 `f20b192` is independently reproduced (fresh plugin hash,
-160 scores/24744 non-CPU fields,160 beats,four method logs,eight derived files)
-and review accepts the science; final report/null-summary corrections are pending.
+Review update: TRACK-008 final `f621ee2` is accepted and integrated (fresh plugin
+hash,160 scores/24744 non-CPU fields,160 beats,four method logs,eight derived
+files exact). Corrected summaries reproduce independently; the historical raw,
+protocol and behavior freeze remain unchanged. Core24/24 both-enabled and22/22
+OFF pass; required C++ and26-test Python suites are registered in both forge
+guards. Receipt: `docs/research/tempo-stability-integration.json`. G3 stays open.
 INT-DRUM-001 `724d75f` passes the independent10/11/50 driver but is blocked by
 join/tempo ordering and beat-resync phase bugs; the worker is correcting them
-and the combined-test heap-probe collision. RT-005 `51e4356` is undergoing
-independent source/overlay review, fresh NAM build and15-process probe replay.
+and the combined-test heap-probe collision. RT-005 `51e4356` passes independent
+source review, fresh7/7 NAM suites, fresh processor linking and15-process replay
+(390 cases/120 NAM,16770 stable fields exact). Stronger validator checks are
+pending before integration.
 
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:

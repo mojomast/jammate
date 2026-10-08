@@ -1,0 +1,46 @@
+{
+  "task": "TRACK-008",
+  "workerHead": "f621ee2",
+  "protocolCommit": "0c1f972",
+  "behaviorFreezeCommit": "8a0c637",
+  "historicalEvidenceCommit": "f20b192",
+  "correctionContractCommit": "57b7be1",
+  "independentReviewSession": "ses_ee65a593effeUaID9IguUAwuoo",
+  "scratch": "/home/mojo/projects/build-TRACK-008-integration",
+  "validation": {
+    "freshPluginSha256": "791d36ecb4f2e9a7c8a4f045d13763d177d71c32257c174fb8f06fddffcff183",
+    "freshPluginMatchesFreeze": true,
+    "scoredFixtures": 40,
+    "realPluginScores": 160,
+    "exactRawScoredFields": 24744,
+    "varyingResourceCpuFields": 336,
+    "exactDiagnosticBeatFiles": 160,
+    "exactDecompressedMethodLogs": 4,
+    "exactHistoricalDerivedOutputs": 8,
+    "correctedSummary": "recomputed byte-identically from preserved raw logs and manifests",
+    "historicalProtocolFreezeBehaviorEvidence": "unchanged",
+    "cppMethodChecks": 62,
+    "finalPythonTests": 26,
+    "coreBothEnabledSuites": 24,
+    "coreBothDisabledSuites": 22,
+    "ciGuardTests": 7,
+    "bashWorkflowBodiesParsed": 33
+  },
+  "limits": [
+    "Diagnostic candidate only; no production backend selected and G3 remains open",
+    "Synthetic short and long overlapping fixtures; not independent real-guitar release trials",
+    "Backend-specific steady windows are not a common-window comparison",
+    "Confirmation is delayed by 3.69 to 7.50 seconds on long fixtures, with residual late jitter",
+    "Original missing-nominal method summary is retained; corrected summaries use null and measured flags",
+    "CPU and wall-clock timing are intentionally excluded from exact replay equality"
+  ],
+  "logHashes": {
+    "build.log": "2c36c0211e8dbe243c701c1d34627465137735d75dcaea3871398ead9274998d",
+    "method-cpp.log": "3569518a611a755f78f0743767c6dbd820dbb8be4f2de39672516679ff37703f",
+    "research-python.log": "e28bd2c62af15d971152f74e181610721ab5f7cb4d1d93696197abd1443a8779",
+    "replay.log": "6717f28069b905a85c853002ae2fa93d91c80573e5f74a5053148c22ab3941aa",
+    "merged-off-ctest.log": "91c5c529b450e1236ac22b5ae3f82faebd908cc33d3ca5684dfc537abd4042c4",
+    "merged-both-ctest.log": "10f06f9b8a6ea51b181a3eb0b9dea0f24acd3b13475d39811e6969697d11a9c3",
+    "merged-guard-tests.log": "74c03fc16fde9a2dfeff03db0ec8f472a5a8dfed04e9e982a912b4b7f64faee3"
+  }
+}

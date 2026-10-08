@@ -273,6 +273,9 @@ jobs:
           if [ -f tools/tempo-characterization/tests/test_long_windows.py ]; then
             expected="$expected jam.TempoCharacterization"
           fi
+          if [ -f tools/tempo-stability/tests/TempoStableTests.cpp ]; then
+            expected="$expected jam.TempoStable jam.TempoStableResearch"
+          fi
           if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
             expected="$expected jam.RhythmDerived"
           fi

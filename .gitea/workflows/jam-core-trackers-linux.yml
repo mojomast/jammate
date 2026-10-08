@@ -202,6 +202,9 @@ jobs:
           if [ -f tools/tempo-characterization/tests/test_long_windows.py ]; then
             CORE_SUITES="$CORE_SUITES jam.TempoCharacterization"
           fi
+          if [ -f tools/tempo-stability/tests/TempoStableTests.cpp ]; then
+            CORE_SUITES="$CORE_SUITES jam.TempoStable jam.TempoStableResearch"
+          fi
           if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
             CORE_SUITES="$CORE_SUITES jam.RhythmDerived"
           fi

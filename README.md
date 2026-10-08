@@ -116,7 +116,7 @@ for this fork. macOS has not been verified.
 
 Latest local verification, **8 October 2026**:
 
-- **22/22** core suites with both optional trackers enabled; **20/20** with them
+- **24/24** core suites with both optional trackers enabled; **22/22** with them
   disabled. The core builds without JUCE or an audio device.
 - **6/6** JUCE drum suites pass, including 12 new foundation regressions;
   **Standalone + VST3** builds succeed on Linux and Windows.
@@ -143,6 +143,11 @@ Latest local verification, **8 October 2026**:
   steady-window BPM gains alongside acquisition delays from early derived-BPM
   excursions. Their 48-test research suite is required in CI; original and
   corrected evidence are retained separately. Tracker selection remains open.
+- [A frozen stability candidate](docs/research/TEMPO-STABILITY.md) preserves the
+  six long-window BPM gains without default-relative acquisition losses in its
+  40-fixture diagnostic matrix. Independent replay reproduces all 160 scores;
+  delayed confirmation and residual jitter remain, and it is not promoted to
+  production.
 
 The [execution ledger](EXECUTION-LEDGER.md) is the authoritative status record.
 Reproduction commands, hashes and limitations live in the linked research

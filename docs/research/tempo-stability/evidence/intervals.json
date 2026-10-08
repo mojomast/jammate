@@ -1,0 +1,1622 @@
+{
+  "long": {
+    "aubio": {
+      "gap_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 66,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.512108843,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 64,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.5130625000000002,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 51,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.6655782309999978,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 49,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.6595208340000003,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 11.653764172,
+        "gapSpanningCount": 0,
+        "intervals": 67,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.699319727999999,
+        "outliers": 4,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 2.786708333,
+        "gapSpanningCount": 0,
+        "intervals": 67,
+        "longestOutlierRun": 8,
+        "maxIntervalSeconds": 0.7264374999999994,
+        "outliers": 9,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 1.626848073,
+        "gapSpanningCount": 0,
+        "intervals": 54,
+        "longestOutlierRun": 11,
+        "maxIntervalSeconds": 0.8990929699999999,
+        "outliers": 11,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 2.776083333,
+        "gapSpanningCount": 0,
+        "intervals": 55,
+        "longestOutlierRun": 14,
+        "maxIntervalSeconds": 0.7224374999999981,
+        "outliers": 15,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 66,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.5121315190000004,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 65,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.5126666660000012,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 51,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.6513151930000003,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 49,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.6595208340000003,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_126bpm_44100hz": {
+        "expectedSeconds": 0.9523809523809523,
+        "firstOutlierStart": 1.775918367,
+        "gapSpanningCount": 0,
+        "intervals": 40,
+        "longestOutlierRun": 15,
+        "maxIntervalSeconds": 1.0039682540000001,
+        "outliers": 15,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_126bpm_48000hz": {
+        "expectedSeconds": 0.9523809523809523,
+        "firstOutlierStart": 2.742833333,
+        "gapSpanningCount": 0,
+        "intervals": 45,
+        "longestOutlierRun": 29,
+        "maxIntervalSeconds": 1.515604166000001,
+        "outliers": 29,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_96bpm_44100hz": {
+        "expectedSeconds": 1.25,
+        "firstOutlierStart": 1.632947846,
+        "gapSpanningCount": 0,
+        "intervals": 51,
+        "longestOutlierRun": 51,
+        "maxIntervalSeconds": 0.6652154199999991,
+        "outliers": 51,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_96bpm_48000hz": {
+        "expectedSeconds": 1.25,
+        "firstOutlierStart": 2.835229167,
+        "gapSpanningCount": 0,
+        "intervals": 48,
+        "longestOutlierRun": 48,
+        "maxIntervalSeconds": 0.6764999999999999,
+        "outliers": 48,
+        "referenceNominalSource": "fixture-nominal"
+      }
+    },
+    "btrack": {
+      "gap_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 69,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.499229025,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 69,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.4876250000000013,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 1.695056689,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501587300000011,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501666670000006,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 67,
+        "longestOutlierRun": 6,
+        "maxIntervalSeconds": 0.743038549,
+        "outliers": 6,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 70,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.568895833,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 2.34521542,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.65015873,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.6501666670000006,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 69,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.499229025,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 70,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.4876250000000013,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 1.695056689,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501587300000011,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501666670000006,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_126bpm_44100hz": {
+        "expectedSeconds": 0.9523809523809523,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 68,
+        "longestOutlierRun": 68,
+        "maxIntervalSeconds": 0.6269387750000002,
+        "outliers": 68,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_126bpm_48000hz": {
+        "expectedSeconds": 0.9523809523809523,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 68,
+        "longestOutlierRun": 68,
+        "maxIntervalSeconds": 0.5340624999999999,
+        "outliers": 68,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_96bpm_44100hz": {
+        "expectedSeconds": 1.25,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 52,
+        "longestOutlierRun": 52,
+        "maxIntervalSeconds": 0.65015873,
+        "outliers": 52,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_96bpm_48000hz": {
+        "expectedSeconds": 1.25,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 52,
+        "longestOutlierRun": 52,
+        "maxIntervalSeconds": 0.6849999999999998,
+        "outliers": 52,
+        "referenceNominalSource": "fixture-nominal"
+      }
+    },
+    "btrack-tempo-stable": {
+      "gap_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 69,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.499229025,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 69,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.4876250000000013,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 1.695056689,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501587300000011,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501666670000006,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 67,
+        "longestOutlierRun": 6,
+        "maxIntervalSeconds": 0.743038549,
+        "outliers": 6,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 70,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.568895833,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 2.34521542,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.65015873,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.6501666670000006,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 69,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.499229025,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 70,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.4876250000000013,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 1.695056689,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501587300000011,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501666670000006,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_126bpm_44100hz": {
+        "expectedSeconds": 0.9523809523809523,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 68,
+        "longestOutlierRun": 68,
+        "maxIntervalSeconds": 0.6269387750000002,
+        "outliers": 68,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_126bpm_48000hz": {
+        "expectedSeconds": 0.9523809523809523,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 68,
+        "longestOutlierRun": 68,
+        "maxIntervalSeconds": 0.5340624999999999,
+        "outliers": 68,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_96bpm_44100hz": {
+        "expectedSeconds": 1.25,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 52,
+        "longestOutlierRun": 52,
+        "maxIntervalSeconds": 0.65015873,
+        "outliers": 52,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_96bpm_48000hz": {
+        "expectedSeconds": 1.25,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 52,
+        "longestOutlierRun": 52,
+        "maxIntervalSeconds": 0.6849999999999998,
+        "outliers": 52,
+        "referenceNominalSource": "fixture-nominal"
+      }
+    },
+    "btrack-tempo-variant": {
+      "gap_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 69,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.499229025,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 69,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.4876250000000013,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 1.695056689,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501587300000011,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "gap_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501666670000006,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 67,
+        "longestOutlierRun": 6,
+        "maxIntervalSeconds": 0.743038549,
+        "outliers": 6,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 70,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.568895833,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 2.34521542,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.65015873,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "noise_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.6501666670000006,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_126bpm_44100hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 69,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.499229025,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_126bpm_48000hz": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 70,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.4876250000000013,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_96bpm_44100hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 1.695056689,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501587300000011,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "regular_96bpm_48000hz": {
+        "expectedSeconds": 0.625,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 53,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.6501666670000006,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_126bpm_44100hz": {
+        "expectedSeconds": 0.9523809523809523,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 68,
+        "longestOutlierRun": 68,
+        "maxIntervalSeconds": 0.6269387750000002,
+        "outliers": 68,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_126bpm_48000hz": {
+        "expectedSeconds": 0.9523809523809523,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 68,
+        "longestOutlierRun": 68,
+        "maxIntervalSeconds": 0.5340624999999999,
+        "outliers": 68,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_96bpm_44100hz": {
+        "expectedSeconds": 1.25,
+        "firstOutlierStart": 0.47600907,
+        "gapSpanningCount": 0,
+        "intervals": 52,
+        "longestOutlierRun": 52,
+        "maxIntervalSeconds": 0.65015873,
+        "outliers": 52,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "sparse_96bpm_48000hz": {
+        "expectedSeconds": 1.25,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 52,
+        "longestOutlierRun": 52,
+        "maxIntervalSeconds": 0.6849999999999998,
+        "outliers": 52,
+        "referenceNominalSource": "fixture-nominal"
+      }
+    }
+  },
+  "short": {
+    "aubio": {
+      "clean_eighths__baseline": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4693958340000002,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.125": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.46983333299999996,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.25": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.46987500000000004,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.5": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.46958333399999974,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__drop_every2": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4690000000000003,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__drop_every4": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4707916670000003,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__lead_silence_0.5s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 5,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4697083339999999,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-20db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4693958340000002,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-40db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 0,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": null,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-60db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 0,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": null,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr0db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 2.763895833,
+        "gapSpanningCount": 0,
+        "intervals": 6,
+        "longestOutlierRun": 6,
+        "maxIntervalSeconds": 0.348166666,
+        "outliers": 6,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr10db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4694166660000003,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr20db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.46935416699999966,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__offset_40ms": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4696875000000005,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__offset_80ms": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.47006250000000005,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__silence_gap_1s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 2,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4695625000000003,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__syncop_burst1": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4693958340000002,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__syncop_burst4": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.46964583400000004,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__tempo_step_0.85": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 5,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.46950000000000003,
+        "outliers": 0,
+        "referenceNominalSource": "paired-baseline-nominal"
+      },
+      "clean_eighths__tempo_step_1.25": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 2,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4694375000000002,
+        "outliers": 0,
+        "referenceNominalSource": "paired-baseline-nominal"
+      },
+      "clean_eighths__trail_silence_0.5s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 4,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.4693958340000002,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__baseline": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 3,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.5314583330000002,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__noise_snr0db": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 3,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.5290000000000004,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__noise_snr10db": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 3,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": 0.5315416670000004,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      }
+    },
+    "btrack": {
+      "clean_eighths__baseline": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.125": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.696583333,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.25": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.696583333,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.5": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__drop_every2": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.882354166,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__drop_every4": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.812708333,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__lead_silence_0.5s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.998458333,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.4876250000000004,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-20db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.661770833,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-40db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.464395833,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.859145834,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-60db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 0,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": null,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr0db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.499229167,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.6385416660000003,
+        "outliers": 4,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr10db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.464395833,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.696604167,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr20db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.6269374999999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__offset_40ms": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.510833333,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.568895833,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__offset_80ms": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.545666667,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.708208334,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__silence_gap_1s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 6,
+        "longestOutlierRun": 4,
+        "maxIntervalSeconds": 1.4860625,
+        "outliers": 4,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__syncop_burst1": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__syncop_burst4": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__tempo_step_0.85": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 4,
+        "referenceNominalSource": "paired-baseline-nominal"
+      },
+      "clean_eighths__tempo_step_1.25": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 7,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 4,
+        "referenceNominalSource": "paired-baseline-nominal"
+      },
+      "clean_eighths__trail_silence_0.5s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__baseline": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": 1.0100625,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.5456666669999999,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__noise_snr0db": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": 1.0565,
+        "gapSpanningCount": 0,
+        "intervals": 7,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.754666667,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__noise_snr10db": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": 1.0565,
+        "gapSpanningCount": 0,
+        "intervals": 7,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.754666667,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      }
+    },
+    "btrack-tempo-stable": {
+      "clean_eighths__baseline": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.125": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.696583333,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.25": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.696583333,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.5": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__drop_every2": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.882354166,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__drop_every4": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.812708333,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__lead_silence_0.5s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.998458333,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.4876250000000004,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-20db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.661770833,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-40db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.464395833,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.859145834,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-60db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 0,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": null,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr0db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.499229167,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.6385416660000003,
+        "outliers": 4,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr10db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.464395833,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.696604167,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr20db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.6269374999999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__offset_40ms": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.510833333,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.568895833,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__offset_80ms": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.545666667,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.708208334,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__silence_gap_1s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 6,
+        "longestOutlierRun": 4,
+        "maxIntervalSeconds": 1.4860625,
+        "outliers": 4,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__syncop_burst1": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__syncop_burst4": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__tempo_step_0.85": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 4,
+        "referenceNominalSource": "paired-baseline-nominal"
+      },
+      "clean_eighths__tempo_step_1.25": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 7,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 4,
+        "referenceNominalSource": "paired-baseline-nominal"
+      },
+      "clean_eighths__trail_silence_0.5s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__baseline": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": 1.0100625,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.5456666669999999,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__noise_snr0db": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": 1.0565,
+        "gapSpanningCount": 0,
+        "intervals": 7,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.754666667,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__noise_snr10db": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": 1.0565,
+        "gapSpanningCount": 0,
+        "intervals": 7,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.754666667,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      }
+    },
+    "btrack-tempo-variant": {
+      "clean_eighths__baseline": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.125": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.696583333,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.25": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.696583333,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__clip_0.5": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__drop_every2": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.882354166,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__drop_every4": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.812708333,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__lead_silence_0.5s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.998458333,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.4876250000000004,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-20db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.661770833,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-40db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.464395833,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.859145834,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__level_-60db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": null,
+        "gapSpanningCount": 0,
+        "intervals": 0,
+        "longestOutlierRun": 0,
+        "maxIntervalSeconds": null,
+        "outliers": 0,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr0db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.499229167,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.6385416660000003,
+        "outliers": 4,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr10db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.464395833,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.696604167,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__noise_snr20db": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.6269374999999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__offset_40ms": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.510833333,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.568895833,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__offset_80ms": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.545666667,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 2,
+        "maxIntervalSeconds": 0.708208334,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__silence_gap_1s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 6,
+        "longestOutlierRun": 4,
+        "maxIntervalSeconds": 1.4860625,
+        "outliers": 4,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__syncop_burst1": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__syncop_burst4": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "clean_eighths__tempo_step_0.85": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 9,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 4,
+        "referenceNominalSource": "paired-baseline-nominal"
+      },
+      "clean_eighths__tempo_step_1.25": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 7,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 4,
+        "referenceNominalSource": "paired-baseline-nominal"
+      },
+      "clean_eighths__trail_silence_0.5s": {
+        "expectedSeconds": 0.47619047619047616,
+        "firstOutlierStart": 0.476,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 3,
+        "maxIntervalSeconds": 0.7662708329999999,
+        "outliers": 3,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__baseline": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": 1.0100625,
+        "gapSpanningCount": 0,
+        "intervals": 8,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.5456666669999999,
+        "outliers": 1,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__noise_snr0db": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": 1.0565,
+        "gapSpanningCount": 0,
+        "intervals": 7,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.754666667,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      },
+      "syncopated_funk__noise_snr10db": {
+        "expectedSeconds": 0.5357142857142857,
+        "firstOutlierStart": 1.0565,
+        "gapSpanningCount": 0,
+        "intervals": 7,
+        "longestOutlierRun": 1,
+        "maxIntervalSeconds": 0.754666667,
+        "outliers": 2,
+        "referenceNominalSource": "fixture-nominal"
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "behaviourFreeze": {
+    "binarySha256": "791d36ecb4f2e9a7c8a4f045d13763d177d71c32257c174fb8f06fddffcff183",
+    "combinedSha256": "8034e2d1fd8b6dc268084e24a75878fdfeda7888809e4386fbd18174660cbed3"
+  },
+  "commands": [
+    "bash tools/tempo-stability/build.sh",
+    "python3 tools/tempo-stability/freeze.py",
+    "python3 tools/tempo-stability/run_stability.py",
+    "python3 tools/tempo-stability/summarize.py",
+    "python3 tools/tempo-stability/recompute_method_summary.py",
+    "python3 tools/tempo-stability/tests/test_stability_method.py",
+    "python3 tools/tempo-stability/tests/test_stability_evidence.py"
+  ],
+  "environment": {
+    "PATH": "/tmp/opencode/venv/bin:$PATH",
+    "TMPDIR": "/home/mojo/projects/guitars-build-resume/tmp"
+  },
+  "evaluation": [
+    {
+      "path": "tools/tempo-stability/build.sh",
+      "sha256": "e56cef8b543343f6b3697c5119aff968bd306d23d7eaca09dfd1d67afd73ad45"
+    },
+    {
+      "path": "tools/tempo-stability/freeze.py",
+      "sha256": "4e26a0b15996c31e8ea5f2de48cbb900457856f3d7e5429d153e9e351ca0d564"
+    },
+    {
+      "path": "tools/tempo-stability/run_stability.py",
+      "sha256": "07be9990d5cecebe5ffc89af264ff520dd1622efa3a018750059dc6454f3e732"
+    },
+    {
+      "path": "tools/tempo-stability/summarize.py",
+      "sha256": "b4c84e96d1656a514090d56ab20f39289edd466cdab3b108b147370f6d1dec55"
+    },
+    {
+      "path": "tools/tempo-stability/recompute_method_summary.py",
+      "sha256": "404d933ce4ca8bd0066836de0bb44bdfb7a9f72aafc252c348025ca47da190d1"
+    },
+    {
+      "path": "tools/tempo-stability/README.md",
+      "sha256": "069064519671cff47e8f48c690231966b0ccd185961cf9d6f4aa63e2ff4a2b59"
+    },
+    {
+      "path": "tools/tempo-stability/tests/TempoStableTests.cpp",
+      "sha256": "d02226ed00d5f6fa3d5ed836d0f11e0036e6ab6defff0cab31ec7ba2cc4fcb4c"
+    },
+    {
+      "path": "tools/tempo-stability/tests/test_stability_method.py",
+      "sha256": "90f01daa5b02fa0717e69345c415e2abe403acaa2c91afe68a9899ccc5723fe4"
+    },
+    {
+      "path": "tools/tempo-stability/tests/test_stability_evidence.py",
+      "sha256": "fb6cd18a13bb94cf5f657fdd99fcf2ea89fb2c8b7fe769a12a56f3cef1bbcd5b"
+    }
+  ],
+  "note": "Current post-correction evaluation tooling. Distinct from FREEZE.json.evaluation, which is a historical pre-run snapshot (see ERRATA.md E1).",
+  "task": "TRACK-008"
+}

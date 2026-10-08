@@ -16,6 +16,7 @@ CORE = {
     'jam.TempoVariantResearch', 'jam.TrackerDiagnostics',
     'jam.RhythmDerivedGenerator', 'jam.RhythmRobustness',
     'jam.RhythmSustainRepair', 'jam.BeatNetResearch', 'jam.TempoCharacterization',
+    'jam.TempoStable', 'jam.TempoStableResearch',
 }
 NAM = {
     'nam_rt_diff', 'nam_rt_compare_unit', 'nam_rt_patch_checks',

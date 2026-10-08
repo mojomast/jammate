@@ -1,0 +1,12 @@
+{
+  "corrected": {
+    "method-summary.json": "c901f615a59da28b0e97eced21a115211e5d47d976217ef970268c44d83fa798"
+  },
+  "inputs": {
+    "docs/research/tempo-stability/evidence/method-raw/long-btrack-tempo-stable.csv.gz": "d181b38972c2bb39b8f99a90d632ee209b3b17258d28b1f98ab6a31849c7db41",
+    "docs/research/tempo-stability/evidence/method-raw/long-btrack-tempo-variant.csv.gz": "d33c75199463cec0f47076fe34465fde2b0b570c2a416631d3ff305132bcd03f",
+    "docs/research/tempo-stability/evidence/method-raw/short-btrack-tempo-stable.csv.gz": "81680a5bb1269a07823fb674d95fd9a07d929ed10d626c4dd2ceab5d8c2ff6fd",
+    "docs/research/tempo-stability/evidence/method-raw/short-btrack-tempo-variant.csv.gz": "83fa16e04288fb6fd67dbd8235c9d3af36a664583cc2cd37b75267150744fc03"
+  },
+  "semantics": "null + ...Measured=false when the fixture declares no nominalBpm"
+}
