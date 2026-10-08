@@ -202,27 +202,35 @@ ordering means an already-queued join is cancelled by the Clear ordered after it
    corrupt/overflowed caller. Forward jumps beyond one minute are discontinuities
    and are counted **once** per event (the cursor re-anchor and the bridge's
    `setClockSample` rejection are the same event).
-6. **Staged-tempo dedupe.** The control worker applies a fresh snapshot every
-   tick (the clock generation advances as phase changes). `stageTempo` now
-   publishes a staged tempo once per target value, not once per tick, so a
-   tempo staged for a future bar cannot flood the bounded queue; a changed
-   target still republishes. (The bridge header is unchanged from the
-   preregistered pin; this is a `.cpp`-only guard.)
+6. **Staged-tempo publication is accepted-only.** The control worker applies a
+   fresh snapshot every tick (the clock generation advances as phase changes),
+   so `stageTempo` must be idempotent per accepted target to avoid flooding the
+   bounded queue. It latches `haveStagedTempo_/stagedBpm_/stagedBoundary_` ONLY
+   after `publish` was accepted (checked via `queue_.droppedCount()` before/after,
+   the same pattern `requestJoinAtNextBar`/`requestStopNow` use — no header
+   signature change). On a drop the old staged state is left *exactly* unchanged,
+   so the next worker tick retries; an accepted target is repeated once (no
+   flood) and a changed accepted target replaces the staged value at the same
+   boundary (documented chronological coalescing). A dropped enqueue may leave a
+   gap in the publication serial; drops are counted evidence and no unaccepted
+   tempo is ever latched, so the worker grid cannot drift from the engine. (The
+   bridge header is unchanged from the preregistered pin; `.cpp`-only.)
 
 ## Verification performed by this task
 
 - `jam-core` standalone build (`-Wall -Wextra -Wpedantic`) and full `jamTests`:
-  **260 tests, 212702 checks, 0 failed** (234 before the first extension, 250
-  before this one).
+  **262 tests, 212750 checks, 0 failed** (234 before the first extension, 250
+  before the second, 260 before this one).
 - Deterministic portable suites: `jamjoinpolicy` (21 cases) and
-  `livejamsession` (33 cases), plus 5 new `DrumClockBridge` stop/dedupe cases;
-  runnable as `ctest -R 'jam\.(livejamsession|jamjoinpolicy|DrumClockBridge)'`.
+  `livejamsession` (33 cases), plus the `DrumClockBridge` stop/dedupe/drop
+  cases; runnable as
+  `ctest -R 'jam\.(livejamsession|jamjoinpolicy|DrumClockBridge)'`.
 - Actual `DrumEngine` + bridge driver, linked against the **readonly** prebuilt
   JUCE objects of `build-INT-DRUM-001-integration/product` with the changed
   `DrumEngine.cpp`/`DrumClockBridge.cpp`/`DrumClockBridgeTests.cpp` recompiled
-  from this worktree: **81 cases, 0 failed**, including the new
-  bar-stop-then-clear cancellation case and a Clear/StopAtBar callback
-  allocation probe.
+  from this worktree: **82 cases, 0 failed**, including the new
+  bar-stop-then-clear cancellation case, a Clear/StopAtBar callback allocation
+  probe, and a dropped-staged-tempo no-drift engine case.
 - `tools/live-jam-pipeline/live_jam_pipeline_driver` end-to-end trace: PASS.
 - `src/PluginProcessor.cpp` and `src/PluginEditor.cpp` syntax-checked against
   the prebuilt JUCE/NAM include environment (0 errors).

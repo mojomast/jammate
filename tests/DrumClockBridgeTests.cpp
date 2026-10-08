@@ -1209,6 +1209,53 @@ TEST_CASE (intdrum_bar_stop_then_clear_cancels_delayed_bar_stop)
 }
 
 //==============================================================================
+// INT-LIVE-001 final: a dropped staged-tempo publish must not drift the engine.
+// With the queue full the worker must not latch 150; the bridge and the actual
+// engine both stay at 120 across the phantom boundary, and a later accepted 150
+// converges at the following bar without disturbing the note phase.
+//==============================================================================
+TEST_CASE (intdrum_dropped_staged_tempo_cannot_drift_engine)
+{
+    const LibraryIndex rock = rockGroove();
+    REQUIRE (rock >= 0);
+
+    Rig rig;
+    REQUIRE (rig.setup (48000.0, 512, rock));
+    rig.block (512);
+    REQUIRE (rig.bridge.requestJoinAtNextBar (rock));
+    rig.render (96000u + 512u, 512);
+    CHECK (rig.engine.injectedActive());
+    CHECK_NEAR (rig.engine.injectedTempo(), 120.0, 0.0);
+
+    // Fill the command queue so the tempo stage is dropped.
+    DrumClockCommand filler;
+    filler.type = DrumClockCommandType::None;
+    while (rig.bridge.commandQueue().push (filler))
+    {
+    }
+    const std::uint64_t dropsBefore = rig.bridge.queueDropCount();
+    rig.bridge.applySnapshot (lockedSnapshot (150.0, 100));
+    CHECK_EQ (rig.bridge.queueDropCount(), dropsBefore + 1u);
+    CHECK_NEAR (rig.bridge.bpm(), 120.0, 0.0); // not latched
+
+    // Cross the boundary the phantom 150 would have landed on: neither the
+    // worker grid nor the actual renderer may move.
+    const std::uint64_t phantom = rig.bridge.nextBarBoundarySample();
+    rig.render (phantom + 4096u, 512);
+    CHECK_NEAR (rig.bridge.bpm(), 120.0, 0.0);
+    CHECK_NEAR (rig.engine.injectedTempo(), 120.0, 0.0);
+
+    // A later accepted 150 converges at the following bar, and the downbeat
+    // lands on the grid (note phase unaffected).
+    rig.bridge.applySnapshot (lockedSnapshot (150.0, 200));
+    const std::uint64_t b2 = rig.bridge.nextBarBoundarySample();
+    rig.render (b2 + 8192u, 512);
+    CHECK_NEAR (rig.bridge.bpm(), 150.0, 0.0);
+    CHECK_NEAR (rig.engine.injectedTempo(), 150.0, 0.0);
+    CHECK (countHitsIn (rig.hits, b2, b2 + 1u, kKick) >= 1);
+}
+
+//==============================================================================
 // The injected audio callback allocates nothing when the MIDI scratch is
 // reserved (measured with the shared ELF wrapping).
 //==============================================================================
