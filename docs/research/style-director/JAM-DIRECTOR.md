@@ -37,7 +37,9 @@ discontinuity / lifecycle flag ────┘
 - `acknowledgePublication(false)` keeps the proposal pending and retries it
   unchanged. A rejected publication never advances state and is never latched.
 - `publishPending(fn)` is the ergonomic helper: it calls `fn(change)` only when a
-  change is pending, feeds the bool back, and returns whether it was accepted.
+  change is pending AND the director is still safely `Playing`, feeds the bool
+  back, and returns whether it was accepted. It refuses to publish once a
+  safety transition (Holdover/Lost/lifecycle) has cancelled the proposal.
 
 ## Forget / cancel
 
@@ -46,12 +48,19 @@ command queue. It is invoked automatically on:
 
 - explicit Stop (`notifyStopRequested()`),
 - clock **Lost** (state -> Reacquiring),
+- clock **Holdover** (a pending fill decided while Locked is not carried through
+  a confidence dip),
+- a pending **fill** whose confidence has fallen below
+  `fillConfidenceThreshold`,
 - input **discontinuity**,
 - a non-zero **sessionGeneration** change (session boundary),
 - `lifecycleAllowsPerformance == false`.
 
-A user Reset should call `cancelPending()` explicitly. Committed groove/fill are
-not rewritten by cancel; a later proposal naturally supersedes them.
+These safety checks run on **every** tick, including a repeated `audioCursor`
+(the idempotent fast path still runs the state machine and `enforcePendingSafety`
+before holding the envelope/phrase/RNG). A user Reset should call
+`cancelPending()` explicitly. Committed groove/fill are not rewritten by cancel;
+a later proposal naturally supersedes them.
 
 ## State machine (`DirectorState`)
 
@@ -62,11 +71,27 @@ Stopping -> Idle`
 - `Listening`: waits for a Locked clock at or above `joinConfidenceThreshold`.
 - `ReadyToJoin`: lock is usable; the live policy joins.
 - `Playing`: playback echo engaged; the director proposes changes.
-- `Holdover`: short loss holds the current pattern and suppresses fills.
+- `Holdover`: short loss holds the current pattern, cancels a pending proposal
+  and suppresses fills.
 - `Reacquiring`: long loss; holds, pending forgotten.
-- `Stopping`: observed/proposed; the transport stop is the policy's.
+- `Stopping`: **terminal**. A transient echo returning does not revive Playing.
+  The parent exits it with `notifyStopCompleted()` once the actual stopped echo
+  has arrived (`!playing && !policy.stopPending`), or with `reset()`. Neither
+  touches the transport, so join/stop ownership stays with JamJoinPolicy.
+  `notifyStopCompleted()` clears the committed selection so a restart proposes a
+  groove again.
 
 Only `Playing` (plus Locked clock and lifecycle permission) can propose.
+
+## Bar boundaries
+
+The **Musical Clock bar phase is the single authoritative bar-advance source**.
+The explicit transport is a confirmation/re-anchor source only: a transport
+`bar` increment never adds a bar of its own (which previously double-counted one
+physical bar when a lagged `bar` increment landed on the tick after the phase
+wrap). A transport skip (`delta > 1`) or backward move (`delta < 0`) re-baselines
+the phase tracker so the next genuine wrap is measured from the new position,
+and never fabricates bar counts. A flagged discontinuity likewise re-baselines.
 
 ## Musical behaviour
 
@@ -77,8 +102,10 @@ Only `Playing` (plus Locked clock and lifecycle permission) can propose.
   `intensityDeadband` hysteresis; promotion to High requires
   `highEnergySustainTicks` of sustained energy.
 - **Groove selection.** seeded SplitMix64; excludes the current groove and the
-  last `minimumRepetitionDistanceBars` committed grooves, so no immediate repeat
-  where alternatives exist.
+  last `effectiveRepetitionWindowBars()` committed grooves, so no immediate
+  repeat where alternatives exist. The window is the active style's
+  `minRepetitionDistanceBars`, falling back to
+  `DirectorConfig::minimumRepetitionDistance` only when the style value is <= 0.
 - **Phrase boundaries.** every 4 bars; the boundary is the musical reason to
   rotate the groove and the preferred fill placement.
 - **Fills.** chance = `fillBaseChance (+ fillPhraseBoundaryBonus at a phrase)`,
@@ -104,17 +131,24 @@ Only `Playing` (plus Locked clock and lifecycle permission) can propose.
 
 `report()` returns `DirectorReport`: `state`, full `settings`, `tier`,
 `committedGroove`/`committedFill`, `pendingGroove`/`pendingFill`,
-`pendingChange`, `intensityEnvelope01`/`complexityEnvelope01`, `barsObserved`,
-and counters (`acceptedPublications`, `rejectedPublications`,
-`cancelledPublications`, `fillsEmitted`, `fillsSuppressed`, `staleResets`).
+`pendingChange`, `pendingBreak`/`pendingCrash`, `repetitionWindowBars`,
+`intensityEnvelope01`/`complexityEnvelope01`, `barsObserved`, and counters
+(`acceptedPublications`, `rejectedPublications`, `cancelledPublications`,
+`fillsEmitted`, `fillsSuppressed`, `staleResets`). The embedded `intent` is
+complete, including `requestCrash` and `sectionIndex`.
 
 ## Configuration
 
-Structural policy constants live in `JamDirector.h` (`kDirectorPhraseLengthBars`,
-tier edges, fill gap, neutral fill amount, onset bonus, complexity gains).
-Tunables stay in `DirectorConfig` (`src/jam/JamConfig.h`): join threshold,
-energy attack/release, deadband, sustained-energy ticks, fill chances and
-confidence gates, minimum repetition distance, random seed.
+The musical tunables remain in `DirectorConfig` (`src/jam/JamConfig.h`): join
+threshold, energy attack/release, deadband, sustained-energy ticks, fill chances
+and confidence gates, minimum repetition distance and random seed.
+
+`JamDirector.h` also defines named policy defaults that do not yet have a home in
+`DirectorConfig` (`kDirectorPhraseLengthBars`, tier edges, min fill gap, neutral
+fill amount, onset bonus, complexity gains). These are musical tunables, not
+structural constants; they live in the director only because this task does not
+own `JamConfig.h`. Recommended follow-up (parent-owned): promote them into
+`DirectorConfig`.
 
 ## Limitations
 
@@ -123,5 +157,10 @@ confidence gates, minimum repetition distance, random seed.
   `DrumClockBridge::requestBarChange(const QueuedBarChange&)`, which did not
   exist at handoff time.
 - The state machine exposes `Stopping` but deliberately does not stop the
-  transport.
+  transport; the parent calls `notifyStopCompleted()`/`reset()` on the stopped
+  echo.
+- The `QueuedBarChange` payload carries groove/fill/intensity/swing/humanize
+  only. `requestBreak` and `requestCrash` are `JamIntent`-level signals with no
+  render path yet; the UI for those actions should stay disabled until an
+  integration exists.
 - Groove/fill selection uses the catalog's curated tiers only.

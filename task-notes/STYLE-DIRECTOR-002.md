@@ -84,11 +84,11 @@ cmake --build /home/mojo/projects/build-STYLE-DIRECTOR-002 --target jamTests -j 
 ctest --test-dir /home/mojo/projects/build-STYLE-DIRECTOR-002 -R 'jam\.(stylecatalog|jamdirector)' --output-on-failure
 ```
 
-Results at handoff:
+Results at handoff (after the independent-review fixes):
 
 - `jam.stylecatalog`: 12 tests / 285 checks, 0 failed.
-- `jam.jamdirector`: 28 tests / 679 checks, 0 failed.
-- Whole portable binary `jamTests`: 302 tests / 213714 checks, 0 failed.
+- `jam.jamdirector`: 44 tests / 1002 checks, 0 failed.
+- Whole portable binary `jamTests`: 318 tests / 214037 checks, 0 failed.
 - `python3 -B -m unittest discover tools/style-catalog/tests`: 8 tests OK.
 - `python3 tools/style-catalog/style_catalog_provenance.py --check`: OK,
   123 refs checked, 106 distinct indices.
@@ -102,6 +102,33 @@ Stop/Lost/discontinuity/lifecycle forget pending; session reset; settings
 sanitization; gradual envelopes; sustained-energy tier gate; explicit fill/break;
 low-confidence fill suppression and moderate-confidence non-suppression;
 anti-repeat; phrase counting; deterministic seeds; style switch; `publishPending`.
+
+Independent-review repairs (all in owned director/tests/docs):
+
+- **F1** One authoritative bar source: the clock phase advances bars; the
+  transport only confirms and re-anchors on skip/backward. Regressions cover a
+  lagged transport increment, transport-only increments, skip/backward and a
+  flagged resync discontinuity.
+- **F2** `enforcePendingSafety` runs on every tick (including a repeated audio
+  cursor) and cancels a pending proposal on lifecycle-disallow, non-Locked clock
+  or a fill whose confidence fell below `fillConfidenceThreshold`; the idempotent
+  fast path now runs the state machine and safety checks before holding
+  envelope/phrase/RNG. `publishPending` refuses outside `Playing`. Regressions:
+  failed full-queue fill -> Holdover on the same and a different cursor,
+  low-confidence cancellation, lifecycle-disallow on a duplicate cursor,
+  `publishPending` refusal.
+- **F3** `Stopping` is documented terminal; `notifyStopCompleted()` is the
+  documented exit on the actual stopped echo (parent-reset path also works).
+  Regressions: transient echo does not revive Playing; clean restart re-proposes;
+  `reset()` from Stopping returns to Idle.
+- **F4** The per-style `minRepetitionDistanceBars` is consumed (global config is
+  only a fallback when the style value is <= 0); `effectiveRepetitionWindowBars()`
+  is exposed and tested. BPM band and swing range are documented as advisory
+  hints, not clamps; the clock remains the sole tempo authority.
+- **F5** `report().intent` now carries `requestCrash` and `sectionIndex`, and
+  `DirectorReport` exposes `pendingBreak`/`pendingCrash`/`repetitionWindowBars`.
+  Added tier-demotion, minimum-fill-gap and reset/cancel coverage. Docs note that
+  the `QueuedBarChange` payload does not render break/crash.
 
 ## Evidence
 
@@ -142,10 +169,20 @@ anti-repeat; phrase counting; deterministic seeds; style switch; `publishPending
 - On publication, call `bridge.requestBarChange(decision.barChange)` (bool) and
   pass the result to `acknowledgePublication(accepted)`; or use
   `publishPending([&](const QueuedBarChange& c){ return bridge.requestBarChange(c); })`.
-- Call `cancelPending()` on user Reset; Stop/Lost/discontinuity are handled
-  internally.
+  The helper refuses to publish unless the director is safely `Playing`.
+- The director's bar count advances from the clock phase only. Pass the explicit
+  transport position for confirmation/re-anchor; do not expect it to add bars.
+- Call `cancelPending()` on user Reset; Stop/Lost/Holdover/low-confidence/
+  discontinuity are handled internally.
+- On `Stopping`, after the actual stopped echo (`!playing && !policy.stopPending`)
+  call `notifyStopCompleted()` to return the director to `Idle` (or
+  `reset(settings)`), then restart normally.
 - Call `director.reset(settings)` at every session boundary and `report()` for UI
-  telemetry (settings, performance intensity, committed/pending groove+fill).
+  telemetry (settings, performance intensity, committed/pending groove+fill,
+  break/crash, repetition window).
+- Recommendation (parent owns `JamConfig.h`): promote the named director policy
+  defaults (tier edges, phrase length, min fill gap, neutral fill amount, onset
+  bonus, complexity gains) into `DirectorConfig`.
 
 ## Commit
 
@@ -153,5 +190,9 @@ Implementation commit (contains `src/jam/StyleCatalog.*`,
 `src/jam/JamDirector.*`, the two portable test suites, `tools/style-catalog/`
 and `docs/research/style-director/`):
 `16db474cf828f096d06b9755a7323548182a2f50`.
+
+Independent-review fix commit (F1-F5):
+`64a8de948df4d67b14c9660accfe9a7ab61a0b52`.
+
 The tip of `wp/STYLE-DIRECTOR-002` is the immediately following documentation
 commit that records this line; the worktree is clean.

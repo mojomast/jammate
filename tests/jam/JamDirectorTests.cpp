@@ -38,6 +38,8 @@ struct Rig
     std::uint64_t cursor = 0;
     bool discontinuity = false;
     bool lifecycleAllows = true;
+    bool transportPlaying = false;
+    int transportBar = 0;
 
     DirectorDecision tick (double delta = 0.0, bool onset = false,
                            float onsetStrength = 0.0f, bool silence = false)
@@ -59,6 +61,8 @@ struct Rig
         in.clock.beatUnit = 4;
         in.clock.confidence01 = confidence;
         in.clock.lockState = lock;
+        in.transport.playing = transportPlaying;
+        in.transport.bar = transportBar;
         in.playbackEchoPlaying = echo;
         in.lifecycleAllowsPerformance = lifecycleAllows;
         in.energy01 = energy;
@@ -650,4 +654,336 @@ JAM_TEST (jamdirector, committedChangeCarriesStyleSwingAndHumanize)
     CHECK_EQ (d.barChange.humanizeVelocity, blues.humanizeVelocity);
     CHECK_EQ (d.barChange.humanizeTiming, blues.humanizeTiming);
     CHECK_EQ (d.barChange.humanizeRoundRobin, blues.humanizeRoundRobin);
+}
+
+// ---------------------------------------------------------------------------
+// F1 regressions: one authoritative bar source; the transport confirms, it
+// never adds an advance of its own.
+// ---------------------------------------------------------------------------
+
+JAM_TEST (jamdirector, laggedTransportDoesNotDoubleCountOneBar)
+{
+    Rig rig;
+    toPlaying (rig);
+    CHECK (rig.director.report().barsObserved == 0);
+
+    rig.transportPlaying = true;
+    rig.transportBar = 1;
+    rig.tick (0.0);                                   // transport baseline
+    rig.tick (0.25);
+    rig.tick (0.25);
+    rig.tick (0.25);
+    const DirectorDecision wrap = rig.tick (0.25);    // clock wrap -> 1 bar
+    CHECK (wrap.barsObserved == 1);
+
+    rig.transportBar = 2;                              // lagged confirmation only
+    const DirectorDecision confirm = rig.tick (0.0);
+    CHECK (confirm.barsObserved == 1);                 // must NOT become 2
+}
+
+JAM_TEST (jamdirector, transportIncrementWithoutClockWrapDoesNotAdvance)
+{
+    Rig rig;
+    toPlaying (rig);
+    rig.transportPlaying = true;
+    rig.transportBar = 1;
+    rig.tick (0.0);
+
+    rig.transportBar = 2;
+    rig.tick (0.0);
+    rig.transportBar = 3;
+    rig.tick (0.0);
+    CHECK (rig.director.report().barsObserved == 0);   // clock is authoritative
+}
+
+JAM_TEST (jamdirector, transportSkipAndBackwardDoNotFabricateBars)
+{
+    Rig rig;
+    toPlaying (rig);
+    rig.transportPlaying = true;
+    rig.transportBar = 1;
+    rig.tick (0.0);
+    rig.tick (0.25);
+    rig.tick (0.25);
+    rig.tick (0.25);
+    rig.tick (0.25);
+    CHECK (rig.director.report().barsObserved == 1);
+
+    rig.transportBar = 5;                              // forward skip
+    rig.tick (0.0);
+    CHECK (rig.director.report().barsObserved == 1);
+
+    rig.transportBar = 3;                              // backward / resync
+    rig.tick (0.0);
+    CHECK (rig.director.report().barsObserved == 1);
+}
+
+JAM_TEST (jamdirector, resyncDiscontinuityDoesNotCountBar)
+{
+    Rig rig;
+    toPlaying (rig);
+    rig.phase = 0.9;
+    rig.tick (0.0);
+    rig.phase = 0.1;
+    rig.discontinuity = true;
+    const DirectorDecision d = rig.tick (0.0);
+    CHECK (d.barsObserved == 0);
+}
+
+// ---------------------------------------------------------------------------
+// F2 regressions: pending safety, including on a repeated audio cursor.
+// ---------------------------------------------------------------------------
+
+namespace
+{
+bool fullQueue (const QueuedBarChange&) { return false; }
+bool acceptQueue (const QueuedBarChange&) { return true; }
+
+void requestFillAndPropose (Rig& rig, std::uint64_t cursor)
+{
+    rig.cursor = cursor;
+    DirectorSettings s = rig.director.settings();
+    s.requestFill = true;
+    rig.director.setSettings (s);
+    REQUIRE (rig.tick (0.0).hasBarChange);
+    CHECK (rig.director.publicationPending());
+}
+} // namespace
+
+JAM_TEST (jamdirector, failedFullQueueFillCancelledOnHoldoverSameCursor)
+{
+    Rig rig;
+    toPlaying (rig);
+    requestFillAndPropose (rig, 100);
+
+    CHECK (! rig.director.publishPending (fullQueue));  // queue full
+    CHECK (rig.director.publicationPending());
+    CHECK (rig.director.report().rejectedPublications == 1);
+
+    rig.lock = ClockLockState::Holdover;
+    const DirectorDecision d = rig.tick (0.0);           // SAME cursor
+    CHECK (d.state == DirectorState::Holdover);
+    CHECK (! rig.director.publicationPending());
+    CHECK (rig.director.report().cancelledPublications == 1);
+    CHECK (! rig.director.publishPending (acceptQueue)); // cannot commit now
+}
+
+JAM_TEST (jamdirector, pendingFillCancelledOnHoldoverDifferentCursor)
+{
+    Rig rig;
+    toPlaying (rig);
+    requestFillAndPropose (rig, 100);
+
+    rig.lock = ClockLockState::Holdover;
+    rig.cursor = 101;                                    // new cursor
+    rig.tick (0.0);
+    CHECK (! rig.director.publicationPending());
+    CHECK (rig.director.report().cancelledPublications == 1);
+}
+
+JAM_TEST (jamdirector, lowConfidenceCancelsPendingFill)
+{
+    Rig rig;
+    toPlaying (rig);
+    requestFillAndPropose (rig, 0);
+
+    rig.confidence = 0.40f;                              // Locked but below fill threshold
+    rig.tick (0.0);
+    CHECK (! rig.director.publicationPending());
+    CHECK (rig.director.report().cancelledPublications == 1);
+}
+
+JAM_TEST (jamdirector, lifecycleDisallowOnDuplicateCursorCancelsPending)
+{
+    Rig rig;
+    toPlaying (rig);
+    requestFillAndPropose (rig, 7);
+
+    rig.lifecycleAllows = false;
+    rig.tick (0.0);                                      // same cursor 7
+    CHECK (! rig.director.publicationPending());
+    CHECK (rig.director.report().cancelledPublications == 1);
+}
+
+JAM_TEST (jamdirector, publishPendingRefusesOutsidePlaying)
+{
+    Rig rig;
+    toPlaying (rig);
+    requestFillAndPropose (rig, 0);
+
+    rig.lock = ClockLockState::Holdover;
+    rig.tick (0.0);                                      // moves to Holdover + cancels
+
+    int calls = 0;
+    const bool accepted = rig.director.publishPending (
+        [&calls] (const QueuedBarChange&) { ++calls; return true; });
+    CHECK (! accepted);
+    CHECK_EQ (calls, 0);
+}
+
+// ---------------------------------------------------------------------------
+// F3: Stopping is terminal until the stopped echo is acknowledged.
+// ---------------------------------------------------------------------------
+
+JAM_TEST (jamdirector, stoppingIsTerminalUntilStopCompleted)
+{
+    Rig rig;
+    toPlaying (rig);
+    rig.director.notifyStopRequested();
+
+    rig.echo = true;                                     // transient echo
+    CHECK (rig.tick (0.0).state == DirectorState::Stopping);
+    CHECK (rig.tick (0.0).state == DirectorState::Stopping);
+
+    rig.director.notifyStopCompleted();
+    CHECK (rig.director.state() == DirectorState::Idle);
+}
+
+JAM_TEST (jamdirector, stopCompletedAllowsCleanRestart)
+{
+    Rig rig;
+    toPlaying (rig);
+    rig.director.notifyStopRequested();
+    rig.director.notifyStopCompleted();
+    CHECK (rig.director.state() == DirectorState::Idle);
+
+    rig.director.notifySessionStarted();
+    rig.echo = true;
+    CHECK (rig.tick (0.0).state == DirectorState::ReadyToJoin);
+    const DirectorDecision d = rig.tick (0.0);
+    CHECK (d.state == DirectorState::Playing);
+    REQUIRE (d.hasBarChange);
+}
+
+JAM_TEST (jamdirector, resetFromStoppingClearsPendingAndReturnsToIdle)
+{
+    Rig rig;
+    toPlaying (rig);
+    requestFillAndPropose (rig, 0);
+    rig.director.notifyStopRequested();
+    CHECK (rig.director.state() == DirectorState::Stopping);
+
+    rig.director.reset (DirectorSettings {});
+    CHECK (rig.director.state() == DirectorState::Idle);
+    CHECK (! rig.director.publicationPending());
+    CHECK (rig.director.committedGroove() == kNoLibraryEntry);
+}
+
+// ---------------------------------------------------------------------------
+// F4: the per-style anti-repetition window is consumed, not just the global.
+// ---------------------------------------------------------------------------
+
+namespace
+{
+DirectorConfig configWithRepetition (int bars)
+{
+    DirectorConfig cfg;
+    cfg.minimumRepetitionDistance = bars;
+    return cfg;
+}
+} // namespace
+
+JAM_TEST (jamdirector, repetitionWindowComesFromStyle)
+{
+    JamDirector d (configWithRepetition (99));   // must be ignored for Rock
+    d.reset (DirectorSettings {});
+    CHECK_EQ (d.effectiveRepetitionWindowBars(), 4);
+    CHECK_EQ (d.report().repetitionWindowBars, 4);
+
+    JamDirector fallback (configWithRepetition (6));
+    fallback.reset (DirectorSettings {});
+    // All shipped styles specify 4, so the style value still wins.
+    CHECK_EQ (fallback.effectiveRepetitionWindowBars(), 4);
+}
+
+// ---------------------------------------------------------------------------
+// F5 coverage: complete report intent, gradual demotion, minimum fill gap.
+// ---------------------------------------------------------------------------
+
+JAM_TEST (jamdirector, reportIntentCarriesCompleteFillTelemetry)
+{
+    Rig rig;
+    toPlaying (rig);
+    for (int i = 0; i < 4; ++i)
+    {
+        const DirectorDecision d = rig.bar();
+        if (d.hasBarChange)
+            rig.director.acknowledgePublication (true);
+    }
+    CHECK (rig.director.report().barsObserved == 4);     // phrase boundary
+
+    DirectorSettings s = rig.director.settings();
+    s.requestFill = true;
+    rig.director.setSettings (s);
+    const DirectorDecision d = rig.tick (0.0);
+    REQUIRE (d.hasBarChange);
+    CHECK (d.barChange.fill != kNoLibraryEntry);
+
+    const DirectorReport r = rig.director.report();
+    CHECK (r.intent.requestFill);
+    CHECK_EQ (r.intent.sectionIndex, 1);
+    CHECK_EQ (r.pendingCrash, r.intent.requestCrash);
+
+    const StyleDescriptor& rock = StyleCatalog::style (StyleId::Rock);
+    bool isTransition = false;
+    for (int i = 0; i < rock.fillCount[(int) FillKind::Transition]; ++i)
+        isTransition = isTransition
+                       || rock.fills[(int) FillKind::Transition][i].index == d.barChange.fill;
+    CHECK_EQ (r.intent.requestCrash, isTransition);
+}
+
+JAM_TEST (jamdirector, tierDemotionIsGradual)
+{
+    Rig rig;
+    toPlaying (rig);
+    rig.energy = 1.0f;
+    for (int i = 0; i < 80; ++i)
+        rig.tick (0.0);
+    CHECK (rig.director.report().tier == GrooveTier::High);
+
+    DirectorSettings s = rig.director.settings();
+    s.intensity01 = 0.2f;
+    rig.director.setSettings (s);
+    rig.energy = 0.0f;
+
+    int previous = static_cast<int> (rig.director.report().tier);
+    for (int i = 0; i < 180; ++i)
+    {
+        rig.tick (0.0);
+        const int current = static_cast<int> (rig.director.report().tier);
+        CHECK (previous - current <= 1);   // never drops more than one tier per tick
+        previous = current;
+    }
+    CHECK (rig.director.report().tier == GrooveTier::Low);
+}
+
+JAM_TEST (jamdirector, fillsRespectMinimumGapBars)
+{
+    Rig rig;
+    toPlaying (rig);
+    DirectorSettings s = rig.director.settings();
+    s.fillAmount01 = 1.0f;
+    rig.director.setSettings (s);
+
+    std::uint64_t lastEmitted = 0;
+    std::uint64_t lastFillBar = 0;
+    bool haveFill = false;
+    for (int bar = 0; bar < 40; ++bar)
+    {
+        const DirectorDecision d = rig.bar (true, 1.0f);
+        if (d.hasBarChange)
+            rig.director.acknowledgePublication (true);
+
+        const DirectorReport r = rig.director.report();
+        if (r.fillsEmitted != lastEmitted)
+        {
+            if (haveFill)
+                CHECK (r.barsObserved - lastFillBar
+                       >= static_cast<std::uint64_t> (kDirectorMinFillGapBars));
+            lastFillBar = r.barsObserved;
+            lastEmitted = r.fillsEmitted;
+            haveFill = true;
+        }
+    }
+    CHECK (rig.director.report().fillsEmitted > 0);
 }
