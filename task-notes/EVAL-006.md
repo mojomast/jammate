@@ -151,4 +151,7 @@ python3 tools/rhythm-eval/tools/test_repair_sustained.py
 
 ## Final commit SHA
 
-- Implementation + evidence + this note: `<FILLED BY NEXT COMMIT>`.
+- Implementation + evidence + this note: `26b5a20` (`feat(eval-006): scoped
+  sustained-chord corpus repair with independent PCM audit`).
+- The note-SHA update is the subsequent commit on `wp/EVAL-006-sustain`; the
+  branch head is the handoff SHA reported to the orchestrator.
