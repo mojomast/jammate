@@ -15,7 +15,7 @@ CORE = {
     'jam.RtSignal', 'jam.AnalysisWorkerBenchmark', 'jam.TempoVariant',
     'jam.TempoVariantResearch', 'jam.TrackerDiagnostics',
     'jam.RhythmDerivedGenerator', 'jam.RhythmRobustness',
-    'jam.RhythmSustainRepair', 'jam.BeatNetResearch',
+    'jam.RhythmSustainRepair', 'jam.BeatNetResearch', 'jam.TempoCharacterization',
 }
 NAM = {
     'nam_rt_diff', 'nam_rt_compare_unit', 'nam_rt_patch_checks',

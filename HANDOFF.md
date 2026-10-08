@@ -28,7 +28,7 @@ relaunched it on DeepSeek Go; its interpretation corrections remain pending.
 New active wave starts at `bcf540a`: TRACK-007 longer paired acquisition evidence,
 RT-004 broader NAM architecture callback probes, and DIAG-001 portable diagnostics
 under D10. Sessions and exact ownership are in EXECUTION-LEDGER's Active development
-table. None is integrated yet. The published merged-head run37716882463 at
+table. All three handoffs are now integrated. The published merged-head run37716882463 at
 `bcf540a` passed all six jobs: core18/19/19/20, NAM5/5, and Windows
 Standalone/VST3 plus6/6 drum suites. Its receipt and downloaded-log hashes are
 in `docs/research/github-ci/run-37716882463.json`.
@@ -48,9 +48,14 @@ and callback overhead remain pending; G4 stays open.
 Remote run37720364067 at `8348233` passed all six jobs after RT-004/DIAG-001:
 core19/20/20/21, NAM5/5, Windows Standalone/VST3 and6/6 drums. Receipt and
 downloaded-log hashes: `docs/research/github-ci/run-37720364067.json`.
-TRACK-007 replay is byte-identical, but independent review found interpretation,
-missingness and comparison-contract defects. Its corrected handoff is pending
-on the latest requested DeepSeek Go route; original evidence is preserved.
+TRACK-007 final handoff `65cd77d` is accepted after independent review and replay.
+All48 scores reproduce7503 non-CPU fields exactly, all48 diagnostic beat files
+and the method log match, and corrected derived evidence is byte-identical.
+Its48-test research suite passes in a source archive and is required by both
+forge guards; integrated core22/22 both-enabled and20/20 OFF pass. Original raw
+evidence/protocol/fixtures remain immutable, with separate corrected evidence.
+Receipt: `docs/research/tempo-long-windows-integration.json`. G3 stays open.
+The Haiku/Space Bunny/DeepSeek Go wave is complete; no worker remains active.
 
 Worker sessions and path ownership are in EXECUTION-LEDGER's resumption table:
 TRACK-006 fixed paired robustness, MOD-003 isolated simulated Jam UI, and TEST-001

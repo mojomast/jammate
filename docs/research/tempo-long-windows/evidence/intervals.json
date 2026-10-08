@@ -1,0 +1,448 @@
+{
+  "aubio": {
+    "gap_126bpm_44100hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": null,
+      "gapSpanning": [],
+      "intervals": 66,
+      "longestOutlierRun": 0,
+      "maxIntervalSeconds": 0.512108843,
+      "outliers": 0
+    },
+    "gap_126bpm_48000hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": null,
+      "gapSpanning": [],
+      "intervals": 64,
+      "longestOutlierRun": 0,
+      "maxIntervalSeconds": 0.5130625000000002,
+      "outliers": 0
+    },
+    "gap_96bpm_44100hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": null,
+      "gapSpanning": [],
+      "intervals": 51,
+      "longestOutlierRun": 0,
+      "maxIntervalSeconds": 0.6655782309999978,
+      "outliers": 0
+    },
+    "gap_96bpm_48000hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": null,
+      "gapSpanning": [],
+      "intervals": 49,
+      "longestOutlierRun": 0,
+      "maxIntervalSeconds": 0.6595208340000003,
+      "outliers": 0
+    },
+    "noise_126bpm_44100hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 11.653764172,
+      "gapSpanning": [],
+      "intervals": 67,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.699319727999999,
+      "outliers": 4
+    },
+    "noise_126bpm_48000hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 2.786708333,
+      "gapSpanning": [],
+      "intervals": 67,
+      "longestOutlierRun": 8,
+      "maxIntervalSeconds": 0.7264374999999994,
+      "outliers": 9
+    },
+    "noise_96bpm_44100hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 1.626848073,
+      "gapSpanning": [],
+      "intervals": 54,
+      "longestOutlierRun": 11,
+      "maxIntervalSeconds": 0.8990929699999999,
+      "outliers": 11
+    },
+    "noise_96bpm_48000hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 2.776083333,
+      "gapSpanning": [],
+      "intervals": 55,
+      "longestOutlierRun": 14,
+      "maxIntervalSeconds": 0.7224374999999981,
+      "outliers": 15
+    },
+    "regular_126bpm_44100hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": null,
+      "gapSpanning": [],
+      "intervals": 66,
+      "longestOutlierRun": 0,
+      "maxIntervalSeconds": 0.5121315190000004,
+      "outliers": 0
+    },
+    "regular_126bpm_48000hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": null,
+      "gapSpanning": [],
+      "intervals": 65,
+      "longestOutlierRun": 0,
+      "maxIntervalSeconds": 0.5126666660000012,
+      "outliers": 0
+    },
+    "regular_96bpm_44100hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": null,
+      "gapSpanning": [],
+      "intervals": 51,
+      "longestOutlierRun": 0,
+      "maxIntervalSeconds": 0.6513151930000003,
+      "outliers": 0
+    },
+    "regular_96bpm_48000hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": null,
+      "gapSpanning": [],
+      "intervals": 49,
+      "longestOutlierRun": 0,
+      "maxIntervalSeconds": 0.6595208340000003,
+      "outliers": 0
+    },
+    "sparse_126bpm_44100hz": {
+      "expectedSeconds": 0.9523809523809523,
+      "firstOutlierStart": 1.775918367,
+      "gapSpanning": [],
+      "intervals": 40,
+      "longestOutlierRun": 15,
+      "maxIntervalSeconds": 1.0039682540000001,
+      "outliers": 15
+    },
+    "sparse_126bpm_48000hz": {
+      "expectedSeconds": 0.9523809523809523,
+      "firstOutlierStart": 2.742833333,
+      "gapSpanning": [
+        {
+          "end": 17.492208333,
+          "gapSpanning": true,
+          "outlier": false,
+          "seconds": 1.515604166000001,
+          "start": 15.976604167
+        }
+      ],
+      "intervals": 45,
+      "longestOutlierRun": 28,
+      "maxIntervalSeconds": 1.515604166000001,
+      "outliers": 28
+    },
+    "sparse_96bpm_44100hz": {
+      "expectedSeconds": 1.25,
+      "firstOutlierStart": 1.632947846,
+      "gapSpanning": [],
+      "intervals": 51,
+      "longestOutlierRun": 51,
+      "maxIntervalSeconds": 0.6652154199999991,
+      "outliers": 51
+    },
+    "sparse_96bpm_48000hz": {
+      "expectedSeconds": 1.25,
+      "firstOutlierStart": 2.835229167,
+      "gapSpanning": [],
+      "intervals": 48,
+      "longestOutlierRun": 48,
+      "maxIntervalSeconds": 0.6764999999999999,
+      "outliers": 48
+    }
+  },
+  "btrack": {
+    "gap_126bpm_44100hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.47600907,
+      "gapSpanning": [],
+      "intervals": 69,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.499229025,
+      "outliers": 1
+    },
+    "gap_126bpm_48000hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 69,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.4876250000000013,
+      "outliers": 1
+    },
+    "gap_96bpm_44100hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 1.695056689,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.6501587300000011,
+      "outliers": 1
+    },
+    "gap_96bpm_48000hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.6501666670000006,
+      "outliers": 1
+    },
+    "noise_126bpm_44100hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.47600907,
+      "gapSpanning": [],
+      "intervals": 67,
+      "longestOutlierRun": 6,
+      "maxIntervalSeconds": 0.743038549,
+      "outliers": 6
+    },
+    "noise_126bpm_48000hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 70,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.568895833,
+      "outliers": 2
+    },
+    "noise_96bpm_44100hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 2.34521542,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.65015873,
+      "outliers": 1
+    },
+    "noise_96bpm_48000hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": null,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 0,
+      "maxIntervalSeconds": 0.6501666670000006,
+      "outliers": 0
+    },
+    "regular_126bpm_44100hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.47600907,
+      "gapSpanning": [],
+      "intervals": 69,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.499229025,
+      "outliers": 1
+    },
+    "regular_126bpm_48000hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 70,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.4876250000000013,
+      "outliers": 1
+    },
+    "regular_96bpm_44100hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 1.695056689,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.6501587300000011,
+      "outliers": 1
+    },
+    "regular_96bpm_48000hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.6501666670000006,
+      "outliers": 1
+    },
+    "sparse_126bpm_44100hz": {
+      "expectedSeconds": 0.9523809523809523,
+      "firstOutlierStart": 0.47600907,
+      "gapSpanning": [],
+      "intervals": 68,
+      "longestOutlierRun": 68,
+      "maxIntervalSeconds": 0.6269387750000002,
+      "outliers": 68
+    },
+    "sparse_126bpm_48000hz": {
+      "expectedSeconds": 0.9523809523809523,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 68,
+      "longestOutlierRun": 68,
+      "maxIntervalSeconds": 0.5340624999999999,
+      "outliers": 68
+    },
+    "sparse_96bpm_44100hz": {
+      "expectedSeconds": 1.25,
+      "firstOutlierStart": 0.47600907,
+      "gapSpanning": [],
+      "intervals": 52,
+      "longestOutlierRun": 52,
+      "maxIntervalSeconds": 0.65015873,
+      "outliers": 52
+    },
+    "sparse_96bpm_48000hz": {
+      "expectedSeconds": 1.25,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 52,
+      "longestOutlierRun": 52,
+      "maxIntervalSeconds": 0.6849999999999998,
+      "outliers": 52
+    }
+  },
+  "btrack-tempo-variant": {
+    "gap_126bpm_44100hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.47600907,
+      "gapSpanning": [],
+      "intervals": 69,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.499229025,
+      "outliers": 1
+    },
+    "gap_126bpm_48000hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 69,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.4876250000000013,
+      "outliers": 1
+    },
+    "gap_96bpm_44100hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 1.695056689,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.6501587300000011,
+      "outliers": 1
+    },
+    "gap_96bpm_48000hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.6501666670000006,
+      "outliers": 1
+    },
+    "noise_126bpm_44100hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.47600907,
+      "gapSpanning": [],
+      "intervals": 67,
+      "longestOutlierRun": 6,
+      "maxIntervalSeconds": 0.743038549,
+      "outliers": 6
+    },
+    "noise_126bpm_48000hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 70,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.568895833,
+      "outliers": 2
+    },
+    "noise_96bpm_44100hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 2.34521542,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.65015873,
+      "outliers": 1
+    },
+    "noise_96bpm_48000hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": null,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 0,
+      "maxIntervalSeconds": 0.6501666670000006,
+      "outliers": 0
+    },
+    "regular_126bpm_44100hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.47600907,
+      "gapSpanning": [],
+      "intervals": 69,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.499229025,
+      "outliers": 1
+    },
+    "regular_126bpm_48000hz": {
+      "expectedSeconds": 0.47619047619047616,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 70,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.4876250000000013,
+      "outliers": 1
+    },
+    "regular_96bpm_44100hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 1.695056689,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.6501587300000011,
+      "outliers": 1
+    },
+    "regular_96bpm_48000hz": {
+      "expectedSeconds": 0.625,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 53,
+      "longestOutlierRun": 1,
+      "maxIntervalSeconds": 0.6501666670000006,
+      "outliers": 1
+    },
+    "sparse_126bpm_44100hz": {
+      "expectedSeconds": 0.9523809523809523,
+      "firstOutlierStart": 0.47600907,
+      "gapSpanning": [],
+      "intervals": 68,
+      "longestOutlierRun": 68,
+      "maxIntervalSeconds": 0.6269387750000002,
+      "outliers": 68
+    },
+    "sparse_126bpm_48000hz": {
+      "expectedSeconds": 0.9523809523809523,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 68,
+      "longestOutlierRun": 68,
+      "maxIntervalSeconds": 0.5340624999999999,
+      "outliers": 68
+    },
+    "sparse_96bpm_44100hz": {
+      "expectedSeconds": 1.25,
+      "firstOutlierStart": 0.47600907,
+      "gapSpanning": [],
+      "intervals": 52,
+      "longestOutlierRun": 52,
+      "maxIntervalSeconds": 0.65015873,
+      "outliers": 52
+    },
+    "sparse_96bpm_48000hz": {
+      "expectedSeconds": 1.25,
+      "firstOutlierStart": 0.476,
+      "gapSpanning": [],
+      "intervals": 52,
+      "longestOutlierRun": 52,
+      "maxIntervalSeconds": 0.6849999999999998,
+      "outliers": 52
+    }
+  }
+}

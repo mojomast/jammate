@@ -1,0 +1,8 @@
+{
+  "gapWindowBeatPresent": true,
+  "matrixCells": 16,
+  "noiseOnsetsBeatsEqualRegular": true,
+  "pairedValidateResults": "PASS for 3 raw results.json",
+  "regularSilentEmpty": true,
+  "sparseSilentBeatsOdd": true
+}

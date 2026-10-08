@@ -116,7 +116,7 @@ for this fork. macOS has not been verified.
 
 Latest local verification, **8 October 2026**:
 
-- **21/21** core suites with both optional trackers enabled; **19/19** with them
+- **22/22** core suites with both optional trackers enabled; **20/20** with them
   disabled. The core builds without JUCE or an audio device.
 - **6/6** JUCE drum suites pass, including 12 new foundation regressions;
   **Standalone + VST3** builds succeed on Linux and Windows.
@@ -139,6 +139,10 @@ Latest local verification, **8 October 2026**:
   BPM errors, but fails the acquisition gate. [Paired robustness measurements](docs/research/TEMPO-VARIANT-ROBUSTNESS.md)
   retain significant gap/noise regressions and six lost per-clip acquisitions.
   It is not the default backend.
+- [Longer synthetic windows](docs/research/TEMPO-LONG-WINDOWS.md) reproduce six
+  steady-window BPM gains alongside acquisition delays from early derived-BPM
+  excursions. Their 48-test research suite is required in CI; original and
+  corrected evidence are retained separately. Tracker selection remains open.
 
 The [execution ledger](EXECUTION-LEDGER.md) is the authoritative status record.
 Reproduction commands, hashes and limitations live in the linked research

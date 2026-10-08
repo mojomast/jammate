@@ -1,0 +1,165 @@
+{
+  "blockFrames": 128,
+  "commands": [
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/guitars-build-resume/tmp/TRACK-007/corpus",
+        "--out",
+        "docs/research/tempo-long-windows/evidence/raw/btrack/block128",
+        "--backend",
+        "btrack",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+        "--block",
+        "128"
+      ],
+      "backend": "btrack"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/guitars-build-resume/tmp/TRACK-007/corpus",
+        "--out",
+        "docs/research/tempo-long-windows/evidence/diagnostic/btrack",
+        "--backend",
+        "btrack",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "btrack"
+      ],
+      "backend": "btrack"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/guitars-build-resume/tmp/TRACK-007/corpus",
+        "--out",
+        "docs/research/tempo-long-windows/evidence/raw/btrack-tempo-variant/block128",
+        "--backend",
+        "btrack-tempo-variant",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+        "--block",
+        "128"
+      ],
+      "backend": "btrack-tempo-variant"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/guitars-build-resume/tmp/TRACK-007/corpus",
+        "--out",
+        "docs/research/tempo-long-windows/evidence/diagnostic/btrack-tempo-variant",
+        "--backend",
+        "btrack-tempo-variant",
+        "--backend-lib",
+        "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "btrack-tempo-variant",
+        "--variant-not-default"
+      ],
+      "backend": "btrack-tempo-variant"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+        "--corpus",
+        "/home/mojo/projects/guitars-build-resume/tmp/TRACK-007/corpus",
+        "--out",
+        "docs/research/tempo-long-windows/evidence/raw/aubio/block128",
+        "--backend",
+        "aubio",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+        "--block",
+        "128"
+      ],
+      "backend": "aubio"
+    },
+    {
+      "argv": [
+        "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+        "--corpus",
+        "/home/mojo/projects/guitars-build-resume/tmp/TRACK-007/corpus",
+        "--out",
+        "docs/research/tempo-long-windows/evidence/diagnostic/aubio",
+        "--backend",
+        "aubio",
+        "--backend-lib",
+        "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+        "--block",
+        "128",
+        "--trace-files",
+        "beats",
+        "--label",
+        "aubio"
+      ],
+      "backend": "aubio"
+    }
+  ],
+  "diagnosticOnly": true,
+  "pins": [
+    {
+      "path": "/home/mojo/projects/build-EVAL-007-integration/cli/rhythm-eval",
+      "role": "cli",
+      "sha256": "caba565f6c6d8482443edf8d2a0a7ec40b6327ba99ccb2898f7213f8c28de552"
+    },
+    {
+      "path": "/home/mojo/projects/build-TRACK-004-integration/diag/tracker-diagnostics",
+      "role": "diagnostic",
+      "sha256": "75b0d73bdfedb5028b65a0e171d371c7ea3bc97ed6cb0b5ed60c84b30f3edee2"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-btrack.so",
+      "role": "btrack",
+      "sha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d"
+    },
+    {
+      "path": "/home/mojo/projects/build-EVAL-005/main-core/librhythm-eval-aubio.so",
+      "role": "aubio",
+      "sha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41"
+    },
+    {
+      "path": "/home/mojo/projects/build-TRACK-005-integration/libtempo-variant-btrack.so",
+      "role": "btrack-tempo-variant",
+      "sha256": "920a30f9bb2c81b8ed743f817beb5dc51e9f90070de5ca0788a46ff1223a6717"
+    },
+    {
+      "path": "/home/mojo/projects/worktrees/TRACK-007-long-windows/testdata/rhythm/tools/gen_fixtures.py",
+      "role": "gen_fixtures",
+      "sha256": "81df59dcac2b48f6861276561fd6dcd8eb892bbad1666257676e2c75682d5be8"
+    },
+    {
+      "path": "/home/mojo/projects/worktrees/TRACK-007-long-windows/tools/tempo-characterization/gen_long_windows.py",
+      "role": "gen_long_windows",
+      "sha256": "9e76b10822f5ea732d39a3314fb87cb13869782f477924ccfe16e161c470e766"
+    }
+  ],
+  "protocol": "docs/research/tempo-long-windows/PROTOCOL.md",
+  "protocolCommit": "committed before fixture render and before any tracker run",
+  "rawMethodLogRetainedAs": "raw-method/instance_0.csv.gz",
+  "rawMethodLogSha256": "6447884c05e60c54d5b7b568aedff05f4951d83ea63b80b9f0d66227d78a261b",
+  "scoring": "current EVAL-007, uncompensated",
+  "selection": null,
+  "task": "TRACK-007",
+  "validation": {
+    "backends": 3,
+    "exactBeatSeriesPairs": 16,
+    "fixtures": 16,
+    "hardErrors": 0
+  }
+}

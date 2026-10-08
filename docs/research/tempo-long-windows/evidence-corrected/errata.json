@@ -1,0 +1,26 @@
+{
+  "corrections": [
+    "E1 post-ready divergence and 4-agreeing-beat lock",
+    "E2 missed noise_126bpm_44100hz regression",
+    "E3 acquisitionBars null-normalised, raw sentinel preserved",
+    "E4 backend-specific steady windows, not whole-clip",
+    "E5 gap exemption restricted to the gap control",
+    "E6 provenance.json file sha256 vs combined freeze hash",
+    "E7 disclosed process deviations"
+  ],
+  "counts": {
+    "comparisons": 16,
+    "controlPairs": 36,
+    "outcomes": 48
+  },
+  "immutable": {
+    "fixtures": "d21e2a6",
+    "historicalEvidence": "5098df9",
+    "protocol": "492c5a8"
+  },
+  "note": "Derived only. Historical raw/evidence is unmodified; WAVs and generator unchanged.",
+  "verifiedPins": {
+    "provenanceJsonFileSha256": "202714b16002ac9f9c94aca67684abaacaab5666a35aff9f018c8450d4c032fe",
+    "variantCorrectedCombinedSha256": "cd8291e6d8ad49cae64fe43768ddc88e70679a2835dad78e62b5644b0503ec77"
+  }
+}

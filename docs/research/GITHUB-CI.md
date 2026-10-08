@@ -8,7 +8,7 @@ constitute remote execution evidence.
 ## Required jobs
 
 - **Core matrix:** dependency-free, BTrack-only, aubio-only and both enabled.
-  No submodules are materialized. All registered suites execute; 19 base suites
+  No submodules are materialized. All registered suites execute; 20 base suites
   are required, plus each enabled tracker suite. `nm` must succeed and produce
   actual symbol lines; the core archive/tests cannot contain tracker symbols,
   each enabled tracker binary must contain its own real symbols, and the fully

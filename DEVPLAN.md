@@ -1485,7 +1485,7 @@ Keep this near the top of the live devplan during implementation.
 | RT-003 | DONE (measured LSTM repair) | main | 401a6c1 + product/verifier fixes | G1 |
 | TRACK-006 | DONE: scoped paired diagnostics; variant gap/noise regressions retained | main | ce3c96e0 + independent replay | G3 |
 | CI-003 | DONE: RT-004/DIAG-001 remote green, all6 jobs | main | 8348233, run37720364067 | G1 |
-| TRACK-007 | REVIEW CORRECTIONS: replay equal; interpretation/missingness fixes pending | wp/TRACK-007-long-windows | 5098df9; DeepSeek Go continuation | G3 |
+| TRACK-007 | DONE: corrected scoped evidence; G3 remains open | main | 65cd77d + independent replay; core22/20 suites | G3 |
 | RT-004 | DONE: bounded evidence; A2 activation repair open | main | 337f4f3 + independent260-case replay | G1 |
 | DIAG-001 | FOUNDATION DONE (D10); full live task PARTIAL | main | b5852a0 + independent21/19 suites | G4 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |

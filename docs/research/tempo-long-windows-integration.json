@@ -1,0 +1,49 @@
+{
+  "task": "TRACK-007",
+  "workerHead": "65cd77d",
+  "protocolCommit": "492c5a8",
+  "fixtureIdentityCommit": "d21e2a6",
+  "historicalEvidenceCommit": "5098df9",
+  "correctionContractCommit": "4a89dc1",
+  "independentReviewSession": "ses_ee69f0b21ffeLgecaKyprtGUec",
+  "scratch": "/home/mojo/projects/build-TRACK-007-integration",
+  "validation": {
+    "independentlyRenderedFixtures": 16,
+    "realPluginScores": 48,
+    "exactDiagnosticBeatFiles": 48,
+    "exactDefaultVariantPairs": 16,
+    "exactRawScoredFields": 7503,
+    "varyingResourceCpuFields": 102,
+    "methodLog": "decompressed bytes identical",
+    "correctedDerivedTree": "byte-identical replay",
+    "historicalRawProtocolGeneratorFixtureManifest": "unchanged",
+    "originalCommits": "ancestors of accepted worker head",
+    "researchTests": 48,
+    "sourceArchiveTests": 48,
+    "coreBothEnabledSuites": 22,
+    "coreBothDisabledSuites": 20,
+    "ciGuardTests": 7,
+    "bashWorkflowBodiesParsed": 33
+  },
+  "integrationCorrections": [
+    "Require jam.TempoCharacterization in CMake and both forge suite guards",
+    "Replace Git-ancestry unit check with exact frozen-blob hashes for shallow checkouts and source archives",
+    "Clarify that six, rather than every, 126 BPM cells improve from 2.34 percent error",
+    "Round default noise acquisition 2.49205952 bars accurately to 2.4921"
+  ],
+  "limits": [
+    "Overlapping synthetic windows, not independent real-guitar trials or a core release denominator",
+    "BPM medians use backend-specific steady windows; default and variant windows differ on 14 of 16 cells",
+    "Post-ready BPM excursions cause acquisition delays, including approximately 4.3 seconds on noise at 126 BPM and 44.1 kHz",
+    "Gap fixtures do not exercise interval resets because trackers continue emitting grid beats",
+    "No selected production tracker or live join/follow evidence; G3 remains open"
+  ],
+  "logHashes": {
+    "1.log": "f7f67ddf698aa3ea4146cb234c629e09beac6605e9fdae2c674f06ad8741b9d0",
+    "2.log": "3abb295b28b21eb8d9ecc7a853949c98ae2a99b1d50d773a858540bf5804d997",
+    "correction-1.log": "86a4802e73a9fcbd21b271cfe133632f2c79e9691a36d2001fba38414fc46417",
+    "merged-archive-tests.log": "6f427158a0db230a7d09d4f186dbd7279bdfbc5b3c2bfabb63a84ddc2c4bb4c0",
+    "merged-off-ctest-fixed.log": "f30d52fb1f8e9acfb16fbef54fa8408862687405a52d913a64913cc579c7749f",
+    "merged-both-ctest.log": "65c697f3ee2afb9e822bcee78a0c5ada0ba1530a5ee0ed22a3fbd769d1d026a5"
+  }
+}

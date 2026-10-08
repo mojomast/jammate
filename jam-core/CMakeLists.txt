@@ -225,6 +225,13 @@ if (JAM_CORE_BUILD_TESTS AND JAM_TEST_SOURCES)
         add_test(NAME jam.TrackerDiagnostics COMMAND jamTrackerDiagnosticsTests)
     endif()
     if (Python3_Interpreter_FOUND)
+        if (EXISTS "${JAM_ROOT}/tools/tempo-characterization/tests/test_long_windows.py")
+            add_test(NAME jam.TempoCharacterization
+                COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+                    -s "${JAM_ROOT}/tools/tempo-characterization/tests" -p "test_*.py")
+            set_tests_properties(jam.TempoCharacterization PROPERTIES
+                WORKING_DIRECTORY "${JAM_ROOT}")
+        endif()
         if (EXISTS "${JAM_ROOT}/tools/rhythm-eval/tools/test_make_derived.py")
             add_test(NAME jam.RhythmDerivedGenerator
                 COMMAND ${Python3_EXECUTABLE}

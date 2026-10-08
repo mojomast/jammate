@@ -84,7 +84,7 @@ PARTIAL, never PASSED.
     No production analyzer/clock/editor integration is authorised by this task;
     full DIAG-001 stays partial until that integration and overhead are measured.
 
-### Active development wave (base `bcf540a`, 2026-10-08)
+### Completed development wave (base `bcf540a`, 2026-10-08)
 
 The wave started on Haiku on OpenCode Go. The user's subsequent instruction
 switched it immediately to **`opencode-go/deepseek-v4.1-flash`**. All three
@@ -112,6 +112,9 @@ retains positive findings and explicit load failures; no architecture repairs
 are included. DIAG-001 preserves event, horizon and measured availability as
 distinct clocks. Shared build/CI/processor/editor surfaces remain orchestrator
 owned; each handoff needs a clean commit, executed checks and independent review.
+All three handoffs are now accepted and integrated. RT-004 retains the A2
+activation finding, DIAG-001 remains a partial live task, and TRACK-007 preserves
+its original evidence alongside reviewed corrections. No worker remains active.
 
 ### Resumption wave handoffs (2026-10-08)
 
@@ -330,7 +333,7 @@ and reports instead.
 | TEST-001 foundation tests | **DONE: bounded foundation coverage (D8)** | `wp/TEST-001-foundation`, `0cfc252b` → main | C — verification, Sol | G1 |50 actual JUCE cases; root rebuild and6/6 suites pass; processor migration/concurrent edits remain uncovered |
 | MOD-003 Jam UI shell | **DONE: isolated simulation shell (D7)** | `wp/MOD-003-jam-ui`, `34ab2cb3` → main | C — UI, Sol | G2 | fresh actual JUCE preview build and Xvfb verification pass; seven screenshots; live editor wiring pending |
 | CI-003 GitHub verification | **DONE: RT-004/DIAG-001 remote green** | main, `8348233` | orchestrator | G1 | run37720364067 core19/20/20/21, NAM5/5, Windows Standalone/VST3 +6/6 drums; receipt and downloaded-log hashes retained |
-| TRACK-007 longer-window acquisition characterization | REVIEW CORRECTIONS | `wp/TRACK-007-long-windows`, `5098df9` | B — evidence, DeepSeek/Go continuation | G3 | independent replay equal; independent review requires corrected missingness, steady-window labels, control pairing and causal interpretation |
+| TRACK-007 longer-window acquisition characterization | **DONE: corrected scoped evidence; G3 open** | `wp/TRACK-007-long-windows`, `65cd77d` → main | B — evidence, Haiku/Space Bunny/DeepSeek Go | G3 |48 research tests; independent16-fixture render/48 scores,7503 non-CPU fields exact; raw and corrected evidence preserved; core22/20 suites pass |
 | RT-004 NAM architecture callback coverage | **DONE: bounded evidence; A2 repair open** | `wp/RT-004-nam-architectures`, `337f4f3` → main | A — runtime evidence, Haiku + Space Bunny/Go | G1 |81 tests; independent260-case replay (80 NAM),6610 stable fields equal; A2 PReLU/blending allocations retained |
 | DIAG-001 portable diagnostics foundation | **FOUNDATION DONE (D10); full task PARTIAL** | `wp/DIAG-001-core`, `b5852a0` → main | C — core, Haiku + Space Bunny/Go | G4 | independent21/19 core suites,34 diagnostics cases,strict/TSan/ASan checks pass within receipt scope; live wiring/overhead pending |
 
