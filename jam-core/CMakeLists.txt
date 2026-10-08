@@ -181,6 +181,28 @@ if (JAM_CORE_BUILD_TESTS AND JAM_TEST_SOURCES)
                     "${JAM_DISCOVERED_SUITES_DISPLAY}")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
+    if (Python3_Interpreter_FOUND AND
+        EXISTS "${JAM_ROOT}/tools/style-catalog/style_catalog_provenance.py")
+        add_test(NAME jam.StyleCatalogProvenance COMMAND "${Python3_EXECUTABLE}" -B
+            "${JAM_ROOT}/tools/style-catalog/style_catalog_provenance.py" --check)
+        add_test(NAME jam.StyleCatalogTools COMMAND "${Python3_EXECUTABLE}" -B
+            -m unittest discover -s "${JAM_ROOT}/tools/style-catalog/tests" -p "test_*.py")
+        set_tests_properties(jam.StyleCatalogProvenance jam.StyleCatalogTools PROPERTIES
+            WORKING_DIRECTORY "${JAM_ROOT}")
+    endif()
+    foreach(evidence_tool guitar-lock-eval device-validation)
+        if (Python3_Interpreter_FOUND AND EXISTS "${JAM_ROOT}/tools/${evidence_tool}/tests")
+            if (evidence_tool STREQUAL "guitar-lock-eval")
+                set(evidence_suite jam.GuitarLockEval)
+            else()
+                set(evidence_suite jam.DeviceValidation)
+            endif()
+            add_test(NAME ${evidence_suite} COMMAND "${Python3_EXECUTABLE}" -B
+                -m unittest discover -s tests -p "test_*.py")
+            set_tests_properties(${evidence_suite} PROPERTIES
+                WORKING_DIRECTORY "${JAM_ROOT}/tools/${evidence_tool}")
+        endif()
+    endforeach()
     # Linux-only offline harness: the callback-independent worker remains portable.
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND Python3_Interpreter_FOUND
         AND EXISTS "${JAM_ROOT}/tools/analysis-worker-benchmark/test_failclosed.py")

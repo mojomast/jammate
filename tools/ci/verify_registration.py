@@ -21,6 +21,9 @@ CORE = {
     'jam.jamjoinpolicy', 'jam.livejamsession', 'jam.LiveJamPipeline',
     'jam.LiveReplayVerifier',
     'jam.AdaptiveLiveSession',
+    'jam.stylecatalog', 'jam.jamdirector', 'jam.StyleCatalogProvenance',
+    'jam.StyleCatalogTools',
+    'jam.GuitarLockEval', 'jam.DeviceValidation',
 }
 NAM = {
     'nam_rt_diff', 'nam_rt_compare_unit', 'nam_rt_patch_checks',
