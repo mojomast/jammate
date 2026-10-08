@@ -4,11 +4,16 @@
 **Branch:** `wp/CI-002-trackers` · **Base commit:** `eac59ba`
 **Written:** 2026-10-07 · first created by **CI-001** (branch `wp/CI-001`, base `a8da4f2`)
 
-This repository is hosted on **Gitea**. The workflows are in
+This repository's CI is written for **Gitea** and stored in
 `.gitea/workflows/`, not `.github/workflows/`, per ADR-0003 decision 6 and
-EXECUTION-LEDGER deviation **D3**. Nothing under `.github/` exists and nothing
-should create it: this forge does not read it, so a `.github/workflows/` file
-would be a pipeline that looks real and never runs.
+EXECUTION-LEDGER deviation **D3**. **The actual hosting and runner configuration
+remain unverified** — the ledger records exactly that (`Forge | Gitea workflow
+definitions; actual hosting and runners remain unverified`). "Targets Gitea" is
+the intended forge, not an observation. Nothing under `.github/` exists and
+nothing should create it: if the forge really is Gitea then GitHub would not
+read a `.github/workflows/` file, and if it turned out to be GitHub then this
+whole directory would be a pipeline that looks real and never runs. Confirm the
+forge and runners before the first run (§3).
 
 Read **§3** before the first run. It is the part that can waste an afternoon.
 
@@ -24,11 +29,14 @@ Read **§3** before the first run. It is the part that can waste an afternoon.
 |---|---|---|
 | `jam-core-linux.yml` | **core** — dependency-free `jam-core`, CMake + Ninja, ctest | **Yes, fully** (§7.1) |
 | `jam-core-trackers-linux.yml` | **core + GPL lanes** — all four tracker configurations: dep-free, BTrack, aubio, both | **Yes, fully** (§7.2) |
-| `plugin-windows.yml` | **plugin** — JUCE `GuitarCompanion` (Standalone + VST3) + `GuitarCompanionTests` | **No. Never compiled on Windows anywhere, ever.** (§4) |
+| `plugin-windows.yml` | **plugin** — JUCE `GuitarCompanion` (Standalone + VST3) + `GuitarCompanionTests` | **No. Never compiled ON WINDOWS.** Linux Standalone+VST3 have built (§4) |
 
 The lanes are ADR-0003's. They are not interchangeable: `jam-core` is
 platform-neutral (no JUCE, no audio device, no audio headers); the plugin
-target needs Windows and has never been built there.
+target needs Windows, where it has never been built. Be precise: on **Linux**
+the Standalone and VST3 formats have been configured and built without root
+using extracted Debian dev headers (`docs/research/LOCAL-LINUX-BUILD.md`). The
+unmeasured lane is Windows/MSVC/VST3/ASIO, not "the plugin" as such.
 
 `jam-core-btrack-linux.yml` (CI-001) was **renamed** to
 `jam-core-trackers-linux.yml` by CI-002. The old name described a job that only
@@ -114,16 +122,31 @@ Two claims are load-bearing and both are machine-checked **in every
 configuration**, so they cannot rot:
 
 1. **`src/jam/` stays third-party-free.** `libjam-core.a` and `jamTests` must
-   contain **zero** `BTrack` / `btrack::` / `kiss_fft` / `aubio` symbols — with
-   both trackers ON as well as OFF. This is what `jam-core/CMakeLists.txt` and
+   contain **zero** BTrack/aubio/`kiss_fft` symbols — with both trackers ON as
+   well as OFF. This is what `jam-core/CMakeLists.txt` and
    `third_party/{BTrack,aubio}/CMakeLists.txt` promise at review time, turned
-   into a machine check. It is the `nm` test in step 3.
+   into a machine check. It is the `nm` test in step 3, matched case-insensitively
+   after nm's header lines are stripped, so a capitalised `BTrack`/`AubioBackend`
+   leak cannot slip past a lowercase-only pattern.
 2. **The options genuinely gate the code.** In the dependency-free
    configuration the build graph must not reference `third_party/BTrack` or
    `third_party/aubio` at all; and a tracker configured OFF must not register
    its ctest suite. The enabled configurations additionally prove the opposite
-   direction: the suite is registered and real tracker symbols are linked into
-   the tracker test binary (BTrack 5, aubio 136 at base) — "ON" is not a no-op.
+   direction with **explicit symbol assertions**, not just suite registration:
+   `jamBTrackTests` must carry `BTrack::` and `kiss_fft` symbols and
+   `btrack/libjam-btrack.a` must carry `jam::BTrackBackend`; `jamAubioTests`
+   must carry `aubio_` symbols and `aubio/libjam-aubio.a` must carry
+   `jam::AubioBackend`. Real counts at the base commit: `BTrack::`=33,
+   `kiss_fft`=5, `aubio_`=136. A stub that registered a suite and linked
+   nothing fails these, so "ON" cannot be a no-op.
+
+**`nm` is run to a file; both its exit status and a non-empty symbol output are
+required before counting.** Measured failure modes: `nm` exits **0 with no
+output** on an empty archive and exits **0 with "no symbols"** on a stripped
+binary such as `/bin/true`; only a corrupt archive or a missing file exits
+non-zero. An exit-code-only pipeline therefore false-greens a corrupt or stub
+object. The job captures nm output, requires a symbol line, and only then greps
+it. The same pattern is used in `jam-core-linux.yml`.
 
 **A measured false positive worth knowing about.** The obvious `nm -C … | grep
 'btrack\|aubio'` matches `nm`'s own `path:` header lines, because the build
@@ -150,6 +173,28 @@ suites: that gating did not exist at this branch's base `eac59ba`, so such an
 assertion would make the job red on the commit it is committed to. That check
 belongs in a follow-up once the branch is rebased on `main`.
 
+### 2.6 Python 3 and the derived suites — a silent-disappearance guard
+
+Current `main`'s `jam-core/CMakeLists.txt` registers
+`jam.RhythmDerivedGenerator` **only** when
+`find_package(Python3 COMPONENTS Interpreter QUIET)` succeeds; otherwise it
+prints a `STATUS` line and registers nothing. A runner without an interpreter
+would therefore lose the generator check with a green tick. Two changes remove
+that hole:
+
+- Both Linux workflows install `python3` in the toolchain step (and print its
+  version), so `find_package(Python3)` succeeds on the runner.
+- Step 3 requires `jam.RhythmDerivedGenerator` whenever
+  `tools/rhythm-eval/tools/test_make_derived.py` exists **and** the CMake
+  registration string is present, and requires `jam.RhythmDerived` whenever
+  `tests/jam/RhythmDerivedTests.cpp` exists. A missing interpreter now turns the
+  job red instead of dropping the suite.
+
+Both conditionals are base-safe: at `eac59ba` neither source nor registration
+exists, so neither suite is required there. Measured: forcing
+`-DCMAKE_DISABLE_FIND_PACKAGE_Python3=ON` drops `jam.RhythmDerivedGenerator`
+from `ctest -N` on `main`, and the step-3 requirement then fires.
+
 ---
 
 ## 3. Assumed, not verified — check all of this first
@@ -162,7 +207,7 @@ working, and record the answers here.
 | # | Assumed | Why I had to assume it | Where to check |
 |---|---|---|---|
 | A1 | **`ubuntu-latest` and `windows-latest` are published runner labels** | runner labels are configured server-side per runner, not in the repo | The runner's own config: `act_runner`'s `config.yml` under `[labels]`, and/or the labels shown next to the runner in the Gitea admin UI (`Site Administration → Actions → Runners`). If they differ, change only the three `runs-on:` lines. |
-| A2 | **`ubuntu-latest` can install packages** — the runner is root, or has passwordless sudo | the workflows `apt-get install cmake ninja-build binutils` | Run `id -u` and `sudo -n true` on the runner. The toolchain step already tests `sudo -n true` (not `command -v sudo`, which passes when a password is required) and fails with an explicit message naming the three packages. |
+| A2 | **`ubuntu-latest` can install packages** — the runner is root, or has passwordless sudo | the workflows `apt-get install cmake ninja-build binutils python3` | Run `id -u` and `sudo -n true` on the runner. The toolchain step already tests `sudo -n true` (not `command -v sudo`, which passes when a password is required) and fails with an explicit message naming the four packages. `python3` is required, not incidental: without it main silently drops `jam.RhythmDerivedGenerator` (§2.6). |
 | A3 | **`windows-latest` has `shell: bash`** (Git for Windows) | used for every `run:` block in the plugin job | You cannot use submodules on Windows without Git for Windows, so a runner that can run step 2 has a bash. If not, change `defaults.run.shell` to `pwsh` and rewrite the `if`/`||` guards. |
 | A4 | **`windows-latest` has Visual Studio 2022 ("Visual Studio 17 2022" generator) with "Desktop development with C++"** | the root `CMakeLists.txt` needs a compiler, and `README.md`:241 / `CONTRIBUTING.md`:7 specify VS 2022 | The toolchain step asserts the generator is present and fails with an explicit message if not. Otherwise install it on the runner image. |
 | A5 | **`github.server_url`, `github.repository`, `github.sha` are populated** | the checkout step clones `${CI_REPO_URL}` at `${CI_COMMIT_SHA}` | Read `env:` from the first workflow run's log. See §3.1 for the Gitea-specific review. The checkout hard-fails if it cannot land on the expected SHA, so a wrong value surfaces as a red job, never as a wrong tree. |
@@ -195,22 +240,29 @@ This is the GitHub-Actions idiom and it is what Gitea's `act_runner` exposes
   out at a synthetic merge commit; Gitea may set `github.sha` to a SHA that is
   not on any fetched ref tip. The step first tries
   `git fetch --depth 1 origin "${CI_COMMIT_SHA}"`; on refusal it falls back to
-  fetching `refs/heads/*` **and** `refs/pull/*/head` (Gitea's PR head ref). It
-  then `git checkout --detach "${CI_COMMIT_SHA}"` and asserts
-  `git rev-parse HEAD` equals it. A wrong or unreachable SHA is therefore a red
-  job, never a silently wrong tree. If a Gitea run shows the merge-ref problem,
-  the one-line fix is to read `${{ github.event.pull_request.head.sha }}`
-  instead — recorded here rather than guessed at.
-- **Glob refspecs that match nothing.** The fallback fetches whole glob
-  refspecs, which Git tolerates when a pattern matches no ref (it does not
-  error the way a literal missing ref does), so the same fallback works on
-  `push` and `pull_request` events alike.
+  fetching **branch tips and both pull-request refs**:
+  `refs/heads/*`, `refs/pull/*/head` (Gitea's PR head) and
+  `refs/pull/*/merge` (GitHub's, and Gitea's when it exposes one). It then
+  `git checkout --detach "${CI_COMMIT_SHA}"` and asserts `git rev-parse HEAD`
+  equals it. A wrong or unreachable SHA is therefore a red job, never a silently
+  wrong tree.
+  If a run still cannot reach a merge SHA (a server that exposes no
+  `refs/pull/*/merge`), the correct fix is to read
+  `${{ github.event.pull_request.head.sha }}` instead; that is recorded here
+  rather than guessed at.
+- **Glob refspecs that match nothing are tolerated. MEASURED:** a fetch with a
+  wildcard refspec that matches no ref exits 0, while a *literal* missing ref
+  exits 128. Adding `refs/pull/*/merge` is therefore safe on a server that does
+  not publish it, and the same fallback works on `push` and `pull_request`
+  events alike.
 - **`github.server_url` may carry a sub-path** (e.g. a Gitea under
   `https://host/gitea`). It is used verbatim, so the clone URL stays correct.
 
-None of this is verified against a live runner; it is the reasoning the `run:`
-bodies encode, and §7.4 exercises the exact checkout against a local bare
-remote.
+None of this is verified against a live runner; the glob tolerance above and
+the direct-SHA path in §7.4 are measured locally. The fallback's ability to
+reach a specific merge SHA is not: that depends on what the server exposes, and
+the exact-SHA hard-fail guarantees a red job rather than a wrong tree if it
+cannot.
 
 ---
 
@@ -221,25 +273,31 @@ plugin lane has produced a server-side result. A green local run (§7) is
 evidence about the *commands*, not about the *server*. Do not write "CI is
 green" anywhere until a run exists in the Gitea Actions tab.
 
-**`plugin-windows.yml` has never run. The `GuitarCompanion` target has never
-been compiled on Windows, anywhere, in this project's entire history.**
+**`plugin-windows.yml` has never run, and the plugin has never been compiled ON
+WINDOWS.** That is the specific gap. It is **not** true that the plugin has
+never been built anywhere: on **Linux**, the Standalone and VST3 formats were
+configured, built and tested without root using extracted Debian dev headers
+(`docs/research/LOCAL-LINUX-BUILD.md`, and the main-branch commit that records
+the app build). So:
 
-- Not on Windows: no Windows machine or runner has ever built this repository.
-- On Linux, JUCE configuration was subsequently made to work without root using
-  extracted Debian dev headers (see `docs/research/LOCAL-LINUX-BUILD.md`), but
-  that is a **Linux** result and says nothing about the Windows lane, MSVC, the
-  VST3 format or the ASIO path.
-- `GuitarCompanionTests` on Windows is equally unbuilt.
+- **Linux, measured:** `GuitarCompanion_Standalone` and `GuitarCompanion_VST3`
+  were built with GCC; `GuitarCompanionTests` and the `drums.*` suites ran.
+  This is not evidence about Windows.
+- **Windows, unmeasured:** no Windows machine or runner has ever built this
+  repository. MSVC, the Visual Studio generator, the VST3 bundle there, WASAPI/
+  DirectSound and the ASIO path are all unverified on Windows.
+- **Windows VST3, unmeasured:** the Linux VST3 artefact says nothing about the
+  Windows VST3 build or its packaging.
 
-**Do not present that job as ready. Expect the first run to fail.** The
-expected causes, in order:
+**Do not present that job as ready. Expect the first Windows run to fail.**
+The expected causes, in order:
 
 1. `windows-latest` is not a label the server publishes (A1).
 2. No bash on the Windows runner image (A3).
 3. The submodule recipe is wrong for NAM's nested submodules (§5) — the
    topology was verified from the pinned SHAs, but the `git submodule update`
    commands have never executed on Windows.
-4. The JUCE plugin genuinely does not compile on Windows.
+4. The JUCE plugin genuinely does not compile under MSVC on Windows.
 
 Cause 4 is the one that matters. It is the measurement FND-002 and the G0
 plugin-lane items have been waiting for, and it must be recorded as a finding,
@@ -308,11 +366,24 @@ It then **asserts** that `JUCE/CMakeLists.txt`, `NAM/NAM/dsp.cpp`,
 `NAM/Dependencies/eigen/Eigen/Core`,
 `NAM/Dependencies/AudioDSPTools/CMakeLists.txt` **and**
 `NAM/Dependencies/AudioDSPTools/Dependencies/eigen/Eigen/Core` all exist, and
-that `references/airwindows` does not. Trusting the command's exit code alone is
-how a partial submodule tree produces a mysterious compile error 200 lines
-later. (The `git submodule update` commands themselves were **not** executed:
-the initialised trees are large and network-bound. The topology is verified from
-the pinned `.gitmodules` above; the recipe is not. This is recorded as unproven.)
+that `references/airwindows` is **not materialised**. Trusting the command's
+exit code alone is how a partial submodule tree produces a mysterious compile
+error 200 lines later.
+
+**Materialisation, not directory presence — measured.** A plain checkout creates
+an **empty directory for every gitlink it carries**, before any submodule init:
+a fresh `git clone` of this repository has empty `third_party/JUCE/` and
+`third_party/NeuralAmpModelerCore/` directories with no `.git` and no contents.
+At this base, `references/*` have **no** gitlink in the tree (only
+`references/README.md`), so `references/airwindows` does not appear at all — but
+`[ -d references/airwindows ]` would flag a placeholder if a gitlink were ever
+added. The workflow therefore tests materialisation: `-e "$ref/.git"` or a
+non-empty `ls -A`, which is false for a placeholder and true for a real
+submodule checkout.
+
+(The `git submodule update` commands themselves were **not** executed: the
+initialised trees are large and network-bound. The topology is verified from the
+pinned `.gitmodules` above; the recipe is not. This is recorded as unproven.)
 
 ---
 
@@ -385,17 +456,21 @@ ctest --test-dir build --output-on-failure; echo "exit=$?"
 
 At base `eac59ba` this is **6 suites**: `jam.AnalysisAudioRing`,
 `jam.DrumTransportAdapter`, `jam.MusicalClock`, `jam.RhythmCorpus`,
-`jam.RhythmEvalMetrics`, `jam.RtSignal`. On later `main` commits it is larger
-(7–9, including `jam.BackendRunner` and the `RhythmDerived*` suites), which is
-why the job requires a fixed subset and adds `jam.BackendRunner` only when its
-source exists.
+`jam.RhythmEvalMetrics`, `jam.RtSignal`. On a current `main` snapshot it is
+**9**: the same six plus `jam.BackendRunner`, `jam.RhythmDerived` and
+`jam.RhythmDerivedGenerator` (the last is the Python generator check). The job
+requires a fixed subset and adds each newer suite only when its source/registration
+is present, so it is green on the base it was written against and stricter on
+`main` (§2.6).
 
-Licence-boundary check, as the job runs it:
+Licence-boundary check, as the job runs it (explicit nm status + non-empty symbol
+output, then header-stripped case-insensitive match):
 
 ```sh
 grep -q 'third_party/BTrack\|third_party/aubio' build/build.ninja && echo "LEAKED"
-nm -C build/libjam-core.a build/jamTests | grep -Ev '^[^:]+:$' \
-  | grep -c 'BTrack\|btrack::\|kiss_fft\|aubio'   # 0
+nm -C build/libjam-core.a build/jamTests > nm-core.log 2>&1   # must exit 0 AND
+grep -Eq '^[0-9a-fA-F]+ [A-Za-z]|^ +U ' nm-core.log           # produce symbol lines
+grep -Ev '^[^:]+:$' nm-core.log | grep -Eci 'btrack|aubio|kiss_fft'   # 0
 ```
 
 ### 7.2 `jam-core-trackers-linux.yml` — fully reproducible today
@@ -427,15 +502,18 @@ Gate evidence (base, `build.ninja` reference counts):
 | `aubio` | 0 | 57 | absent | registered |
 | `both` | 11 | 57 | registered | registered |
 
-In every configuration `nm -C libjam-core.a jamTests` (header lines stripped)
-reports **0** GPL tracker symbols; the tracker test binaries report real
-symbols (BTrack 5, aubio 136), proving ON is not a stub.
+In every configuration `nm -C libjam-core.a jamTests` (header lines stripped,
+case-insensitive) reports **0** GPL tracker symbols. The enabled configurations
+assert real linkage explicitly: `jamBTrackTests` carries `BTrack::`=33 and
+`kiss_fft`=5 symbols; `jamAubioTests` carries `aubio_`=136; the adapter archives
+carry `jam::BTrackBackend` / `jam::AubioBackend`. That is what makes "ON" a
+measurement rather than a claim.
 
-The same step was also run against a snapshot of `main` (`0a15eef`), which adds
-`jam.BackendRunner` and the `RhythmDerived*` suites and honours
-`JAM_CORE_BUILD_TESTS`: all four configurations configured, built and ran ctest
-with the larger, changing suite set. That is what the conditional
-`BackendRunner` requirement in step 3 is for.
+The same step was also run against a snapshot of `main`, which adds
+`jam.BackendRunner`, `jam.RhythmDerived` and `jam.RhythmDerivedGenerator` and
+honours `JAM_CORE_BUILD_TESTS`: all four configurations configured, built and
+ran ctest with the larger suite set (9/10/10/11). That is what the conditional
+suite requirements in step 3 are for.
 
 ### 7.3 `plugin-windows.yml` — Windows, VS 2022, no admin needed
 
@@ -475,6 +553,11 @@ The job builds `ALL_BUILD` rather than naming `GuitarCompanion_VST3` /
 `GuitarCompanion_Standalone`, because those JUCE target names are unverified
 here and naming a nonexistent target is a hard failure.
 
+**This is the unmeasured lane.** For the **Linux** equivalent, which was built
+and is measured, see `docs/research/LOCAL-LINUX-BUILD.md`: Standalone + VST3
+built with GCC against extracted Debian dev headers, no root. That says nothing
+about MSVC, the Visual Studio generator, Windows VST3 packaging or ASIO.
+
 ### 7.4 Checkout, shell bodies and YAML
 
 - **YAML:** `task-notes/ci-validate.py` runs PyYAML `safe_load` plus a
@@ -484,10 +567,17 @@ here and naming a nonexistent target is a hard failure.
 - **Checkout:** the checkout step runs against a local `file://` remote with
   `CI_COMMIT_SHA` set to the real branch base and must end with
   `git rev-parse HEAD == CI_COMMIT_SHA`. This exercises the plain-git recipe's
-  direct-SHA path (the path a normal push event takes). The ref-tip **fallback**
-  is not locally exercisable — a local remote allows direct SHA fetch — so it is
-  reasoned from the git contract (§3.1), not measured. A Gitea run will be the
-  first measurement of the server's SHA-fetch policy (A6).
+  direct-SHA path (the path a normal push event takes). The exact-SHA hard-fail
+  is the guarantee; the **fallback** is not locally reachable (a local remote
+  allows direct SHA fetch), but its glob-refspec tolerance **is** measured: a
+  wildcard refspec that matches no ref exits 0, while a literal missing ref
+  exits 128 (§3.1). A Gitea run will be the first measurement of the server's
+  SHA-fetch policy (A6) and of whether `refs/pull/*/merge` is exposed.
+- **Failure injection:** the `nm` helper was driven with an empty archive, a
+  missing file, a corrupt archive and a `/bin/true` stub, and the ON-linkage
+  count with a real binary that has symbols but no tracker code; all five fire
+  the guard (§7.2 and CI-002.md). Forcing `CMAKE_DISABLE_FIND_PACKAGE_Python3=ON`
+  drops `jam.RhythmDerivedGenerator`, and the step-3 suite requirement fires.
 
 ### 7.5 YAML validation result
 
@@ -500,7 +590,8 @@ uses, so it was left alone.
 `task-notes/ci-validate.py` checks, per file: parse; `permissions` is exactly
 `{contents: read}`; `concurrency.cancel-in-progress is true` and the group keys
 on `github.ref`; triggers present; every step has `run:` or `uses:` but not both;
-**no step sets `continue-on-error`**; every `run:` is a non-empty string.
+**no step sets `continue-on-error`**; every `run:` is a non-empty string. All
+three files pass and all **19** extracted `run:` bodies pass `bash -n`.
 
 ---
 
@@ -539,9 +630,17 @@ green run behind it.
 
 ---
 
-## 9. Two safety properties worth keeping
+## 9. Three safety properties worth keeping
 
-Both are deliberate, and both are easy to "fix" away by accident.
+All are deliberate, and all are easy to "fix" away by accident.
+
+**`nm` exits 0 with no symbols on an empty archive or a stripped binary.**
+Measured: `nm` on an empty `ar` archive exits 0 with empty output; `nm -C
+/bin/true` exits 0 and prints `no symbols`; only a corrupt archive or a missing
+file exits non-zero. An `nm … | grep … || true` pipeline therefore false-greens
+a corrupt or stub object. Both jobs run `nm` to a file, require a zero exit
+**and** at least one symbol line, and only then grep — on the core archive/binary
+and on every enabled tracker binary/archive (§2.4).
 
 **`ctest` exits 0 when no tests are found.** Measured:
 
@@ -569,9 +668,10 @@ may wrap a `ctest` call in `|| true`, and no `continue-on-error` may appear on a
 build or test step. The suite-count assertions above are added *on top of* that
 behaviour, not as a replacement for it.
 
-**The n+1 files in this task's scope, restated:** the tracker job is honest
-only if it can fail. It can: configure, build, suite registration, the licence
-boundary, the disabled-tracker-absent check and ctest are all independent
-failure points, and each prints a named `::error::` line. There is no
-`continue-on-error`, no `|| true` around a build or test, and no dropped
-configuration.
+**The tracker job is honest only if it can fail.** It can: configure, build,
+suite registration, the core licence boundary, the `nm`-status/non-empty check,
+the enabled-tracker linkage assertions, the disabled-tracker-absent check, the
+dependency-free build-graph check and ctest are all independent failure points,
+each printing a named `::error::` line. There is no `continue-on-error`, no
+`|| true` around a build or test, and no dropped configuration. The failure
+injections in §7.4 exercise each guard.

@@ -44,9 +44,14 @@
 #   - An enabled tracker must register its suite AND link real symbols into its
 #     own test binary, so "ON" is not a no-op.
 #
-# The `nm` check strips nm's `path:` header lines before matching. Without that
-# the build directory name ("build-btrack", "build-aubio") is itself a match for
-# `btrack`/`aubio`; that false positive was measured while writing this job.
+# `nm` is run to a file and BOTH its exit status and a non-empty symbol output
+# are required before any counting: `nm` exits 0 with empty output on an empty
+# archive and exits 0 with "no symbols" on a stripped binary, so an
+# exit-code-only check would false-green a corrupt or stub object. The captured
+# output then has nm's `path:` header lines stripped before matching. Without
+# that the build directory name ("build-btrack", "build-aubio") is itself a
+# match for `btrack`/`aubio`; that false positive was measured while writing
+# this job.
 #
 # NO SUBMODULES. Both trackers are vendored in-tree (third_party/BTrack,
 # third_party/aubio), so this lane needs no network fetch of any kind. Do not add
@@ -102,9 +107,16 @@ jobs:
           git remote add origin "${CI_REPO_URL}"
           if ! git -c protocol.version=2 fetch -q --no-tags --depth 1 origin "${CI_COMMIT_SHA}"; then
             echo "Direct fetch by SHA refused; retrying via ref tips."
+            # Fetch branch tips AND both pull-request refs (head and merge).
+            # GitHub exposes refs/pull/N/merge and Gitea commonly exposes
+            # refs/pull/N/head; a glob refspec that matches no ref is tolerated
+            # by git (measured), so both are safe to request. If the requested
+            # SHA is still unreachable the checkout below hard-fails against it
+            # rather than testing a wrong tree.
             git -c protocol.version=2 fetch -q --no-tags --depth 1 origin \
               '+refs/heads/*:refs/remotes/origin/*' \
-              '+refs/pull/*/head:refs/remotes/pull/*'
+              '+refs/pull/*/head:refs/remotes/pull/*' \
+              '+refs/pull/*/merge:refs/remotes/pull-merge/*'
           fi
           git checkout -q --detach "${CI_COMMIT_SHA}"
           got="$(git rev-parse HEAD)"
@@ -127,7 +139,7 @@ jobs:
             exit 1
           fi
 
-      - name: Toolchain — cmake + ninja + binutils
+      - name: Toolchain — cmake + ninja + binutils + python3
         run: |
           set -eu
           # `command -v sudo` is not a sufficient test — sudo can exist and
@@ -138,16 +150,23 @@ jobs:
           elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
             APT="sudo -n apt-get"
           else
-            echo "::error::cannot install cmake/ninja: this runner is neither root nor"
-            echo "::error::passwordless-sudo. Install cmake, ninja-build and binutils on the"
-            echo "::error::runner image, or grant NOPASSWD in its sudoers."
+            echo "::error::cannot install cmake/ninja/python3: this runner is neither root nor"
+            echo "::error::passwordless-sudo. Install cmake, ninja-build, binutils and python3"
+            echo "::error::on the runner image, or grant NOPASSWD in its sudoers."
             exit 1
           fi
+          # python3 is REQUIRED, not incidental: main's jam-core/CMakeLists.txt
+          # registers jam.RhythmDerivedGenerator ONLY if find_package(Python3)
+          # succeeds, and otherwise silently omits it. Installing python3 here
+          # plus requiring that suite in step 3 is what stops the generator
+          # check from disappearing without a red job (see CI-SETUP §2.6).
           $APT update -qq
-          $APT install -y -qq --no-install-recommends cmake ninja-build binutils
+          $APT install -y -qq --no-install-recommends cmake ninja-build binutils python3
           command -v ninja
           cmake --version | head -1
           ninja --version
+          command -v python3
+          python3 --version
 
       - name: Configure, build and test all four tracker configurations
         run: |
@@ -160,14 +179,47 @@ jobs:
 
           # Core suites that must be registered in every configuration. Kept as a
           # fixed list on purpose: deleting a suite from a source file must turn
-          # this job red rather than silently reduce coverage. BackendRunner was
-          # added to main after this job's base commit, so it is required only when
-          # its source is present — hard-coding it would make the job red on the
-          # commit it is committed to.
+          # this job red rather than silently reduce coverage. Suites added to
+          # main after this branch's base are required only when their source (or
+          # their registration) is present, so the job is green on the commit it
+          # is committed to and stricter on main.
           CORE_SUITES="jam.AnalysisAudioRing jam.DrumTransportAdapter jam.MusicalClock jam.RhythmCorpus jam.RhythmEvalMetrics jam.RtSignal"
           if [ -f tests/jam/BackendRunnerTests.cpp ]; then
             CORE_SUITES="$CORE_SUITES jam.BackendRunner"
           fi
+          if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
+            CORE_SUITES="$CORE_SUITES jam.RhythmDerived"
+          fi
+          # jam.RhythmDerivedGenerator is registered by current main's
+          # jam-core/CMakeLists.txt only when Python3 is found; without the guard
+          # below a runner missing the interpreter would drop the generation
+          # check silently. The registration string in CMake is the marker that
+          # distinguishes main (require it) from this branch's base (do not).
+          if [ -f tools/rhythm-eval/tools/test_make_derived.py ] \
+             && grep -q 'RhythmDerivedGenerator' jam-core/CMakeLists.txt; then
+            CORE_SUITES="$CORE_SUITES jam.RhythmDerivedGenerator"
+          fi
+
+          # Run nm to a file and require BOTH a zero exit status AND at least one
+          # symbol line. `nm` exits 0 with empty output on an empty archive and
+          # exits 0 with "no symbols" on a stripped binary (both measured), so an
+          # exit-code-only check would falsely pass a corrupt or stub object.
+          nm_to_file() {
+            nm_out="$1"; shift
+            nm_status=0
+            nm -C "$@" > "$nm_out" 2>&1 || nm_status=$?
+            if [ "$nm_status" -ne 0 ]; then
+              echo "::error::$cfg: nm failed (exit ${nm_status}) on: $*"
+              sed 's/^/    nm: /' "$nm_out"
+              return 1
+            fi
+            if ! grep -Eq '^[0-9a-fA-F]+ [A-Za-z]|^ +U ' "$nm_out"; then
+              echo "::error::$cfg: nm produced no symbol lines for: $*"
+              sed 's/^/    nm: /' "$nm_out"
+              return 1
+            fi
+            return 0
+          }
 
           run_config() {
             cfg="$1"; bt="$2"; au="$3"
@@ -240,15 +292,63 @@ jobs:
 
             echo "-- licence boundary (jam-core and jamTests must be GPL-free in EVERY configuration)"
             command -v nm >/dev/null 2>&1 || { echo "::error::$cfg: nm missing"; return 1; }
+            nm_to_file "$cfg-core.nm" "$build/libjam-core.a" "$build/jamTests" || return 1
             # Strip nm's "path:" header lines: the build directory name is a
             # substring match for btrack/aubio and would otherwise be a false
-            # positive (measured while writing this job).
-            hits="$(nm -C "$build/libjam-core.a" "$build/jamTests" 2>/dev/null \
-                    | grep -Ev '^[^:]+:$' \
-                    | grep -c 'BTrack\|btrack::\|kiss_fft\|aubio' || true)"
+            # positive (measured while writing this job). Case-insensitive so a
+            # leaked BTrack (capital) or jam::AubioBackend cannot slip past a
+            # lowercase-only pattern.
+            hits="$(grep -Ev '^[^:]+:$' "$cfg-core.nm" | grep -Eci 'btrack|aubio|kiss_fft' || true)"
             if [ "${hits}" != "0" ]; then
               echo "::error::$cfg: ${hits} GPL tracker symbol(s) in libjam-core.a/jamTests — boundary broken"
+              grep -Ev '^[^:]+:$' "$cfg-core.nm" | grep -Ei 'btrack|aubio|kiss_fft' | head -20 | sed 's/^/    /'
               return 1
+            fi
+
+            # The ON half of the boundary: an enabled tracker must be REALLY
+            # linked, not a stub that registered a suite and linked nothing. The
+            # test binary must carry third-party symbols and the adapter archive
+            # must carry our adapter symbols. Real counts at the base commit:
+            # jamBTrackTests BTrack::=33 kiss_fft=5; jamAubioTests aubio_=136.
+            if [ "$bt" = "ON" ]; then
+              echo "-- BTrack is really linked (binaries + archive symbols)"
+              for f in "$build/jamBTrackTests" "$build/btrack/libjam-btrack.a" \
+                       "$build/btrack/libbtrack.a" "$build/btrack/libkiss_fft.a"; do
+                [ -e "$f" ] || { echo "::error::$cfg: $f missing though JAM_ENABLE_BTRACK=ON"; return 1; }
+              done
+              nm_to_file "$cfg-btrack-bin.nm" "$build/jamBTrackTests" || return 1
+              n_class="$(grep -Ec 'BTrack::' "$cfg-btrack-bin.nm" || true)"
+              n_kiss="$(grep -Ec 'kiss_fft' "$cfg-btrack-bin.nm" || true)"
+              if [ "${n_class}" -lt 1 ] || [ "${n_kiss}" -lt 1 ]; then
+                echo "::error::$cfg: jamBTrackTests lacks BTrack/kiss_fft symbols (BTrack::=${n_class}, kiss_fft=${n_kiss}); ON is a no-op"
+                return 1
+              fi
+              nm_to_file "$cfg-btrack-adapt.nm" "$build/btrack/libjam-btrack.a" || return 1
+              n_adapter="$(grep -Ec 'jam::BTrackBackend' "$cfg-btrack-adapt.nm" || true)"
+              if [ "${n_adapter}" -lt 1 ]; then
+                echo "::error::$cfg: btrack/libjam-btrack.a has no jam::BTrackBackend symbols"
+                return 1
+              fi
+            fi
+
+            if [ "$au" = "ON" ]; then
+              echo "-- aubio is really linked (binaries + archive symbols)"
+              for f in "$build/jamAubioTests" "$build/aubio/libjam-aubio.a" \
+                       "$build/aubio/libaubio.a"; do
+                [ -e "$f" ] || { echo "::error::$cfg: $f missing though JAM_ENABLE_AUBIO=ON"; return 1; }
+              done
+              nm_to_file "$cfg-aubio-bin.nm" "$build/jamAubioTests" || return 1
+              n_aub="$(grep -Ec 'aubio_' "$cfg-aubio-bin.nm" || true)"
+              if [ "${n_aub}" -lt 1 ]; then
+                echo "::error::$cfg: jamAubioTests lacks aubio_ symbols (${n_aub}); ON is a no-op"
+                return 1
+              fi
+              nm_to_file "$cfg-aubio-adapt.nm" "$build/aubio/libjam-aubio.a" || return 1
+              n_adapter="$(grep -Ec 'jam::AubioBackend' "$cfg-aubio-adapt.nm" || true)"
+              if [ "${n_adapter}" -lt 1 ]; then
+                echo "::error::$cfg: aubio/libjam-aubio.a has no jam::AubioBackend symbols"
+                return 1
+              fi
             fi
 
             if [ "$bt" = "OFF" ] && [ "$au" = "OFF" ]; then
@@ -288,8 +388,9 @@ jobs:
         run: |
           set -eu
           cd "$CI_WORKDIR"
-          # 2 MiB cap per log; the tail of a ctest log is the useful part.
-          for log in *-configure.log *-build.log *-ctest.log; do
+          # 2 MiB cap per log; the tail of a ctest log is the useful part. The
+          # *.nm files are the captured nm output for the boundary checks.
+          for log in *-configure.log *-build.log *-ctest.log *.nm; do
             [ -f "$log" ] || continue
             size="$(wc -c < "$log")"
             echo "----- $log ($size bytes) -----"
