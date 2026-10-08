@@ -274,7 +274,68 @@
   "repaired": {
     "durationSeconds": 11.35,
     "floorDbfs": -65.7797,
+    "grossStepGuardBound": 0.9,
     "maxAbsSampleStep": 0.154205,
+    "onsetEnvelope": {
+      "minRiseAt10msDb": 36.6514,
+      "offsetsSeconds": [
+        0.002,
+        0.005,
+        0.01,
+        0.02,
+        0.05
+      ],
+      "perOnset": [
+        {
+          "levelDbfsAtOffset": {
+            "0.002": -21.6238,
+            "0.005": -21.2627,
+            "0.01": -21.0394,
+            "0.02": -22.0907,
+            "0.05": -18.5814
+          },
+          "onsetSeconds": 0.345645334,
+          "pre10msDbfs": -67.6648,
+          "riseAt10msDb": 46.6254
+        },
+        {
+          "levelDbfsAtOffset": {
+            "0.002": -21.5375,
+            "0.005": -22.4975,
+            "0.01": -21.9417,
+            "0.02": -23.3614,
+            "0.05": -19.0194
+          },
+          "onsetSeconds": 2.855720545,
+          "pre10msDbfs": -59.4699,
+          "riseAt10msDb": 37.5282
+        },
+        {
+          "levelDbfsAtOffset": {
+            "0.002": -22.2307,
+            "0.005": -22.7792,
+            "0.01": -22.7028,
+            "0.02": -21.3175,
+            "0.05": -17.6617
+          },
+          "onsetSeconds": 5.341555485,
+          "pre10msDbfs": -59.3542,
+          "riseAt10msDb": 36.6514
+        },
+        {
+          "levelDbfsAtOffset": {
+            "0.002": -21.4777,
+            "0.005": -21.0945,
+            "0.01": -20.8343,
+            "0.02": -22.6479,
+            "0.05": -19.7175
+          },
+          "onsetSeconds": 7.842999215,
+          "pre10msDbfs": -58.3853,
+          "riseAt10msDb": 37.551
+        }
+      ]
+    },
     "persistence": {
       "belowThresholdCount": 0,
       "offsetsSeconds": [

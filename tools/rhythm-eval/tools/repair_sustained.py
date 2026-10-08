@@ -37,14 +37,19 @@ shortens the low-E decay to ~0.55 s effective. This tool re-renders the exact
 same event list (same RNG, same humanised times, same chords, same meter, same
 duration) with:
 
-    mix_t60   = 1.0   (the model's own free-string T60 table, not 0.6 trim)
+    mix_t60   = 1.0   (the model's own free-string T60 table, not the 0.6 trim)
     t60_scale = 1.0   (the per-event "decay shorter than the bar" trim removed)
 
-so the envelope is the physical string decay rather than a fabricated short
-pulse. The event times, beat grid, meter, chord shapes, velocities and duration
-are byte-for-byte the ones the base generator computed; only the decay time
-constant changes. Measured with the independent PCM audit below, every onset is
-still acoustically present at +0.5 s and +1.5 s after the attack.
+This produces a **long-decay synthetic fixture** rather than the base
+short-pulse one. The synthesis inputs other than those two decay parameters are
+unchanged, but the rendered waveform and its normalisation differ, so no claim
+is made that amplitude or transient shape is unchanged -- only that the event
+times, beat grid, meter, chord shapes, velocities and duration are the base
+generator's. Measured with the independent PCM audit below, every declared
+onset is still acoustically present at +0.5 s and +1.5 s after the attack.
+
+This is a corpus-validity fix, not a claim of physical realism or of a real
+performance: the source is still the synthetic EVAL-001 model.
 
 INDEPENDENT ACOUSTIC-SILENCE DERIVATION
 ---------------------------------------
@@ -73,14 +78,16 @@ DETERMINISM
 -----------
 Standard library only. The re-synthesis uses the base generator's own seeded
 `random.Random` and its own float->PCM16 quantiser, so regenerating twice is
-byte-identical. `--check` regenerates into a scratch directory and compares
-SHA-256 against the committed manifest.
+byte-identical. `--check` regenerates into a scratch directory and compares the
+manifest (after normalising layout-dependent reference paths) and the WAV bytes
+against the committed output, and re-runs the fixture validators.
 
 USAGE
 -----
     python3 tools/rhythm-eval/tools/repair_sustained.py            # build
     python3 tools/rhythm-eval/tools/repair_sustained.py --check    # verify
-    python3 tools/rhythm-eval/tools/repair_sustained.py --audit    # print audit
+    python3 tools/rhythm-eval/tools/repair_sustained.py --audit    # PCM audit
+    python3 tools/rhythm-eval/tools/repair_sustained.py --compare  # CLI deltas
 """
 
 import argparse
@@ -134,10 +141,12 @@ SILENCE_MIN_SECONDS = 0.25
 PERSISTENCE_OFFSETS = (0.5, 1.5)
 PERSISTENCE_WINDOW_SECONDS = 0.050
 
-#: Continuity bound: the largest permitted single-sample step in the repaired
-#: file, as a fraction of full scale. A genuine band-limited pluck never steps
-#: this far between adjacent 48 kHz samples; an edit/splice that inserts a click
-#: does. Measured max step on the committed repair is reported by `--audit`.
+#: Gross-step guard: the largest permitted single-sample step in the repaired
+#: file, as a fraction of full scale. This rejects an edit/splice that inserts a
+#: gross click; it does NOT prove the absence of audible clicks or of an onset
+#: discontinuity, because a band-limited transient can legitimately move several
+#: tenths of full scale between adjacent 48 kHz samples. The raw measured value
+#: is reported by `--audit` and the descriptive onset-local envelope audit below.
 MAX_SAMPLE_STEP = 0.90
 
 #: Output file naming.
@@ -162,6 +171,31 @@ def sha256_of(path):
 def canonical_json(obj):
     return json.dumps(obj, sort_keys=True, separators=(",", ":"),
                       ensure_ascii=True) + "\n"
+
+
+def relative_reference(abs_target, out_dir):
+    """POSIX relative path from `out_dir` to an absolute target.
+
+    Used so the referenced original fixtures resolve correctly for ANY `--out`,
+    not only the committed directory. With the default output directory this
+    yields the committed `../wav/<name>.wav` form."""
+    rel = os.path.relpath(os.path.abspath(abs_target), os.path.abspath(out_dir))
+    return rel.replace(os.sep, "/")
+
+
+def canonical_reference_paths(manifest):
+    """Return a copy of a repaired manifest with every referenced (non-replaced)
+    fixture's `file` normalised to the canonical `../wav/<name>.wav` form.
+
+    `build()` emits references relative to its actual `--out`; `--check`
+    regenerates into a scratch directory, so its references legitimately differ.
+    Normalising both sides makes the comparison about content, not layout."""
+    import copy
+    normalized = copy.deepcopy(manifest)
+    for fixture in normalized["fixtures"]:
+        if fixture["name"] != REPLACED_FIXTURE:
+            fixture["file"] = "../wav/" + os.path.basename(fixture["file"])
+    return normalized
 
 
 def load_base_generator(path=BASE_GENERATOR):
@@ -366,13 +400,60 @@ def validate_no_clipping(signal_stats):
                              % signal_stats["peakDbfs"])
 
 
-def validate_continuity(samples, max_step=MAX_SAMPLE_STEP):
-    """The repaired WAV must be a continuous waveform with no edit/splice step."""
+def validate_gross_step_guard(samples, max_step=MAX_SAMPLE_STEP):
+    """Reject a gross edit/splice step. This is a gross-step guard only; passing
+    it is not a claim that no audible click or onset discontinuity is present.
+    The raw measured value is returned for reporting."""
     step = max_abs_sample_step(samples)
     if step > max_step:
-        raise AssertionError("sample step %.4f exceeds continuity bound %.4f"
+        raise AssertionError("gross sample step %.4f exceeds guard bound %.4f"
                              % (step, max_step))
     return step
+
+
+def onset_envelope_audit(samples, sr, onsets,
+                         offsets=(0.002, 0.005, 0.010, 0.020, 0.050)):
+    """Descriptive, independent onset-local envelope audit.
+
+    For each declared onset it measures the short-window (10 ms) RMS before the
+    attack and at a set of offsets after it, and reports the rise. This makes the
+    attack's presence in the committed audio checkable without asserting an
+    arbitrary dB value as a physical law. `minRiseAt10msDb` is the weakest
+    measured attack; a positive value means every declared onset is an actual
+    energy rise rather than a label on silence.
+    """
+    rows = []
+    for t in onsets:
+        pre = window_rms_db(samples, sr, t - 0.010, t)
+        levels = {off: round(window_rms_db(samples, sr, t + off,
+                                           t + off + 0.010), 4)
+                  for off in offsets}
+        rows.append({
+            "onsetSeconds": round(t, 9),
+            "pre10msDbfs": round(pre, 4),
+            "riseAt10msDb": round(levels[0.010] - pre, 4),
+            "levelDbfsAtOffset": levels,
+        })
+    return {
+        "offsetsSeconds": list(offsets),
+        "minRiseAt10msDb": round(min((r["riseAt10msDb"] for r in rows),
+                                     default=0.0), 4),
+        "perOnset": rows,
+    }
+
+
+def validate_onset_attacks_present(samples, sr, onsets):
+    """Every declared onset must be a measurable energy rise in the audio.
+
+    This is a presence check (rise > 0), not a physical-law threshold: the
+    magnitude is reported by `onset_envelope_audit` and asserted separately for
+    persistence."""
+    audit = onset_envelope_audit(samples, sr, onsets)
+    weak = [r for r in audit["perOnset"] if r["riseAt10msDb"] <= 0.0]
+    if weak:
+        raise AssertionError(
+            "declared onset has no measurable attack: %r" % weak)
+    return audit
 
 
 def validate_duration(duration_seconds, expected_seconds, tolerance=1e-6):
@@ -483,15 +564,29 @@ def build_repaired_entry(base_generator, base_entry, out_dir, base_manifest_sha)
     validate_true_silence_spans(spans, entry["onsets"], duration)
     entry["trueSilenceSpans"] = spans
 
+    # Self-validation: the generated fixture is accepted only if the physical
+    # checks pass. These are the same functions the test suite exercises, so a
+    # bad render fails the build/`--check` rather than shipping.
+    validate_duration(duration, base_entry["durationSeconds"])
+    validate_no_clipping(stats)
+    gross_step = validate_gross_step_guard(samples)
+    threshold_db = silence_audit["soundingThresholdDbfs"]
+    persistence = validate_persistence(samples, SAMPLE_RATE,
+                                       entry["onsets"], threshold_db)
+    envelope = validate_onset_attacks_present(samples, SAMPLE_RATE,
+                                              entry["onsets"])
+
     # Keep the *conceptual* missing-onset spans untouched (they are a different
     # field): only the acoustic-silence field is recomputed.
     entry["provenance"] = (
-        "EVAL-006 scoped replacement of `%s` by %s v%s. Re-synthesised with the "
-        "committed EVAL-001 generator's own Karplus-Strong model and seeded RNG "
-        "(%s), with the artificial per-event decay trim removed: mix_t60=%s, "
-        "event t60_scale=%s. Event times, beat grid, meter and duration are "
-        "identical to the base fixture; only the decay time constant and the "
-        "byte-identical audio change. Base WAV sha256 %s. No third-party, "
+        "EVAL-006 scoped replacement of `%s` by %s v%s. Re-synthesised by the "
+        "committed EVAL-001 generator with its own Karplus-Strong model, seeded "
+        "RNG (%s) and capture chain. The synthesis inputs other than the two "
+        "decay parameters are unchanged: mix_t60=%s (was 0.6) and event "
+        "t60_scale=%s (was ~0.217). The rendered waveform and its normalisation "
+        "therefore differ, and no claim is made that amplitude or transient "
+        "shape is unchanged. Event times, beat grid, meter and duration are "
+        "identical to the base fixture. Base WAV sha256 %s. No third-party, "
         "commercial or otherwise copyrighted audio was used, read or derived "
         "from."
         % (REPLACED_FIXTURE, GENERATOR_NAME, GENERATOR_VERSION,
@@ -517,6 +612,10 @@ def build_repaired_entry(base_generator, base_entry, out_dir, base_manifest_sha)
             "peakDbfs": stats["peakDbfs"],
             "rmsDbfs": stats["rmsDbfs"],
             "clippedSampleFraction": stats["clippedSampleFraction"],
+            "maxAbsSampleStep": round(gross_step, 6),
+            "grossStepGuardBound": MAX_SAMPLE_STEP,
+            "persistence": persistence,
+            "onsetEnvelope": envelope,
         },
         "trueSilenceAudit": silence_audit,
     }
@@ -547,11 +646,13 @@ def build(base_dir=BASE_CORPUS_DIR, out_dir=DEFAULT_OUT_DIR, verbose=True):
         if fixture["name"] == REPLACED_FIXTURE:
             entries.append(repaired_entry)
         else:
-            # Reference the untouched original by relative path. Every truth
-            # and hash field is inherited, so the eighteen original WAVs and
-            # their manifest records are preserved exactly.
+            # Reference the untouched original by relative path computed from
+            # the ACTUAL output directory, so a custom `--out` still resolves.
+            # Every truth and hash field is inherited, so the eighteen original
+            # WAVs and their manifest records are preserved exactly.
             referenced = dict(fixture)
-            referenced["file"] = "../" + fixture["file"]
+            referenced["file"] = relative_reference(
+                os.path.join(base_dir, fixture["file"]), out_dir)
             referenced["referencedFrom"] = "eval001-guitar-corpus"
             entries.append(referenced)
 
@@ -582,9 +683,10 @@ def build(base_dir=BASE_CORPUS_DIR, out_dir=DEFAULT_OUT_DIR, verbose=True):
             "description": (
                 "EVAL-006 scoped sustain repair. Eighteen unchanged EVAL-001 "
                 "fixtures referenced by relative path, plus a re-synthesised "
-                "`sustained_chords` whose chord envelopes follow the physical "
-                "model's free-string decay. Not a replacement for the EVAL-001 "
-                "corpus and not gate-G3 evidence on its own."),
+                "long-decay `sustained_chords` using the model's own free-string "
+                "T60 instead of the artificial short trim. Synthetic, not a real "
+                "performance; not a replacement for the EVAL-001 corpus and not "
+                "gate-G3 evidence on its own."),
             "profile": "repaired-sustain",
             "baseCorpusId": base_manifest.get("corpus", {}).get("id", ""),
             "baseManifestSha256": base_manifest_sha,
@@ -654,7 +756,11 @@ def check(base_dir=BASE_CORPUS_DIR, out_dir=DEFAULT_OUT_DIR, verbose=True):
         committed = json.load(fh)
     with tempfile.TemporaryDirectory(prefix="eval006-check-") as tmp:
         manifest, _ = build(base_dir, tmp, verbose=False)
-        if canonical_json(manifest) != canonical_json(committed):
+        # `build` writes references relative to its actual --out, which for a
+        # scratch directory is not the committed layout; compare content after
+        # normalising that representation (see canonical_reference_paths).
+        if canonical_json(canonical_reference_paths(manifest)) != \
+                canonical_json(canonical_reference_paths(committed)):
             print("repaired corpus manifest is NOT reproducible")
             return 1
         # Also compare the WAV bytes.
@@ -691,12 +797,15 @@ def audit(base_dir=BASE_CORPUS_DIR, out_dir=DEFAULT_OUT_DIR):
             "durationSeconds": repaired_entry["durationSeconds"],
             "signal": repaired_entry["signal"],
             "maxAbsSampleStep": round(max_abs_sample_step(samples), 6),
+            "grossStepGuardBound": MAX_SAMPLE_STEP,
             "silenceThresholdDbfs": round(threshold, 4),
             "refDbfs": round(ref, 4),
             "floorDbfs": round(floor, 4),
             "trueSilenceSpans": repaired_entry["trueSilenceSpans"],
             "persistence": persistence_report(samples, SAMPLE_RATE,
                                               repaired_entry["onsets"], threshold),
+            "onsetEnvelope": onset_envelope_audit(samples, SAMPLE_RATE,
+                                                  repaired_entry["onsets"]),
         },
         "base": {},
     }

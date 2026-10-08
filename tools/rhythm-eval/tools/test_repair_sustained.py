@@ -25,6 +25,7 @@ Run:  python3 tools/rhythm-eval/tools/test_repair_sustained.py
 
 import importlib.util
 import json
+import math
 import os
 import subprocess
 import sys
@@ -194,11 +195,22 @@ class AcousticRepair(Base):
         self.assertEqual(self.repaired_sustained["signal"][
             "clippedSampleFraction"], 0.0)
 
-    def test_no_onset_discontinuity(self):
-        step = RS.validate_continuity(self.repaired_samples)
+    def test_gross_step_guard(self):
+        # A labelled gross-step guard, not a proof of "no audible clicks": it
+        # rejects a gross edit/splice step only.
+        step = RS.validate_gross_step_guard(self.repaired_samples)
         self.assertLessEqual(step, RS.MAX_SAMPLE_STEP)
-        # A real waveform, not silence padded at the onsets.
         self.assertGreater(step, 0.0)
+        self.assertIn("maxAbsSampleStep", self.repaired_sustained["replacement"]["measured"])
+
+    def test_onset_local_envelope_has_a_measurable_attack(self):
+        audit = RS.validate_onset_attacks_present(
+            self.repaired_samples, RS.SAMPLE_RATE,
+            self.repaired_sustained["onsets"])
+        # Presence check (rise > 0), not an arbitrary physical-law threshold.
+        self.assertGreater(audit["minRiseAt10msDb"], 0.0)
+        for row in audit["perOnset"]:
+            self.assertGreater(row["riseAt10msDb"], 0.0)
 
     def test_repair_changes_only_the_envelope_not_the_events(self):
         # Both files have the same number of declared onsets and the same grid.
@@ -292,12 +304,12 @@ class ValidatorsCanFail(Base):
             RS.validate_persistence(samples, RS.SAMPLE_RATE,
                                     self.repaired_sustained["onsets"], threshold)
 
-    def test_continuity_validator_rejects_an_injected_splice(self):
+    def test_gross_step_guard_rejects_an_injected_splice(self):
         samples = list(self.repaired_samples)
         i = len(samples) // 2
         samples[i + 1] = samples[i] + 0.95
         with self.assertRaises(AssertionError):
-            RS.validate_continuity(samples)
+            RS.validate_gross_step_guard(samples)
 
     def test_clipping_validator_rejects_clipped_audio(self):
         with self.assertRaises(AssertionError):
@@ -420,12 +432,41 @@ class Reproducibility(Base):
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.assertEqual(proc.returncode, 0, proc.stderr.decode())
             produced = load_json(os.path.join(out, "manifest.json"))
+            # References are emitted relative to the actual --out, so compare
+            # content after normalising that layout-dependent representation.
             self.assertEqual(
-                RS.canonical_json(produced),
-                RS.canonical_json(self.repaired))
+                RS.canonical_json(RS.canonical_reference_paths(produced)),
+                RS.canonical_json(RS.canonical_reference_paths(self.repaired)))
             self.assertEqual(
                 RS.sha256_of(os.path.join(out, RS.REPAIRED_WAV_NAME)),
                 RS.sha256_of(self.repaired_path))
+
+    def test_custom_out_resolves_and_hashes_all_nineteen_entries(self):
+        # The advertised `--out` must produce a corpus whose every entry
+        # resolves from that directory and hashes to its declared digest.
+        with tempfile.TemporaryDirectory(prefix="eval006-custom-") as tmp:
+            out = os.path.join(tmp, "custom-corpus")
+            proc = subprocess.run(
+                [sys.executable, SCRIPT, "--base", BASE_DIR, "--out", out,
+                 "--quiet"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(proc.returncode, 0, proc.stderr.decode())
+            produced = load_json(os.path.join(out, "manifest.json"))
+            self.assertEqual(len(produced["fixtures"]), 19)
+            self.assertTrue(os.path.isfile(
+                os.path.join(out, RS.REPAIRED_WAV_NAME)))
+            for entry in produced["fixtures"]:
+                target = os.path.normpath(os.path.join(out, entry["file"]))
+                self.assertTrue(os.path.isfile(target),
+                                "%s -> %s" % (entry["name"], target))
+                self.assertEqual(RS.sha256_of(target), entry["sha256"],
+                                 entry["name"])
+                self.assertEqual(os.path.getsize(target), entry["bytes"],
+                                 entry["name"])
+            # The 18 referenced paths are outside `out` but correctly relative.
+            ref = [e for e in produced["fixtures"]
+                   if e["name"] != RS.REPLACED_FIXTURE][0]
+            self.assertIn("..", ref["file"])
 
     def test_audit_runs_and_reports_both_fixtures(self):
         a = RS.audit(BASE_DIR, REPAIRED_DIR)
@@ -433,6 +474,79 @@ class Reproducibility(Base):
         self.assertIn("sustained_chords", a["base"])
         self.assertIn("tapping_muting_only", a["base"])
         self.assertEqual(a["base"]["tapping_muting_only"]["onsetCount"], 30)
+        self.assertGreater(a["repaired"]["onsetEnvelope"]["minRiseAt10msDb"], 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Physical bytes: corrupt / truncated files are detected
+# ---------------------------------------------------------------------------
+
+class PhysicalByteFailures(Base):
+
+    def _write_wav(self, path, samples):
+        import struct
+        import wave
+        frames = bytearray()
+        for v in samples:
+            if v > 1.0:
+                v = 1.0
+            elif v < -1.0:
+                v = -1.0
+            frames += struct.pack("<h", int(round(v * 32767.0)))
+        with wave.open(path, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(RS.SAMPLE_RATE)
+            w.writeframes(bytes(frames))
+
+    def test_truncated_physical_wav_fails_the_duration_check(self):
+        with tempfile.TemporaryDirectory(prefix="eval006-trunc-") as tmp:
+            path = os.path.join(tmp, "trunc.wav")
+            self._write_wav(path, self.repaired_samples[:100000])
+            samples = RS.read_pcm16(path)
+            duration = len(samples) / float(RS.SAMPLE_RATE)
+            with self.assertRaises(AssertionError):
+                RS.validate_duration(duration,
+                                     self.repaired_sustained["durationSeconds"])
+
+    def test_clipped_physical_wav_fails_the_no_clipping_check(self):
+        with tempfile.TemporaryDirectory(prefix="eval006-clip-") as tmp:
+            path = os.path.join(tmp, "clip.wav")
+            clipped = [1.0 if v > 0.5 else (-1.0 if v < -0.5 else v)
+                       for v in self.repaired_samples]
+            self._write_wav(path, clipped)
+            samples = RS.read_pcm16(path)
+            stats = {
+                "clippedSampleFraction": sum(
+                    1 for v in samples if abs(v) >= 32760.0 / 32768.0
+                ) / float(len(samples)),
+                "peakDbfs": 20.0 * math.log10(max(abs(v) for v in samples)),
+            }
+            with self.assertRaises(AssertionError):
+                RS.validate_no_clipping(stats)
+
+    def test_spliced_physical_wav_fails_the_gross_step_guard(self):
+        with tempfile.TemporaryDirectory(prefix="eval006-splice-") as tmp:
+            path = os.path.join(tmp, "splice.wav")
+            samples = list(self.repaired_samples)
+            i = len(samples) // 2
+            samples[i + 1] = samples[i] + 0.95
+            self._write_wav(path, samples)
+            read_back = RS.read_pcm16(path)
+            with self.assertRaises(AssertionError):
+                RS.validate_gross_step_guard(read_back)
+
+    def test_wrong_sample_rate_wav_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix="eval006-rate-") as tmp:
+            path = os.path.join(tmp, "rate.wav")
+            import wave
+            with wave.open(path, "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(44100)
+                w.writeframes(b"\x00\x00" * 1000)
+            with self.assertRaises(SystemExit):
+                RS.read_pcm16(path)
 
 
 if __name__ == "__main__":
