@@ -12,6 +12,69 @@ struct QuietTracker final : jam::IRhythmTracker
     jam::RhythmObservation process (const jam::AnalysisFrame&) override
     { return {}; }
 };
+
+void checkCoalescedStopStart (jam::JamLiveCommandType stopType)
+{
+    jam::LiveJamSession session;
+    REQUIRE (session.setTracker (std::make_unique<QuietTracker>(), jam::JamLiveBackend::injectedTest));
+    REQUIRE (session.prepare (48000.0, 512, false));
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::Start, 0.0 }));
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::TapTempo, 0.0 }));
+    session.stepControlForTesting();
+    session.publishAudioCursor (24000);
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::TapTempo, 0.0 }));
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::SetFillAmount, 0.0 }));
+    session.stepControlForTesting();
+    jam::DrumClockCommand command;
+    while (session.drumCommandQueue().pop (command)) {}
+    jam::DrumPlaybackEcho echo;
+    echo.sessionGeneration = session.currentGeneration();
+    echo.attached = echo.injectedActive = echo.injectedPlaying = true;
+    echo.samplePosition = 24512;
+    echo.groove = 0;
+    session.publishDrumEcho (echo);
+    session.publishAudioCursor (24512);
+    jam::ObservationEnvelope evidence;
+    evidence.observation.inputSampleTime = 24512;
+    evidence.observation.sourceSampleRate = evidence.sourceSampleRate = 48000.0;
+    evidence.observation.bpmCandidate = 120.0f;
+    evidence.observation.beatConfidence01 = 0.99f;
+    evidence.observation.energyRmsDbfs = -20.0f;
+    evidence.inputHorizonSampleTime = evidence.blockStartSampleTime = 24512;
+    evidence.streamGeneration = 1;
+    session.injectObservationForTesting (evidence);
+    session.stepControlForTesting();
+    while (session.drumCommandQueue().pop (command)) {}
+
+    REQUIRE (session.submitCommand ({ stopType, 0.0 }));
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::Start, 0.0 }));
+    session.publishAudioCursor (25024);
+    session.stepControlForTesting();
+    while (session.drumCommandQueue().pop (command))
+        CHECK (command.type != jam::DrumClockCommandType::Clear
+               && command.type != jam::DrumClockCommandType::StopAtBar);
+    REQUIRE (session.submitCommand ({ jam::JamLiveCommandType::RequestFill, 0.0 }));
+    session.publishAudioCursor (25536);
+    session.stepControlForTesting();
+    bool fill = false;
+    while (session.drumCommandQueue().pop (command))
+        fill = fill || (command.type == jam::DrumClockCommandType::BarChange && command.fill >= 0);
+    CHECK (fill);
+    jam::JamLiveState state;
+    REQUIRE (session.readState (state));
+    CHECK (state.requestedRunning && state.drumsPlaying);
+    CHECK (state.clock.lockState == jam::ClockLockState::Locked);
+}
+}
+
+JAM_TEST (AdaptiveLiveSession, sameTickStopStartKeepsDirectorResponsive)
+{
+    checkCoalescedStopStart (jam::JamLiveCommandType::Stop);
+}
+
+JAM_TEST (AdaptiveLiveSession, sameTickBarStopStartKeepsDirectorResponsive)
+{
+    checkCoalescedStopStart (jam::JamLiveCommandType::StopAtNextBar);
 }
 
 JAM_TEST (AdaptiveLiveSession, selectedStyleJoinsAndFillWaitsForActualPlayback)

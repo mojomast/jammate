@@ -478,9 +478,11 @@ void LiveJamSession::updatePerformance (std::uint64_t cursor, bool discontinuity
     const auto snapshot = clock_.snapshot();
     const bool playing = lastEcho_.attached && lastEcho_.injectedActive && lastEcho_.injectedPlaying;
     const bool allowed = policy_.requestedRunning() && ! policy_.stopPending();
-    // Re-arm after an actual stopped echo, including Start while a previously
-    // accepted Stop is still completing. The join policy remains the authority.
-    if (director_.state() == DirectorState::Stopping && ! playing && ! policy_.stopPending())
+    // Resolve either an actual completed stop or a stop intent cancelled by a
+    // same-tick Start before publication. An accepted stop remains pending until
+    // the stopped echo, so Start cannot bypass that lifecycle boundary.
+    if (director_.state() == DirectorState::Stopping && ! policy_.stopPending()
+        && (! playing || policy_.requestedRunning()))
         director_.notifyStopCompleted();
     if (allowed)
         director_.notifySessionStarted();
