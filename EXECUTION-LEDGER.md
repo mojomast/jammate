@@ -38,8 +38,8 @@ PARTIAL, never PASSED.
 | **G2** new module seams | **PARTIAL (advanced early)** | analyzer/clock/processor/editor connected and actual lifecycle/audio proof accepted; broader seam/host coverage remains open |
 | **G3** tracker selected | **IN PROGRESS (advanced early)** | frozen stability candidate recovers diagnostic regressions in preserved matrix; representative guitar useful-lock evidence and production selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | actual003 initial/restarted joins, stops, resync, release and drum-only output pass; broader musical/physical acceptance remains open |
-| **G5** adaptive drummer | **PARTIAL (integration)** | six prepared4/4 styles and dynamics render; measured one-bar fill regression under repair; broader musical acceptance remains open |
-| **G6/G7** UX / release | **PARTIAL UX / release open** | real Jam controls fit1100×700 and20 UI cases pass; physical play/release acceptance remains open |
+| **G5** adaptive drummer | **PARTIAL (software integrated)** | six prepared4/4 styles, dynamics and one-bar fills pass actual006; broader musical play acceptance remains open |
+| **G6/G7** UX / release | **PARTIAL UX / release open** | real adaptive Jam controls and22 UI cases pass; physical play/release acceptance remains open |
 
 ### Scheduled deviations (orchestrator-authorised, recorded)
 
@@ -84,7 +84,7 @@ PARTIAL, never PASSED.
     No production analyzer/clock/editor integration is authorised by this task;
     full DIAG-001 stays partial until that integration and overhead are measured.
 
-### Active adaptive/evaluation/device wave (base `c8f87a8`, 2026-10-08)
+### Completed adaptive/evaluation/device software wave (base `c8f87a8`, 2026-10-08)
 
 The user authorised Flash subagents to build the remaining work. Four isolated
 workers use `opencode-go/deepseek-v4.1-flash`; contract:
@@ -95,7 +95,7 @@ measurements and are not closed by software or synthetic tests.
 | Task | State | Worktree / ownership |
 |---|---|---|
 | STYLE-DIRECTOR-002 | ACCEPTED/MERGED `3293026`, worker `ses_ee48b3de2ffe1Y3nPOHAj9Hrks` | `../worktrees/STYLE-DIRECTOR-002`; new catalog/director and portable tests |
-| DRUM-ADAPT-002 | MERGED `e0eba66`; measured integration fill repair active | `../worktrees/DRUM-ADAPT-002`; bridge/engine adaptation and actual-engine tests |
+| DRUM-ADAPT-002 | ACCEPTED/MERGED `249c548`, worker `ses_ee48af76cffe2JZ2Uc0FTbgI1S` | `../worktrees/DRUM-ADAPT-002`; bridge/engine adaptation and actual-engine tests |
 | EVAL-GUITAR-009 | ACCEPTED/MERGED `89ec9e8`, worker `ses_ee48ab4e4ffe1yZOM5auV6mf2P` | `../worktrees/EVAL-GUITAR-009`; representative-guitar import/useful-lock evaluation |
 | DEVICE-002 | ACCEPTED/MERGED `ecdd79a`, worker `ses_ee48a7730ffe4JXF99n4BDv8R4` | `../worktrees/DEVICE-002`; physical-device/play evidence tooling |
 
@@ -178,6 +178,39 @@ runs are preserved. The engine worker is repairing the demonstrated playback
 defect; replay acceptance and publication wait on that correction. The duration
 tolerance and production policies are unchanged. Guitar and physical gates stay
 open.
+
+#### Accepted adaptive delivery
+
+`249c548` repairs the demonstrated post-resync grid mismatch and defers fill
+reversion until the next downbeat. The original fill regressions fail on the
+pre-fix code;101 instrumented/98 normal actual-engine cases,47 portable cases
+and the worker's28 core suites pass. All four final portable configurations
+are rebuilt; nine affected suites pass in each. The final Linux product
+Standalone/VST3 build and45/45 registered suites pass with the repair.
+
+Actual006 at clean `34736bae9d9a7c30dc2f5f2a5efd0b24f7d8c74b` passes76/76
+assertions.3050 callbacks render2862 nonzero blocks; all six settled styles
+belong to their catalogues; fill95744 samples meets the original96000 +/-512
+criterion; Stop/release, audio-owner echo and no rejected adaptive commands
+pass. The callback-thread probe detects zero allocations, frees, locks or waits.
+Independent review `ses_ee4675069ffeQlpyPaxLgY5olZ` ACCEPTS engine `249c548`,
+harness `ca80608` and actual006, reproduces the result and verifies all59 source,
+header/tool hashes. The95744 observed duration reflects block-boundary/float
+resolution;16 fill steps precede the next-downbeat reversion.
+
+All measured replay receipts, including both failures, are retained in
+`docs/research/adaptive-jam-replay/`. The Linux adaptive hosted CI job builds
+the real product and repeats the callback-probed replay with retained artifacts.
+Independent review records non-blocking follow-ups for beat-resync plus staged
+tempo, restaging an already-queued change across a later resync, and guarding
+misaligned Params-only re-anchors. Those paths are not covered by actual006's
+frozen-tempo receipt; broader timing/play acceptance stays open.
+
+The user confirmed no representative recordings or hardware measurements are
+available yet and chose publication with those gates open. Experimental BTrack
+remains the default; no production tracker, physical latency, Windows-ASIO or
+release-binary acceptance is claimed. Documentation and hosted CI publication
+are the remaining delivery bookkeeping; worker builds and reviews are complete.
 
 ### Completed live-Jam wave (base `88893e2`, 2026-10-08)
 

@@ -20,9 +20,21 @@ receipts identify the original environment, not portable setup instructions.
 |---|---|---|---|
 | actual004 | `a2f9362` | **FAIL** | All six styles render, dynamics reach the audio owner, fill/echo occur and callback probe is clean; fill lasts92672 samples, outside96000 +/-512. Candidate120 BPM did not establish clock tempo. |
 | actual005 | `26480c5` | **FAIL** | Acknowledged taps and Freeze establish119.680851 BPM; all other assertions pass, but fill lasts11264 samples. Engine repair is required. |
+| actual006 | `34736ba` | **PASS (76 assertions)** | Post-resync join/grid and fill-downbeat repair `249c548`; six audible styles, applied dynamics, fill95744 samples within the original96000 +/-512 criterion, Stop/release and callback probe pass. |
 
-These failed runs are not acceptance evidence. No tolerances or production
+Independent read-only review accepts actual006 and reproduces the result;
+all59 fresh-source/header/tool hashes match its committed source. The engine
+repair, source closure and instrumentation self-check are independently verified.
+
+The two failed runs are not acceptance evidence. No tolerances or production
 clock policies were relaxed in response to either failure.
+
+In actual006,3050 callbacks render2862 nonzero blocks, RMS0.162749064 and
+peak1.75202882 with the limiter disabled. The callback-thread probe reports
+zero detected allocations, frees, lock calls and waits. Settled catalogue indices
+are Rock19, Hard Rock/Metal41, Blues69, Funk56, Pop22 and Shuffle69; styles may
+share curated entries. The internal-kit audio uses zero guitar input. This is
+bounded software integration evidence, not a production tracker promotion.
 
 Pre-measurement `actual001..003` freshness-guard failures and the full product,
 portable matrix and Ninja dependency-recovery logs are retained externally at

@@ -1011,6 +1011,15 @@ Required:
 
 # 19. Wave 6 — Styles, director, and adaptive drum control
 
+Implementation update (2026-10-08): the reviewed STYLE-DIRECTOR-002 and
+DRUM-ADAPT-002 wave implements the six-style catalogue, input-energy dynamics,
+complexity tiers and explicit/automatic one-bar fills in the live processor.
+Shared UI controls and audio-owner telemetry are connected. Actual-processor
+replay actual006 passes76 assertions after preserving and repairing two failed
+fill-duration runs. See [retained evidence](docs/research/adaptive-jam-replay/README.md)
+and [EXECUTION-LEDGER.md](EXECUTION-LEDGER.md) for independent acceptance and
+publication status. Broader musical play acceptance remains open.
+
 Three parallel workers.
 
 ---
