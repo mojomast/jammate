@@ -1,5 +1,12 @@
 # TRACK-007 — longer-window acquisition/interval characterization
 
+> **Historical banner.** The summary below (through "Limits and next action") records
+> the first `5098df9` handoff. Its causal claim — that the within-2-bar losses are a
+> "readiness startup cost" — is **superseded**: see the correction section at the end
+> and `docs/research/tempo-long-windows/CORRECTIONS.md`. The losses are **post-ready
+> derived-BPM excursions**; the variant forwards base BPM strictly before ready. The
+> retained raw/evidence is unchanged.
+
 ## Base, ownership, executed scope
 
 Base `main` `bcf540a`; branch `wp/TRACK-007-long-windows`; explicit workdir
@@ -38,11 +45,13 @@ from the existing model — **not recorded guitar**, not a corpus member.
 - Executed **3 × 16** current EVAL-007 scores plus three diagnostic beat-series
   runs at **128 frames, uncompensated** on the pinned binaries. **16/16 exact
   byte-identical default/variant beat series**.
-- **BPM: 6 gains, 0 regressions, 10 no-change.** Variant whole-clip error ≤ 2 % on
+- **BPM: 6 gains, 0 regressions, 10 no-change.** Variant steady-window error ≤ 2 % on
   **16/16** (default 10/16, aubio 12/16); 126 BPM improves 2.344 % → 0.038 %.
+  (Superseded wording: "whole-clip" — see banner; it is each backend's own
+  steady window, which differs on 14/16 cells.)
 - **Acquisition 1 gain / 0 losses; within-2-bar 1 gain / 3 losses** (sparse 96 both
-  rates, noise 96 @48k). Losses are the variant's readiness startup cost, not
-  steady-state drift.
+  rates, noise 96 @48k). The losses are **post-ready derived-BPM excursions**, not a
+  readiness startup cost (see banner and correction section).
 - **Readiness/fallback chronology:** exactly 4 fallback beats on every clip,
   first-ready availability 2.25–3.21 s, event clock strictly earlier than
   availability everywhere. No variant interval exceeds the frozen 1.50 s bound
@@ -83,10 +92,12 @@ Musical Clock/audition/live/Windows, same framing does not equalise backend
 internals. G3 **OPEN**. No backend selected, no guard implemented, no gate or
 default changed.
 
-Next: the measured cost is readiness startup latency, which alone explains all
-three within-2-bar losses while steady-state BPM is uniformly better. The
-evidence-driven candidate next contract is a **new named variant with a new
-freeze** targeting that startup/availability cost, evaluated on this same
+Next (superseded wording — see banner): the measured cost is **post-ready estimator
+stability**, not readiness startup latency. The variant forwards base BPM strictly
+before ready; its regressions come from derived values out of band immediately after
+readiness (and the +2.2491-bar `noise_126bpm_44100hz` delay). The evidence-driven
+candidate next contract is a **new named variant with a new freeze** targeting that
+post-ready stability, evaluated on this same
 preserved longer-window matrix plus the regular-material gains, without relaxing
 the 2 % band or the frozen interval window and without selecting a backend. That
 work is **not** started here and does not follow from this measurement as a

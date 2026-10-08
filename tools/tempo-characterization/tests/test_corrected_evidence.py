@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """TRACK-007 corrections: independently re-derive corrected claims from immutable raw.
 
-These tests read the historical raw (`evidence/`) and recompute the corrected fields
-with their own code, then compare against the committed corrected tree. They do not
-call the correction tool, so a bug shared with it cannot hide a wrong result. Run
-from the repository root.
+The re-derivation tests read the historical raw (`evidence/`) and recompute the
+corrected fields with their own code, then compare against the committed corrected
+tree — so a bug shared with the correction tool cannot hide a wrong result. The
+adversarial interval test additionally exercises the corrected rule as direct
+function cases (it does call `recompute_evidence.corrected_intervals`), and the
+failure tests call the reviewed `paired.validate_results`. Immutability, comparison
+and validation tests read the committed artifacts directly. Run from the repository
+root.
 """
 import hashlib
 import importlib.util
@@ -194,14 +198,17 @@ class ValidationArtifactTests(unittest.TestCase):
 class HardValidationFailureTests(unittest.TestCase):
     """paired.validate_results must reject malformed raw (uses the reviewed function)."""
 
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+
     def _mutated(self, mapping):
         data = json.loads((HIST / 'raw/btrack/block128/results.json').read_text())
         mapping(data)
-        import tempfile
-        handle = tempfile.NamedTemporaryFile('w', suffix='.json', delete=False)
-        json.dump(data, handle)
-        handle.close()
-        return Path(handle.name)
+        path = Path(self._tmp.name) / 'mutated.json'
+        path.write_text(json.dumps(data))
+        return path
 
     def _adapted_manifest(self):
         fixtures = json.loads(FIX.read_text())['fixtures']

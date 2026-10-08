@@ -36,7 +36,8 @@ byte-identical.
   0.492821875` exactly.
 - **E2 — missed regression: `noise_126bpm_44100hz`.** The original report did not
   call this out. Variant acquisition **4.7412 bars** versus default **2.4919 bars**
-  (**+2.2493 bars**, about +4.29 s). The first five ready beats report
+  (**+2.2491 bars** = 4.74120238 − 2.49205952 = 2.24914286, about +4.29 s). The first
+  five ready beats report
   −29.89 / −33.31 / −31.64 / −31.64 / −18.78 % (minimum **84.03 BPM**, 126 nominal);
   a clear post-ready estimator excursion, and the strongest such case in the matrix.
 - **E3 — `acquisitionBars` sentinel not normalised.** The raw scorer emits

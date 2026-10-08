@@ -79,12 +79,44 @@ backend are in `evidence-corrected/outcomes.json`.
 | 126 | 44.1k | noise | 1 / 2.49 / 0 | 1 / 4.74 / 0 | 2.344 | 0.038 | 2.61 |
 
 Aggregate: acquired D **15/16**, V **16/16**, A 16/16. Within 2 bars D **11/16**,
-V **9/16**, A 13/16. Whole-clip BPM error ≤ 2 %: D **10/16**, V **16/16**, A 12/16.
+V **9/16**, A 13/16. Steady-window BPM error ≤ 2 % (each backend's own
+`steadyWindow`, §above): D **10/16**, V **16/16**, A 12/16.
 
 **Paired comparison (predeclared rules):** BPM **6 gains, 0 regressions, 10
 no-change**. Acquisition **1 gain, 0 losses**. Within-2-bar **1 gain, 3 losses**.
-The variant converts every 126 BPM whole-clip error from the default's 2.34 % to
-0.038 %; at 96 BPM both sit at 0.309 % so nothing moves.
+The variant converts every 126 BPM steady-window error from the default's 2.34 % to
+0.038 %; at 96 BPM both sit at 0.309 % so nothing moves. These BPM values are
+backend-specific steady-window medians, and the default/variant windows differ on
+14/16 cells, so they are not a common-window comparison.
+
+### Control-vs-regular pairs (protocol §8 extension)
+
+`evidence-corrected/control-pairs.json` adds **36 paired records** (12 perturbations
+× 3 backends), each pairing a `sparse`/`gap`/`noise` cell with its own `regular` cell
+at the same tempo and rate, under the same bands and null semantics. Measured:
+acquisition **0 gains / 1 loss** (default BTrack on `noise_126bpm_48000hz`),
+within-2-bar **1 gain / 8 losses**, BPM **28 no-change / 6 regressions / 2 gains**.
+By control: **noise** → aubio regresses in all 4 cells, default and variant
+no-change; **sparse** → aubio regresses in the 2 half-time cells, default
+gains 2, variant no-change; **gap** → all 12 no-change. All BPM comparisons carry
+the backend-specific-steady-window caveat above (the two windows differ), so these
+are diagnostic control effects, not a common-window ranking.
+
+### Corrected evidence layout
+
+`docs/research/tempo-long-windows/evidence-corrected/` (derived-only, no raw or WAV
+duplication; authenticated by `derived-hashes.txt` and independently checked by
+`tools/tempo-characterization/tests/test_corrected_evidence.py`):
+
+| file | content |
+|---|---|
+| `outcomes.json` | corrected per fixture × backend: null `acquisitionBars` (+ raw sentinel), flags, missing reason, backend-specific steady-window bounds |
+| `comparison.json` | the 16 retained default-vs-variant records |
+| `control-pairs.json` | the 36 control-vs-regular records |
+| `intervals.json` | corrected intervals (gap exemption only for the `gap` control) |
+| `validation.json` | `paired.validate_results` result and manifest truth checks |
+| `errata.json` | E1–E7, immutable commits, verified pins, counts |
+| `derived-hashes.txt` | sha256 of every file above |
 
 ### Regressions and what did *not* reproduce
 
@@ -115,8 +147,10 @@ The variant converts every 126 BPM whole-clip error from the default's 2.34 % to
    aubio failure on the half-density pattern, not a variant regression, and is
    recorded so it is not mistaken for one.
 4. **Not reproduced from TRACK-006 on longer windows:** the carved-gap **82.687 BPM**
-   and 0 dB-noise **111.14 BPM** regressions do **not** appear here. The 1 s gap
-   clips sit on a 4 s beat grid where no emitted interval bridges the gap
+   and 0 dB-noise **111.14 BPM** regressions do **not** appear here. The gap clips
+   hold the beat grid (0.625 s/beat, 2.5 s/bar at 96 BPM; 0.47619 s/beat,
+   1.904762 s/bar at 126 BPM) and the trackers keep emitting through the event-free
+   window, so no emitted interval bridges the gap
    (`intervals.json`: `gapSpanning` empty for BTrack/variant on all gap cells), and
    the 0 dB noise clips still acquire. This is **evidence about these longer,
    regular-grid windows only** — it does not refute the 5 s derived-window results
@@ -127,7 +161,9 @@ The variant converts every 126 BPM whole-clip error from the default's 2.34 % to
 ### Readiness, causality and intervals
 
 Every clip has exactly **4 fallback beats** (base BPM forwarded) before the first
-ready beat; **first-ready availability 2.25–3.21 s** and the event clock is
+ready beat — this is a **structural method fact** (the ring needs 4 intervals / 5
+events and no reset occurred here), not by itself evidence of a readiness cost;
+first-ready availability is 2.25–3.21 s and the event clock is
 strictly earlier than availability on every clip (causal). Between beats the last
 candidate persists stale. **No variant interval exceeds the frozen 1.50 s bound on
 any of the 16 clips** (`intervals.json`; max observed 0.743 s), so the frozen
@@ -211,7 +247,8 @@ python3 -m unittest discover -s tools/tempo-characterization/tests -p 'test_*.py
 ```
 
 The generator and runner **refuse to overwrite** an existing output directory and
-fail closed on pin, framing, byte-identity, pairing, block-count, reset, readiness and
-beat-equality violations. Executed here: 14 unit + 15 evidence tests **OK**, plus the
+fail closed on the checks it actually validates: generator/source pins, input bytes
+and framing, default/variant byte-identity, per-fixture block counts,
+fallback/readiness and beat equality. Executed here: 14 unit + 15 evidence tests **OK**, plus the
 real 16×3 pinned run (exit 0). Audio stays in scratch; only manifests, hashes, logs
 and results are committed.
