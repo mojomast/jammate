@@ -172,6 +172,12 @@ Latest local verification, **8 October 2026**:
   and [integration results](docs/research/LIVE-JAM-ACTUAL-INTEGRATION.md)
   for measured callback and lifecycle evidence, including the preserved first
   rejected run and its corrections.
+- The fresh full live replay passes **54/54 callback cells** and all lifecycle/
+  audio gates: actual joins, distinct stops, rendered resync, reprepare/shutdown
+  and audible internal-kit output during a zero-guitar-input window. Default
+  experimental BTrack joins a synthetic rhythm after about8 seconds; this does
+  not establish the representative-guitar/two-bar acquisition target or device
+  latency. Original rejected runs are retained beside the passing evidence.
 
 The [execution ledger](EXECUTION-LEDGER.md) is the authoritative status record.
 Reproduction commands, hashes and limitations live in the linked research

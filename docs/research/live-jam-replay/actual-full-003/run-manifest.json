@@ -1,0 +1,11 @@
+{
+  "task": "EVAL-LIVE-001",
+  "out": "/home/mojo/projects/build-EVAL-LIVE-001-integration/actual-full-003",
+  "harness_exit": 0,
+  "run_seconds": 106.16102695465088,
+  "timeout_s": 300.0,
+  "scope": "full",
+  "evidence": "3f026432bfc530d8ee209e8b089c5716169f820676e6efc1f575ee47111bbc07",
+  "harness_binary": "63f2f5585436e46785a92e98bae2d4851b770dadaad5c3ce03d7bbc0899c889c",
+  "build_manifest": "b9c0e518492d6f6bfa40a00c2ed7f7e7b5f2848860b7f736e23701cda53270c4"
+}

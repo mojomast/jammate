@@ -1,0 +1,91 @@
+{
+  "schema": "live-jam-orchestrator-actual-receipt/1",
+  "status": "measured-pass",
+  "external_raw_directory": "/home/mojo/projects/build-EVAL-LIVE-001-integration/actual-full-003",
+  "original_result_preserved": true,
+  "hard_failures": 0,
+  "gates": {
+    "rt_gate": true,
+    "scenario_default_clean_long_gate": true,
+    "join_gate": true
+  },
+  "cells": 54,
+  "synthetic_evidence": false,
+  "input_kind": "synthetic recordings/control signals; not guitar recordings",
+  "measured_scope": "54 cold/warm callback-thread RT paths; default experimental BTrack synthetic join; injected actual joins/stops/resync/reprepare/release and zero-input internal kit audio",
+  "unmeasured_scope": "worker allocations, device/ASIO deadlines, useful representative guitar lock; drum-only supplemental allocator coverage",
+  "file_manifest": {
+    "build/build-manifest.json": {
+      "sha256": "b9c0e518492d6f6bfa40a00c2ed7f7e7b5f2848860b7f736e23701cda53270c4",
+      "bytes": 49491
+    },
+    "build/instrument_selfcheck": {
+      "sha256": "02bd98e1db7223c3189e6c8c22ff1e92347dcb609dc6b8edcf56a126144acb38",
+      "bytes": 37184
+    },
+    "build/live_jam_facade_tests": {
+      "sha256": "5a5b3099af209fdc62f4e76caf5b8fada9c22fe32847aa9b2057d3342595520c",
+      "bytes": 36464
+    },
+    "build/live_jam_replay": {
+      "sha256": "63f2f5585436e46785a92e98bae2d4851b770dadaad5c3ce03d7bbc0899c889c",
+      "bytes": 22505272
+    },
+    "build/obj/InstrumentSelfCheck.o": {
+      "sha256": "dd15629969e52fdb2d28d9c4cfa1db009b6cd3a2629d150e8ad3cab2d87389b0",
+      "bytes": 4280
+    },
+    "build/obj/LiveJamProcessorTests.o": {
+      "sha256": "efcf927a8af8a0e2d816bdaaa2010d477dc7804bfa8899ab0d85b70d1cce2984",
+      "bytes": 8528
+    },
+    "build/obj/LiveJamReplay.o": {
+      "sha256": "327e8212245a0edf8dd9c01b360d1c2ec748e87f344473a9fb87687826955e4c",
+      "bytes": 190096
+    },
+    "build/obj/RtProbeInstrumentation.o": {
+      "sha256": "f3cf8fe15dd308d89cfb3e5b3cbc56b8a00c591ada8de2657ce94440b59b0d16",
+      "bytes": 27656
+    },
+    "build/obj/SupportSelfTest.o": {
+      "sha256": "71d48dc7c84696b071e690c9d16336b23d92f1c0b1dfc53ed660c790f5673f05",
+      "bytes": 47032
+    },
+    "build/preflight.json": {
+      "sha256": "7794ab0be7c0495fad352d2fce941811d8fa3f9e598f41a2ced2101145d3de40",
+      "bytes": 15208
+    },
+    "build/replay_support_selftest": {
+      "sha256": "d71618078ad071eae4c26808910e7997dc411aec3a01eddd7b6b45e75b472334",
+      "bytes": 45400
+    },
+    "cells.json": {
+      "sha256": "6b0b4b3ca24414c557b82e940dd9c75dae3e3b3fe1f5803ac14d3d72f8fd338f",
+      "bytes": 215027
+    },
+    "evidence.json": {
+      "sha256": "3f026432bfc530d8ee209e8b089c5716169f820676e6efc1f575ee47111bbc07",
+      "bytes": 329167
+    },
+    "live-jam-replay.log": {
+      "sha256": "1e3c584caa8ff73b5597b3ec919b89bacdea4d4a8ce65dd8ad46f732240bcc79",
+      "bytes": 12855
+    },
+    "preflight.json": {
+      "sha256": "7794ab0be7c0495fad352d2fce941811d8fa3f9e598f41a2ced2101145d3de40",
+      "bytes": 15208
+    },
+    "run-manifest.json": {
+      "sha256": "85e6c57bfe8c85a9a8056813644876b8f8b7c5b0bf4401928a92be64ad0d5519",
+      "bytes": 467
+    },
+    "summary.md": {
+      "sha256": "9f5c9f084b8b882e8017f394c6750c8cfd1b944801f1b82628e029de1b6efae8",
+      "bytes": 542452
+    },
+    "validation-report.json": {
+      "sha256": "22212a7c22531bc7c7e451533fd5f04a7704f02171c25a36d10fe6ef60ef5b0d",
+      "bytes": 853447
+    }
+  }
+}

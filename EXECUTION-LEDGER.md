@@ -21,8 +21,8 @@ task note + commit SHA + successful integration.
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **25/25 suites**; default-OFF **23/23** | deterministic seams, worker lifecycle, injected drum bridge, acquisition/tempo diagnostics, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
-| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | current Linux and Windows drum tests **7/7 passed**; **Standalone and VST3 built on both** | live wave integration pending; ASIO, full callback and device measurements still required |
+| **core** (`jam-core`, CMake + Ninja, no audio device) |27/28/28/29 suites OFF/BTrack/aubio/both pass | deterministic seams, worker lifecycle, live policy/session, injected drum bridge, acquisition/tempo diagnostics and replay validators; not all SPEC acceptance conditions |
+| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | Linux36/36 registered suites and20 UI cases pass; Standalone/VST3 build; prior Windows7/7 passed | live wiring integrated; actual003 full54-cell/lifecycle/audio gates pass; final audit/live-wave Windows CI pending; ASIO/device gates remain open |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
 PARTIAL, never PASSED.
@@ -35,11 +35,11 @@ PARTIAL, never PASSED.
 |---|---|---|
 | **G0** fork/license/baseline | **PARTIAL** | Linux/Windows formats and drum tests verified; baseline physical audio/device and ASIO evidence incomplete |
 | **G1** real-time foundation | **PARTIAL** | remote CI green; bounded Linux callbacks, LSTM/PReLU repair and editor-absent scene delivery measured; wider model/control, full callback/device/hosted-plugin and ASIO coverage incomplete |
-| **G2** new module seams | **PARTIAL (advanced early)** | types/ring/transport and actual injected-clock DrumEngine bridge verified; live analyzer/processor/editor connection incomplete |
+| **G2** new module seams | **PARTIAL (advanced early)** | analyzer/clock/processor/editor connected and actual lifecycle/audio proof accepted; broader seam/host coverage remains open |
 | **G3** tracker selected | **IN PROGRESS (advanced early)** | frozen stability candidate recovers diagnostic regressions in preserved matrix; representative guitar useful-lock evidence and production selection ADR incomplete |
-| **G4** musical clock | **PARTIAL (advanced early)** | deterministic clock and actual injected drum join/follow/resync tests pass; live end-to-end and broader gate evidence incomplete |
-| **G5** adaptive drummer | not started | — |
-| **G6/G7** UX / release | not started | — |
+| **G4** musical clock | **PARTIAL (advanced early)** | actual003 initial/restarted joins, stops, resync, release and drum-only output pass; broader musical/physical acceptance remains open |
+| **G5** adaptive drummer | **PARTIAL (first slice)** | one live4/4 Rock groove; adaptive styles/dynamics/fills and broader musical acceptance remain open |
+| **G6/G7** UX / release | **PARTIAL UX / release open** | real Jam controls fit1100×700 and20 UI cases pass; physical play/release acceptance remains open |
 
 ### Scheduled deviations (orchestrator-authorised, recorded)
 
@@ -212,6 +212,24 @@ payload checks. Orchestrator review accepts those fixes; the resync proof is
 being tightened to require a rendered downbeat-phase change while already
 playing rather than a generic new step after restarting. Actual002 remains
 pending; no additional measurement has run.
+
+Actual003 completes with all4090 checks passing,54 measured callback cells and
+all RT/default-backend/injected-lifecycle gates true. Default BTrack joins the
+synthetic signal at block752 (~8.02 s),59 steps. Injected first/restarted joins,
+deferred bar stop187 blocks, immediate Stop1 block, resync phase2→1 and session
+generation1→2/release pass. Zero-input internal-kit output is measured across
+48,128 samples: mean block RMS0.09969, peak0.98615,8 steps; its allocator scope
+is explicitly unmeasured. Raw/hashes are in
+`docs/research/live-jam-replay/actual-full-003/`; failed001/002 remain unchanged.
+Final independent audit and publication CI are pending.
+
+Final independent read-only audit ACCEPTS code and actual003 measurement:
+4051 hard checks,36 advisory checks and3 gates pass; all54 cells' owner
+positions/counter families are valid, all link/archive/raw hashes re-match.
+INT-LIVE-001 `016c0c8`, UI-LIVE-001 `8ac4517` and EVAL-LIVE-001 through
+`f554884` plus orchestrator `99355bf`/`24af413` are accepted and integrated.
+First-slice work is complete locally. Publication/GitHub Windows/NAM promotion
+is next; G0/G1/G3 and broader physical/musical/release gates remain partial.
 
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The

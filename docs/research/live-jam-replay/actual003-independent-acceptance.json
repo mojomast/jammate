@@ -1,0 +1,29 @@
+{
+  "schema": "live-jam-independent-acceptance/1",
+  "verdict": "ACCEPT",
+  "reviewer_session": "ses_ee602d8ffffeo0kMc3fzyki35r",
+  "reviewer_model": "opencode-go/deepseek-v4.1-flash",
+  "code_commit": "24af413",
+  "actual_source_snapshot": "50356672756bc802e72120f0fcbefe0d48e8a713",
+  "source_note": "Main product src/ and root/core/BTrack CMake bytes equal the measured external product source snapshot; documentation/CI history differs.",
+  "hard_checks": 4051,
+  "advisory_checks": 36,
+  "gate_checks": 3,
+  "failures": 0,
+  "measured_cells": 54,
+  "linked_archives_rehashed": 8,
+  "raw_sha256": {
+    "evidence.json": "3f026432bfc530d8ee209e8b089c5716169f820676e6efc1f575ee47111bbc07",
+    "cells.json": "6b0b4b3ca24414c557b82e940dd9c75dae3e3b3fe1f5803ac14d3d72f8fd338f",
+    "validation-report.json": "22212a7c22531bc7c7e451533fd5f04a7704f02171c25a36d10fe6ef60ef5b0d",
+    "build-manifest.json": "b9c0e518492d6f6bfa40a00c2ed7f7e7b5f2848860b7f736e23701cda53270c4",
+    "live-jam-replay.log": "1e3c584caa8ff73b5597b3ec919b89bacdea4d4a8ce65dd8ad46f732240bcc79"
+  },
+  "unmeasured": [
+    "representative-guitar acquisition within two bars >=95%",
+    "physical-device/ASIO deadlines",
+    "worker allocation tracking",
+    "drum-only-window allocator coverage"
+  ],
+  "publication_ci": "pending"
+}

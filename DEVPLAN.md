@@ -45,6 +45,12 @@ the original measured evidence is retained in
 `docs/research/live-jam-replay/actual-full-001/`. Useful guitar lock/device gates
 remain open; a synthetic result does not promote the tracker.
 
+Final live integration: actual003 passes4051 hard/36 advisory checks and3 gates
+with54 callback cells, actual initial/restarted joins, distinct stops, rendered
+resync, released/reprepared state and zero-input internal-kit output. Independent
+code/measurement audit accepts. Original rejected001/002 runs are preserved;
+publication CI is next. Useful guitar acquisition/device gates remain open.
+
 ---
 
 # 1. Orchestration model

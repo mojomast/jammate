@@ -39,7 +39,49 @@ a bounded prepared baseline, and pace the injected scenario outside callbacks.
 Acceptance also requires separate actual first/second joins, actual stop and
 release, and a rendered resync phase correction. A short declared zero-input
 window is being added to verify internal drum audio at the final processor
-output independently of guitar sound. The fresh run will use a new directory.
+output independently of guitar sound.
+
+## Second actual run — partial measured proof
+
+[`actual-full-002/`](live-jam-replay/actual-full-002/) passes all structural
+checks and the54-cell RT gate. It proves an actual second join, immediate stop
+in one servicing block, rendered resync phase2→1 (one consumed command), a
+session-generation change and coherent release. With zero input, the real
+internal kit produces mean block RMS0.10052 and peak0.98541 across94 measured
+blocks (48,128 samples), with8 drum steps. This window is not allocator-armed.
+
+Overall acceptance still fails: the first injected join wait is8 seconds,
+exactly the unchanged clock's acquisition minimum, leaving no interval for a
+next-bar join. The bar-stop proof consequently fails too. The original verdict
+is preserved. [Amendment8](live-jam-replay/CORRECTION-CONTRACT-8.md) allows the
+configured acquisition window plus two120 BPM bars (12 seconds total), and
+fixes receipt deduplication to use session identity rather than clock publication
+identity.
+
+## Third actual run — passes all preregistered gates
+
+[`actual-full-003/`](live-jam-replay/actual-full-003/) records **4090 validator
+checks, zero failures, all three gates passing**. The127-test adversarial
+validator and instrumentation/support/facade self-checks pass before execution.
+
+| Actual observation | Result |
+|---|---|
+| Callback matrix |54/54 cells measured; no detected allocation/free/lock/wait operations in armed cold/warm callback paths |
+| Default experimental BTrack | Built-in120 BPM synthetic input joins at block752 (about8.02 s),59 drum steps |
+| Injected initial/restarted joins | Both observed through real engine playback/steps; first at block788 (about8.41 s) |
+| Stop next bar | Deferred while playing, then stops after187 blocks (about1.99 s) |
+| Immediate Stop | Stops in one servicing block |
+| Resync while playing | Rendered phase2→1; downbeat sample697344 in correction window[697344,697856), one consumed command |
+| Drum-only processor output | Zero guitar input, internal sampler loaded, hosted kit off;94 blocks/48,128 samples, mean block RMS0.09969, peak0.98615,8 drum steps |
+| Reprepare/shutdown | Session generation1→2; coherent released/not-playing payload confirmed |
+
+The runtime takes106.2 seconds and does not time out. Matrix sample positions
+advance exactly in the audio-owner domain; UI state remains coalescing-tolerant.
+Source snapshots, exact harness/product archive identities, link closure, raw
+cells, log, verdict and hashes are preserved. Actual001/002 remain rejected.
+Independent final audit accepts both code and measurement gates and re-hashes
+the harness/evidence and all eight linked archives successfully. Publication CI
+is the remaining promotion check.
 
 ## Scope
 

@@ -17,9 +17,15 @@ and EVAL-LIVE-001 owns preregistered actual-processor replay/validation. Worktre
 sessions and exact ownership are in the ledger's Active live-Jam table.
 `docs/research/LIVE-JAM-CONTRACT.md` and `src/jam/JamLiveInterface.h` freeze the
 shared facade. UI `8ac4517` and pipeline `016c0c8` are accepted and merged locally
-after fresh product verification; replay corrections and actual scoring remain
-pending. Replay `5c0d72e` is now accepted/merged and the first actual full replay
-is running; results are not yet known. Default BTrack is experimental;
+after fresh product verification. Replay through `f554884` is integrated with
+orchestrator source corrections `99355bf`/`24af413`. Actual001 and002 are
+preserved rejected runs:002 passes structural/RT checks, real resync and drum-
+only output, but its first join wait ends at the configured8-second acquisition
+minimum. Actual003 passes4090 checks and all54-cell/default/injected gates with
+the preregistered12-second transport wait; clock/tracker settings are unchanged.
+Raw evidence/identities are in `docs/research/live-jam-replay/actual-full-003/`.
+Independent final audit accepts code and actual003 measurement, including all
+eight linked archive hashes. Publication CI is next. Default BTrack is experimental;
 TRACK-008 stays diagnostic and G3 remains open. Shared CMake/CI are
 orchestrator-owned. Prior final head `b7e3be1` is published and fully green in
 run37729980845: core23/24/24/25, NAM9/9, Windows Standalone/VST3 with7/7 drum
