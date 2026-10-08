@@ -192,6 +192,12 @@ and on the real `clean_eighths` trace the steady inter-beat interval is 0.47746 
 `getCurrentTempoEstimate()` returns the quantised HMM tempo. On this corpus the
 2.34 % lives entirely in the latter.
 
+**This is exactly why the diagnosis is built on the per-beat / per-block
+trajectory and not the whole-clip median.** A whole-clip `lockedBpm` (123.05)
+alone cannot tell whether the tracker mistimed the beats or merely misreported
+the tempo; the trajectory (`*/state/<fixture>.csv`, `*/beats/<fixture>.csv`)
+shows the beats are correct and the estimate is quantised.
+
 ### 4.4 Consequence, stated without selecting a tracker
 
 The SPEC 19 BPM gate is defined on the **reported locked BPM**; BTrack fails it,
