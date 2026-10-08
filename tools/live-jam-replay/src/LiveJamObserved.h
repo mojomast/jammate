@@ -49,6 +49,25 @@ struct BackendObservation
     }
 };
 
+// An observation receipt belongs to a session sample domain, not to a clock
+// publication. Repeated snapshots of one receipt must count once.
+struct ReceiptKey
+{
+    std::uint64_t session, event, horizon, receipt;
+
+    static ReceiptKey from (const jam::JamLiveState& s) noexcept
+    {
+        return { s.sessionGeneration, s.lastEventSampleTime,
+                 s.lastInputHorizonSampleTime, s.lastReceiptSampleTime };
+    }
+
+    bool operator== (const ReceiptKey& other) const noexcept
+    {
+        return session == other.session && event == other.event
+            && horizon == other.horizon && receipt == other.receipt;
+    }
+};
+
 // Coherent latest-value latch (Defect A). readJamLiveState returns false when
 // there is no new publication; the latch retains the last valid state instead of
 // exposing a default zero. A bounded prepared/released poll is used before the

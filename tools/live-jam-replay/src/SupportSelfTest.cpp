@@ -375,6 +375,23 @@ int main (int argc, char** argv)
         check (! okPlay, "a still-playing payload must not count as released");
     }
 
+    {
+        jam::JamLiveState s {};
+        s.sessionGeneration = 9; s.clock.generation = 100;
+        s.lastEventSampleTime = 20; s.lastInputHorizonSampleTime = 30;
+        s.lastReceiptSampleTime = 40;
+        const auto receipt = replay::ReceiptKey::from (s);
+        s.clock.generation = 101;
+        check (receipt == replay::ReceiptKey::from (s),
+               "a repeated clock publication must not count as a new receipt");
+        s.sessionGeneration = 10;
+        check (! (receipt == replay::ReceiptKey::from (s)),
+               "identical timestamps in a new session are a new receipt");
+        s.sessionGeneration = 9; s.lastReceiptSampleTime = 41;
+        check (! (receipt == replay::ReceiptKey::from (s)),
+               "a new actual receipt cursor must not be deduplicated");
+    }
+
     if (failures == 0)
     {
         std::fprintf (stdout, "\nREPLAY SUPPORT SELF-TEST PASS\n");

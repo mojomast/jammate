@@ -27,6 +27,7 @@
 #include "ReplaySupport.h"
 #include "RtProbeInstrumentation.h"
 #include "jam/IRhythmTracker.h"
+#include "jam/JamConfig.h"
 
 #include <juce_events/juce_events.h>
 
@@ -534,7 +535,7 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
     std::uint64_t nonzero = 0;
 
     bool haveLastKey = false;
-    std::uint64_t keyGen = 0, keyEvent = 0, keyHorizon = 0, keyReceipt = 0;
+    replay::ReceiptKey lastReceiptKey {};
     std::uint64_t lastGeneration = 0;
     replay::CursorTracker cursors;
 
@@ -616,11 +617,8 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
             c.receiptAnyMeasured = true;
             ++c.receiptMeasuredReads;
 
-            const bool sameKey = haveLastKey
-                && s.clock.generation == keyGen
-                && s.lastEventSampleTime == keyEvent
-                && s.lastInputHorizonSampleTime == keyHorizon
-                && s.lastReceiptSampleTime == keyReceipt;
+            const auto receiptKey = replay::ReceiptKey::from (s);
+            const bool sameKey = haveLastKey && receiptKey == lastReceiptKey;
             if (sameKey)
             {
                 ++c.repeatedReceiptReads;
@@ -628,8 +626,7 @@ bool runCell (GuitarCompanionProcessor& proc, const Options& o, Cell& c, std::FI
             else
             {
                 ++c.newReceipts;
-                keyGen = s.clock.generation; keyEvent = s.lastEventSampleTime;
-                keyHorizon = s.lastInputHorizonSampleTime; keyReceipt = s.lastReceiptSampleTime;
+                lastReceiptKey = receiptKey;
                 haveLastKey = true;
 
                 if (s.lastReceiptSampleTime < s.lastInputHorizonSampleTime
@@ -751,6 +748,8 @@ struct ScenarioResult
     bool firstJoinObserved = false;
     bool secondJoinObserved = false;
     bool enginePlayingObserved = false;
+    double configuredAcquisitionSeconds = 0.0;
+    double firstJoinBudgetSeconds = 0.0;
     std::uint64_t blocksToJoin = 0;
     std::uint64_t callbacks = 0;
     std::uint64_t stepsFired = 0;
@@ -965,9 +964,13 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     r.paced = true;
     r.startAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
 
-    // First join: bounded 8 s real audio, engine-backed.
+    // Allow acquisition plus two 4/4 bars at the scripted 120 BPM. The clock
+    // configuration is unchanged; this is a transport test, not the guitar
+    // acquisition-quality gate.
+    r.configuredAcquisitionSeconds = jam::ClockConfig {}.acquireWindowSeconds;
+    r.firstJoinBudgetSeconds = r.configuredAcquisitionSeconds + 4.0;
     const std::uint64_t steps0 = stepsFired();
-    const int maxJoinBlocks = (int) (8.0 * rate / block);
+    const int maxJoinBlocks = (int) std::ceil (r.firstJoinBudgetSeconds * rate / block);
     for (int i = 0; i < maxJoinBlocks; ++i)
     {
         pacedStep();
@@ -1497,6 +1500,8 @@ int main (int argc, char** argv)
         std::fprintf (f, ",\"first_join_observed\":"); jsonBool (f, r.firstJoinObserved);
         std::fprintf (f, ",\"second_join_observed\":"); jsonBool (f, r.secondJoinObserved);
         std::fprintf (f, ",\"engine_playing_observed\":"); jsonBool (f, r.enginePlayingObserved);
+        std::fprintf (f, ",\"configured_acquisition_seconds\":"); jsonNumber (f, r.configuredAcquisitionSeconds);
+        std::fprintf (f, ",\"first_join_budget_seconds\":"); jsonNumber (f, r.firstJoinBudgetSeconds);
         std::fprintf (f, ",\"stop_now_accepted\":"); jsonBool (f, r.stopNowAccepted);
         std::fprintf (f, ",\"resync_effect_observed\":"); jsonBool (f, r.resyncEffectObserved);
         std::fprintf (f, ",\"resync_phase_before\":"); std::fprintf (f, "%d", r.resyncPhaseBefore);

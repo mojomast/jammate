@@ -1,0 +1,13 @@
+{
+  "schema": "live-jam-replay/orchestrator-source-correction/1",
+  "timing": "committed before actual003",
+  "contract_commit": "b0a7732",
+  "production_clock_unchanged": true,
+  "first_join_budget": "ClockConfig.acquireWindowSeconds + 4 seconds",
+  "receipt_key": "sessionGeneration,event,horizon,receipt",
+  "files": {
+    "tools/live-jam-replay/src/LiveJamReplay.cpp": "9c7ba458e75bfcbf48a817695367fe8b023014fdd6250f0aaabf09eb071cb874",
+    "tools/live-jam-replay/src/LiveJamObserved.h": "46639245ba2ef0580dd930a5d8430201e80c06bea0644015c1bc6310392f6364",
+    "tools/live-jam-replay/src/SupportSelfTest.cpp": "d8eac90f0e6b4e532ea40ca4cc0315d77157d774e404afe8bfebb245623c514a"
+  }
+}
