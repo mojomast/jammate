@@ -1,0 +1,142 @@
+{
+  "checks": {
+    "patched_scene_checks_pass": true,
+    "baseline_scene_checks_pass": true,
+    "nam_case_count_8": true,
+    "patched_nam_zero_alloc_free_lock": true,
+    "baseline_nam_positive_alloc": true,
+    "patched_nam_zero_not_merely_unmeasured": true,
+    "baseline_nam_reproduces_rt002_2_per_sample": true,
+    "dry_cases_18_both": true,
+    "patched_dry_zero": true,
+    "drum_render_identical_and_active": true,
+    "no_lock_wait_regression": true
+  },
+  "details": {
+    "patched_nam_rows": [
+      {
+        "tag": "nam",
+        "rate": "48000",
+        "block": "128",
+        "cold_alloc": 0,
+        "warm_alloc": 0,
+        "warm_free": 0
+      },
+      {
+        "tag": "nam+drums",
+        "rate": "48000",
+        "block": "128",
+        "cold_alloc": 0,
+        "warm_alloc": 0,
+        "warm_free": 0
+      },
+      {
+        "tag": "nam",
+        "rate": "48000",
+        "block": "512",
+        "cold_alloc": 0,
+        "warm_alloc": 0,
+        "warm_free": 0
+      },
+      {
+        "tag": "nam+drums",
+        "rate": "48000",
+        "block": "512",
+        "cold_alloc": 0,
+        "warm_alloc": 0,
+        "warm_free": 0
+      },
+      {
+        "tag": "nam",
+        "rate": "96000",
+        "block": "128",
+        "cold_alloc": 0,
+        "warm_alloc": 0,
+        "warm_free": 0
+      },
+      {
+        "tag": "nam+drums",
+        "rate": "96000",
+        "block": "128",
+        "cold_alloc": 0,
+        "warm_alloc": 0,
+        "warm_free": 0
+      },
+      {
+        "tag": "nam",
+        "rate": "96000",
+        "block": "512",
+        "cold_alloc": 0,
+        "warm_alloc": 0,
+        "warm_free": 0
+      },
+      {
+        "tag": "nam+drums",
+        "rate": "96000",
+        "block": "512",
+        "cold_alloc": 0,
+        "warm_alloc": 0,
+        "warm_free": 0
+      }
+    ],
+    "baseline_nam_rows": [
+      {
+        "tag": "nam",
+        "rate": "48000",
+        "block": "128",
+        "warm_alloc": 65536,
+        "warm_free": 65536
+      },
+      {
+        "tag": "nam+drums",
+        "rate": "48000",
+        "block": "128",
+        "warm_alloc": 65536,
+        "warm_free": 65536
+      },
+      {
+        "tag": "nam",
+        "rate": "48000",
+        "block": "512",
+        "warm_alloc": 262144,
+        "warm_free": 262144
+      },
+      {
+        "tag": "nam+drums",
+        "rate": "48000",
+        "block": "512",
+        "warm_alloc": 262144,
+        "warm_free": 262144
+      },
+      {
+        "tag": "nam",
+        "rate": "96000",
+        "block": "128",
+        "warm_alloc": 32768,
+        "warm_free": 32768
+      },
+      {
+        "tag": "nam+drums",
+        "rate": "96000",
+        "block": "128",
+        "warm_alloc": 32768,
+        "warm_free": 32768
+      },
+      {
+        "tag": "nam",
+        "rate": "96000",
+        "block": "512",
+        "warm_alloc": 131072,
+        "warm_free": 131072
+      },
+      {
+        "tag": "nam+drums",
+        "rate": "96000",
+        "block": "512",
+        "warm_alloc": 131072,
+        "warm_free": 131072
+      }
+    ]
+  },
+  "all_pass": true
+}

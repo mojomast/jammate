@@ -1,0 +1,82 @@
+{
+  "abs_tol": 1e-05,
+  "rel_tol": 1e-05,
+  "configs": [
+    {
+      "name": "mono_1x3",
+      "count": 8320,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 155138074,
+      "patched_fnv1a": 155138074,
+      "original_sum": -1381.67334,
+      "patched_sum": -1381.67334
+    },
+    {
+      "name": "mono_2x5",
+      "count": 8320,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 75945126,
+      "patched_fnv1a": 75945126,
+      "original_sum": -1515.32566,
+      "patched_sum": -1515.32566
+    },
+    {
+      "name": "mono_4x16",
+      "count": 8320,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 4097322715,
+      "patched_fnv1a": 4097322715,
+      "original_sum": -3856.52909,
+      "patched_sum": -3856.52909
+    },
+    {
+      "name": "stereo_3x7",
+      "count": 16640,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 1352914581,
+      "patched_fnv1a": 1352914581,
+      "original_sum": -1113.91847,
+      "patched_sum": -1113.91847
+    },
+    {
+      "name": "multi_io_2x11",
+      "count": 16640,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 3471458264,
+      "patched_fnv1a": 3471458264,
+      "original_sum": -3679.94807,
+      "patched_sum": -3679.94807
+    },
+    {
+      "name": "zero_layer",
+      "count": 24960,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 2638410497,
+      "patched_fnv1a": 2638410497,
+      "original_sum": 123.882826,
+      "patched_sum": 123.882826
+    }
+  ],
+  "max_abs_diff": 0.0,
+  "max_rel_diff": 0.0,
+  "all_pass": true,
+  "block": 128
+}

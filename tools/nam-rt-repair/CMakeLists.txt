@@ -1,0 +1,124 @@
+# RT-003 standalone build for the NAM LSTM real-time allocation repair.
+#
+# Builds TWO independent NAM static libraries with identical production flags:
+#   * nam_core_original — pinned upstream third_party/NeuralAmpModelerCore
+#   * nam_core          — generated patched overlay (same basename the probe and
+#                         the product use, so it can be dropped into the probe
+#                         scratch as libnam_core.a)
+# and two copies of the deterministic differential test, one per library.
+#
+# This project does not build JUCE. It is intentionally separate from the root
+# build so the repair can be reproduced and reviewed in isolation. The root
+# CMakeLists.txt applies the same overlay to the real nam_core target.
+#
+#   cmake -S tools/nam-rt-repair -B <scratch> -G Ninja -DCMAKE_BUILD_TYPE=Release
+#   cmake --build <scratch> -j
+#   ctest --test-dir <scratch> --output-on-failure
+
+cmake_minimum_required(VERSION 3.22)
+project(NamRtRepair LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+endif()
+
+# --- locate the pinned NAM checkout ------------------------------------------
+set(_nam_default "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/NeuralAmpModelerCore")
+if(NOT EXISTS "${_nam_default}/NAM/lstm.cpp")
+  set(_nam_default "/home/mojo/projects/guitars/third_party/NeuralAmpModelerCore")
+endif()
+set(NAM_CORE_DIR "${_nam_default}" CACHE PATH "Pinned NeuralAmpModelerCore checkout")
+
+if(NOT EXISTS "${NAM_CORE_DIR}/NAM/lstm.cpp")
+  message(FATAL_ERROR "RT-003: NAM_CORE_DIR does not look like a NAM checkout: ${NAM_CORE_DIR}")
+endif()
+
+# --- shared NAM source list (13 files, as the product builds them) -----------
+set(NAM_SOURCES
+  activations.cpp
+  container.cpp
+  conv1d.cpp
+  convnet.cpp
+  dsp.cpp
+  get_dsp.cpp
+  linear.cpp
+  lstm.cpp
+  ring_buffer.cpp
+  util.cpp
+  wavenet/a2_fast.cpp
+  wavenet/model.cpp
+  wavenet/slimmable.cpp)
+
+# --- overlay generation (fail-closed SHA256) ---------------------------------
+include("${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/nam-rt/NamRtPatch.cmake")
+nam_rt_generate_overlay("${NAM_CORE_DIR}")
+
+function(nam_rt_configure_target target include_root)
+  target_compile_features(${target} PRIVATE cxx_std_20)
+  set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_include_directories(${target} SYSTEM PUBLIC
+    "${include_root}"
+    "${NAM_CORE_DIR}/Dependencies/eigen"
+    "${NAM_CORE_DIR}/Dependencies/nlohmann")
+  target_compile_definitions(${target}
+    PUBLIC NAM_SAMPLE_FLOAT NAM_ENABLE_A2_FAST
+    PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+  target_compile_options(${target} PRIVATE -fPIC)
+endfunction()
+
+set(_orig_abs "")
+foreach(s ${NAM_SOURCES})
+  list(APPEND _orig_abs "${NAM_CORE_DIR}/NAM/${s}")
+endforeach()
+set(_patched_abs "")
+foreach(s ${NAM_SOURCES})
+  list(APPEND _patched_abs "${NAM_RT_NAM_DIR}/${s}")
+endforeach()
+
+add_library(nam_core_original STATIC ${_orig_abs})
+nam_rt_configure_target(nam_core_original "${NAM_CORE_DIR}")
+
+add_library(nam_core STATIC ${_patched_abs})
+nam_rt_configure_target(nam_core "${NAM_RT_INCLUDE_ROOT}")
+
+# --- deterministic differential test (one process per library) ---------------
+add_executable(nam_lstm_diff_original src/NamLstmDiffTest.cpp)
+target_link_libraries(nam_lstm_diff_original PRIVATE nam_core_original)
+
+add_executable(nam_lstm_diff_patched src/NamLstmDiffTest.cpp)
+target_link_libraries(nam_lstm_diff_patched PRIVATE nam_core)
+
+enable_testing()
+add_test(NAME nam_rt_diff COMMAND
+  "${CMAKE_CURRENT_SOURCE_DIR}/run_diff_test.sh"
+  --original "$<TARGET_FILE:nam_lstm_diff_original>"
+  --patched  "$<TARGET_FILE:nam_lstm_diff_patched>"
+  --out      "${CMAKE_BINARY_DIR}/diff-artifacts")
+
+# --- real-processor probe evidence assertion --------------------------------
+# Validates the committed patched-vs-control probe artifacts (see
+# docs/research/NAM-LSTM-RT-REPAIR.md for how they are produced).
+find_program(RT003_PYTHON3 NAMES python3)
+if(RT003_PYTHON3)
+  set(_ev "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/research/nam-rt-repair")
+  add_test(NAME nam_rt_probe_repair COMMAND "${RT003_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/check_probe_repair.py"
+    --patched-csv "${_ev}/probe/processor-probe-combos.csv"
+    --baseline-csv "${_ev}/probe-baseline/processor-probe-combos.csv"
+    --patched-findings "${_ev}/probe/findings.json"
+    --baseline-findings "${_ev}/probe-baseline/findings.json"
+    --out-json "${CMAKE_BINARY_DIR}/probe-repair-verification.json")
+endif()
+
+# --- patch idempotence / stale-hash checks -----------------------------------
+add_test(NAME nam_rt_patch_checks COMMAND
+  "${CMAKE_CURRENT_SOURCE_DIR}/check_patch.sh"
+  --nam-core-dir "${NAM_CORE_DIR}"
+  --overlay-dir  "${NAM_RT_INCLUDE_ROOT}/NAM"
+  --patch        "${CMAKE_CURRENT_SOURCE_DIR}/../../patches/nam/lstm-rt-alloc.patch"
+  --cmake        "${CMAKE_COMMAND}"
+  --source-dir   "${CMAKE_CURRENT_SOURCE_DIR}"
+  --workdir      "${CMAKE_BINARY_DIR}/patch-checks")

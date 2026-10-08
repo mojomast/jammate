@@ -1,0 +1,82 @@
+{
+  "abs_tol": 1e-05,
+  "rel_tol": 1e-05,
+  "configs": [
+    {
+      "name": "mono_1x3",
+      "count": 4160,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 981552877,
+      "patched_fnv1a": 981552877,
+      "original_sum": -688.053331,
+      "patched_sum": -688.053331
+    },
+    {
+      "name": "mono_2x5",
+      "count": 4160,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 1537948025,
+      "patched_fnv1a": 1537948025,
+      "original_sum": -757.360827,
+      "patched_sum": -757.360827
+    },
+    {
+      "name": "mono_4x16",
+      "count": 4160,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 1846689366,
+      "patched_fnv1a": 1846689366,
+      "original_sum": -1926.59366,
+      "patched_sum": -1926.59366
+    },
+    {
+      "name": "stereo_3x7",
+      "count": 8320,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 92493291,
+      "patched_fnv1a": 92493291,
+      "original_sum": -557.105815,
+      "patched_sum": -557.105815
+    },
+    {
+      "name": "multi_io_2x11",
+      "count": 8320,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 3423856567,
+      "patched_fnv1a": 3423856567,
+      "original_sum": -1842.08453,
+      "patched_sum": -1842.08453
+    },
+    {
+      "name": "zero_layer",
+      "count": 12480,
+      "max_abs_diff": 0.0,
+      "max_rel_diff": 0.0,
+      "pass": true,
+      "first_failing_index": -1,
+      "original_fnv1a": 1479935849,
+      "patched_fnv1a": 1479935849,
+      "original_sum": 42.0090678,
+      "patched_sum": 42.0090678
+    }
+  ],
+  "max_abs_diff": 0.0,
+  "max_rel_diff": 0.0,
+  "all_pass": true,
+  "block": 64
+}
