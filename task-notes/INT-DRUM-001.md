@@ -204,6 +204,8 @@ in `/home/mojo/projects/build-INT-DRUM-001-worker/manifest.json`.
 ## Final commit
 - Original implementation: `8950873cb32a796590b730d7a7bf84a81459142d`.
 - Review correction (BLOCK1–3, GAP1–8): `57dcefe1a0e13f22a3647b52a26d53cf21853cc9`.
-- Final narrow re-review (N1–N6, this handoff): `02372755eaa1c3c455c926eb7dd1b3526b5a2c82`
-  on `wp/INT-DRUM-001-clock-bridge`; the note is finalized in the immediate
-  follow-up commit.
+- Final narrow re-review (N1–N6): `02372755eaa1c3c455c926eb7dd1b3526b5a2c82`.
+- Driver manifest fix: `2dca08ea867d3897af609176cf0adf5ea18bbd10`.
+- Final handoff: this note's own commit (its SHA is the repository HEAD reported
+  in the handoff message); the worktree is clean and the driver re-run records
+  that exact HEAD in `manifest.json`.
