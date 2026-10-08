@@ -104,11 +104,12 @@ Full tables: `docs/research/tempo-stability/tables.md`. Evidence ~**5.22 MiB**
 
 - **Candidate vs default: none** by the frozen protocol flags on either matrix.
 - **Cost:** first confirmation 3.69–7.50 s (7–14 fallback beats) on the long
-  clips; no derived benefit on 5 s clips. Relative to the old variant,
-  `gap_126bpm_44100hz` (2.004 vs 0.493 bars) and `regular_126bpm_44100hz`
-  (2.754 vs 2.004) are later; `noise_126bpm_48000hz` still acquires only at 3.004
-  bars. Residual late jitter of 1–2 confirmed beats remains on five 126 BPM
-  clips (longest run 2).
+  clips; on 5 s clips it **usually** falls back but confirms on seven short
+  fixtures and delivers one derived BPM gain (`level_-40db`). Relative to the old
+  variant, `gap_126bpm_44100hz` (2.004 vs 0.493 bars) and
+  `regular_126bpm_44100hz` (2.754 vs 2.004) are later; `noise_126bpm_48000hz`
+  still acquires only at 3.004 bars. Residual late jitter of 1–2 confirmed beats
+  remains on five 126 BPM clips (longest run 2).
 - **Aubio** carries its own long regressions (10) and the sparse-126 half-time
   lock (~49.6 % error): aubio findings, not candidate behaviour.
 - **Scope:** synthetic guitar-like plucks (long) and EVAL-001-derived windows
