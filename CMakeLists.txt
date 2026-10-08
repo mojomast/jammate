@@ -4,6 +4,8 @@ project(GuitarCompanion VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Static core/backend libraries also feed the VST3 shared module on Linux.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(GUITAR_COMPANION_LIVE_JAM
     "Build the experimental live Jam backend (production tracker selection remains open)" ON)

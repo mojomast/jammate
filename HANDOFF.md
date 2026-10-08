@@ -98,6 +98,17 @@ running at `/home/mojo/projects/build-INT-LIVE-001-integration/product` from its
 external `product-source` integration worktree. Review/Stop-contract resolution
 precedes actual scoring. Shared CMake/CI changes are orchestrator-owned on main.
 
+Initial live handoffs are review-blocked and their Flash workers are correcting
+them. Pipeline: queue-failure recovery, backend identity, manual-mode release,
+release telemetry and discontinuity counters. UI: primary controls below fold,
+rapid intent and legacy preview regression. Replay: async cursor semantics,
+BTrack archives, identity/synthetic enforcement, smoke/timeout and lag metrics.
+Additive Stop contract: `docs/research/LIVE-JAM-STOP-CONTRACT.md` (Stop/Reset on
+next serviced block; Stop-next-bar deferred). Original protocol/raw are retained.
+The combined build's JUCE PNG failure was traced to libsamplerate's public
+config macro/header; `c2137d9` makes them private. Rebuild active; no actual live
+processor scoring has run.
+
 Published `677727c` passed all six jobs in run37721981804: core20/21/21/22,
 NAM5/5, Windows Standalone/VST3 and6/6 drum suites. Receipt/log hashes:
 `docs/research/github-ci/run-37721981804.json`.

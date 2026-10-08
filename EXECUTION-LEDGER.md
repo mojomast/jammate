@@ -115,6 +115,19 @@ units pass42 tests. Combined candidate product build is running in the external
 integration worktree; it is not an accepted/main implementation merge.
 Actual processor scoring is pending review and Stop-semantics resolution.
 
+Independent reviews block the initial handoffs. INT-LIVE-001 is correcting
+ignored bridge enqueue failure (stuck join/lost stop), injected-backend identity,
+manual transport suppression after Jam, stale release telemetry and duplicate
+discontinuity counts. UI-LIVE-001 is correcting off-screen primary controls at
+1100×700, rapid intent handling and the legacy preview self-check. EVAL-LIVE-001
+is correcting asynchronous snapshot assumptions, missing BTrack link archives,
+backend/synthetic identity, smoke scope, timeouts and lag metrics under an
+additive pre-measurement amendment. Stop semantics are frozen in
+`docs/research/LIVE-JAM-STOP-CONTRACT.md`; original replay protocol/raw remain
+preserved. Combined product building exposed a public libsamplerate config flag
+leaking into JUCE PNG; the orchestrator's private-configuration fix is committed
+at `c2137d9` and rebuilding. No actual processor scoring has run.
+
 **D11 — first audible live loop before full G1/G3 closure.** The user authorised
 live processor and UI connection after independent repair/bridge review. The
 default BTrack adapter is experimental. Synthetic processor replay verifies
