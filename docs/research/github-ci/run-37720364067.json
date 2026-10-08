@@ -1,0 +1,35 @@
+{
+  "conclusion": "success",
+  "runId": 37720364067,
+  "testedSha": "834823320ce1fb700e94e9e50ed18e043d297578",
+  "url": "https://github.com/mojomast/jammate/actions/runs/37720364067",
+  "suiteCounts": {
+    "Core / aubio": 20,
+    "Core / both": 21,
+    "Core / btrack": 20,
+    "Core / depfree": 19,
+    "NAM / LSTM repair": 5,
+    "Windows / Standalone + VST3 + drums": 6
+  },
+  "jobs": [
+    {"conclusion": "success", "id": 113126371305, "name": "Windows / Standalone + VST3 + drums"},
+    {"conclusion": "success", "id": 113126371486, "name": "Core / both"},
+    {"conclusion": "success", "id": 113126371526, "name": "Core / depfree"},
+    {"conclusion": "success", "id": 113126371538, "name": "Core / aubio"},
+    {"conclusion": "success", "id": 113126371569, "name": "Core / btrack"},
+    {"conclusion": "success", "id": 113126371608, "name": "NAM / LSTM repair"}
+  ],
+  "limits": [
+    "Windows WASAPI/DirectSound Standalone/VST3 build and drum tests only",
+    "No ASIO, physical device or callback deadline validation",
+    "Processor probe replay and scoped diagnostics sanitizer evidence are local"
+  ],
+  "logHashes": {
+    "/home/mojo/projects/build-DIAG-001-integration/github-core-aubio-green.log": "99dc1ce5281b1020806b3ea2453f56807a1824436ae782f9a4eb2464fe1440bd",
+    "/home/mojo/projects/build-DIAG-001-integration/github-core-both-green.log": "4d653f7be445efee7ca79de3962249b976229c8a575ac02131a57db967701833",
+    "/home/mojo/projects/build-DIAG-001-integration/github-core-btrack-green.log": "6c11812e02d76ebe2f26bfe93db1b1e7ebb7a05219ebfcae2c3714bf9d412f17",
+    "/home/mojo/projects/build-DIAG-001-integration/github-core-depfree-green.log": "4bc5a6dedab45193de99b022e15fb85cfa971efc18f5a222262d6f4900455a5e",
+    "/home/mojo/projects/build-DIAG-001-integration/github-nam-lstm-repair-green.log": "83c87fe7a48f94e70a32e610654e9fe517311666ee43e5988687a07c87a81781",
+    "/home/mojo/projects/build-DIAG-001-integration/github-windows-standalone-vst3-drums-green.log": "9da234cc7d86aa85b43e3dfbdffa4d2782fd3b399cb9f72c521cc1e07359090b"
+  }
+}

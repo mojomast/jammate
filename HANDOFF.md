@@ -45,6 +45,9 @@ both-forge required-suite guards updated. Strict/TSan comma-locale checks pass;
 ASan/UBSan pass without the custom locale path, whose glibc leak is independently
 isolated. Receipt: `docs/research/jam-diagnostics-integration.json`. Live wiring
 and callback overhead remain pending; G4 stays open.
+Remote run37720364067 at `8348233` passed all six jobs after RT-004/DIAG-001:
+core19/20/20/21, NAM5/5, Windows Standalone/VST3 and6/6 drums. Receipt and
+downloaded-log hashes: `docs/research/github-ci/run-37720364067.json`.
 TRACK-007 replay is byte-identical, but independent review found interpretation,
 missingness and comparison-contract defects. Its corrected handoff is pending
 on the latest requested DeepSeek Go route; original evidence is preserved.

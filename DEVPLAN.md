@@ -1484,7 +1484,7 @@ Keep this near the top of the live devplan during implementation.
 | TRACK-005 | DONE (diagnostic-only causal BPM-report variant) | main | 7b3a4d7 + framing corrections | G3 |
 | RT-003 | DONE (measured LSTM repair) | main | 401a6c1 + product/verifier fixes | G1 |
 | TRACK-006 | DONE: scoped paired diagnostics; variant gap/noise regressions retained | main | ce3c96e0 + independent replay | G3 |
-| CI-003 | DONE: published merged-head remote green, all6 jobs | main | bcf540a, run37716882463 | G1 |
+| CI-003 | DONE: RT-004/DIAG-001 remote green, all6 jobs | main | 8348233, run37720364067 | G1 |
 | TRACK-007 | REVIEW CORRECTIONS: replay equal; interpretation/missingness fixes pending | wp/TRACK-007-long-windows | 5098df9; DeepSeek Go continuation | G3 |
 | RT-004 | DONE: bounded evidence; A2 activation repair open | main | 337f4f3 + independent260-case replay | G1 |
 | DIAG-001 | FOUNDATION DONE (D10); full live task PARTIAL | main | b5852a0 + independent21/19 suites | G4 |

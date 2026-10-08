@@ -101,3 +101,17 @@ Receipt and downloaded-log hashes:
 [`github-ci/run-37716882463.json`](github-ci/run-37716882463.json).
 The same device, ASIO and callback-timing limits apply. The simulated Jam UI
 preview was verified locally; this run does not build that preview target.
+
+## RT-004 / DIAG-001 integrated-head pass
+
+[Run37720364067](https://github.com/mojomast/jammate/actions/runs/37720364067)
+at `834823320ce1fb700e94e9e50ed18e043d297578` passed all six jobs:
+core **19/19 OFF, 20/20 BTrack-only, 20/20 aubio-only, 21/21 both**, NAM **5/5**,
+and Windows2022/MSVC **Standalone + VST3 with 6/6 drum suites**.
+The portable diagnostics suite is required by both forge guards.
+
+Receipt and downloaded-log hashes:
+[`github-ci/run-37720364067.json`](github-ci/run-37720364067.json).
+The broader actual-processor replay and scoped diagnostics sanitizer checks
+were executed locally, not by these remote jobs. Device/ASIO/deadline gates
+remain open.

@@ -106,6 +106,7 @@ for this fork. macOS has not been verified.
 | Real-time stabilization | Bounded callback probes, MIDI reservation and editor-absent scene delivery verified; full coverage remains partial |
 | NAM LSTM repair | Measured per-sample allocations removed; tested numerical outputs byte-identical |
 | Analysis-worker foundation | Injected tracker, lifecycle, discontinuities and bounded evidence queue implemented and tested |
+| Rhythm diagnostics | Portable snapshots and bounded trace export tested; live wiring and callback-overhead measurement pending |
 | Musical Clock | Deterministic core implemented; live end-to-end evidence pending |
 | Jam UI shell | Simulated standalone preview built and resize/control checks pass; application wiring pending |
 | Tracker selection | BTrack and aubio evaluated; acquisition gate still unmet; no production backend selected |
@@ -115,17 +116,25 @@ for this fork. macOS has not been verified.
 
 Latest local verification, **8 October 2026**:
 
-- **20/20** core suites with both optional trackers enabled; **18/18** with them
+- **21/21** core suites with both optional trackers enabled; **19/19** with them
   disabled. The core builds without JUCE or an audio device.
 - **6/6** JUCE drum suites pass, including 12 new foundation regressions;
   **Standalone + VST3** builds succeed on Linux and Windows.
-- [GitHub verification](https://github.com/mojomast/jammate/actions/runs/37715897283)
+- [GitHub verification](https://github.com/mojomast/jammate/actions/runs/37720364067)
   passes the four core configurations, NAM repair checks, and Windows build/tests.
 - **26** real-processor probe cases show zero detected heap allocation/free or
   lock/wait operations after the scoped LSTM repair, including eight NAM cases.
   These probes cover a bounded matrix, not every model, effect, host or device.
+- [Broader NAM architecture probes](docs/research/NAM-ARCHITECTURE-PROBE.md)
+  independently reproduce five model types. Four are clean within the repaired
+  archive's measured cases; `wavenet_a2_max.nam` still allocates in its activation
+  paths. This finding remains open.
 - **29 analyzer tests / 1,210 checks** pass, including a limited synthetic
   ThreadSanitizer run with no reported races.
+- **34 diagnostics cases** pass, covering ordered traces, drop accounting,
+  lossless timestamps, missing measurements and CSV/JSON export. Scoped sanitizer
+  checks pass within the [integration receipt](docs/research/jam-diagnostics-integration.json)'s
+  stated limits; production integration remains pending.
 - A diagnostic-only BTrack tempo-report variant improves some steady-material
   BPM errors, but fails the acquisition gate. [Paired robustness measurements](docs/research/TEMPO-VARIANT-ROBUSTNESS.md)
   retain significant gap/noise regressions and six lost per-clip acquisitions.
