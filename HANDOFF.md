@@ -66,7 +66,7 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | TRACK-003 integrated partial feasibility (worker finished) | `wp/TRACK-003-beatnet`, `../worktrees/TRACK-003-beatnet` | `ses_ee745589effeU0Q5VSCHfvX51T` |
 | EVAL-005 integrated paired diagnostics (worker finished) | `wp/EVAL-005-robustness`, `../worktrees/EVAL-005-robustness` | `ses_ee7424bb0ffeWJ5y7br6zXfhme` |
 | EVAL-006 sustained repair + tapping audit (review corrections) | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
-| TRACK-004 acquisition/BPM diagnosis | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
+| TRACK-004 acquisition/BPM diagnosis (review corrections) | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
 | RT-002 real processor runtime probe | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
@@ -100,6 +100,15 @@ custom `--out` references to the 18 original WAVs, running acoustic validators
 during generation, and tightening claims about continuity/physical realism and
 metric-grid detections versus four actual onsets. The name-based CorpusDefect
 scorer caveat remains reported. Await a revised clean SHA.
+
+TRACK-004 initial `51554f1` returned real causal traces and acquisition replay.
+The 123.046875 report equals integer lag42 exactly while lag41 represents126;
+tested click runs retain the bias without device-rate conversion. This is a
+useful lead, not an integrated tracker fix. Same worker is correcting missing
+metrics written as zero, explicit per-clause lock failure evidence, contradictory
+framing/rate claims, plugin destruction and trace sampling-bound wording. Await
+revised SHA and regenerated artifacts; old claim of universal resampler exclusion
+is not accepted. No tracker selected; G3 remains open.
 
 ### Remaining gate work
 
