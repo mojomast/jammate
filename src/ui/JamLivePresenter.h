@@ -30,11 +30,19 @@ public:
     const juce::String& lastFeedback() const noexcept { return feedback; }
     bool hasLiveState() const noexcept { return haveLive; }
 
-    // Local accepted-intent latch: selection/queued status only, never proof of
-    // sound. Lets a fast second click cancel a not-yet-echoed Start.
-    bool startIntentLatched() const noexcept { return intentRunning; }
-    bool startQueued() const noexcept { return startPending; }
-    bool stopQueued() const noexcept { return stopPending; }
+    // Effective desired start/stop bit: a pending local request overrides the
+    // engine echo until it is acknowledged, otherwise the live request/play echo
+    // decides. The LABEL and the ACTION both use exactly this bit; the drum
+    // audio echo is reported separately and never promises a pending Stop.
+    bool effectiveDesired() const noexcept
+    {
+        return hasPending ? pendingWantsStart
+                          : (live.requestedRunning || live.drumsPlaying);
+    }
+    bool hasPendingIntent() const noexcept { return hasPending; }
+    bool pendingDesired() const noexcept { return pendingWantsStart; }
+    bool startQueued() const noexcept { return hasPending && pendingWantsStart; }
+    bool stopQueued() const noexcept { return hasPending && ! pendingWantsStart; }
 
     // Pure intent -> frozen command mapping (independently testable).
     static bool mapIntent (const JamUiIntent&, jam::JamLiveCommand& out) noexcept;
@@ -63,12 +71,14 @@ private:
     JamViewState view {};
     bool haveLive = false;
     bool lastAccepted = false;
-    // Accepted-intent latch, separate from the audio-owner echo. Reset only on a
-    // device generation change or prepared release, never on a stale/raced read.
-    bool intentRunning = false;
-    bool startPending = false, stopPending = false;
+    // Accepted-intent latch, separate from the audio-owner echo. `hasPending`
+    // means a local Start/Stop (or Stop-next-bar/Reset) is awaiting a fresh
+    // coherent acknowledgment; it is never cleared by an older repeated snapshot.
+    bool hasPending = false;
+    bool pendingWantsStart = false;
     bool haveGeneration = false;
     std::uint64_t lastSeenGeneration = 0;
+    std::uint64_t lastSeenAudioSampleTime = 0;
     juce::String feedback;
     std::uint64_t polls = 0, readFailures = 0, submits = 0, rejects = 0;
     int lastCommand = -1;

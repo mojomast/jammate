@@ -1,5 +1,5 @@
-# UI-LIVE-001 live Jam UI harness verification (corrected)
-# Generated 2026-10-08T05:59:20Z
+# UI-LIVE-001 live Jam UI harness verification (corrected, effective-desired latch)
+# Generated 2026-10-08T06:15:17Z
 # Source base: 88893e2 (frozen contract). Harness: tools/live-jam-ui.
 # Reuse deps: /home/mojo/projects/build-INT-DRUM-001-integration/product (read-only JUCE objects)
 # binary: /home/mojo/projects/build-UI-LIVE-001-worker/LiveJamUiHarness
@@ -19,10 +19,22 @@ $ LiveJamUiHarness
   [  ok   ] uiLive_submitRejectIsVisibleAndNotApplied
   [ run  ] uiLive_fastDoubleClickCancelsPendingStart
   [  ok   ] uiLive_fastDoubleClickCancelsPendingStart
+  [ run  ] uiLive_recreatedEditorWithRunningEngineOffersStop
+  [  ok   ] uiLive_recreatedEditorWithRunningEngineOffersStop
+  [ run  ] uiLive_engineStopsSameGenerationSyncsToStart
+  [  ok   ] uiLive_engineStopsSameGenerationSyncsToStart
+  [ run  ] uiLive_stopQueuedOverridesOldPlayEchoForRestart
+  [  ok   ] uiLive_stopQueuedOverridesOldPlayEchoForRestart
   [ run  ] uiLive_rejectedStartIsNotPretendedAccepted
   [  ok   ] uiLive_rejectedStartIsNotPretendedAccepted
+  [ run  ] uiLive_rejectedWhilePendingRetainsDesired
+  [  ok   ] uiLive_rejectedWhilePendingRetainsDesired
   [ run  ] uiLive_generationResetReleasesPendingLatch
   [  ok   ] uiLive_generationResetReleasesPendingLatch
+  [ run  ] uiLive_faultClearsQueuedAndReportsFailure
+  [  ok   ] uiLive_faultClearsQueuedAndReportsFailure
+  [ run  ] uiLive_stopNextBarAndResetQueueStop
+  [  ok   ] uiLive_stopNextBarAndResetQueueStop
   [ run  ] uiLive_primaryControlsVisibleAtRealCanvas
   [  ok   ] uiLive_primaryControlsVisibleAtRealCanvas
   [ run  ] uiLive_overlayProductionPresentation
@@ -34,7 +46,7 @@ $ LiveJamUiHarness
   [ run  ] uiLive_overlayClicksDrivePresenter
   [  ok   ] uiLive_overlayClicksDrivePresenter
 
-14 case(s) run in 5 ms, 0 failed case(s), 0 failed check(s)
+20 case(s) run in 5 ms, 0 failed case(s), 0 failed check(s)
 PASS async triggerClick: enabled fired, disabled ignored
 
 $ LiveJamUiHarness --snapshot docs/screenshots   (1100x700 real canvas, mock fixture)

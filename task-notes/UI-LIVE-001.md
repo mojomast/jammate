@@ -32,21 +32,31 @@ canvas.
 ## Contract implemented
 Message-thread-only presenter over the frozen facade. One coherent UI read per
 30 Hz tick; false/unchanged keeps the previous whole state. Intent mapping:
-Start/Stop (latch-driven), TapTempo, ResyncNextBeat/Bar, HalfTime, DoubleTime,
-FreezeTempo, ResumeFollow, StopAtNextBar, Reset, SetMode. Unsupported controls
-are disabled and rejected visibly. No worker joins, renderer setters, raw BPM
-setter or plain engine getters. Status separates accepted intent
+Start/Stop, TapTempo, ResyncNextBeat/Bar, HalfTime, DoubleTime, FreezeTempo,
+ResumeFollow, StopAtNextBar, Reset, SetMode. Unsupported controls are disabled
+and rejected visibly. No worker joins, renderer setters, raw BPM setter or plain
+engine getters.
+
+The label and action share one `effectiveDesired` bit: a pending local request
+overrides the engine echo until a fresh coherent state acknowledges it, otherwise
+the live request/play echo decides. A recreated editor with the engine running
+offers Stop first; a same-generation engine stop syncs back to Start; a queued
+Stop overrides the old play echo for a deliberate restart while the status still
+shows `STOP QUEUED`; rejected commands retain the prior desired bit; prepared
+release / generation change / worker failure / unavailable backend clear the
+pending bit and are reported truthfully. Status separates accepted intent
 (`START/STOP QUEUED`, `ARMED`) from the audio echo (`PLAYING (AUDIO ECHO)`).
-Fast double/triple click toggles the accepted-intent latch (Start, Stop, Start);
-a rejected Start is never shown accepted; generation/prepared changes release
-the latch.
+The frozen facade has no command-ack sequence, so an unobservable coalesced
+Start/auto-stop cannot be deterministically acknowledged (documented).
 
 ## Tests
-`tools/live-jam-ui`: 14 cases, 0 failed checks/cases, plus the async
+`tools/live-jam-ui`: 20 cases, 0 failed checks/cases, plus the async
 `triggerClick` self-check (enabled fires, disabled ignored) — see
-`tools/live-jam-ui/verification.log`. Legacy preview self-checks pass again
-(`intents=21`, exit 0) — `tools/jam-ui-preview/verification-live-adapted.log`.
-`PluginEditor.cpp` real `-fsyntax-only` compile: exit 0, 0 errors.
+`tools/live-jam-ui/verification.log`. Legacy preview self-checks pass
+(`intents=21`, exit 0) — `tools/jam-ui-preview/verification-live-adapted.log`
+(re-run only if overlay widgets change; this round changed the presenter and a
+`PillButton` fitted-text detail). `PluginEditor.cpp` real `-fsyntax-only`
+compile: exit 0, 0 errors.
 
 ## Evidence
 `docs/research/LIVE-JAM-UI.md`; harness and preview receipts; four 1100x700

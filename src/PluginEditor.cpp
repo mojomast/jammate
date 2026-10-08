@@ -572,7 +572,10 @@ void PillButton::paintButton (juce::Graphics& g, bool isHighlighted, bool)
 
     g.setFont (ui::uiFont (13.0f, true));
     g.setColour (ui::text);
-    g.drawText (getButtonText(), getLocalBounds().reduced (26, 0), juce::Justification::centred);
+    // Fitted so a long preset name shrinks instead of clipping in the narrower
+    // post-UI-LIVE-001 top bar (the shared LookAndFeel button text is unchanged).
+    g.drawFittedText (getButtonText(), getLocalBounds().reduced (26, 0),
+                      juce::Justification::centred, 1, 0.8f);
 
     g.setFont (ui::uiFont (9.0f));
     g.setColour (ui::textMuted);

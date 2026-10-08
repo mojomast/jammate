@@ -69,23 +69,45 @@ message and never updates the cached state as if applied. Style, intensity,
 complexity, fill amount, follow tightness, fill and break are rejected visibly —
 never silently queued.
 
-### Start/Stop intent latch (fast double-click)
+### Effective desired bit (label == action)
 
-The button toggles off a **local accepted-intent latch**, not the audio echo, so
-a fast second click after an accepted Start schedules a `Stop` before the worker
-echoes anything (a pending join can be cancelled). Rules:
+The button label and the click action both use one bit:
 
-- The latch is set only when `submitJamCommand` accepted the Start/Stop.
-- A rejected command never sets the latch, so a failed Start is not shown as
-  accepted.
-- The latch is released only on a device generation change or a prepared
-  release, never on a stale/raced read with the same generation.
-- `view.running` (button selection) reflects the latch; the status line uses the
-  audio-owner echo, so a scheduled command is never presented as sound.
-- `StopAtNextBar` stays a distinct bar-bounded command; the presenter mapping
-  enum is unchanged. The actual pipeline contract (Stop = next serviced callback
-  cancels a pending join) is the orchestrator/INT-LIVE-001 decision and needs no
-  presenter code change.
+```
+effectiveDesired = hasPending ? pendingWantsStart
+                              : (live.requestedRunning || live.drumsPlaying)
+```
+
+- **No pending request**: the live echo decides. A recreated editor that already
+  sees the engine running therefore offers `Stop` first (repro A), and an engine
+  that stops on the same generation syncs back to `Start` (repro B).
+- **Pending request**: the local accepted desired bit overrides the echo until a
+  **fresh coherent** state acknowledges it. A fast second click can cancel a
+  pending join; a queued `Stop` overrides a still-playing old echo so the label
+  re-arms and the next click deliberately restarts. `view.running` always equals
+  the selected desired bit.
+- The pending bit is set only when `submitJamCommand` accepted the command. A
+  rejected command retains the prior desired bit and shows the error — no fake
+  flip.
+- Acknowledgment (only on a fresh cursor / new generation, never a repeated
+  snapshot): `Start` is acknowledged when `requestedRunning` goes true; `Stop`
+  is acknowledged only once both `requestedRunning` and `drumsPlaying` are false,
+  so a queued Stop keeps showing `STOP QUEUED` until sound actually stops. The
+  status line is derived from the echo and never promises an unacknowledged
+  Stop.
+- The pending bit is cleared by a **hard reset**: prepared release, generation
+  change, worker failure, or unavailable backend — reported truthfully.
+- `StopAtNextBar` and `Reset` accepted results also queue a stop intent
+  (`pendingWantsStart == false`) so the view stays consistent. `StopAtNextBar`
+  remains a distinct bar-bounded command; the mapping enum is unchanged. The
+  actual pipeline contract (Stop = next serviced callback cancels a pending
+  join) is the orchestrator/INT-LIVE-001 decision and needs no presenter code
+  change.
+- **Documented limitation**: the frozen facade has no command-ack sequence, so a
+  queued Start that the engine coalesces with an immediate auto-stop and never
+  echoes `requestedRunning == true` cannot be deterministically acknowledged; a
+  later published failure/release is a stronger known state that clears it.
+  "Queue accepted" is not "applied".
 
 ## Presentation
 
@@ -125,9 +147,15 @@ editor size.
 The screen cluster is `Jam | Song | Drums | Audio | Tone 3000 Store`, with the
 meters to its left. Widths and the centred preset group were tightened so the
 fixed 1100x700 canvas still fits cluster + meters + preset group with no overlap.
-The CPU label and divider anchor to `jamButton`. The long store/preset text is
-drawn with fitted text by the existing LookAndFeel; no RigContent screenshot is
-faked here because it needs a real processor instance.
+The CPU label and divider anchor to `jamButton`.
+
+Text at the tightened widths: the preset `PillButton` now uses
+`drawFittedText` (min horizontal scale 0.8) so long preset names shrink instead
+of clipping. The shared `RigLookAndFeel::drawButtonText` (owned by
+`LookAndFeel.h`, not this worker) still uses plain `drawText`, so a
+pathologically long localized screen-button label could clip; the shipped
+English labels (`Jam/Song/Drums/Audio/Tone 3000 Store`) fit. No RigContent
+screenshot is faked here because it needs a real processor instance.
 
 ## Verification
 
@@ -148,15 +176,19 @@ xvfb-run -a /home/mojo/projects/build-UI-LIVE-001-worker/LiveJamUiHarness
 xvfb-run -a /home/mojo/projects/build-UI-LIVE-001-worker/LiveJamUiHarness --snapshot docs/screenshots
 ```
 
-`tests/JamLiveUiTests.cpp` runs 14 cases against a mock `IJamLiveControl`:
+`tests/JamLiveUiTests.cpp` runs 20 cases against a mock `IJamLiveControl`:
 cold default, coherent mapping, failed-read whole-state retention, exact status
 strings, pure intent→command mapping, visible rejection, fast double/triple
-click, rejected-Start-not-pretended, generation/prepared latch release,
-real-canvas primary-control visibility/non-overlap, production
-availability/accessibility, preview opt-in, Escape/Tab, and click→presenter
-mapping. The isolated harness additionally runs a real posted-click
-(`triggerClick` + message pump) self-check: an enabled button fires, a disabled
-button is ignored. Full output: `tools/live-jam-ui/verification.log`.
+click, rejected-Start-not-pretended, rejected-while-pending, generation/prepared
+latch release, recreated-editor-with-running-engine offers Stop (repro A),
+engine-stops-same-generation syncs to Start (repro B), queued-Stop overrides old
+play echo for restart, fault clears queued and reports failure,
+Stop-next-bar/Reset queue a stop, real-canvas primary-control
+visibility/non-overlap, production availability/accessibility, preview opt-in,
+Escape/Tab, and click→presenter mapping. The isolated harness additionally runs a
+real posted-click (`triggerClick` + message pump) self-check: an enabled button
+fires, a disabled button is ignored. Full output:
+`tools/live-jam-ui/verification.log`.
 
 The production editor TU was validated with a real `-fsyntax-only` compile using
 the flags extracted from the reusable product build (`ninja -t commands`), the

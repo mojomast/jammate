@@ -88,10 +88,11 @@ void JamLivePresenter::resetCache() noexcept
     live = jam::JamLiveState {};
     haveLive = false;
     lastAccepted = false;
-    intentRunning = false;
-    startPending = stopPending = false;
+    hasPending = false;
+    pendingWantsStart = false;
     haveGeneration = false;
     lastSeenGeneration = 0;
+    lastSeenAudioSampleTime = 0;
     feedback.clear();
     present();
 }
@@ -145,13 +146,19 @@ bool JamLivePresenter::submit (const JamUiIntent& in) noexcept
         return false;
     }
 
-    // One button, toggled from the LOCAL accepted-intent latch (not the stale
-    // audio echo): a fast second click after an accepted Start schedules a Stop
-    // before the worker echoes anything, so a pending join can be cancelled.
+    // One button, toggled from the effective desired bit: a pending local
+    // request overrides the engine echo until acknowledged, so a fast second
+    // click can cancel a pending join, and a recreated editor that already sees
+    // the engine playing correctly offers Stop first.
     const bool isStartStop = in.kind == JamUiIntent::Kind::startStop;
-    const bool wantStart = isStartStop ? ! intentRunning : false;
+    const bool isStopNow = in.kind == JamUiIntent::Kind::stopNextBar
+                           || in.kind == JamUiIntent::Kind::reset;
+    bool desired = false;
     if (isStartStop)
-        cmd.type = wantStart ? Cmd::Start : Cmd::Stop;
+    {
+        desired = ! effectiveDesired();
+        cmd.type = desired ? Cmd::Start : Cmd::Stop;
+    }
 
     lastCommand = (int) cmd.type;
     lastCommandValue_ = cmd.value;
@@ -162,9 +169,13 @@ bool JamLivePresenter::submit (const JamUiIntent& in) noexcept
     {
         if (isStartStop)
         {
-            intentRunning = wantStart;
-            startPending = wantStart;
-            stopPending = ! wantStart;
+            hasPending = true;
+            pendingWantsStart = desired;
+        }
+        else if (isStopNow)
+        {
+            hasPending = true;
+            pendingWantsStart = false;   // Stop-next-bar / Reset intend a stopped state
         }
         feedback = juce::String (commandName (cmd.type))
                    + (cmd.type == Cmd::Stop ? " requested." : " accepted by the queue - not yet applied.");
@@ -191,22 +202,35 @@ bool JamLivePresenter::poll() noexcept
     const bool ok = control.readJamLiveState (next);
     if (ok)
     {
-        // A device re-prepare / session reset releases the pending latch. A stale
-        // or raced read with the same generation does NOT: the accepted request
-        // stays selected until a newer start/stop or a reset.
-        if (! next.prepared
-            || (haveGeneration && next.sessionGeneration != lastSeenGeneration))
+        const bool genChanged = haveGeneration && next.sessionGeneration != lastSeenGeneration;
+        // "Fresh" means the worker published a new cursor, not a repeated snapshot
+        // from its latest-value cache. Only a fresh state may acknowledge a
+        // pending request, so a cold queued Start is never cleared by the older
+        // false snapshot that predates the worker consuming it.
+        const bool fresh = ! haveLive || genChanged
+                           || next.audioSampleTime != lastSeenAudioSampleTime;
+        // A stronger known state (release, re-prepare, failure, unavailable
+        // backend) clears the pending request and is reported truthfully.
+        const bool hardReset = ! next.prepared || genChanged
+                               || next.failure != jam::JamLiveFailure::none
+                               || next.backend == jam::JamLiveBackend::unavailable;
+        if (hardReset)
         {
-            intentRunning = false;
-            startPending = stopPending = false;
+            hasPending = false;
+        }
+        else if (hasPending && fresh)
+        {
+            // Start is acknowledged by the request bit going true; a Stop is
+            // acknowledged only once the request bit and the audio echo are both
+            // false, so a queued Stop keeps showing STOP QUEUED until sound stops.
+            const bool ack = pendingWantsStart ? next.requestedRunning
+                                            : (! next.requestedRunning && ! next.drumsPlaying);
+            if (ack)
+                hasPending = false;
         }
         haveGeneration = true;
         lastSeenGeneration = next.sessionGeneration;
-
-        // Clear only the queued flag whose echo has arrived.
-        if (next.requestedRunning) startPending = false;
-        else                       stopPending = false;
-
+        lastSeenAudioSampleTime = next.audioSampleTime;
         live = next;
         haveLive = true;
     }
@@ -224,12 +248,12 @@ juce::String JamLivePresenter::nextIntentText() const
         return failureName (live.failure);
     if (! live.prepared)
         return "Not prepared";
-    if (live.drumsPlaying)
-        return "Playing";
-    if (startQueued() && ! live.requestedRunning)
-        return "Start queued";
     if (stopQueued())
         return "Stop queued";
+    if (startQueued() && ! live.requestedRunning)
+        return "Start queued";
+    if (live.drumsPlaying)
+        return "Playing";
     if (live.requestedRunning && live.joinPending)
         return "Waiting for a usable clock lock";
     if (live.requestedRunning)
@@ -245,12 +269,14 @@ juce::String JamLivePresenter::statusText() const
         return "UNAVAILABLE";
     if (! live.prepared)
         return "NOT PREPARED";
-    if (live.drumsPlaying)
-        return "PLAYING (AUDIO ECHO)";
-    if (startQueued() && ! live.requestedRunning)
-        return "START QUEUED - WAITING FOR THE ENGINE";
+    // A queued Stop stays visible even while the old echo still plays: the label
+    // re-arms (effective desired false) but the status must not claim stopped.
     if (stopQueued())
         return "STOP QUEUED - WAITING FOR THE ENGINE";
+    if (startQueued() && ! live.requestedRunning)
+        return "START QUEUED - WAITING FOR THE ENGINE";
+    if (live.drumsPlaying)
+        return "PLAYING (AUDIO ECHO)";
     if (live.requestedRunning && live.joinPending)
         return "ARMED - WAITING FOR THE CLOCK";
     if (live.requestedRunning)
@@ -334,12 +360,13 @@ void JamLivePresenter::present() noexcept
         v.nextIntent = "Waiting for the live pipeline";
     }
 
-    // Selection reflects the local accepted intent so a second click can cancel
-    // a pending Start; the status line uses the audio-owner echo so a scheduled
-    // command is never presented as sound.
-    v.startQueued = startPending;
-    v.stopQueued = stopPending;
-    v.running = intentRunning || live.requestedRunning || live.drumsPlaying;
+    // The LABEL/selection uses exactly the effective desired bit (pending local
+    // request overrides the echo until acknowledged). The status line reports the
+    // audio-owner echo separately, so a scheduled command is never claimed as
+    // sound.
+    v.startQueued = startQueued();
+    v.stopQueued = stopQueued();
+    v.running = effectiveDesired();
     v.statusText = statusText();
     v.commandFeedback = feedback;
     view = v;

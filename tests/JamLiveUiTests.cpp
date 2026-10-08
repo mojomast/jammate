@@ -178,6 +178,7 @@ TEST_CASE (uiLive_statusStringsSeparateIntentFromEcho)
     mock.publish = true;
     mock.state = jam::JamLiveState {};
     mock.state.prepared = true;
+    mock.state.backend = jam::JamLiveBackend::experimentalBTrack;
     mock.state.sessionGeneration = 1;
     p.poll();
     CHECK (p.viewState().statusText == "PREPARED - STOPPED");
@@ -257,36 +258,41 @@ TEST_CASE (uiLive_submitRejectIsVisibleAndNotApplied)
 }
 
 //==============================================================================
-// L2: fast double/triple click must toggle off the LOCAL accepted-intent latch,
-// not the stale audio echo.
+// L2: the effective desired bit drives both the label and the action. A pending
+// local request overrides the engine echo until a FRESH coherent state
+// acknowledges it; with no pending request the live echo decides.
 TEST_CASE (uiLive_fastDoubleClickCancelsPendingStart)
 {
     MockJamControl mock;
     mock.publish = true;
     mock.state.prepared = true;
+    mock.state.backend = jam::JamLiveBackend::experimentalBTrack;
     mock.state.sessionGeneration = 5;
     mock.state.requestedRunning = false;
+    mock.state.audioSampleTime = 100;
     JamLivePresenter p (mock);
     p.poll();
 
     REQUIRE (p.submit ({ K::startStop, 0.0 }));   // no poll in between
     CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Start);
-    CHECK (p.startIntentLatched());
+    CHECK (p.hasPendingIntent());
+    CHECK (p.pendingDesired());
     CHECK (p.viewState().running);                // selection only
     CHECK (p.viewState().statusText.startsWith ("START QUEUED"));
 
     // Second click before any echo: must be a Stop, cancelling the pending join.
     REQUIRE (p.submit ({ K::startStop, 0.0 }));
     CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Stop);
-    CHECK (! p.startIntentLatched());
+    CHECK (! p.pendingDesired());
     CHECK (p.stopQueued());
+    CHECK (! p.viewState().running);              // label re-arms
     CHECK (p.viewState().statusText.startsWith ("STOP QUEUED"));
 
-    // A stale read with the same generation and requestedRunning == false must
-    // NOT resurrect or clear the accepted request incorrectly.
+    // An older repeated snapshot (same cursor) must not clear the pending request.
     p.poll();
+    CHECK (p.hasPendingIntent());
     REQUIRE (p.submit ({ K::startStop, 0.0 }));
-    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Start);   // toggle again
+    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Start);   // deliberate restart
 
     // Triple-click pattern: Start, Stop, Start.
     REQUIRE (p.submit ({ K::startStop, 0.0 }));
@@ -295,20 +301,137 @@ TEST_CASE (uiLive_fastDoubleClickCancelsPendingStart)
     CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Start);
 }
 
+// PRIMARY repro A: a recreated editor whose pipeline is already running must
+// offer Stop first, not Start.
+TEST_CASE (uiLive_recreatedEditorWithRunningEngineOffersStop)
+{
+    MockJamControl mock;
+    mock.publish = true;
+    mock.state.prepared = true;
+    mock.state.backend = jam::JamLiveBackend::experimentalBTrack;
+    mock.state.requestedRunning = true;
+    mock.state.drumsPlaying = true;
+    mock.state.sessionGeneration = 9;
+    mock.state.audioSampleTime = 5000;
+    JamLivePresenter p (mock);          // fresh presenter == editor recreation
+    p.poll();
+
+    CHECK (! p.hasPendingIntent());
+    CHECK (p.effectiveDesired());
+    CHECK (p.viewState().running);
+    CHECK (p.viewState().statusText == "PLAYING (AUDIO ECHO)");
+    REQUIRE (p.submit ({ K::startStop, 0.0 }));
+    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Stop);
+}
+
+// PRIMARY repro B: after a Start is acknowledged, an engine stop on the same
+// generation must sync the label back to Start and allow a restart.
+TEST_CASE (uiLive_engineStopsSameGenerationSyncsToStart)
+{
+    MockJamControl mock;
+    mock.publish = true;
+    mock.state.prepared = true;
+    mock.state.backend = jam::JamLiveBackend::experimentalBTrack;
+    mock.state.sessionGeneration = 9;
+    mock.state.requestedRunning = false;
+    mock.state.audioSampleTime = 1000;
+    JamLivePresenter p (mock);
+    p.poll();
+    REQUIRE (p.submit ({ K::startStop, 0.0 }));
+    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Start);
+    CHECK (p.hasPendingIntent());
+
+    // Fresh ack: request true, audio echo true, advanced cursor.
+    mock.state.requestedRunning = true;
+    mock.state.drumsPlaying = true;
+    mock.state.audioSampleTime = 2000;
+    mock.state.clock.lockState = jam::ClockLockState::Locked;
+    p.poll();
+    CHECK (! p.hasPendingIntent());
+    CHECK (p.effectiveDesired());
+
+    // Later, same generation, new state: stopped and lost. Must sync to Start.
+    mock.state.requestedRunning = false;
+    mock.state.drumsPlaying = false;
+    mock.state.audioSampleTime = 3000;
+    mock.state.clock.lockState = jam::ClockLockState::Lost;
+    p.poll();
+    CHECK (! p.hasPendingIntent());
+    CHECK (! p.effectiveDesired());
+    CHECK (! p.viewState().running);
+    CHECK (p.viewState().statusText == "PREPARED - STOPPED");
+    REQUIRE (p.submit ({ K::startStop, 0.0 }));
+    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Start);   // restart allowed
+}
+
+// A queued Stop must override the still-playing echo for the label/action, yet
+// the status must not claim stopped.
+TEST_CASE (uiLive_stopQueuedOverridesOldPlayEchoForRestart)
+{
+    MockJamControl mock;
+    mock.publish = true;
+    mock.state.prepared = true;
+    mock.state.backend = jam::JamLiveBackend::experimentalBTrack;
+    mock.state.sessionGeneration = 4;
+    mock.state.requestedRunning = true;
+    mock.state.drumsPlaying = true;
+    mock.state.audioSampleTime = 100;
+    JamLivePresenter p (mock);
+    p.poll();
+    CHECK (p.effectiveDesired());
+
+    REQUIRE (p.submit ({ K::startStop, 0.0 }));    // Stop
+    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Stop);
+    CHECK (p.hasPendingIntent());
+    CHECK (! p.pendingDesired());
+    CHECK (! p.viewState().running);               // label re-arms
+    CHECK (p.viewState().statusText.startsWith ("STOP QUEUED"));
+
+    // Old echo still playing, but the local override allows a deliberate restart.
+    REQUIRE (p.submit ({ K::startStop, 0.0 }));    // Start
+    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Start);
+    CHECK (p.pendingDesired());
+    CHECK (p.viewState().running);
+}
+
 TEST_CASE (uiLive_rejectedStartIsNotPretendedAccepted)
 {
     MockJamControl mock;
     mock.publish = true;
     mock.state.prepared = true;
+    mock.state.backend = jam::JamLiveBackend::experimentalBTrack;
     mock.state.sessionGeneration = 5;
     mock.rejectAll = true;
     JamLivePresenter p (mock);
     p.poll();
 
     CHECK (! p.submit ({ K::startStop, 0.0 }));
-    CHECK (! p.startIntentLatched());
+    CHECK (! p.hasPendingIntent());
     CHECK (! p.viewState().running);
     CHECK (! p.viewState().statusText.startsWith ("START QUEUED"));
+    CHECK (p.lastFeedback().containsIgnoreCase ("rejected"));
+}
+
+// A rejected command while a request is pending must retain the prior desired
+// bit and show the error, never flip the label as if applied.
+TEST_CASE (uiLive_rejectedWhilePendingRetainsDesired)
+{
+    MockJamControl mock;
+    mock.publish = true;
+    mock.state.prepared = true;
+    mock.state.backend = jam::JamLiveBackend::experimentalBTrack;
+    mock.state.sessionGeneration = 4;
+    mock.state.audioSampleTime = 100;
+    JamLivePresenter p (mock);
+    p.poll();
+    REQUIRE (p.submit ({ K::startStop, 0.0 }));    // accepted Start
+    CHECK (p.pendingDesired());
+
+    mock.rejectAll = true;
+    CHECK (! p.submit ({ K::startStop, 0.0 }));    // desired Stop, rejected
+    CHECK (p.hasPendingIntent());
+    CHECK (p.pendingDesired());                    // prior desired retained
+    CHECK (p.viewState().running);
     CHECK (p.lastFeedback().containsIgnoreCase ("rejected"));
 }
 
@@ -317,24 +440,88 @@ TEST_CASE (uiLive_generationResetReleasesPendingLatch)
     MockJamControl mock;
     mock.publish = true;
     mock.state.prepared = true;
+    mock.state.backend = jam::JamLiveBackend::experimentalBTrack;
     mock.state.sessionGeneration = 5;
+    mock.state.audioSampleTime = 100;
     JamLivePresenter p (mock);
     p.poll();
     REQUIRE (p.submit ({ K::startStop, 0.0 }));
-    CHECK (p.startIntentLatched());
+    CHECK (p.hasPendingIntent());
 
     // Device re-prepare bumps the generation: the pending latch is released.
     mock.state.sessionGeneration = 6;
     mock.state.requestedRunning = false;
+    mock.state.audioSampleTime = 200;
     p.poll();
-    CHECK (! p.startIntentLatched());
+    CHECK (! p.hasPendingIntent());
     REQUIRE (p.submit ({ K::startStop, 0.0 }));
     CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Start);   // fresh start, not a stop
 
     // Prepared release also releases it.
     mock.state.prepared = false;
+    mock.state.audioSampleTime = 300;
     p.poll();
-    CHECK (! p.startIntentLatched());
+    CHECK (! p.hasPendingIntent());
+}
+
+// A stronger known fault (worker failure / unavailable backend) clears a queued
+// request and reports the failure truthfully instead of a perpetual latch.
+TEST_CASE (uiLive_faultClearsQueuedAndReportsFailure)
+{
+    MockJamControl mock;
+    mock.publish = true;
+    mock.state.prepared = true;
+    mock.state.backend = jam::JamLiveBackend::experimentalBTrack;
+    mock.state.sessionGeneration = 4;
+    mock.state.audioSampleTime = 100;
+    JamLivePresenter p (mock);
+    p.poll();
+    REQUIRE (p.submit ({ K::startStop, 0.0 }));
+    CHECK (p.hasPendingIntent());
+
+    mock.state.failure = jam::JamLiveFailure::workerFailure;
+    mock.state.audioSampleTime = 200;
+    p.poll();
+    CHECK (! p.hasPendingIntent());
+    CHECK (p.viewState().statusText == "UNAVAILABLE");
+    CHECK (p.viewState().failureName == "worker failure");
+
+    // Unavailable backend is equally a hard reset.
+    mock.state.failure = jam::JamLiveFailure::none;
+    mock.state.backend = jam::JamLiveBackend::unavailable;
+    mock.state.audioSampleTime = 300;
+    REQUIRE (p.submit ({ K::startStop, 0.0 }));
+    CHECK (p.hasPendingIntent());
+    mock.state.audioSampleTime = 400;
+    p.poll();
+    CHECK (! p.hasPendingIntent());
+}
+
+TEST_CASE (uiLive_stopNextBarAndResetQueueStop)
+{
+    MockJamControl mock;
+    mock.publish = true;
+    mock.state.prepared = true;
+    mock.state.backend = jam::JamLiveBackend::experimentalBTrack;
+    mock.state.sessionGeneration = 4;
+    mock.state.requestedRunning = true;
+    mock.state.drumsPlaying = true;
+    mock.state.audioSampleTime = 100;
+    JamLivePresenter p (mock);
+    p.poll();
+
+    REQUIRE (p.submit ({ K::stopNextBar, 0.0 }));
+    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::StopAtNextBar);
+    CHECK (p.hasPendingIntent());
+    CHECK (! p.pendingDesired());
+    CHECK (! p.viewState().running);
+    CHECK (p.viewState().statusText.startsWith ("STOP QUEUED"));
+
+    REQUIRE (p.submit ({ K::reset, 0.0 }));
+    CHECK (lastCommand (mock).type == jam::JamLiveCommandType::Reset);
+    CHECK (p.hasPendingIntent());
+    CHECK (! p.pendingDesired());
+    CHECK (p.viewState().statusText.startsWith ("STOP QUEUED"));
 }
 
 //==============================================================================
