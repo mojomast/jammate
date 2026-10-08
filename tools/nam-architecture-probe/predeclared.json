@@ -56,16 +56,26 @@
       "description": "existing processor_probe linked against RT-003 integration product archives (libnam_core.a patched, sha256 dbd11fb2...)",
       "path": "/home/mojo/projects/build-RT-003-integration/product-probe/build/processor_probe",
       "sha256": "f950d6d95ff2f02d3deaab25e807b15c8fe0ac208a59f07f0e961729e3761715",
+      "pin_file": "/home/mojo/projects/build-RT-003-integration/product-probe/build/source-pin.txt",
+      "nam_archive_path": "/home/mojo/projects/build-RT-003-integration/product/libnam_core.a",
       "nam_archive_sha256": "dbd11fb2c63b69e00b78a559cff0cb1fbe14ece214dba73326b4232014498507",
+      "shared_archive_path": "/home/mojo/projects/build-RT-003-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
       "shared_archive_sha256": "405ee59144ff7e72a02c51368e700962cefe0353606b0a1d3ae63c8115181b40"
     },
     "original_control": {
       "description": "existing processor_probe linked against pinned upstream libnam_core_original.a (sha256 af023ffc...); control only, not the current processor",
       "path": "/home/mojo/projects/build-RT-003-integration/probe-baseline/build/processor_probe",
       "sha256": "de089230f5c718641e5620376cc8b7a8e8932b527464042a9211f8f32aa302e7",
+      "pin_file": "/home/mojo/projects/build-RT-003-integration/probe-baseline/build/source-pin.txt",
+      "nam_archive_path": "/home/mojo/projects/build-RT-003-integration/probe-baseline/plugin/libnam_core.a",
       "nam_archive_sha256": "af023ffcafd198e7a09107b78f2c540d4d3dbdce3c717e9ea3f215097e412d1b",
+      "shared_archive_path": "/home/mojo/projects/build-RT-003-integration/probe-baseline/plugin/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
       "shared_archive_sha256": "46edfe5dcda44acf28c690b5a2a0eeb3401f6f7aff0f557d1863003d96f6b147"
     }
+  },
+  "protocol": {
+    "variants": ["repaired", "original_control"],
+    "note": "run_nam_arch.sh preflights against these values and refuses to measure on any deviation (fail closed before inference)."
   },
   "source_pin": {
     "revision": "677ce9f",
@@ -80,6 +90,7 @@
   "matrix": {
     "warm_blocks": 128,
     "timeout_s": 600,
+    "num_drum_voices": 9,
     "nam_cases_per_model": 8,
     "rates": [48000, 96000],
     "blocks": [128, 512],

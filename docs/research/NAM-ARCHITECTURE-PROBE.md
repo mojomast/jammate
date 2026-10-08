@@ -130,10 +130,12 @@ Reading the table:
    default submodel (see above).
 5. **Cold path.** The repaired `a2_wavenet_max` cold allocation total is 3840
    (non-zero). The original control shows the same 3840 for the LSTM and the
-   WaveNet-max cases. Cold clean status covers only the CSV-visible categories
-   (`new`, `new[]`, `malloc`, `calloc`, `realloc`, and their frees). Nothrow and
-   aligned `new` are not separate CSV columns, so cold allocations in those
-   categories would not be visible. Warm totals include them.
+   WaveNet-max cases. Cold counts are summed from the CSV-visible categories
+   (`new`, `new[]`, `malloc`, `calloc`, `realloc`, and their frees); nothrow and
+   aligned `new` have no cold CSV columns, so cold traffic in those categories
+   would not be visible. Cold **capture-overflow** counters are now retained and
+   are checked, so an overflowing cold capture is reported as a finding rather
+   than silently clean. Warm totals include the nothrow/aligned `new` traffic.
 6. **noop frees** (`free(NULL)`, counted separately from heap frees) are 1677
    in every run, the same drum-path no-op RT-002 described. They are not heap
    operations and do not affect status.
@@ -158,6 +160,12 @@ Reading the table:
 - **Non-device, single-threaded** `processBlock` calls on one probe thread. Wall
   times are instrumented and are not a latency or real-time deadline gate.
 - **Symbol resolution** is by function name only (no debug line info).
+- **Capture overflow in the three positive runs.** The two A2/WaveNet-max runs and
+  the original LSTM run exhaust the instrumentation's fixed-size detail-record
+  array (4 NAM rows each, `capture_overflow_total` in `summary.json`). The
+  aggregate counters remain exact, but the per-call-site record list is
+  truncated, so `call_sites` for those runs is representative rather than
+  exhaustive. This is why an overflowing run is a finding and never clean.
 - **Probe binaries are reused, not rebuilt**, so probe-build behaviour is taken
   as recorded in the RT-003 integration pins.
 - No Windows, ASIO, device, hosted-plugin or whole-program safety claim is made.
@@ -187,6 +195,49 @@ findings); 3 when any run is unmeasured; 4 when any run failed.
 | `docs/research/nam-architecture-probe/source-pin.txt` | processor source hashes and archive identities |
 | `docs/research/nam-architecture-probe/manifest.sha256` | sha256 of every artifact above |
 
-Tests: `test_summarize_nam_arch.py` runs 36 cases (10 evidence and 26
-fail-closed fixture checks). They re-read the raw CSVs, verify model files and
-manifest hashes, and check exact expected counts.
+Tests: `test_summarize_nam_arch.py` runs **81 cases**: **13 evidence** tests
+against the committed artifacts and **68 fixture/adversarial** tests. The
+evidence tests re-read the raw CSVs, verify model files and manifest hashes, and
+assert exact expected counts. The fixture/adversarial tests mutate copies of
+real runs and require the validator to fail closed or to report the right
+status. Every fix below is covered by a test that fails when the fix is
+reverted (verified by reverting each fix in turn).
+
+## Fail-closed corrections (integration review)
+
+1. **Protocol-bound budget, timeout and architecture identity.** The warm-block
+   budget (128), timeout (600 s) and `architecture_id` now come from
+   `predeclared.json`, never from a run's own exit status. A coherently
+   rewritten budget (rows *and* exit status together) is rejected, because the
+   recorded value must equal the protocol rather than itself.
+2. **Exact rates and blocks.** Rate/block must be exact integers.
+   `48000.5` previously truncated to the valid `48000` key; it is now rejected.
+   `48000.0` is accepted as exactly 48000.
+3. **Capture-overflow counters retained; aggregates checked.**
+   `cold_alloc_overflow` / `cold_lock_overflow` were parsed and then discarded.
+   They are now retained in the row and per-run summary, and a run with any
+   capture overflow is never `measured-clean`. Warm aggregates may no longer hide
+   a positive per-kind counter: `warm_alloc_cxx_total` must be **at least** the
+   visible C++ sum (`cxxnew + cxxnewarr`) — it may exceed it, because nothrow and
+   aligned `new` have no CSV columns — and `warm_alloc_c_total` must **equal**
+   `warm_malloc + warm_calloc + warm_realloc` exactly.
+4. **Mandatory pin file and real archive hashing.** The RT-003 `source-pin.txt`
+   was optional and only its recorded hashes were compared. It is now required,
+   and the **actual** NAM and shared archives on disk are hashed and compared,
+   including the shared archive path recorded in the pin file.
+   `run_nam_arch.sh` performs all identity and protocol checks in a **preflight
+   before any probe process runs**, exiting 2 without measuring on any deviation
+   (invalid variant, changed budget, changed timeout, missing/mismatched binary,
+   archive, pin file, model or source).
+5. **Consistent schema validation and a drum-activity witness.** A JSON list,
+   `null` or scalar where an object is required now raises `Failed` instead of
+   an uncaught `AttributeError`, and flags/case counts are type-checked. Real
+   drums cases must witness drum-bus activity: a `drums=playing` row with zero
+   active blocks is a missing witness, not a clean result, and active blocks and
+   voice events are bounded by the warm budget and `num_drum_voices`.
+
+The committed evidence is unchanged: the ten historical runs and their raw
+CSVs/logs/findings are byte-identical, still 7 measured-clean and 3
+measured-findings, with the A2/WaveNet positive allocations preserved. The
+derived `summary.json`, `summary.md`, `source-pin.txt` and `manifest.sha256`
+were regenerated; `summary.md` gains capture-overflow and drum-witness columns.

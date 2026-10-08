@@ -99,6 +99,31 @@ def as_finite(v, col):
     return x
 
 
+def as_exact_int(v, col):
+    """Rate/block values must be exact integers: reject fractional values such as
+    48000.5, which a float->int truncation would silently fold into a valid rate."""
+    x = as_finite(v, col)
+    if x != int(x):
+        raise Failed(f"column {col} is not an exact integer: {v!r}")
+    return int(x)
+
+
+def protocol_budget(pre):
+    """The warm-block budget and timeout are protocol constants. They are read
+    from the predeclaration, never from a run's own exit status, so a coherently
+    rewritten budget (rows plus exit status) cannot pass."""
+    try:
+        warm = pre["matrix"]["warm_blocks"]
+        timeout = pre["matrix"]["timeout_s"]
+    except (KeyError, TypeError):
+        raise Failed("predeclaration is missing matrix.warm_blocks/timeout_s")
+    if not isinstance(warm, int) or isinstance(warm, bool) or warm < 1:
+        raise Failed(f"predeclared warm_blocks is not a positive int: {warm!r}")
+    if not isinstance(timeout, int) or isinstance(timeout, bool) or timeout < 1:
+        raise Failed(f"predeclared timeout_s is not a positive int: {timeout!r}")
+    return warm, timeout
+
+
 # ---------------------------------------------------------------------------
 # Model identity (weight-free)
 # ---------------------------------------------------------------------------
@@ -181,23 +206,55 @@ def check_source_pin(pre):
 
 
 def check_archive_pins(pre):
-    """Confirm each variant's probe binary and archives match the predeclared identity."""
+    """Confirm each variant's probe binary, its RT-003 pin file and the ACTUAL
+    archives on disk match the predeclared identity. The pin file is mandatory:
+    a missing one is a failure, not a skipped check, and the archive hashes are
+    recomputed from the real files rather than trusted from the pin text alone."""
     out = {}
     for name, b in pre["binaries"].items():
         if not os.path.isfile(b["path"]):
             raise Failed(f"probe binary missing: {b['path']}")
         if sha256_file(b["path"]) != b["sha256"]:
             raise Failed(f"probe binary {name} sha256 mismatch")
-        pin_file = os.path.join(os.path.dirname(b["path"]), "source-pin.txt")
-        if os.path.isfile(pin_file):
-            with open(pin_file, "r", encoding="utf-8") as f:
-                pin = dict(l.strip().split("=", 1) for l in f if "=" in l and not l.startswith("src/"))
-            if pin.get("nam_archive_sha256") != b["nam_archive_sha256"]:
-                raise Failed(f"{name}: recorded NAM archive sha {pin.get('nam_archive_sha256')} != predeclared")
-            if pin.get("shared_archive_sha256") != b["shared_archive_sha256"]:
-                raise Failed(f"{name}: recorded shared archive sha mismatch")
-        out[name] = {"binary_sha256": b["sha256"], "nam_archive_sha256": b["nam_archive_sha256"],
-                     "shared_archive_sha256": b["shared_archive_sha256"]}
+
+        pin_file = b.get("pin_file") or os.path.join(os.path.dirname(b["path"]), "source-pin.txt")
+        if not os.path.isfile(pin_file):
+            raise Failed(f"{name}: required RT-003 pin file missing: {pin_file}")
+        with open(pin_file, "r", encoding="utf-8") as f:
+            pin = dict(l.strip().split("=", 1) for l in f if "=" in l and not l.startswith("src/"))
+        if pin.get("nam_archive_sha256") != b["nam_archive_sha256"]:
+            raise Failed(f"{name}: recorded NAM archive sha {pin.get('nam_archive_sha256')} != predeclared")
+        if pin.get("shared_archive_sha256") != b["shared_archive_sha256"]:
+            raise Failed(f"{name}: recorded shared archive sha mismatch")
+
+        # The shared archive path recorded in the RT-003 pin must be the real one.
+        shared_path = b.get("shared_archive_path") or pin.get("shared_archive")
+        if not shared_path:
+            raise Failed(f"{name}: no shared archive path available to verify")
+        if pin.get("shared_archive") and os.path.realpath(pin["shared_archive"]) != os.path.realpath(shared_path):
+            raise Failed(f"{name}: pin shared_archive {pin['shared_archive']} != predeclared {shared_path}")
+        if not os.path.isfile(shared_path):
+            raise Failed(f"{name}: shared archive missing: {shared_path}")
+        if sha256_file(shared_path) != b["shared_archive_sha256"]:
+            raise Failed(f"{name}: actual shared archive sha mismatch at {shared_path}")
+
+        nam_path = b.get("nam_archive_path")
+        if not nam_path:
+            raise Failed(f"{name}: no NAM archive path available to verify")
+        if not os.path.isfile(nam_path):
+            raise Failed(f"{name}: NAM archive missing: {nam_path}")
+        if sha256_file(nam_path) != b["nam_archive_sha256"]:
+            raise Failed(f"{name}: actual NAM archive sha mismatch at {nam_path}")
+
+        out[name] = {
+            "binary_path": b["path"],
+            "binary_sha256": b["sha256"],
+            "pin_file": pin_file,
+            "nam_archive_path": nam_path,
+            "nam_archive_sha256_verified_on_disk": True,
+            "shared_archive_path": shared_path,
+            "shared_archive_sha256_verified_on_disk": True,
+        }
     return out
 
 
@@ -249,14 +306,14 @@ def expected_case_keys():
     return keys, nam
 
 
-def summarise_row(row, warm_blocks):
+def summarise_row(row, warm_blocks, num_drum_voices=None):
     tag = row["tag"]
-    rate = as_finite(row["rate"], "rate")
-    block = as_int(row["block"], "block")
+    rate = as_exact_int(row["rate"], "rate")
+    block = as_exact_int(row["block"], "block")
     drums = as_int(row["drums"], "drums")
     wb = as_int(row["warm_blocks"], "warm_blocks")
     if wb != warm_blocks:
-        raise Failed(f"row {tag}/{rate}/{block} warm_blocks {wb} != {warm_blocks}")
+        raise Failed(f"row {tag}/{rate}/{block} warm_blocks {wb} != protocol {warm_blocks}")
     if tag in DRY_TAGS and drums != DRY_TAGS[tag]:
         raise Failed(f"row {tag} drums flag {drums} inconsistent with tag")
     if tag in NAM_TAGS and drums != NAM_TAGS[tag]:
@@ -275,8 +332,19 @@ def summarise_row(row, warm_blocks):
     outrms = as_finite(row["out_rms"], "out_rms")
     if outrms < 0:
         raise Failed("negative out_rms")
-    as_int(row["drum_active_blocks"], "drum_active_blocks")
-    as_int(row["voice_events"], "voice_events")
+    active = as_int(row["drum_active_blocks"], "drum_active_blocks")
+    voice_events = as_int(row["voice_events"], "voice_events")
+    if active > wb:
+        raise Failed(f"row {tag}/{rate}/{block} drum_active_blocks {active} > warm blocks {wb}")
+    if drums:
+        # A playing case that carried no drum-bus activity would make the
+        # drums rows indistinguishable from the stopped ones, so it is a
+        # missing witness rather than a clean result.
+        if active == 0:
+            raise Failed(f"row {tag}/{rate}/{block} drums=playing but no drum-bus activity was witnessed")
+        if num_drum_voices and voice_events > wb * num_drum_voices:
+            raise Failed(f"row {tag}/{rate}/{block} voice_events {voice_events} exceeds the "
+                         f"bounded maximum {wb * num_drum_voices}")
 
     def total_of(prefix, names):
         return sum(counts[f"{prefix}_{n}"] for n in names)
@@ -286,33 +354,56 @@ def summarise_row(row, warm_blocks):
     lock_names = ["lock", "trylock", "cond", "unlock"]
     warm_alloc = counts["warm_alloc_cxx_total"] + counts["warm_alloc_c_total"]
     warm_free = total_of("warm", heap_free_names)
+
+    # The CSV aggregates must never hide a positive per-kind counter. The probe's
+    # C++ total also covers nothrow/aligned new, which have no columns here, so it
+    # may exceed the visible C++ sum; it may never be smaller. The C total covers
+    # exactly the three C columns and must match.
+    warm_cxx_visible = counts["warm_cxxnew"] + counts["warm_cxxnewarr"]
+    warm_c_visible = counts["warm_malloc"] + counts["warm_calloc"] + counts["warm_realloc"]
+    if counts["warm_alloc_cxx_total"] < warm_cxx_visible:
+        raise Failed(f"row {tag}/{rate}/{block} warm_alloc_cxx_total "
+                     f"{counts['warm_alloc_cxx_total']} < visible C++ allocation sum {warm_cxx_visible}")
+    if counts["warm_alloc_c_total"] != warm_c_visible:
+        raise Failed(f"row {tag}/{rate}/{block} warm_alloc_c_total {counts['warm_alloc_c_total']} "
+                     f"!= visible C allocation sum {warm_c_visible}")
+
     return {
-        "tag": tag, "rate": int(rate), "block": block, "drums": drums,
+        "tag": tag, "rate": rate, "block": block, "drums": drums,
         "warm_blocks": wb,
         "cold_alloc": counts["cold_cxxnew"] + counts["cold_cxxnewarr"] + counts["cold_malloc"]
                       + counts["cold_calloc"] + counts["cold_realloc"],
         "cold_free": total_of("cold", heap_free_names),
         "cold_lock_ops": total_of("cold", ["lock", "trylock", "cond", "unlock"]),
         "cold_noopfree": counts["cold_noopfree"],
+        "cold_alloc_overflow": counts["cold_alloc_overflow"],
+        "cold_lock_overflow": counts["cold_lock_overflow"],
         "warm_alloc": warm_alloc,
         "warm_free": warm_free,
         "warm_lock_ops": total_of("warm", lock_names),
         "warm_noopfree": counts["warm_noopfree"],
         "warm_alloc_overflow": counts["warm_alloc_overflow"],
         "warm_lock_overflow": counts["warm_lock_overflow"],
+        "warm_alloc_cxx_total": counts["warm_alloc_cxx_total"],
+        "warm_alloc_c_total": counts["warm_alloc_c_total"],
         "warm_alloc_per_host_sample": warm_alloc / float(wb * block),
         "out_rms": outrms,
-        "drum_active_blocks": int(row["drum_active_blocks"]),
-        "voice_events": int(row["voice_events"]),
+        "drum_active_blocks": active,
+        "voice_events": voice_events,
         "process_wall_ms": proc,
     }
 
 
-def validate_run(run_dir, pre, variant, model_path, expected_model_sha, bin_sha, models_dir):
+def validate_run(run_dir, pre, variant, architecture_id, model_path, expected_model_sha, bin_sha, models_dir):
+    protocol_warm, protocol_timeout = protocol_budget(pre)
+    num_drum_voices = pre["matrix"].get("num_drum_voices")
+
     st_path = os.path.join(run_dir, "exit-status.txt")
     st = parse_exit_status(st_path)
     if st.get("variant") != variant:
         raise Failed(f"exit status variant {st.get('variant')!r} != {variant!r}")
+    if st.get("architecture_id") != architecture_id:
+        raise Failed(f"exit status architecture_id {st.get('architecture_id')!r} != {architecture_id!r}")
     if st.get("model_file") != os.path.basename(model_path):
         raise Failed("exit status model_file mismatch")
     if st.get("binary_sha256") != bin_sha:
@@ -321,13 +412,18 @@ def validate_run(run_dir, pre, variant, model_path, expected_model_sha, bin_sha,
         raise Failed("exit status model sha256 does not match predeclared model identity")
     if st.get("exit") != "0":
         raise Failed(f"probe exit status {st.get('exit')}")
+    # The recorded budget must equal the protocol. Validated against the protocol,
+    # not against itself, so a coherently rewritten budget is rejected.
+    if st.get("warm_blocks") != str(protocol_warm):
+        raise Failed(f"exit status warm_blocks {st.get('warm_blocks')!r} != protocol {protocol_warm}")
+    if st.get("timeout_s") != str(protocol_timeout):
+        raise Failed(f"exit status timeout_s {st.get('timeout_s')!r} != protocol {protocol_timeout}")
 
     if not os.path.isfile(model_path):
         raise Failed(f"model file missing: {model_path}")
     if sha256_file(model_path) != expected_model_sha:
         raise Failed("model file sha256 does not match predeclared identity")
 
-    warm = int(st.get("warm_blocks", "0"))
     log_path = os.path.join(run_dir, "probe.log")
     try:
         with open(log_path, "r", encoding="utf-8", errors="strict") as f:
@@ -357,21 +453,38 @@ def validate_run(run_dir, pre, variant, model_path, expected_model_sha, bin_sha,
     if loaded == "0" and "[nam] UNMEASURED" not in log:
         raise Failed("loaded=0 without the explicit UNMEASURED marker")
 
-    try:
-        findings = load_json(os.path.join(run_dir, "findings.json"))
-    except Failed:
-        raise
-    findings_full = findings.get("full", findings) if isinstance(findings, dict) else findings
-    if not isinstance(findings_full, dict):
-        raise Failed("findings.json has no full-run object")
-    if findings.get("mode") != "full" and "full" not in findings:
-        raise Failed("findings.json is not a full run")
-    if findings.get("selfcheck_pass") is not True or findings.get("args_ok") is not True:
-        raise Failed("findings.json self-check/args flags not true")
-    if findings.get("scene_expectation_ok") is not True:
-        raise Failed("findings.json scene_expectation_ok is not true")
-    if findings.get("dry_cases") != 18:
-        raise Failed(f"findings.json dry_cases {findings.get('dry_cases')} != 18")
+    findings = load_json(os.path.join(run_dir, "findings.json"))
+    # Every step below is a shape check first: a JSON list, null or scalar where an
+    # object is required must surface as Failed, never as an uncaught AttributeError.
+    if not isinstance(findings, dict):
+        raise Failed(f"findings.json top level is {type(findings).__name__}, expected object")
+    if "full" in findings:
+        findings_full = findings["full"]
+        if not isinstance(findings_full, dict):
+            raise Failed(f"findings.json 'full' is {type(findings_full).__name__}, expected object")
+    else:
+        findings_full = findings
+        if findings.get("mode") != "full":
+            raise Failed("findings.json is not a full run")
+
+    def expect_flag(container, key, where):
+        if key not in container:
+            raise Failed(f"{where} is missing {key}")
+        if container[key] is not True:
+            raise Failed(f"{where} {key} is {container[key]!r}, expected true")
+
+    def expect_int(container, key, where):
+        value = container.get(key)
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise Failed(f"{where} {key} is {value!r}, expected int")
+        return value
+
+    expect_flag(findings_full, "selfcheck_pass", "findings.json")
+    expect_flag(findings_full, "args_ok", "findings.json")
+    expect_flag(findings_full, "scene_expectation_ok", "findings.json")
+    dry_cases = expect_int(findings_full, "dry_cases", "findings.json")
+    if dry_cases != 18:
+        raise Failed(f"findings.json dry_cases {dry_cases} != 18")
 
     rows = read_csv_rows(os.path.join(run_dir, "cases.csv"))
     dry_expected, nam_expected = expected_case_keys()
@@ -384,11 +497,11 @@ def validate_run(run_dir, pre, variant, model_path, expected_model_sha, bin_sha,
             kind = "dry"
         else:
             raise Failed(f"unexpected tag {row['tag']!r}")
-        key = (kind, row["tag"], int(as_finite(row["rate"], "rate")), as_int(row["block"], "block"))
+        key = (kind, row["tag"], as_exact_int(row["rate"], "rate"), as_exact_int(row["block"], "block"))
         if key in seen:
             raise Failed(f"duplicate case {key}")
         seen.add(key)
-        parsed.append((key, summarise_row(row, warm)))
+        parsed.append((key, summarise_row(row, protocol_warm, num_drum_voices)))
 
     dry_seen = {k for k, _ in parsed if k[0] == "dry"}
     nam_seen = {k for k, _ in parsed if k[0] == "nam"}
@@ -399,32 +512,53 @@ def validate_run(run_dir, pre, variant, model_path, expected_model_sha, bin_sha,
         if nam_seen != nam_expected:
             raise Failed(f"NAM case matrix mismatch: missing {sorted(nam_expected - nam_seen)} "
                          f"extra {sorted(nam_seen - nam_expected)}")
-        if findings.get("nam_cases") != 8:
-            raise Failed(f"findings.json nam_cases {findings.get('nam_cases')} != 8")
+        nam_cases = expect_int(findings_full, "nam_cases", "findings.json")
+        if nam_cases != len(nam_expected):
+            raise Failed(f"findings.json nam_cases {nam_cases} != {len(nam_expected)}")
     else:
         if nam_seen:
             raise Failed("NAM rows present although the model did not load")
-        if findings.get("nam_cases") != 0:
+        if expect_int(findings_full, "nam_cases", "findings.json") != 0:
             raise Failed("findings.json reports NAM cases for an unloaded model")
         if not unmeasured_line:
             raise Failed("unloaded model without UNMEASURED marker")
 
     nam_rows = [r for k, r in parsed if k[0] == "nam"]
     dry_rows = [r for k, r in parsed if k[0] == "dry"]
-    if loaded == "1" and findings.get("nam_cases_with_alloc") != sum(1 for r in nam_rows if r["warm_alloc"] > 0):
-        raise Failed("findings.json nam_cases_with_alloc disagrees with CSV")
+    if loaded == "1":
+        reported = expect_int(findings_full, "nam_cases_with_alloc", "findings.json")
+        if reported != sum(1 for r in nam_rows if r["warm_alloc"] > 0):
+            raise Failed("findings.json nam_cases_with_alloc disagrees with CSV")
 
-    nonzero_nam = [r for r in nam_rows if any(r[k] for k in (
-        "cold_alloc", "cold_free", "cold_lock_ops", "warm_alloc", "warm_free", "warm_lock_ops",
-        "warm_alloc_overflow", "warm_lock_overflow"))]
-    nonzero_dry = [r for r in dry_rows if any(r[k] for k in (
-        "cold_alloc", "cold_free", "cold_lock_ops", "warm_alloc", "warm_free", "warm_lock_ops",
-        "warm_alloc_overflow", "warm_lock_overflow"))]
+    # Capture overflow means the fixed-size detail-record array was exhausted, so
+    # the run under-reports call sites. Counts stay valid, but an overflowing run is
+    # never reported as measured-clean.
+    overflow_fields = ["cold_alloc_overflow", "cold_lock_overflow",
+                       "warm_alloc_overflow", "warm_lock_overflow"]
+    count_fields = ["cold_alloc", "cold_free", "cold_lock_ops",
+                    "warm_alloc", "warm_free", "warm_lock_ops"]
+
+    def overflowing(rows):
+        return [r for r in rows if any(r[k] for k in overflow_fields)]
+
+    nonzero_nam = [r for r in nam_rows if any(r[k] for k in count_fields + overflow_fields)]
+    nonzero_dry = [r for r in dry_rows if any(r[k] for k in count_fields + overflow_fields)]
+    nam_overflow = overflowing(nam_rows)
+    dry_overflow = overflowing(dry_rows)
     noop_total = sum(r["cold_noopfree"] + r["warm_noopfree"] for r in nam_rows + dry_rows)
 
     if loaded == "0":
         status = "unmeasured"
         reason = "model did not load or activate; explicit UNMEASURED; not clean"
+    elif nam_overflow or dry_overflow:
+        status = "measured-findings"
+        where = []
+        if nam_overflow:
+            where.append(f"{len(nam_overflow)} NAM row(s)")
+        if dry_overflow:
+            where.append(f"{len(dry_overflow)} dry row(s)")
+        reason = ("positive heap or lock counts, and/or capture overflow in "
+                  + " and ".join(where))
     elif nonzero_nam or nonzero_dry:
         status = "measured-findings"
         reason = "positive heap or lock counts recorded as findings"
@@ -454,6 +588,14 @@ def validate_run(run_dir, pre, variant, model_path, expected_model_sha, bin_sha,
         "nam_rows": len(nam_rows),
         "dry_rows_nonzero": len(nonzero_dry),
         "nam_rows_nonzero": len(nonzero_nam),
+        "nam_rows_with_capture_overflow": len(nam_overflow),
+        "dry_rows_with_capture_overflow": len(dry_overflow),
+        "capture_overflow_total": sum(r[k] for r in nam_rows + dry_rows for k in overflow_fields),
+        "nam_drums_rows": sum(1 for r in nam_rows if r["drums"]),
+        "nam_drums_rows_with_activity": sum(1 for r in nam_rows if r["drums"] and r["drum_active_blocks"] > 0),
+        "nam_drums_voice_events_total": sum(r["voice_events"] for r in nam_rows if r["drums"]),
+        "warm_blocks_protocol": protocol_warm,
+        "timeout_s_protocol": protocol_timeout,
         "nam_cases_with_warm_alloc": sum(1 for r in nam_rows if r["warm_alloc"] > 0),
         "nam_warm_alloc_total": sum(r["warm_alloc"] for r in nam_rows),
         "nam_warm_free_total": sum(r["warm_free"] for r in nam_rows),
@@ -547,7 +689,7 @@ def main(argv):
             path, sha, ident = identities[a["id"]]
             run_dir = os.path.join(args.runs, variant, a["id"])
             try:
-                run = validate_run(run_dir, pre, variant, path, sha, bin_sha, models_dir)
+                run = validate_run(run_dir, pre, variant, a["id"], path, sha, bin_sha, models_dir)
                 run["architecture_id"] = a["id"]
                 run["model_identity"] = ident
                 run["role"] = a["role"]
@@ -608,11 +750,11 @@ def main(argv):
 
 
 def write_markdown(path, s):
-    lines = ["| variant | architecture | model | status | NAM rows | warm alloc total | warm alloc/host-sample (min-max) | warm free | lock ops | noop frees | out RMS (min-max) |",
-             "|---|---|---|---|---|---|---|---|---|---|---|"]
+    lines = ["| variant | architecture | model | status | NAM rows | warm alloc total | warm alloc/host-sample (min-max) | warm free | lock ops | capture overflow rows | drums rows witnessed | noop frees | out RMS (min-max) |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in s["runs"]:
         if r["status"] == "failed":
-            lines.append(f"| {r['variant']} | {r['architecture_id']} | {r['model_file']} | **failed** | - | - | - | - | - | - | {r['status_reason']} |")
+            lines.append(f"| {r['variant']} | {r['architecture_id']} | {r['model_file']} | **failed** | - | - | - | - | - | - | - | - | {r['status_reason']} |")
             continue
         ps_min = r.get("nam_warm_alloc_per_host_sample_min")
         ps_max = r.get("nam_warm_alloc_per_host_sample_max")
@@ -623,7 +765,10 @@ def write_markdown(path, s):
             f"| {r['variant']} | {r['architecture_id']} | {r['model_file']} | {r['status']} | "
             f"{r.get('nam_rows', 0)} | {r.get('nam_warm_alloc_total', 0)} | "
             f"{fmt(ps_min)}-{fmt(ps_max)} | {r.get('nam_warm_free_total', 0)} | "
-            f"{r.get('nam_warm_lock_ops_total', 0)} | {r.get('noopfree_total_reported_separately', 0)} | "
+            f"{r.get('nam_warm_lock_ops_total', 0)} | "
+            f"{r.get('nam_rows_with_capture_overflow', 0)} | "
+            f"{r.get('nam_drums_rows_with_activity', 0)}/{r.get('nam_drums_rows', 0)} | "
+            f"{r.get('noopfree_total_reported_separately', 0)} | "
             f"{fmt(rms_min)}-{fmt(rms_max)} |")
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
