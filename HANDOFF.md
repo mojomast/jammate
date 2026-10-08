@@ -75,6 +75,7 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | EVAL-006 integrated sustain repair + tapping audit (worker finished) | `wp/EVAL-006-sustain`, `../worktrees/EVAL-006-sustain` | `ses_ee732c849ffeFasCrEAjS9Jvx7` |
 | TRACK-004 acquisition/BPM diagnosis (review corrections) | `wp/TRACK-004-acquisition`, `../worktrees/TRACK-004-acquisition` | `ses_ee732c82fffeKhlV6klzraURBv` |
 | RT-002 real processor runtime probe | `wp/RT-002-processor-probe`, `../worktrees/RT-002-processor-probe` | `ses_ee72ac30effelERypLligi7fSR` |
+| EVAL-007 version-aware silence coverage | `wp/EVAL-007-silence-coverage`, `../worktrees/EVAL-007-silence-coverage` | `ses_ee7215f59ffeWQ6ZWQvH5z229z` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
 tree and SHA. Review/merge returned work rather than rerunning a worker's topic
@@ -107,6 +108,14 @@ limited to the measured evidence. The recorded raw tracker runs used the earlier
 manifest before metadata-only correction; waveform, truth and silence spans are
 unchanged. The by-name CorpusDefect scorer caveat remains reported.
 
+EVAL-006 integration merge is `664041c`. EVAL-007 starts from that SHA in the
+vacated third Flash lane, with explicit ownership of existing rhythm-eval
+Metrics/Manifest files and their tests. It replaces the name-based defect list
+with reviewed audio-identity evidence, retains raw counts, marks noise-inherited
+structural silence as unassessed, and reruns both candidates on original,
+repaired and derived corpora. It owns a new report/artifact directory only;
+historical manifests/WAVs/results and metric thresholds remain preserved.
+
 TRACK-004 initial `51554f1` returned real causal traces and acquisition replay.
 The 123.046875 report equals integer lag42 exactly while lag41 represents126;
 tested click runs retain the bias without device-rate conversion. This is a
@@ -120,7 +129,7 @@ is not accepted. No tracker selected; G3 remains open.
 
 G0/G1 remain partial: Windows/ASIO, hardware timing, full callback heap/locking
 and scene delivery need evidence. G2 lacks live analyzer/UI and real DrumEngine
-transport wiring. G3 still needs version-aware silence-defect classification,
+transport wiring. G3 still needs version-aware silence-defect classification (EVAL-007),
 acquisition improvement and an evidence-backed selection ADR. The historical
 `sustained_chords` collapses within about 0.5 s; the separate repaired fixture has
 measured persistence at 1.5 s. Tapping's onset-energy audit supports retaining
