@@ -38,7 +38,7 @@ PARTIAL, never PASSED.
 | **G2** new module seams | **PARTIAL (advanced early)** | analyzer/clock/processor/editor connected and actual lifecycle/audio proof accepted; broader seam/host coverage remains open |
 | **G3** tracker selected | **IN PROGRESS (advanced early)** | frozen stability candidate recovers diagnostic regressions in preserved matrix; representative guitar useful-lock evidence and production selection ADR incomplete |
 | **G4** musical clock | **PARTIAL (advanced early)** | actual003 initial/restarted joins, stops, resync, release and drum-only output pass; broader musical/physical acceptance remains open |
-| **G5** adaptive drummer | **PARTIAL (first slice)** | one live4/4 Rock groove; adaptive styles/dynamics/fills and broader musical acceptance remain open |
+| **G5** adaptive drummer | **PARTIAL (integration)** | six prepared4/4 styles and dynamics render; measured one-bar fill regression under repair; broader musical acceptance remains open |
 | **G6/G7** UX / release | **PARTIAL UX / release open** | real Jam controls fit1100×700 and20 UI cases pass; physical play/release acceptance remains open |
 
 ### Scheduled deviations (orchestrator-authorised, recorded)
@@ -95,9 +95,9 @@ measurements and are not closed by software or synthetic tests.
 | Task | State | Worktree / ownership |
 |---|---|---|
 | STYLE-DIRECTOR-002 | ACCEPTED/MERGED `3293026`, worker `ses_ee48b3de2ffe1Y3nPOHAj9Hrks` | `../worktrees/STYLE-DIRECTOR-002`; new catalog/director and portable tests |
-| DRUM-ADAPT-002 | ACCEPTED/MERGED `e0eba66`, worker `ses_ee48af76cffe2JZ2Uc0FTbgI1S` | `../worktrees/DRUM-ADAPT-002`; bridge/engine adaptation and actual-engine tests |
+| DRUM-ADAPT-002 | MERGED `e0eba66`; measured integration fill repair active | `../worktrees/DRUM-ADAPT-002`; bridge/engine adaptation and actual-engine tests |
 | EVAL-GUITAR-009 | ACCEPTED/MERGED `89ec9e8`, worker `ses_ee48ab4e4ffe1yZOM5auV6mf2P` | `../worktrees/EVAL-GUITAR-009`; representative-guitar import/useful-lock evaluation |
-| DEVICE-002 | REVIEW FIX `dbd261d`, worker `ses_ee48a7730ffe4JXF99n4BDv8R4` | `../worktrees/DEVICE-002`; physical-device/play evidence tooling |
+| DEVICE-002 | ACCEPTED/MERGED `ecdd79a`, worker `ses_ee48a7730ffe4JXF99n4BDv8R4` | `../worktrees/DEVICE-002`; physical-device/play evidence tooling |
 
 The orchestrator appended adaptive command IDs without renumbering the live
 commands, added worker-setting/audio-echo telemetry and wired the UI mapping.
@@ -144,6 +144,40 @@ catalogue entries, applies worker-owned settings, and publishes groove/fill only
 from audio-owner echo. Three adaptive session cases pass64 checks, including
 style-specific join, explicit fill intent vs playback, Stop and stale echo.
 Full product/replay integration checks and device correction re-review continue.
+
+#### Final lifecycle and measured integration update
+
+Device correction `ae8e71c`/`ecdd79a` is independently ACCEPTED and merged:
+75 tests pass; all original false-pass reproductions fail closed; round-1
+example/environment bytes are preserved. Corrected synthetic example exits2
+with every physical gate FAIL. Receipts remain structured operator attestations.
+
+Live review found a coalesced Stop/Start director stall. `c1e501f` resolves
+cancelled unpublished stops; `e39855e` retains a subsequent same-tick Fill pulse.
+Independent probes verify both Stop variants, triple intents and the accepted
+stop/real-stopped-echo boundary. Seven session cases /120 checks pass. Frozen
+source OFF core passes35/35; BTrack/aubio/both original full matrices pass36/36,
+36/36,37/37, followed by final-source focused rebuild/checks on all three.
+Final product Standalone/VST3 builds and45/45 suites pass. An earlier product
+run compiled new tests with older lifecycle bytes; its two failures are retained,
+then the frozen source rebuild passes. No production clock threshold changed.
+
+Actual-processor replay evidence is external at
+`../build-ADAPTIVE-002-integration/`. `actual001..003` preserve pre-measurement
+freshness-guard failures. A corrupt Ninja dependency database was preserved and
+regenerated; the current shared-code/test dry-run says no work. Replay uses a
+clean source, freshly compiles processor/editor/engine/core/UI, hashes headers,
+tools and reused closure, and runs the instrumentation self-check.
+
+`actual004` at `a2f9362` renders all six styles, dynamics and fill/echo, with no
+callback allocation/free/lock/wait, but fails fill duration92672 vs96000 +/-512.
+The harness incorrectly assumed candidate120 establishes clock tempo. Additive
+correction `26480c5` uses acknowledged taps and Freeze; `actual005` verifies
+clock119.680851 BPM but observes an11264-sample fill, again FAIL. Both measured
+runs are preserved. The engine worker is repairing the demonstrated playback
+defect; replay acceptance and publication wait on that correction. The duration
+tolerance and production policies are unchanged. Guitar and physical gates stay
+open.
 
 ### Completed live-Jam wave (base `88893e2`, 2026-10-08)
 

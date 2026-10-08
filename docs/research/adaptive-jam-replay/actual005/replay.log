@@ -1,0 +1,84 @@
+PASS tracker injection accepted before prepare
+PASS all 106 unique catalogue patterns prepared before callbacks
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS first tap applied before advancing the fixed interval
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS second tap establishes the frozen clock-owned test tempo
+PASS actual initial join
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS worker applied selected style
+PASS worker applied intensity/complexity and disabled automatic fills
+PASS style transition retains actual playback
+PASS selected style produces actual internal-kit audio
+PASS director intensity reaches the audio-owner render parameters
+PASS actual settled groove belongs to the selected style catalogue
+STYLE style=0 groove=19
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS worker applied selected style
+PASS worker applied intensity/complexity and disabled automatic fills
+PASS style transition retains actual playback
+PASS selected style produces actual internal-kit audio
+PASS director intensity reaches the audio-owner render parameters
+PASS actual settled groove belongs to the selected style catalogue
+STYLE style=1 groove=41
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS worker applied selected style
+PASS worker applied intensity/complexity and disabled automatic fills
+PASS style transition retains actual playback
+PASS selected style produces actual internal-kit audio
+PASS director intensity reaches the audio-owner render parameters
+PASS actual settled groove belongs to the selected style catalogue
+STYLE style=2 groove=69
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS worker applied selected style
+PASS worker applied intensity/complexity and disabled automatic fills
+PASS style transition retains actual playback
+PASS selected style produces actual internal-kit audio
+PASS director intensity reaches the audio-owner render parameters
+PASS actual settled groove belongs to the selected style catalogue
+STYLE style=3 groove=56
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS worker applied selected style
+PASS worker applied intensity/complexity and disabled automatic fills
+PASS style transition retains actual playback
+PASS selected style produces actual internal-kit audio
+PASS director intensity reaches the audio-owner render parameters
+PASS actual settled groove belongs to the selected style catalogue
+STYLE style=4 groove=22
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS live command accepted by bounded queue
+PASS worker applied selected style
+PASS worker applied intensity/complexity and disabled automatic fills
+PASS style transition retains actual playback
+PASS selected style produces actual internal-kit audio
+PASS director intensity reaches the audio-owner render parameters
+PASS actual settled groove belongs to the selected style catalogue
+STYLE style=5 groove=69
+PASS style controls change actual prepared groove
+PASS settled style mapping contains distinct rendered grooves
+PASS live command accepted by bounded queue
+PASS actual engine fill, audio-owner echo and reversion
+FILL start=1254912 end=1266176 duration=11264 engine_bpm=119.680851
+FAIL fill duration is one 120 BPM bar within callback observation resolution
+PASS no engine command rejection during style/fill transitions
+PASS live command accepted by bounded queue
+PASS Stop releases injected ownership
+PASS all callbacks advance one coherent sample domain
+PASS actual internal-kit output with zero guitar input
+PASS armed callback paths contain no detected allocation/free/lock/wait
+MEASURE blocks=3050 nonzero=2825 rms=0.150783332 peak=1.35789502 alloc=0 free=0 locks=0 waits=0
+PASS released facade is cold
