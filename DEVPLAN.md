@@ -33,6 +33,18 @@ the ledger. D11 records the experimental default-BTrack live backend while
 production selection and device/real-guitar gates remain open. One Rock groove
 and real correction controls are the scope; adaptive styles/fills follow later.
 
+Live wave integration update: pipeline `016c0c8` and UI `8ac4517` are accepted
+and integrated after focused review, Linux Standalone/VST3 builds,36 registered
+suites and20 UI cases. Portable core configurations pass27/28/28/29 suites with
+strict tracker-linkage guards. Replay `5c0d72e` is integrated with additive
+pre-measurement corrections. The first actual full run preserves a passing54-
+cell callback RT gate and a default BTrack join on a synthetic120 BPM input,
+but its overall verdict fails on snapshot capture and an unpaced injected
+lifecycle scenario. Those harness corrections and fresh measurement are active;
+the original measured evidence is retained in
+`docs/research/live-jam-replay/actual-full-001/`. Useful guitar lock/device gates
+remain open; a synthetic result does not promote the tracker.
+
 ---
 
 # 1. Orchestration model

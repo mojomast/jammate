@@ -15,7 +15,7 @@ changes while keeping your guitar monitoring responsive.
 **[Contribute](#contributing)**
 
 ![Guitar rig with neural amp captures, effects and cabinet controls](docs/screenshots/01-rig.jpg)
-*The inherited Guitar Companion interface. JamMate's adaptive-jam controls are in development.*
+*The inherited Guitar Companion rig, alongside JamMate's new experimental Jam controls.*
 
 ## Why JamMate?
 
@@ -45,10 +45,13 @@ The existing application provides a substantial practice rig:
 | **Keep the idea** | Presets and guitar/drum/mix recording |
 | **Find tones** | Optional TONE3000 integration and a local capture/IR library |
 
-**Automatic listen/join/follow is not connected to the live application yet.**
-The current drums are sequenced accompaniment. The analysis worker and clock
-foundation are tested, but production tracker selection, live transport wiring
-and the adaptive-jam UI are still open.
+**The first experimental live Jam loop is connected.** Guitar analysis feeds
+the Musical Clock, which schedules one 4/4 Rock groove into the actual drum
+engine. The Jam screen offers Start/Stop, tap, phase resync, half/double tempo
+and freeze/resume with live telemetry and audio-owner playback status.
+Default builds use **experimental BTrack**; production tracker selection,
+representative-guitar acquisition and physical-interface timing remain open.
+Adaptive styles, dynamics and fills are later slices and are visibly disabled.
 
 <details>
 <summary><strong>See the drum, song and stage screens</strong></summary>
@@ -66,13 +69,15 @@ These screenshots show the inherited interface, rather than the planned adaptive
 
 </details>
 
-### Jam screen prototype
+### Live Jam controls
 
-The new [Jam UI shell](docs/research/JAM-UI-SHELL.md) has been compiled and
-verified as a standalone preview. Its controls and telemetry use **simulated
-data**, with no live guitar input or audio output; production wiring is pending.
+The [Jam screen](docs/research/LIVE-JAM-UI.md) is wired to the processor's live
+command/state interface. Primary actions fit the production **1100×700** canvas;
+the status separates queued intent from actual drum playback.
 
-![Simulated Jam performance screen with tempo, confidence and musical controls](docs/screenshots/jam-shell-wide.png)
+![Jam controls at the production window size, with a clearly labelled mock playing state](docs/screenshots/jam-live-playing-testfixture.png)
+*Layout fixture with injected telemetry, labelled MOCK FIXTURE. This image is
+not a live guitar or device-latency measurement.*
 
 ## Get started
 
@@ -84,8 +89,10 @@ published yet. Start with the [build instructions](#build-from-source), then:
 2. On **Rig**, load a local `.nam` capture and a cabinet IR. The optional Tone
    Store can help find captures; it is not required to use local files.
 3. Set input level, amp gain and master level. Add effects through **+ EFFECT**.
-4. Open **Drums**, choose a groove and set the tempo. Start the sequencer to play
-   against the existing drum engine.
+4. Open **Drums** for manual accompaniment, or **JAM → START** for experimental
+   listening and next-bar joining. Play a steady, clearly accented rhythm and
+   wait for **PLAYING (AUDIO ECHO)**. **STOP** cancels a pending join or stops on
+   the next servicing block; **Stop next bar** defers active playback.
 5. Save the rig as a preset, or record a take when an idea lands.
 
 The current executable, plugin bundle and user-data folder retain the name
@@ -106,21 +113,24 @@ for this fork. macOS has not been verified.
 | Real-time stabilization | Bounded callback probes, MIDI reservation and editor-absent scene delivery verified; full coverage remains partial |
 | NAM LSTM repair | Measured per-sample allocations removed; tested numerical outputs byte-identical |
 | Analysis-worker foundation | Injected tracker, lifecycle, discontinuities and bounded evidence queue implemented and tested |
-| Rhythm diagnostics | Portable snapshots and bounded trace export tested; live wiring and callback-overhead measurement pending |
-| Musical Clock | Deterministic core implemented; live end-to-end evidence pending |
-| Clock-to-drum bridge | Actual internal kit and hosted-MIDI paths verified with injected clock; live analysis/processor connection pending |
-| Jam UI shell | Simulated standalone preview built and resize/control checks pass; application wiring pending |
+| Rhythm diagnostics | Portable diagnostics and live timestamp/drop telemetry connected; scopes and source pins preserved |
+| Musical Clock | Deterministic core drives the experimental live session and next-bar join policy |
+| Clock-to-drum bridge | Internal kit/hosted MIDI verified; live processor connected, with queue-full retry and manual transport recovery |
+| Jam controls | Live command/state wiring; 20 UI cases pass, including editor recreation and rapid intent toggling |
 | Tracker selection | BTrack and aubio evaluated; acquisition gate still unmet; no production backend selected |
-| Adaptive drummer | Live auto-join/follow, dynamics, fills and production Jam controls pending |
+| Adaptive drummer | First live 4/4 Rock slice connected; broader musical adaptation and acceptance gates remain open |
 
 ### Verification
 
 Latest local verification, **8 October 2026**:
 
-- **25/25** core suites with both optional trackers enabled; **23/23** with them
-  disabled. The core builds without JUCE or an audio device.
-- **6/6** JUCE drum suites pass, including 12 new foundation regressions;
-  **Standalone + VST3** builds succeed on Linux and Windows.
+- **29/29** core suites with both optional trackers enabled; **27/27** with them
+  disabled, and **28/28** in each single-tracker configuration. The core builds
+  without JUCE or an audio device.
+- **36/36** combined Linux product suites pass, including drum bridge, live
+  pipeline, replay validator and Jam UI registration. **Standalone + VST3**
+  build successfully. Prior Windows verification passed; the final live-wave
+  Windows build is pending publication.
 - [GitHub verification](https://github.com/mojomast/jammate/actions/runs/37729980845)
   passes the four core configurations, NAM repair checks, and Windows build/tests.
 - **26** real-processor probe cases show zero detected heap allocation/free or
@@ -155,7 +165,11 @@ Latest local verification, **8 October 2026**:
   **76 instrumented and 75 normal-build JUCE cases**, plus **20 portable tests /
   205 checks**. Injected-clock checks cover exact next-bar join, boundary tempo
   changes, beat/bar resync, stop, internal audio and a 30-minute fractional-tempo
-  MIDI horizon. Production analysis and UI wiring remain pending.
+  MIDI horizon. The [live pipeline](docs/research/LIVE-JAM-PIPELINE.md) now wires
+  analysis and controls into that bridge; fresh live-wave engine regressions
+  pass **82 actual DrumEngine cases**, including stop/manual recovery and
+  dropped-tempo retry. See the [actual replay](docs/research/LIVE-JAM-REPLAY.md)
+  for measured callback and lifecycle evidence.
 
 The [execution ledger](EXECUTION-LEDGER.md) is the authoritative status record.
 Reproduction commands, hashes and limitations live in the linked research

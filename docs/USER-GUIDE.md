@@ -1,8 +1,8 @@
 # JamMate user guide
 
 JamMate currently uses the inherited **Guitar Companion** interface. This guide
-covers that rig and sequenced-drum workflow. The adaptive listen/join/follow
-controls described in [SPEC.md](../SPEC.md) are still in development.
+covers the rig, sequenced drums and the first experimental live Jam workflow.
+The wider adaptive controls described in [SPEC.md](../SPEC.md) remain in development.
 
 Build the app using the [README](../README.md#build-from-source). The executable,
 plugin bundle and user-data directory still use the name Guitar Companion.
@@ -19,8 +19,42 @@ plugin bundle and user-data directory still use the name Guitar Companion.
 5. Open **Drums**, select a groove and tempo, then start playback.
 6. Save a preset or record a take to keep the result.
 
-At this stage the drum sequencer uses the tempo you choose; it does not yet
-listen to your guitar to join or follow automatically.
+The manual drum sequencer uses your chosen tempo. **Jam** offers a separate
+experimental listening mode, described below.
+
+## Jam: listen, join and follow
+
+Open **JAM** from the main toolbar. In a default live-enabled build, the backend
+is labelled **experimental BTrack**. It listens to guitar after input gain and
+before the gate, effects and drum mix. The Musical Clock owns the tempo; the
+first slice prepares one **4/4 Rock** groove and joins on a clock-aligned bar.
+
+1. Choose a working input/output in **Audio & MIDI** and set guitar input level.
+2. Open **JAM**, choose **START**, then play a steady, clearly accented rhythm.
+3. Watch **LISTENING**, **WAITING FOR THE CLOCK** and **JOIN PENDING**. These are
+   progress states. **PLAYING (AUDIO ECHO)** means the audio owner reports actual
+   drum playback; an accepted Start alone does not mean drums have joined.
+4. Use **Tap**, **Half/Double** and **Resync beat/bar** to correct tempo or phase.
+   **Freeze/Resume** holds or resumes tracker-driven tempo changes.
+5. Choose **STOP** to cancel a pending join and stop at the next audio block
+   servicing the accepted command. **Stop next bar** defers active playback to
+   the next bar. **Reset** stops and clears the clock belief.
+
+Stopping releases live rendering ownership so the manual **Drums** and **Song**
+transports can be used again without changing devices. Closing/reopening the
+Jam screen preserves the session. Closing the editor does not stop the audio
+pipeline; the reopened button follows live state.
+
+Style, dynamics, complexity, fills and breaks are visibly disabled in the first
+slice. A build without an available tracker reports **UNAVAILABLE** and does not
+start Jam. Demo previews opt into simulation explicitly; their screenshots are
+labelled **MOCK FIXTURE** and are not live-input measurements.
+
+Tracker selection is still open: useful lock within two bars on representative
+guitar material, physical interface latency and Windows/ASIO play tests remain
+unverified. See the [live pipeline](research/LIVE-JAM-PIPELINE.md),
+[Jam controls](research/LIVE-JAM-UI.md) and
+[replay evidence](research/LIVE-JAM-REPLAY.md) for current results and scope.
 
 ## Rig: build the sound
 
