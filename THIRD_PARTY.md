@@ -61,6 +61,71 @@ why this project is AGPLv3 too.
   (`modules/juce_audio_processors*/format_types/VST3_SDK`). It is Steinberg's,
   dual-licensed GPLv3 / proprietary; this project uses the GPLv3 option.
 
+### Experimental live rhythm backend — BTrack, kiss_fft and libsamplerate
+
+Product builds with `GUITAR_COMPANION_LIVE_JAM=ON` and `JAM_ENABLE_BTRACK=ON`
+link the existing BTrack adapter for the experimental live Jam slice. This does
+not select the production tracker; the portable core remains tracker-free.
+
+- **BTrack 1.0.7:** <https://github.com/adamstark/BTrack>, pinned at
+  `9d6127618a5679e9caa74c594b88f1d74f0e035f`. GNU GPLv3; Copyright
+  2008–2014 Queen Mary University of London / Adam Stark. Licence and original
+  authorship: `third_party/BTrack/LICENSE.txt` and source headers. The complete
+  vendored source is included in this repository's corresponding source.
+- **kiss_fft130:** bundled in that BTrack pin; Copyright (c) 2003-2010 Mark
+  Borgerding. BSD-style notice reproduced below from
+  `third_party/BTrack/libs/kiss_fft130/COPYING`.
+- **libsamplerate 0.2.2:** <https://github.com/libsndfile/libsamplerate>, pinned
+  at `0844c208f683527c08ea8a80acc13b398aa9c8bf`. BSD-2-Clause notice reproduced
+  below from `third_party/libsamplerate/COPYING`. This is BTrack's causal onset-
+  function resampler, separate from the guitar model's Lanczos resampler.
+
+#### kiss_fft notice
+
+```
+Copyright (c) 2003-2010 Mark Borgerding
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+    * Neither the author nor the names of any contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+#### libsamplerate notice
+
+```
+Copyright (c) 2012-2016, Erik de Castro Lopo <erikd@mega-nerd.com>
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
 ### The MIT notices, in full
 
 MIT requires this text to accompany the software. It covers NAM Core and

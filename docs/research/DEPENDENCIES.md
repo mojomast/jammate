@@ -115,26 +115,31 @@ concrete, closable gap for the release owner.**
 | `GuitarCompanionTests` (`tests/`, opt-in) | upstream `tests/CMakeLists.txt` blob `e44602d10ffee1f0870203a1964d9204ef6f11ec` | this repository | AGPLv3 | build-only | **No** | none | Gated behind `-DGUITAR_COMPANION_BUILD_TESTS=ON`, `OFF` by default (`CMakeLists.txt` line 284). Links `GuitarCompanionAssets` (so the embedded WAVs must be present even in tests) plus `juce::juce_audio_formats` and `juce::juce_audio_processors` — which is why ADR-0003 rules it unbuildable here. 4 ctest entries: `drums.parseSpec`, `drums.library`, `drums.generator`, `drums.barCodec`. |
 | `jamTests` (`tests/jam/**`, from `48f301c`) | `48f301c8…` | this repository | AGPLv3 | build-only | **No** | none | `JAM_CORE_BUILD_TESTS` defaults **ON** inside `jam-core`, so this lane is the one that runs on any machine including CI. Generated `add_test` entries, one per `JAM_TEST(...)` suite. |
 
-### 3.1 Vendored optional tracker evaluation dependencies (current)
+### 3.1 Vendored optional tracker dependencies (current)
 
-These are compiled into offline evaluation/test binaries only when opted in;
-the product target does not link either adapter. G3 selection is still open.
+Standalone core builds compile these only when opted in. The live-product
+configuration now links BTrack, kiss_fft and libsamplerate when
+`GUITAR_COMPANION_LIVE_JAM=ON` and `JAM_ENABLE_BTRACK=ON`; the combined candidate
+build verifies that link. The live implementation is under review and G3
+production selection is still open. aubio remains evaluation-only.
 `jam-core` itself stays free of foreign tracker headers and symbols.
 
 | Component | Exact pin | Licence evidence | Current build/use | Notices retained |
 |---|---|---|---|---|
-| BTrack | `9d6127618a5679e9caa74c594b88f1d74f0e035f` | GPLv3, `third_party/BTrack/LICENSE.txt` and upstream source headers | `JAM_ENABLE_BTRACK=ON`; `jam-btrack` adapter in `src/btrack/`; real corpus evaluation | Licence, source authorship and `VENDORED-PATCHES.md`; full corresponding source retained |
-| kiss_fft (bundled by BTrack) | part of the above BTrack pin, `libs/kiss_fft130/` | BSD-style notice, `third_party/BTrack/libs/kiss_fft130/COPYING` | linked only by optional BTrack build | Original copyright, conditions and disclaimer |
-| libsamplerate | `0844c208f683527c08ea8a80acc13b398aa9c8bf` | BSD-2-Clause, `third_party/libsamplerate/COPYING` | optional BTrack dependency; its onset-function resampler **is causal** and must not be stubbed | Erik de Castro Lopo copyright, conditions and disclaimer |
+| BTrack | `9d6127618a5679e9caa74c594b88f1d74f0e035f` | GPLv3, `third_party/BTrack/LICENSE.txt` and upstream source headers | `JAM_ENABLE_BTRACK=ON`; `jam-btrack` adapter in `src/btrack/`; evaluation and experimental live-product linking | Licence, source authorship and `VENDORED-PATCHES.md`; full corresponding source retained; product credit in `THIRD_PARTY.md` |
+| kiss_fft (bundled by BTrack) | part of the above BTrack pin, `libs/kiss_fft130/` | BSD-style notice, `third_party/BTrack/libs/kiss_fft130/COPYING` | linked by optional BTrack build, including experimental live product | Original copyright, conditions and disclaimer reproduced in `THIRD_PARTY.md` |
+| libsamplerate | `0844c208f683527c08ea8a80acc13b398aa9c8bf` | BSD-2-Clause, `third_party/libsamplerate/COPYING` | optional BTrack dependency, including experimental live product; its onset-function resampler **is causal** and must not be stubbed | Erik de Castro Lopo copyright, conditions and disclaimer reproduced in `THIRD_PARTY.md` |
 | aubio 0.4.9 | `90bd27a23123fcc524c31787c9c8fc0ae4c79378` | GPL-3.0-or-later, `third_party/aubio/COPYING` and source headers | `JAM_ENABLE_AUBIO=ON`; `jam-aubio` adapter in `src/aubio/`; 26-file tempo dependency closure | Licence, `AUTHORS`, upstream source headers and `VENDORED-PATCHES.md` |
 
 Official sources: <https://github.com/adamstark/BTrack>,
 <https://github.com/libsndfile/libsamplerate>, <https://github.com/aubio/aubio>.
 aubio uses the vendored Ooura FFT implementation (retained upstream headers),
-with no new external FFT dependency. Both options default OFF. The initial
+with no new external FFT dependency. Both tracker options default OFF in a
+standalone core build; the live product enables BTrack unless explicitly disabled.
+The initial
 inventory's description of aubio as LGPL was incorrect for this pinned code.
-Any future product linking must include these notices and source in its release
-inventory; the current optional libraries do not imply tracker adoption.
+Product-linked notices are recorded in `THIRD_PARTY.md` and the source pins above;
+experimental linking does not imply tracker selection.
 
 ---
 

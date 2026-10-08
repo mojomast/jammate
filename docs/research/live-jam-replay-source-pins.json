@@ -1,0 +1,19 @@
+{
+  "schema": "live-jam-replay/source-pin-overrides/1.0",
+  "task": "EVAL-LIVE-001",
+  "note": "Exact candidate source pins committed before actual measurements. Pipeline policy re-review is pending. No acceptance or measured-clean claim is implied.",
+  "source_commit": "ba9748ac3f96a5de04d122e1e820759bbb5a7dbd",
+  "stop_contract": "docs/research/LIVE-JAM-STOP-CONTRACT.md",
+  "bridge_amendment": "docs/research/live-jam-bridge-pin-amendment.json",
+  "immutable_headers_must_still_match": [
+    "src/jam/JamLiveInterface.h",
+    "src/jam/RhythmTypes.h",
+    "src/jam/MusicalClock.h",
+    "src/jam/JamConfig.h"
+  ],
+  "overrides": [
+    {"path": "src/jam/DrumClockBridge.h", "sha256": "c115eb8b24f0918f7a375f6507d094cf94d5a0fc99019bba6cf5b3b4459d1025"},
+    {"path": "src/PluginProcessor.h", "sha256": "3e1958e3eccc3892304f8a42c28a1c7cdf711c226e7ec91082211b0d80059930"},
+    {"path": "src/PluginProcessor.cpp", "sha256": "21e3d7ad2cb8a0d5f8fb4f068ee82ac3332a0bf8a4cdaaede062bca146e76e66"}
+  ]
+}
