@@ -1,0 +1,22 @@
+{
+  "task": "RT-004",
+  "workerHead": "337f4f33a7f8f98d97b700f0233f137c7fdc4e01",
+  "independentReplays": 10,
+  "processorCases": 260,
+  "namCases": 80,
+  "tests": 81,
+  "stableFieldsCompared": 6610,
+  "statuses": {"clean": 7, "findings": 3, "unmeasured": 0, "failed": 0},
+  "finding": "wavenet_a2_max.nam allocates in PReLU/blending activation paths in both original and LSTM-repaired archives; not repaired by RT-004",
+  "scratch": "/home/mojo/projects/build-RT-004-integration",
+  "limits": [
+    "Wall time is intentionally excluded from exact replay equality",
+    "Capture detail overflow preserves aggregate counts but limits call-site enumeration",
+    "No physical device, ASIO or callback deadline evidence"
+  ],
+  "logHashes": {
+    "0.log": "058002110158787d583a57fcb4522ec7ee19c1a871d4fc1bd89f54f47010b68d",
+    "1.log": "ad2a72b1d49d3b7c84a5a54280d832322e34ee4d7c474e34fc25019fafcf051e",
+    "2.log": "5c091d4007951d6b2063422246125126838e691516815a74d512fb4dee06e30b"
+  }
+}

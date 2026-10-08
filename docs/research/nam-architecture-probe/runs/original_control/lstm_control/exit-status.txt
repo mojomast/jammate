@@ -1,0 +1,9 @@
+variant=original_control
+architecture_id=lstm_control
+model_file=lstm.nam
+warm_blocks=128
+timeout_s=600
+binary=/home/mojo/projects/build-RT-003-integration/probe-baseline/build/processor_probe
+binary_sha256=de089230f5c718641e5620376cc8b7a8e8932b527464042a9211f8f32aa302e7
+model_sha256=df9f78c49f49c2bb32411df47e3f53746075adb206b92d017e06379d1e56234a
+exit=0

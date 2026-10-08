@@ -325,7 +325,7 @@ and reports instead.
 | MOD-003 Jam UI shell | **DONE: isolated simulation shell (D7)** | `wp/MOD-003-jam-ui`, `34ab2cb3` → main | C — UI, Sol | G2 | fresh actual JUCE preview build and Xvfb verification pass; seven screenshots; live editor wiring pending |
 | CI-003 GitHub verification | **DONE: published merged-head remote green** | main, `bcf540a` | orchestrator | G1 | run37716882463 core18/19/19/20, NAM5/5, Windows Standalone/VST3 +6/6 drums; receipt and downloaded-log hashes retained |
 | TRACK-007 longer-window acquisition characterization | CONTINUATION LAUNCHED | `wp/TRACK-007-long-windows`, protocol `492c5a8` | B — evidence, Space Bunny/Go | G3 | fixture and paired inference handoff pending |
-| RT-004 NAM architecture callback coverage | REVIEW CORRECTIONS LAUNCHED | `wp/RT-004-nam-architectures`, `95e5eac` | A — runtime evidence, Space Bunny/Go | G1 | A2 activation allocations found; fail-closed review corrections pending |
+| RT-004 NAM architecture callback coverage | **DONE: bounded evidence; A2 repair open** | `wp/RT-004-nam-architectures`, `337f4f3` → main | A — runtime evidence, Haiku + Space Bunny/Go | G1 |81 tests; independent260-case replay (80 NAM),6610 stable fields equal; A2 PReLU/blending allocations retained |
 | DIAG-001 portable diagnostics foundation | REVIEW CORRECTIONS LAUNCHED (D10) | `wp/DIAG-001-core`, `2a9a929` | C — core, Space Bunny/Go | G4 | export/provenance/lifecycle corrections pending; full live task remains partial |
 
 ---

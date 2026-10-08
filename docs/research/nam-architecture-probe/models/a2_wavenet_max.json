@@ -1,0 +1,26 @@
+{
+  "id": "a2_wavenet_max",
+  "file": "wavenet_a2_max.nam",
+  "sha256": "12384c6640e1126907b366584024c4abb129ac5920b3dc2d31b29e39315e820d",
+  "architecture": "WaveNet",
+  "version": "0.6.0",
+  "sample_rate": 48000,
+  "weight_count": 818,
+  "config": {
+    "layer_arrays": 1,
+    "layers": [
+      {
+        "channels": 4,
+        "kernel_size": 4,
+        "dilation_count": 2,
+        "activation": "Softsign",
+        "condition_size": 8
+      }
+    ],
+    "head_scale": 0.02,
+    "condition_dsp": {
+      "architecture": "WaveNet",
+      "version": "0.6.0"
+    }
+  }
+}

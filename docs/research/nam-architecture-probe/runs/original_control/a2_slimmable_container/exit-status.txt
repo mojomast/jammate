@@ -1,0 +1,9 @@
+variant=original_control
+architecture_id=a2_slimmable_container
+model_file=A2.nam
+warm_blocks=128
+timeout_s=600
+binary=/home/mojo/projects/build-RT-003-integration/probe-baseline/build/processor_probe
+binary_sha256=de089230f5c718641e5620376cc8b7a8e8932b527464042a9211f8f32aa302e7
+model_sha256=2d2d744516dc0197737a2c5001010429692d4cb20d72b08264781de626fcf4ca
+exit=0

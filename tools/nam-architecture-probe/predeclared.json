@@ -1,0 +1,108 @@
+{
+  "task": "RT-004",
+  "purpose": "Bounded measured coverage of NAM architectures beyond the RT-002/RT-003 lstm.nam example, through the actual GuitarCompanionProcessor::processBlock.",
+  "nam_pin": "third_party/NeuralAmpModelerCore @ 1f42f88535884450104b8711d7595019afa0495b",
+  "models_dir": "third_party/NeuralAmpModelerCore/example_models",
+  "architectures": [
+    {
+      "id": "lstm_control",
+      "file": "lstm.nam",
+      "sha256": "df9f78c49f49c2bb32411df47e3f53746075adb206b92d017e06379d1e56234a",
+      "expected_architecture": "LSTM",
+      "expected_version": "0.5.4",
+      "role": "current control (RT-002/RT-003 example)"
+    },
+    {
+      "id": "a1_wavenet_standard",
+      "file": "wavenet_a1_standard.nam",
+      "sha256": "ceb53469a19ce278e2235da982ae676cb8d5451a8de22a7ecc7a2617d07224d1",
+      "expected_architecture": "WaveNet",
+      "expected_version": "0.5.0",
+      "role": "A1 WaveNet, 10 dilations, 16/8 channels, no condition_dsp"
+    },
+    {
+      "id": "a2_wavenet_max",
+      "file": "wavenet_a2_max.nam",
+      "sha256": "12384c6640e1126907b366584024c4abb129ac5920b3dc2d31b29e39315e820d",
+      "expected_architecture": "WaveNet",
+      "expected_version": "0.6.0",
+      "role": "A2-style WaveNet with condition_dsp, bottleneck and grouped/Softsign config"
+    },
+    {
+      "id": "slimmable_wavenet",
+      "file": "slimmable_wavenet.nam",
+      "sha256": "735c1a86e18140b7cfe90c08427ca6a85f62c32d34cc4048997933652aa774b4",
+      "expected_architecture": "WaveNet",
+      "expected_version": "0.7.0",
+      "role": "WaveNet with slimmable channel metadata (allowed_channels 1/2/3)"
+    },
+    {
+      "id": "a2_slimmable_container",
+      "file": "A2.nam",
+      "sha256": "2d2d744516dc0197737a2c5001010429692d4cb20d72b08264781de626fcf4ca",
+      "expected_architecture": "SlimmableContainer",
+      "expected_version": "0.7.0",
+      "role": "SlimmableContainer of two WaveNet submodels (max_value 0.5 / 1.0)"
+    }
+  ],
+  "not_in_predeclared_set": {
+    "my_model.nam": "byte-identical to wavenet_a1_standard.nam (same sha256); not a distinct type",
+    "slimmable_container.nam": "container of LSTM + two WaveNets; not measured in this bounded set (5-type cap)",
+    "wavenet_condition_dsp.nam": "WaveNet with condition_dsp; not measured in this bounded set (5-type cap)",
+    "wavenet.nam": "small WaveNet v0.5.4; not measured in this bounded set (5-type cap)"
+  },
+  "binaries": {
+    "repaired": {
+      "description": "existing processor_probe linked against RT-003 integration product archives (libnam_core.a patched, sha256 dbd11fb2...)",
+      "path": "/home/mojo/projects/build-RT-003-integration/product-probe/build/processor_probe",
+      "sha256": "f950d6d95ff2f02d3deaab25e807b15c8fe0ac208a59f07f0e961729e3761715",
+      "pin_file": "/home/mojo/projects/build-RT-003-integration/product-probe/build/source-pin.txt",
+      "nam_archive_path": "/home/mojo/projects/build-RT-003-integration/product/libnam_core.a",
+      "nam_archive_sha256": "dbd11fb2c63b69e00b78a559cff0cb1fbe14ece214dba73326b4232014498507",
+      "shared_archive_path": "/home/mojo/projects/build-RT-003-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+      "shared_archive_sha256": "405ee59144ff7e72a02c51368e700962cefe0353606b0a1d3ae63c8115181b40"
+    },
+    "original_control": {
+      "description": "existing processor_probe linked against pinned upstream libnam_core_original.a (sha256 af023ffc...); control only, not the current processor",
+      "path": "/home/mojo/projects/build-RT-003-integration/probe-baseline/build/processor_probe",
+      "sha256": "de089230f5c718641e5620376cc8b7a8e8932b527464042a9211f8f32aa302e7",
+      "pin_file": "/home/mojo/projects/build-RT-003-integration/probe-baseline/build/source-pin.txt",
+      "nam_archive_path": "/home/mojo/projects/build-RT-003-integration/probe-baseline/plugin/libnam_core.a",
+      "nam_archive_sha256": "af023ffcafd198e7a09107b78f2c540d4d3dbdce3c717e9ea3f215097e412d1b",
+      "shared_archive_path": "/home/mojo/projects/build-RT-003-integration/probe-baseline/plugin/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a",
+      "shared_archive_sha256": "46edfe5dcda44acf28c690b5a2a0eeb3401f6f7aff0f557d1863003d96f6b147"
+    }
+  },
+  "protocol": {
+    "variants": ["repaired", "original_control"],
+    "note": "run_nam_arch.sh preflights against these values and refuses to measure on any deviation (fail closed before inference)."
+  },
+  "source_pin": {
+    "revision": "677ce9f",
+    "files": {
+      "src/PluginProcessor.cpp": "bb241d627af9c68943e299f25655c787dc103efd2d7cbe1ba6dddec744d3a7ca",
+      "src/PluginProcessor.h": "b1a1a41e117258402cd95fe4f95e8158ef74197a622b872e9e257d97b1367b4f",
+      "src/DrumEngine.cpp": "4c407bef2d5f36365e34547bba232ed5743cab468cecdbafd795a55995cbd650",
+      "src/DrumEngine.h": "331d0ecafd6edf02acb18f0ae8922ae3951f95de1f5296b748f32bd7faa8ec6c",
+      "src/rt/RtSignal.h": "9cb0fa0131d3f3b6419e7ca33c7870eb65e05b9f8292aa45ce19bde33af71e1d"
+    }
+  },
+  "matrix": {
+    "warm_blocks": 128,
+    "timeout_s": 600,
+    "num_drum_voices": 9,
+    "nam_cases_per_model": 8,
+    "rates": [48000, 96000],
+    "blocks": [128, 512],
+    "tags": ["nam", "nam+drums"],
+    "cold_and_warm": true,
+    "dry_cases": 18,
+    "one_process_per_model_and_variant": true
+  },
+  "validity_rules": [
+    "model must load (loaded=1 post-dry, error empty) and activation line must be present, else status is unmeasured (never clean)",
+    "missing model file, nonzero exit, malformed JSON/CSV, missing or duplicate cases, non-finite out_rms or process time, or sha/identity mismatch fail closed",
+    "allocations, frees, locks, trylock, cond and no-op frees are reported as findings and are never suppressed or used to change the expected matrix",
+    "per-sample output is not dumped by the existing probe; only the mean warm out_rms is checked for finiteness"
+  ]
+}

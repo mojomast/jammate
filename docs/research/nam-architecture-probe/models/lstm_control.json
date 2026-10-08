@@ -1,0 +1,14 @@
+{
+  "id": "lstm_control",
+  "file": "lstm.nam",
+  "sha256": "df9f78c49f49c2bb32411df47e3f53746075adb206b92d017e06379d1e56234a",
+  "architecture": "LSTM",
+  "version": "0.5.4",
+  "sample_rate": 48000,
+  "weight_count": 70,
+  "config": {
+    "input_size": 1,
+    "hidden_size": 3,
+    "num_layers": 1
+  }
+}

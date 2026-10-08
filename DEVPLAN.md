@@ -1484,7 +1484,7 @@ Keep this near the top of the live devplan during implementation.
 | TRACK-006 | DONE: scoped paired diagnostics; variant gap/noise regressions retained | main | ce3c96e0 + independent replay | G3 |
 | CI-003 | DONE: published merged-head remote green, all6 jobs | main | bcf540a, run37716882463 | G1 |
 | TRACK-007 | Space Bunny Go continuation launched | wp/TRACK-007-long-windows | protocol492c5a8 | G3 |
-| RT-004 | Space Bunny Go review corrections launched | wp/RT-004-nam-architectures | 95e5eac | G1 |
+| RT-004 | DONE: bounded evidence; A2 activation repair open | main | 337f4f3 + independent260-case replay | G1 |
 | DIAG-001 | Space Bunny Go foundation review launched (D10) | wp/DIAG-001-core | 2a9a929 | G4 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
 | ANALYSIS-001 | lifecycle foundation DONE (D6); full task PARTIAL / BLOCKED:G3 | main | 5162e4d + CMake/CI registration | G4 |

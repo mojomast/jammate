@@ -1,0 +1,20 @@
+revision=677ce9f
+src/PluginProcessor.cpp sha256=bb241d627af9c68943e299f25655c787dc103efd2d7cbe1ba6dddec744d3a7ca pinned_revision_identical=yes
+src/PluginProcessor.h sha256=b1a1a41e117258402cd95fe4f95e8158ef74197a622b872e9e257d97b1367b4f pinned_revision_identical=yes
+src/DrumEngine.cpp sha256=4c407bef2d5f36365e34547bba232ed5743cab468cecdbafd795a55995cbd650 pinned_revision_identical=yes
+src/DrumEngine.h sha256=331d0ecafd6edf02acb18f0ae8922ae3951f95de1f5296b748f32bd7faa8ec6c pinned_revision_identical=yes
+src/rt/RtSignal.h sha256=9cb0fa0131d3f3b6419e7ca33c7870eb65e05b9f8292aa45ce19bde33af71e1d pinned_revision_identical=yes
+repaired.binary_path=/home/mojo/projects/build-RT-003-integration/product-probe/build/processor_probe
+repaired.binary_sha256=f950d6d95ff2f02d3deaab25e807b15c8fe0ac208a59f07f0e961729e3761715
+repaired.pin_file=/home/mojo/projects/build-RT-003-integration/product-probe/build/source-pin.txt
+repaired.nam_archive_path=/home/mojo/projects/build-RT-003-integration/product/libnam_core.a
+repaired.nam_archive_sha256_verified_on_disk=True
+repaired.shared_archive_path=/home/mojo/projects/build-RT-003-integration/product/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a
+repaired.shared_archive_sha256_verified_on_disk=True
+original_control.binary_path=/home/mojo/projects/build-RT-003-integration/probe-baseline/build/processor_probe
+original_control.binary_sha256=de089230f5c718641e5620376cc8b7a8e8932b527464042a9211f8f32aa302e7
+original_control.pin_file=/home/mojo/projects/build-RT-003-integration/probe-baseline/build/source-pin.txt
+original_control.nam_archive_path=/home/mojo/projects/build-RT-003-integration/probe-baseline/plugin/libnam_core.a
+original_control.nam_archive_sha256_verified_on_disk=True
+original_control.shared_archive_path=/home/mojo/projects/build-RT-003-integration/probe-baseline/plugin/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a
+original_control.shared_archive_sha256_verified_on_disk=True

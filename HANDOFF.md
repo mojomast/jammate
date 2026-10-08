@@ -32,7 +32,11 @@ in `docs/research/github-ci/run-37716882463.json`.
 
 The earlier queued model switch is superseded by the user's immediate switch.
 TRACK-007 has protocol `492c5a8`; RT-004 `95e5eac` and DIAG-001 `2a9a929`
-are undergoing review corrections. Commits and in-progress files are preserved.
+were submitted for review corrections. RT-004 correction `337f4f3` is accepted:
+81 tests and an independent260-case replay (80 NAM) reproduced6610 stable fields.
+The A2/WaveNet PReLU/blending allocation finding remains open; G1 stays partial.
+Receipt: `docs/research/nam-architecture-probe-integration.json`.
+DIAG-001 corrections and TRACK-007 integration review are still pending.
 
 Worker sessions and path ownership are in EXECUTION-LEDGER's resumption table:
 TRACK-006 fixed paired robustness, MOD-003 isolated simulated Jam UI, and TEST-001

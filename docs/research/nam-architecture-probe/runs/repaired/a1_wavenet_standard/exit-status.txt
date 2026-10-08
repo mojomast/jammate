@@ -1,0 +1,9 @@
+variant=repaired
+architecture_id=a1_wavenet_standard
+model_file=wavenet_a1_standard.nam
+warm_blocks=128
+timeout_s=600
+binary=/home/mojo/projects/build-RT-003-integration/product-probe/build/processor_probe
+binary_sha256=f950d6d95ff2f02d3deaab25e807b15c8fe0ac208a59f07f0e961729e3761715
+model_sha256=ceb53469a19ce278e2235da982ae676cb8d5451a8de22a7ecc7a2617d07224d1
+exit=0
