@@ -14,6 +14,9 @@
   "baseSha": "6287288843a43a65f66328fba58a7990d698f83e",
   "baseSubject": "merge(EVAL-005): integrate corrected paired tracker robustness evidence",
   "configExperiment": {
+    "aubioShimSha256": "1ecf31ff5da4611f096ca922e0b0748832db7825997949fd6e3d7c728c51e5ea",
+    "btrackShimSha256": "bde996ddb3f21f3fa97fefc28a7d681fa7702d6b42d18bd540dc28061d99c49f",
+    "buildDir": "/home/mojo/projects/build-TRACK-004/diag",
     "evidenceClass": "NOT default evidence; adapter-config variant only",
     "knob": "silenceRmsDbfs = -120 (gate effectively disabled)",
     "tool": "tools/tracker-diagnostics/libtracker-diag-config-*.so"
@@ -21,6 +24,7 @@
   "corpusManifest": "testdata/rhythm/manifest.json",
   "corpusManifestSha256": "06fe2c4356dd411a90b5e4948ebeb00eeb68d82f42d26b5ad25f4797c530fab1",
   "g3": "OPEN",
+  "headSha": "51554f161e5b53550b5c1dd32cbec7b9a3362cb9",
   "kind": "diagnostic",
   "pluginProvenance": "librhythm-eval-{btrack,aubio}.so from the EVAL-005 main-core build root; src/btrack, src/aubio, tools/rhythm-eval/*.cpp and third_party tracker sources are byte-identical to this base (git diff empty), so the build is behaviorally the current main adapter build.",
   "schemaVersion": 1,

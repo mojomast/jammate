@@ -4,8 +4,9 @@
 # No CMake file is created or edited: this mirrors the existing
 # tools/rhythm-eval/build-*-plugin.sh convention and compiles the reused,
 # unmodified evaluation objects (Metrics.cpp, Manifest.cpp, BackendRunner.cpp)
-# straight into the diagnostic. The GPL backends are dlopen()ed at run time
-# through the existing plugin convention, so the tool binary stays GPL-free.
+# straight into the diagnostic. The tracker backends are dlopen()ed at run time
+# through the existing plugin convention, so no tracker source is compiled into
+# the tool binary (a structural separation, not a legal conclusion).
 #
 #   tools/tracker-diagnostics/build.sh [jam-core-build-dir] [output-dir]
 #

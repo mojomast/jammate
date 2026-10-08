@@ -59,6 +59,11 @@ def main() -> int:
                     "lockConfirmAvailabilitySeconds": r["lockConfirmAvail"],
                     "longestMatchRun": r["longestMatchRun"],
                     "longestTempoRun": r["longestTempoRun"],
+                    "clauseAgreeing": r.get("clauseAgreeing", ""),
+                    "clauseOutsideBand": r.get("clauseOutsideBand", ""),
+                    "clauseMissingSample": r.get("clauseMissingSample", ""),
+                    "clausePhaseInvalid": r.get("clausePhaseInvalid", ""),
+                    "clauseBpmInvalid": r.get("clauseBpmInvalid", ""),
                     "medianBpm": r["medianBpm"],
                     "medianBpmError": r["medianBpmError"],
                     "ratioToTruth": r["ratioToTruth"],
@@ -70,32 +75,42 @@ def main() -> int:
     header = ["backend", "blockFrames", "fixture", "acquired", "acquisitionBars",
               "lockStartEventSeconds", "lockConfirmEventSeconds",
               "lockConfirmAvailabilitySeconds", "longestMatchRun", "longestTempoRun",
+              "clauseAgreeing", "clauseOutsideBand", "clauseMissingSample",
+              "clausePhaseInvalid", "clauseBpmInvalid",
               "medianBpm", "medianBpmError", "ratioToTruth", "reason",
               "silenceOffAcquired", "silenceOffAcquisitionBars"]
     csv_path = os.path.join(ARTIFACT, "core-reasons.csv")
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=header)
+        w = csv.DictWriter(fh, fieldnames=header, lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
 
     lines = ["# Per-core-fixture acquisition reasons (TRACK-004)", "",
              "`silenceOff*` columns are the bounded adapter-config experiment "
-             "(gate disabled); they are NOT default evidence.", "",
+             "(gate disabled); they are NOT default evidence. Empty cells are "
+             "missing measurements (failed lock, no nominal BPM, no match).", "",
+             "Tempo-clause counts are over the longest forward-advancing positional "
+             "match run: agreeing / outside-band / missing-sample / phase-invalid / "
+             "BPM-invalid. A numeric-band reason is only claimed when that is the "
+             "sole failing clause type.", "",
              "| backend | block | fixture | acq | bars | lock start (s) | lock confirm (s) | "
-             "confirm avail (s) | match/tempo run | median BPM | BPM err | ratio | reason | "
-             "acq gate-off |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+             "confirm avail (s) | match/tempo run | clause a/out/miss/phase/bpm | "
+             "median BPM | BPM err | ratio | reason | acq gate-off |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         def f(x):
             try:
                 return f"{float(x):.3f}"
             except (TypeError, ValueError):
                 return ""
+        clause = (f"{r['clauseAgreeing']}/{r['clauseOutsideBand']}/"
+                  f"{r['clauseMissingSample']}/{r['clausePhaseInvalid']}/"
+                  f"{r['clauseBpmInvalid']}")
         lines.append(
             f"| {r['backend']} | {r['blockFrames']} | {r['fixture']} | {r['acquired']} | "
             f"{f(r['acquisitionBars'])} | {f(r['lockStartEventSeconds'])} | "
             f"{f(r['lockConfirmEventSeconds'])} | {f(r['lockConfirmAvailabilitySeconds'])} | "
-            f"{r['longestMatchRun']}/{r['longestTempoRun']} | {f(r['medianBpm'])} | "
+            f"{r['longestMatchRun']}/{r['longestTempoRun']} | {clause} | {f(r['medianBpm'])} | "
             f"{f(r['medianBpmError'])} | {f(r['ratioToTruth'])} | {r['reason']} | "
             f"{r['silenceOffAcquired']} |")
     with open(os.path.join(ARTIFACT, "core-reasons.md"), "w", encoding="utf-8") as fh:

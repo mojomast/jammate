@@ -11,6 +11,7 @@
 #include "AcquisitionReplay.h"
 #include "BackendRunner.h"
 #include "BtrackGrid.h"
+#include "CliValidate.h"
 #include "Metrics.h"
 #include "TraceRunner.h"
 
@@ -204,9 +205,130 @@ void testAgreementWithScorer()
             checkNear (d.lock.acquisitionBars, m.acquisitionBars, 1e-9,
                        "replay bars == scorer bars");
         if (variant == 1)
-            check (d.reason == tracker_diag::AcquireReason::LockTempoAgreementFailure,
-                   "123.05 on 126 classifies as LockTempoAgreementFailure");
+            check (d.reason == tracker_diag::AcquireReason::TempoOutsideBand,
+                   "123.05 on 126 classifies as TempoOutsideBand");
+        if (variant == 1)
+        {
+            check (static_cast<std::size_t> (d.clause.outsideBand) == d.lock.longestMatchRun
+                   && d.clause.missingSample == 0
+                   && d.clause.phaseInvalid == 0
+                   && d.clause.bpmInvalid == 0,
+                   "only the numeric band clause fails on the 123.05 run");
+            check (d.medianBpmErrorMeasured && ! d.octaveSuspect,
+                   "median BPM error measured, not an octave");
+        }
     }
+}
+
+void testOptionalNumberMissingVsZero()
+{
+    check (tracker_diag::optionalNumber (false, 0.0).empty(),
+           "missing measurement -> empty CSV cell");
+    check (tracker_diag::optionalNumber (false, 5.0).empty(),
+           "missing measurement ignores the value");
+    check (tracker_diag::optionalNumber (true, 0.0) == "0",
+           "measured zero serialises as 0");
+    check (tracker_diag::optionalNumber (true, 123.046875) == "123.046875",
+           "measured value serialises verbatim");
+}
+
+void testDiagnosisNoNominalBpm()
+{
+    RhythmTruth truth;
+    truth.name = "no_nominal";
+    truth.tempoProfile = "constant";
+    truth.beatsPerBar = 4;
+    for (int i = 0; i < 6; ++i)
+        truth.beats.push_back (0.5 * i);        // 120 BPM grid, no nominalBpm
+    ObservationSeries s;
+    for (double b : truth.beats)
+    {
+        s.beatTimesSeconds.push_back (b);
+        s.beatAvailabilitySeconds.push_back (b + 0.01);
+        addTempo (s, b, 120.0);
+    }
+    const rhythmeval::FixtureMetrics m = rhythmeval::scoreFixture (truth, s, 0.07, 0.0);
+    const tracker_diag::FixtureDiagnosis d = tracker_diag::diagnoseFixture (truth, s, m, 0.07);
+    check (d.bpmMeasured, "no nominal still measures BPM");
+    check (! d.medianBpmErrorMeasured,
+           "BPM relative error is MISSING when no nominal BPM exists");
+}
+
+void testDiagnosisZeroBeats()
+{
+    const RhythmTruth truth = constantTruth ("empty", 120.0, 8, 0.0);
+    ObservationSeries s;
+    s.audioDurationSeconds = truth.durationSeconds;
+    const rhythmeval::FixtureMetrics m = rhythmeval::scoreFixture (truth, s, 0.07, 0.0);
+    const tracker_diag::FixtureDiagnosis d = tracker_diag::diagnoseFixture (truth, s, m, 0.07);
+    check (! d.bpmMeasured, "zero beats -> BPM not measured");
+    check (! d.ratioMeasured, "zero beats -> ratio not measured");
+    check (! d.phaseMeasured && d.phaseMatchedBeats == 0, "zero beats -> phase not measured");
+    check (d.lock.longestMatchRun == 0 && ! d.lock.found, "zero beats -> no lock");
+    check (d.reason == tracker_diag::AcquireReason::InsufficientBeatEvents,
+           "zero beats -> InsufficientBeatEvents");
+}
+
+void testDiagnosisInvalidPhaseIsDistinct()
+{
+    const RhythmTruth truth = constantTruth ("inval", 120.0, 6, 0.0);
+    ObservationSeries s;
+    for (double b : truth.beats)
+    {
+        s.beatTimesSeconds.push_back (b);
+        s.beatAvailabilitySeconds.push_back (b + 0.01);
+        // A tempo sample exists but its phase is not usable.
+        TempoSample ts;
+        ts.timeSeconds = b;
+        ts.availabilitySeconds = b + 0.002;
+        ts.hasAvailability = true;
+        ts.bpm = 120.0;
+        ts.phaseValid = false;
+        s.tempoSamples.push_back (ts);
+    }
+    const rhythmeval::FixtureMetrics m = rhythmeval::scoreFixture (truth, s, 0.07, 0.0);
+    const tracker_diag::FixtureDiagnosis d = tracker_diag::diagnoseFixture (truth, s, m, 0.07);
+    check (! d.bpmMeasured, "phase-invalid samples do not count as a BPM measurement");
+    check (d.clause.phaseInvalid == 6 && d.clause.outsideBand == 0,
+           "all six beats fail on the phase-invalid clause");
+    check (d.reason == tracker_diag::AcquireReason::TempoPhaseInvalid,
+           "phase-invalid tempo is classified distinctly from the numeric band");
+}
+
+void testDiagnosisDetectsScorerMismatch()
+{
+    const RhythmTruth truth = constantTruth ("clean", 126.0, 6, 0.0);
+    ObservationSeries s;
+    for (double b : truth.beats)
+    {
+        s.beatTimesSeconds.push_back (b);
+        s.beatAvailabilitySeconds.push_back (b + 0.01);
+        addTempo (s, b, 126.0);
+    }
+    rhythmeval::FixtureMetrics fake;      // fabricated: scorer claims no lock
+    fake.acquired = false;
+    fake.acquisitionBars = 0.0;
+    const tracker_diag::FixtureDiagnosis d =
+        tracker_diag::diagnoseFixture (truth, s, fake, 0.07);
+    check (d.lock.found, "replay does find a lock on the clean series");
+    check (! d.agreesWithScorer, "mismatch detection fires when scorer disagrees");
+}
+
+void testBlockFramesValidation()
+{
+    std::size_t v = 0;
+    check (tracker_diag::parseBlockFrames ("128", 2048, v) && v == 128,
+           "block 128 accepted");
+    check (tracker_diag::parseBlockFrames ("2048", 2048, v) && v == 2048,
+           "block == kMax accepted");
+    check (! tracker_diag::parseBlockFrames ("0", 2048, v), "block 0 rejected");
+    check (! tracker_diag::parseBlockFrames ("2049", 2048, v),
+           "block > kMax rejected");
+    check (! tracker_diag::parseBlockFrames ("128x", 2048, v),
+           "malformed block rejected");
+    check (! tracker_diag::parseBlockFrames ("-1", 2048, v),
+           "negative block rejected");
+    check (! tracker_diag::parseBlockFrames ("", 2048, v), "empty block rejected");
 }
 
 // --- fake backend so TraceRunner can be compared with BackendRunner ---------
@@ -282,6 +404,12 @@ int main()
     testReplayRejectsTempoDisagreement();
     testReplayRejectsBacktracking();
     testAgreementWithScorer();
+    testOptionalNumberMissingVsZero();
+    testDiagnosisNoNominalBpm();
+    testDiagnosisZeroBeats();
+    testDiagnosisInvalidPhaseIsDistinct();
+    testDiagnosisDetectsScorerMismatch();
+    testBlockFramesValidation();
     testTraceRunnerMatchesBackendRunner();
 
     std::printf ("TraceReplayTests: %d checks, %d failures\n", g_checks, g_failures);

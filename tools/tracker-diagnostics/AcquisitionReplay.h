@@ -30,19 +30,47 @@ namespace tracker_diag
 
 /** Machine-readable classification of why acquisition did or did not happen.
     The label is chosen by a fixed priority from measured trace evidence; the
-    supporting numbers are all reported beside it. */
+    supporting numbers (including the per-clause tempo counters) are reported
+    beside it. The five tempo labels are distinct because the scorer's tempo
+    clause returns false for four different reasons, and "--2 % numeric" may not
+    be claimed when the failing beats lack a tempo sample or have an invalid
+    phase/BPM. */
 enum class AcquireReason
 {
     AcquiredWithin2Bars = 0,
     AcquiredAfter2Bars,
     InsufficientBeatEvents,
-    LockTempoAgreementFailure,
-    PhaseConflictOrDropouts,
-    NoMatchingBeats,
+    TempoOutsideBand,        // numeric |bpm - truth|/truth > 2 % on the run
+    TempoEvidenceMissing,    // no phase/tempo sample near the beat at all
+    TempoPhaseInvalid,       // tempo sample exists but phaseValid == false
+    TempoBpmInvalid,         // tempo sample exists but bpm <= 0
+    TempoAgreementFailure,   // more than one of the above clause types failed
+    NoSustainedMatchRun,     // beats exist but no 4-beat forward-advancing run
+    NoMatchingBeats,         // no beat within tolerance of any truth beat
     Other
 };
 
 const char* toString (AcquireReason r) noexcept;
+
+/** Per-beat clause tally for the longest forward-advancing positional match
+    run. `agreeing` counts beats whose tempo clause passed (including a truth
+    beat with local BPM 0, where the scorer skips the check). The four failure
+    counters are disjoint and exactly mirror the scorer's tempo clause. */
+struct ClauseCounts
+{
+    int beats = 0;
+    int agreeing = 0;
+    int missingSample = 0;
+    int phaseInvalid = 0;
+    int bpmInvalid = 0;
+    int outsideBand = 0;
+    int truthBpmZero = 0;
+    int failingTotal () const
+    {
+        return missingSample + phaseInvalid + bpmInvalid + outsideBand;
+    }
+};
+
 
 /** Where and when an acquisition lock run begins and is confirmed. */
 struct LockRun
@@ -113,14 +141,24 @@ struct FixtureDiagnosis
     LockRun recovery;                    // stop_start only
     bool agreesWithScorer = true;        // replay acquired == scorer acquired
 
+    /** Per-beat tempo-clause tally over the longest positional match run. */
+    ClauseCounts clause;
+
     // --- trace evidence -----------------------------------------------------
+    // Measured flags keep "missing" distinct from a measured 0 everywhere these
+    // values are serialised (JSON null / CSV empty when the flag is false).
+    bool bpmMeasured = false;            // at least one phase-valid bpm sample
     double medianBpm = 0.0;              // median of phase-valid tempo samples
-    double medianBpmError = 0.0;         // |median - nominal| / nominal (if nominal)
+    bool medianBpmErrorMeasured = false; // bpmMeasured AND a positive nominal exists
+    double medianBpmError = 0.0;         // |median - nominal| / nominal
     double bpmAgreementFractionInWindow = 0.0; // fraction of phase-valid samples within 2%
+    bool ratioMeasured = false;          // matched beats produced a tempo ratio
     double ratioToTruth = 0.0;           // median reported / local truth BPM at matched beats
-    bool octaveSuspect = false;          // ratio within 10% of 0.5 or 2.0
+    bool octaveSuspect = false;          // ratio within 10% of 0.5 or 2.0 (only if ratioMeasured)
     int silenceBlocks = 0;
     double silenceSeconds = 0.0;
+    bool phaseMeasured = false;          // at least one beat matched a truth beat
+    int phaseMatchedBeats = 0;
     double meanSignedPhaseMs = 0.0;      // matched beats, event clock
     double meanAbsPhaseMs = 0.0;
 
@@ -134,5 +172,11 @@ FixtureDiagnosis diagnoseFixture (const rhythmeval::RhythmTruth& truth,
                                   const rhythmeval::ObservationSeries& obs,
                                   const rhythmeval::FixtureMetrics& scorerResult,
                                   double tol);
+
+/** Serialisation rule for an optional measurement: empty string when
+    `measured` is false, otherwise the value (including a genuine 0) with the
+    same %.10g formatting the diagnostic CSV uses. Keeps "missing stays missing"
+    testable without a filesystem. */
+std::string optionalNumber (bool measured, double value);
 
 } // namespace tracker_diag

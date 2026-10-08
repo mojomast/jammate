@@ -13,6 +13,12 @@ namespace tracker_diag
 namespace
 {
 
+struct RunStat
+{
+    std::size_t length = 0;
+    std::size_t start = 0;
+};
+
 int nearestTruthIndex (const std::vector<double>& beats, double t)
 {
     if (beats.empty())
@@ -77,9 +83,34 @@ double median (std::vector<double> v)
     return 0.5 * (v[n / 2 - 1] + v[n / 2]);
 }
 
+/** Exact scorer tempo clause for one predicted beat. Returns 0 = agreeing,
+    1 = no sample, 2 = phase invalid, 3 = bpm invalid, 4 = outside band.
+    A truth beat with local BPM 0 is skipped by the scorer and counts as
+    agreeing (0). */
+int tempoClauseFailure (const rhythmeval::RhythmTruth& truth,
+                        const rhythmeval::ObservationSeries& obs,
+                        double predictedTime, double bpmAgreement)
+{
+    const int gi = nearestTruthIndex (truth.beats, predictedTime);
+    if (gi < 0)
+        return 0;
+    const double truthBpm = localBpmAtIndex (truth, static_cast<std::size_t> (gi));
+    if (! (truthBpm > 0.0))
+        return 0;
+    const rhythmeval::TempoSample* s = tempoSampleNear (obs.tempoSamples, predictedTime);
+    if (s == nullptr)
+        return 1;
+    if (! s->phaseValid)
+        return 2;
+    if (! (s->bpm > 0.0))
+        return 3;
+    if (std::fabs (s->bpm - truthBpm) / truthBpm > bpmAgreement)
+        return 4;
+    return 0;
+}
+
 /** True when the full lock condition holds for the run starting at `i`; if so
-    returns the run length actually satisfied. `outLongest` receives the run
-    length when the condition holds at least one beat. Mirrors Metrics.cpp. */
+    returns the run length actually satisfied. Mirrors Metrics.cpp. */
 bool runSatisfied (const rhythmeval::RhythmTruth& truth,
                    const rhythmeval::ObservationSeries& obs,
                    std::size_t i, std::size_t lockRunLength, double tol,
@@ -98,28 +129,21 @@ bool runSatisfied (const rhythmeval::RhythmTruth& truth,
             return false;
         if (gi <= previousGi)
             return false;
-        const double truthBpm = localBpmAtIndex (truth, static_cast<std::size_t> (gi));
-        if (truthBpm > 0.0)
-        {
-            const rhythmeval::TempoSample* s =
-                tempoSampleNear (obs.tempoSamples, pred[i + k]);
-            if (s == nullptr || ! s->phaseValid || ! (s->bpm > 0.0)
-                || std::fabs (s->bpm - truthBpm) / truthBpm > bpmAgreement)
-                return false;
-        }
+        if (tempoClauseFailure (truth, obs, pred[i + k], bpmAgreement) != 0)
+            return false;
         previousGi = gi;
     }
     runLength = k;
     return true;
 }
 
-std::size_t longestRun (const rhythmeval::RhythmTruth& truth,
-                        const rhythmeval::ObservationSeries& obs,
-                        double tol, bool checkTempo, double bpmAgreement)
+RunStat longestRun (const rhythmeval::RhythmTruth& truth,
+                    const rhythmeval::ObservationSeries& obs,
+                    double tol, bool checkTempo, double bpmAgreement)
 {
     const std::vector<double>& pred = obs.beatTimesSeconds;
     const std::vector<double>& beats = truth.beats;
-    std::size_t best = 0;
+    RunStat best;
     for (std::size_t i = 0; i < pred.size(); ++i)
     {
         std::size_t run = 0;
@@ -131,24 +155,47 @@ std::size_t longestRun (const rhythmeval::RhythmTruth& truth,
                 break;
             if (gi <= previousGi)
                 break;
-            if (checkTempo)
-            {
-                const double truthBpm = localBpmAtIndex (truth, static_cast<std::size_t> (gi));
-                if (truthBpm > 0.0)
-                {
-                    const rhythmeval::TempoSample* s =
-                        tempoSampleNear (obs.tempoSamples, pred[i + k]);
-                    if (s == nullptr || ! s->phaseValid || ! (s->bpm > 0.0)
-                        || std::fabs (s->bpm - truthBpm) / truthBpm > bpmAgreement)
-                        break;
-                }
-            }
+            if (checkTempo
+                && tempoClauseFailure (truth, obs, pred[i + k], bpmAgreement) != 0)
+                break;
             ++run;
             previousGi = gi;
         }
-        best = std::max (best, run);
+        if (run > best.length)
+        {
+            best.length = run;
+            best.start = i;
+        }
     }
     return best;
+}
+
+ClauseCounts clauseCounts (const rhythmeval::RhythmTruth& truth,
+                           const rhythmeval::ObservationSeries& obs,
+                           std::size_t start, std::size_t length,
+                           double bpmAgreement)
+{
+    ClauseCounts c;
+    const std::vector<double>& pred = obs.beatTimesSeconds;
+    for (std::size_t k = 0; k < length && start + k < pred.size(); ++k)
+    {
+        ++c.beats;
+        switch (tempoClauseFailure (truth, obs, pred[start + k], bpmAgreement))
+        {
+            case 1: ++c.missingSample; break;
+            case 2: ++c.phaseInvalid; break;
+            case 3: ++c.bpmInvalid; break;
+            case 4: ++c.outsideBand; break;
+            default:
+                ++c.agreeing;
+                if (localBpmAtIndex (truth,
+                        static_cast<std::size_t> (nearestTruthIndex (truth.beats,
+                                                                     pred[start + k]))) <= 0.0)
+                    ++c.truthBpmZero;
+                break;
+        }
+    }
+    return c;
 }
 
 } // namespace
@@ -157,15 +204,28 @@ const char* toString (AcquireReason r) noexcept
 {
     switch (r)
     {
-        case AcquireReason::AcquiredWithin2Bars:        return "AcquiredWithin2Bars";
-        case AcquireReason::AcquiredAfter2Bars:         return "AcquiredAfter2Bars";
-        case AcquireReason::InsufficientBeatEvents:     return "InsufficientBeatEvents";
-        case AcquireReason::LockTempoAgreementFailure:  return "LockTempoAgreementFailure";
-        case AcquireReason::PhaseConflictOrDropouts:    return "PhaseConflictOrDropouts";
-        case AcquireReason::NoMatchingBeats:            return "NoMatchingBeats";
-        case AcquireReason::Other:                      return "Other";
+        case AcquireReason::AcquiredWithin2Bars:  return "AcquiredWithin2Bars";
+        case AcquireReason::AcquiredAfter2Bars:   return "AcquiredAfter2Bars";
+        case AcquireReason::InsufficientBeatEvents: return "InsufficientBeatEvents";
+        case AcquireReason::TempoOutsideBand:     return "TempoOutsideBand";
+        case AcquireReason::TempoEvidenceMissing: return "TempoEvidenceMissing";
+        case AcquireReason::TempoPhaseInvalid:    return "TempoPhaseInvalid";
+        case AcquireReason::TempoBpmInvalid:      return "TempoBpmInvalid";
+        case AcquireReason::TempoAgreementFailure: return "TempoAgreementFailure";
+        case AcquireReason::NoSustainedMatchRun:  return "NoSustainedMatchRun";
+        case AcquireReason::NoMatchingBeats:      return "NoMatchingBeats";
+        case AcquireReason::Other:                return "Other";
     }
     return "Unknown";
+}
+
+std::string optionalNumber (bool measured, double value)
+{
+    if (! measured)
+        return std::string();
+    char buf[40];
+    std::snprintf (buf, sizeof buf, "%.10g", std::isfinite (value) ? value : 0.0);
+    return std::string (buf);
 }
 
 LockRun replayLock (const rhythmeval::RhythmTruth& truth,
@@ -179,9 +239,8 @@ LockRun replayLock (const rhythmeval::RhythmTruth& truth,
     const std::vector<double>& pred = obs.beatTimesSeconds;
     const std::vector<double>& beats = truth.beats;
 
-    r.longestMatchRun = longestRun (truth, obs, tol, /*checkTempo=*/false, bpmAgreement);
-    r.longestRunWithTempo =
-        longestRun (truth, obs, tol, /*checkTempo=*/true, bpmAgreement);
+    r.longestMatchRun = longestRun (truth, obs, tol, false, bpmAgreement).length;
+    r.longestRunWithTempo = longestRun (truth, obs, tol, true, bpmAgreement).length;
 
     if (beats.empty() || pred.size() < lockRunLength)
         return r;
@@ -267,6 +326,13 @@ FixtureDiagnosis diagnoseFixture (const rhythmeval::RhythmTruth& truth,
             d.agreesWithScorer = false;
     }
 
+    // The clause tally is taken over the longest forward-advancing positional
+    // match run, so it describes the run that came closest to locking.
+    const RunStat matchRun = longestRun (truth, obs, tol, false,
+                                         rhythmeval::kBpmAgreementFraction);
+    d.clause = clauseCounts (truth, obs, matchRun.start, matchRun.length,
+                             rhythmeval::kBpmAgreementFraction);
+
     std::vector<int> predMatch;
     d.matchedBeats = rhythmeval::matchBeats (obs.beatTimesSeconds, truth.beats, tol, predMatch);
 
@@ -288,8 +354,10 @@ FixtureDiagnosis diagnoseFixture (const rhythmeval::RhythmTruth& truth,
             && std::fabs (s.bpm - truthBpm) / truthBpm <= rhythmeval::kBpmAgreementFraction)
             ++withinBand;
     }
+    d.bpmMeasured = validCount > 0;
     d.medianBpm = median (validBpm);
-    if (d.hasNominalBpm && d.nominalBpm > 0.0)
+    d.medianBpmErrorMeasured = d.bpmMeasured && d.hasNominalBpm && d.nominalBpm > 0.0;
+    if (d.medianBpmErrorMeasured)
         d.medianBpmError = std::fabs (d.medianBpm - d.nominalBpm) / d.nominalBpm;
     d.bpmAgreementFractionInWindow =
         validCount > 0 ? static_cast<double> (withinBand) / validCount : 0.0;
@@ -306,8 +374,9 @@ FixtureDiagnosis diagnoseFixture (const rhythmeval::RhythmTruth& truth,
         if (s != nullptr && s->phaseValid && s->bpm > 0.0 && truthBpm > 0.0)
             ratios.push_back (s->bpm / truthBpm);
     }
+    d.ratioMeasured = ! ratios.empty();
     d.ratioToTruth = median (ratios);
-    if (d.ratioToTruth > 0.0)
+    if (d.ratioMeasured)
         d.octaveSuspect = std::fabs (d.ratioToTruth - 0.5) <= 0.05
                           || std::fabs (d.ratioToTruth - 2.0) <= 0.10;
 
@@ -334,7 +403,9 @@ FixtureDiagnosis diagnoseFixture (const rhythmeval::RhythmTruth& truth,
             const double e = obs.beatTimesSeconds[i] - truth.beats[static_cast<std::size_t> (near)];
             sum += e; absSum += std::fabs (e); ++n;
         }
-        if (n > 0)
+        d.phaseMatchedBeats = n;
+        d.phaseMeasured = n > 0;
+        if (d.phaseMeasured)
         {
             d.meanSignedPhaseMs = sum / n * 1000.0;
             d.meanAbsPhaseMs = absSum / n * 1000.0;
@@ -343,7 +414,7 @@ FixtureDiagnosis diagnoseFixture (const rhythmeval::RhythmTruth& truth,
 
     // --- reason -------------------------------------------------------------
     const std::size_t L = static_cast<std::size_t> (rhythmeval::kLockRunLength);
-    char buf[256];
+    char buf[320];
     if (d.scorerAcquired && d.scorerAcquisitionBars <= 2.0)
     {
         d.reason = AcquireReason::AcquiredWithin2Bars;
@@ -368,35 +439,50 @@ FixtureDiagnosis diagnoseFixture (const rhythmeval::RhythmTruth& truth,
     }
     else if (d.lock.longestMatchRun >= L && d.lock.longestRunWithTempo < L)
     {
-        d.reason = AcquireReason::LockTempoAgreementFailure;
-        if (d.octaveSuspect)
-            std::snprintf (buf, sizeof buf,
-                           "octave suspect: reported/truth ratio %.4f, longest match run %zu",
-                           d.ratioToTruth, d.lock.longestMatchRun);
+        const ClauseCounts& c = d.clause;
+        const int kinds = (c.missingSample > 0) + (c.phaseInvalid > 0)
+                          + (c.bpmInvalid > 0) + (c.outsideBand > 0);
+        if (kinds > 1)
+            d.reason = AcquireReason::TempoAgreementFailure;
+        else if (c.outsideBand > 0)
+            d.reason = AcquireReason::TempoOutsideBand;
+        else if (c.missingSample > 0)
+            d.reason = AcquireReason::TempoEvidenceMissing;
+        else if (c.phaseInvalid > 0)
+            d.reason = AcquireReason::TempoPhaseInvalid;
+        else if (c.bpmInvalid > 0)
+            d.reason = AcquireReason::TempoBpmInvalid;
         else
-            std::snprintf (buf, sizeof buf,
-                           "BPM outside 2%%: median %.3f vs nominal %.1f (err %.4f), "
-                           "ratio %.4f, longest match run %zu",
-                           d.medianBpm, d.nominalBpm, d.medianBpmError,
-                           d.ratioToTruth, d.lock.longestMatchRun);
+            d.reason = AcquireReason::Other;
+
+        std::snprintf (buf, sizeof buf,
+                       "longest %zu-beat match run: agreeing %d, outsideBand %d, "
+                       "missingSample %d, phaseInvalid %d, bpmInvalid %d; "
+                       "medianBpm %s, nominal %.3f, ratio %s",
+                       d.lock.longestMatchRun, c.agreeing, c.outsideBand,
+                       c.missingSample, c.phaseInvalid, c.bpmInvalid,
+                       d.bpmMeasured ? std::to_string (d.medianBpm).c_str() : "n/a",
+                       d.nominalBpm,
+                       d.ratioMeasured ? std::to_string (d.ratioToTruth).c_str() : "n/a");
         d.reasonDetail = buf;
     }
     else if (d.lock.longestMatchRun == 0)
     {
         d.reason = AcquireReason::NoMatchingBeats;
         std::snprintf (buf, sizeof buf,
-                       "%d beats, none within %.0f ms of a truth beat; mean abs phase %.1f ms",
-                       d.predictedBeats, tol * 1000.0, d.meanAbsPhaseMs);
+                       "%d beats, none within %.0f ms of a truth beat; mean abs phase %s",
+                       d.predictedBeats, tol * 1000.0,
+                       d.phaseMeasured ? std::to_string (d.meanAbsPhaseMs).c_str() : "n/a");
         d.reasonDetail = buf;
     }
     else if (d.lock.longestMatchRun < L)
     {
-        d.reason = AcquireReason::PhaseConflictOrDropouts;
+        d.reason = AcquireReason::NoSustainedMatchRun;
         std::snprintf (buf, sizeof buf,
-                       "longest forward-advancing match run %zu < %zu; matched %d/%d; "
-                       "mean abs phase %.1f ms",
-                       d.lock.longestMatchRun, L, d.matchedBeats, d.truthBeats,
-                       d.meanAbsPhaseMs);
+                       "longest forward-advancing positional run %zu < %zu "
+                       "(matched %d/%d); possible causes include gaps, duplicate beats "
+                       "or a grid alias; no tempo clause was isolated",
+                       d.lock.longestMatchRun, L, d.matchedBeats, d.truthBeats);
         d.reasonDetail = buf;
     }
     else

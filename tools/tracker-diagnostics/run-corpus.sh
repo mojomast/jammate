@@ -78,10 +78,10 @@ echo "[5b] per-core-fixture reason tables"
 python3 "$here/make_reason_table.py" "$artifact"
 
 echo "[6/6] provenance"
-python3 - "$artifact" "$core" "$plug_bt" "$plug_au" <<'PY'
+python3 - "$artifact" "$core" "$plug_bt" "$plug_au" "$build" <<'PY'
 import hashlib, json, os, subprocess, sys
 
-artifact, core, plug_bt, plug_au = sys.argv[1:5]
+artifact, core, plug_bt, plug_au, build = sys.argv[1:6]
 
 def sha(path):
     h = hashlib.sha256()
@@ -104,8 +104,9 @@ prov = {
     "selection": None,
     "adr": None,
     "g3": "OPEN",
-    "baseSha": git("rev-parse", "HEAD"),
-    "baseSubject": git("log", "-1", "--format=%s"),
+    "baseSha": (git("merge-base", "HEAD", "6287288") or git("rev-parse", "HEAD")),
+    "headSha": git("rev-parse", "HEAD"),
+    "baseSubject": git("log", "-1", "--format=%s", "6287288") or git("log", "-1", "--format=%s"),
     "corpusManifest": manifest,
     "corpusManifestSha256": sha(manifest),
     "wavHashes": "wav-hashes.txt",
@@ -120,6 +121,11 @@ prov = {
         "behaviorally the current main adapter build."),
     "configExperiment": {
         "tool": "tools/tracker-diagnostics/libtracker-diag-config-*.so",
+        "buildDir": build,
+        "btrackShimSha256": sha(os.path.join(build, "libtracker-diag-config-btrack.so"))
+            if os.path.exists(os.path.join(build, "libtracker-diag-config-btrack.so")) else None,
+        "aubioShimSha256": sha(os.path.join(build, "libtracker-diag-config-aubio.so"))
+            if os.path.exists(os.path.join(build, "libtracker-diag-config-aubio.so")) else None,
         "knob": "silenceRmsDbfs = -120 (gate effectively disabled)",
         "evidenceClass": "NOT default evidence; adapter-config variant only",
     },
