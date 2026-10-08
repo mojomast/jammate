@@ -169,7 +169,9 @@ Latest local verification, **8 October 2026**:
   analysis and controls into that bridge; fresh live-wave engine regressions
   pass **82 actual DrumEngine cases**, including stop/manual recovery and
   dropped-tempo retry. See the [actual replay](docs/research/LIVE-JAM-REPLAY.md)
-  for measured callback and lifecycle evidence.
+  and [integration results](docs/research/LIVE-JAM-ACTUAL-INTEGRATION.md)
+  for measured callback and lifecycle evidence, including the preserved first
+  rejected run and its corrections.
 
 The [execution ledger](EXECUTION-LEDGER.md) is the authoritative status record.
 Reproduction commands, hashes and limitations live in the linked research
