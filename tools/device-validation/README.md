@@ -155,7 +155,7 @@ python3 tools/device-validation/ingest_play_trial.py --session <dir> \
   --lock-receipt raw/diagnostics-trace.json \
   --timing-receipt raw/diagnostics-trace.json \
   --callback-receipt raw/diagnostics-trace.json \
-  --callback-p99-ms 2.4 --callback-deadline-misses 0 --analysis-overruns 0 \
+  --callback-p99-ms 1.2 --callback-deadline-misses 0 --analysis-overruns 0 \
   --dropouts 0 --dropout-receipt raw/diagnostics-trace.json \
   --join-sensible yes --stayed-stable yes --overreacted no \
   --fills-musical yes --push-pull yes --recovered-tap-resync yes
@@ -165,9 +165,36 @@ Rules enforced:
 
 - any numeric timing/dropout/callback/lock value must be accompanied by the
   matching `--*-receipt`; otherwise it must be omitted (recorded `unmeasured`);
-- `--useful-lock yes` requires a measured two-bar window and time-to-lock with a
-  receipt — a bare assertion is rejected;
+- a receipt earns `instrumented-raw` (and *gates*) only if it is a parseable
+  `device-validation/receipt/1.0` document that actually contains the same
+  metric value and the session's interface identity;
+- a hashed but unparseable receipt is recorded as `receipt-attested` and never
+  gates;
+- `--useful-lock yes` requires gated measured two-bar window and time-to-lock;
+- the callback deadline gate requires a gated `p99_ms <= 70%` of a block
+  (`128/48000 → <= 1.867 ms`) and zero measured deadline misses;
 - the six SPEC 20 judgements are stored as `operator-report`, never as measured.
+
+A receipt looks like:
+
+```json
+{
+  "schema": "device-validation/receipt/1.0",
+  "kind": "play-trial",
+  "session_id": "<session id>",
+  "interface_id": "<interface id>",
+  "interface": {"os": "windows", "backend": "asio", "driver": "Focusrite USB ASIO",
+                "input_device": "Analogue 1", "output_device": "Analogue 1+2",
+                "sample_rate": 48000, "block_frames": 128,
+                "monitoring": "software-app"},
+  "metrics": {"timing": {"start_requested_s": 1.0, "join_heard_s": 3.5,
+                         "stop_s": 12.0},
+              "useful_lock": {"window_bars": 2, "time_to_lock_s": 1.8},
+              "dropouts": {"count": 0},
+              "callback": {"p99_ms": 1.2, "deadline_misses": 0,
+                           "analysis_overruns": 0}}
+}
+```
 
 The play conditions are `clean_strumming`, `distorted_rhythm`,
 `palm_muted_metal`, `blues_shuffle`, `syncopated_funk`, `sparse_single_note`.
@@ -177,11 +204,13 @@ The play conditions are `clean_strumming`, `distorted_rhythm`,
 ```sh
 python3 tools/device-validation/ingest_functional.py --session <dir> \
   --condition device_disconnect_reconnect --outcome pass \
-  --receipt raw/disconnect-log.txt
+  --receipt raw/disconnect-receipt.json
 ```
 
 Conditions: `device_disconnect_reconnect`, `input_channel_change`,
-`silent_input`, `clipped_input`. A receipt is mandatory and is hashed.
+`silent_input`, `clipped_input`. The receipt must be a parseable
+`receipt/1.0` document whose `metrics.functional.outcome` matches `--outcome`;
+a plain log file is rejected.
 
 ## 5. Validate
 
@@ -191,21 +220,31 @@ python3 tools/device-validation/validate_evidence.py --session <dir> \
 ```
 
 Exit codes: `0` gate passes, `1` hard failure (schema, hash mismatch, edited /
-unbacked measurement, unknown identity), `2` no hard failure but the matrix is
-empty/incomplete/failing.
+unbacked measurement, malformed params, unknown identity), `2` no hard failure
+but the matrix is empty/incomplete/failing.
 
 The validator:
 
-- re-derives every latency from the raw WAV with the recorded parameters, so an
-  edited number is rejected (`latency-recheck-value`);
-- re-hashes every raw file and receipt;
-- cross-checks each record's interface identity against the session manifest;
+- re-derives every latency from the raw WAV using **canonical** parameters from
+  the condition spec and session interface; a record that contradicts them
+  (`expected_rate`, `expected_channels`, `target_ms`) is a hard error, and
+  `asio_48k_128` is always the 12 ms target;
+- requires measured fields to carry finite, correctly-typed values;
+- re-hashes every raw file and receipt and rejects absolute or `..` paths;
+- cross-checks each record's interface identity including devices and monitoring;
+- requires a 40-hex source SHA on physical records;
+- requires `monitoring == software-app` for latency cells (a hardware direct
+  monitor cannot evidence application latency);
+- reports malformed params/analysis as hard errors without crashing and keeps
+  processing all records;
+- aggregates all observations worst-case, preserving conflicts;
 - requires the SPEC 21.5 matrix to be non-empty and every cell measured;
 - requires Windows ASIO cells to identify backend **and** driver and carry an
   actual physical measurement (callback estimates alone do not count);
 - requires `asio_48k_128` physical latency `<= 12 ms` for the monitoring gate;
-- excludes every `synthetic: true` record from the physical gates and reports it
-  only under `synthetic_selftest`.
+- excludes every `synthetic` record — and every record of a `synthetic` session,
+  even one flagged false — from the physical gates and reports it only under
+  `synthetic_selftest`.
 
 ## 6. Synthetic self-test
 

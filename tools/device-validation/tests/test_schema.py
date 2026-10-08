@@ -16,6 +16,7 @@ FILES = {
     "latency.schema.json": dl.LATENCY_SCHEMA,
     "play-trial.schema.json": dl.PLAY_TRIAL_SCHEMA,
     "functional.schema.json": dl.FUNCTIONAL_SCHEMA,
+    "receipt.schema.json": dl.RECEIPT_SCHEMA,
 }
 
 

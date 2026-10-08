@@ -171,6 +171,43 @@ class AnalysisTests(TempDir):
         self.assertFalse(result["valid"])
         self.assertIn("nonfinite-samples", result["reasons"])
 
+    def test_analyze_polarity_inverted_recovers_correct_lag(self):
+        p = self.path("inv.wav")
+        delay = fx.clean_two_channel(p, delay=96, invert=True)
+        result = dl.analyze_loopback(p, fx.default_params(), base_dir=self.tmp)
+        self.assertTrue(result["valid"])
+        self.assertAlmostEqual(result["physical_roundtrip_latency_ms"],
+                               1000.0 * delay / 48000.0, places=6)
+
+    def _two_paths(self, name, first, second):
+        n = int(48000 * 0.12)
+        ref = dl.make_click(48000, offset_ms=5.0, total_ms=120.0)
+        lp = [0.0] * n
+        for d in (first, second):
+            for i, v in enumerate(ref):
+                if i + d < n:
+                    lp[i + d] += v * 0.7
+        p = self.path(name)
+        dl.write_wav(p, [lp, ref], 48000, "pcm16")
+        return dl.analyze_loopback(p, fx.default_params(), base_dir=self.tmp)
+
+    def test_near_equal_distinct_paths_reject_ambiguous(self):
+        result = self._two_paths("amb200.wav", 96, 200)
+        self.assertFalse(result["valid"])
+        self.assertIn("ambiguous-onset", result["reasons"])
+
+    def test_far_equal_paths_reject_ambiguous(self):
+        result = self._two_paths("amb1000.wav", 96, 1000)
+        self.assertFalse(result["valid"])
+        self.assertIn("ambiguous-onset", result["reasons"])
+
+    def test_reference_template_auto_sized_to_burst(self):
+        p = self.path("clean2.wav")
+        fx.clean_two_channel(p, delay=96)
+        result = dl.analyze_loopback(p, fx.default_params(), base_dir=self.tmp)
+        frames = result["onset"]["reference"]["template_frames"]
+        self.assertLess(frames, int(48000 * 0.02))  # not the full 20 ms window
+
     def test_analyze_single_channel_absolute(self):
         p = self.path("abs.wav")
         delay = 240
@@ -198,6 +235,11 @@ class InterfaceReasonTests(unittest.TestCase):
     def test_block_mismatch(self):
         iface = fx.asio_interface("i", 64)
         self.assertIn("interface-block-mismatch",
+                      dl.interface_reasons("asio_48k_128", iface))
+
+    def test_direct_monitoring_disqualifies_latency(self):
+        iface = fx.asio_interface("i", 128, monitoring="direct-hardware")
+        self.assertIn("monitoring-not-software-app",
                       dl.interface_reasons("asio_48k_128", iface))
 
 

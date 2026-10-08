@@ -2,8 +2,10 @@
 """Ingest one SPEC.md 21.5 functional hardware condition.
 
 Covers the non-latency matrix cells: device disconnect/reconnect, input channel
-change, silent input and clipped input. An outcome is only recorded with a raw
-receipt (device log, diagnostics trace or recording) hashed from actual bytes.
+change, silent input and clipped input. The receipt must be a parseable
+``device-validation/receipt/1.0`` document whose ``metrics.functional.outcome``
+matches the recorded outcome and whose interface identity matches the session;
+a plain log file is not accepted as a gating measurement.
 """
 import argparse
 import os
@@ -19,7 +21,7 @@ def build_parser():
     p.add_argument("--condition", required=True, choices=sorted(dl.FUNCTIONAL_CONDITIONS))
     p.add_argument("--outcome", required=True, choices=("pass", "fail"))
     p.add_argument("--receipt", required=True,
-                   help="raw log/trace/WAV that shows the observation")
+                   help="parseable device-validation/receipt/1.0 document")
     p.add_argument("--interface-id", default=None)
     p.add_argument("--detail", default=None)
     p.add_argument("--out", default=None)
@@ -48,6 +50,19 @@ def main(argv=None):
                 raise dl.DeviceValidationError("no interface %r" % args.interface_id)
             iface = matches[0]
         receipt = dl.raw_ref(base_dir, args.receipt, role="functional")
+        doc, reason = dl.load_receipt(base_dir, receipt)
+        if doc is None:
+            raise dl.DeviceValidationError(
+                "functional receipt must be parseable: %s" % reason)
+        found, value = dl.receipt_value(doc, "functional", "outcome")
+        if not found or value != args.outcome:
+            raise dl.DeviceValidationError(
+                "receipt metrics.functional.outcome=%r does not match %r"
+                % (value, args.outcome))
+        if doc.get("interface_id") not in (None, iface.get("id")):
+            raise dl.DeviceValidationError(
+                "receipt interface_id %r != session interface %r"
+                % (doc.get("interface_id"), iface.get("id")))
         record = {
             "schema": dl.FUNCTIONAL_SCHEMA,
             "synthetic": bool(args.synthetic_selftest),
@@ -65,8 +80,11 @@ def main(argv=None):
                     "os": iface.get("os"),
                     "backend": iface.get("backend"),
                     "driver": iface.get("driver"),
+                    "input_device": iface.get("input_device"),
+                    "output_device": iface.get("output_device"),
                     "sample_rate": iface.get("sample_rate"),
                     "block_frames": iface.get("block_frames"),
+                    "monitoring": iface.get("monitoring"),
                 },
             },
             "receipt": receipt,

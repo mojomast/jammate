@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "device-validation/receipt/1.0",
+  "title": "Parseable raw-metric receipt",
+  "description": "A receipt is the only artefact that can make a numeric play/functional value gate a release. It must be JSON, name this schema, carry the interface identity exactly, and contain the metric values the record claims. A plain log or any unparseable file is only receipt-attested and never gates.",
+  "type": "object",
+  "required": ["schema", "kind", "session_id", "interface_id", "interface",
+               "metrics"],
+  "properties": {
+    "schema": {"const": "device-validation/receipt/1.0"},
+    "kind": {"enum": ["play-trial", "functional"]},
+    "session_id": {"type": "string"},
+    "interface_id": {"type": "string"},
+    "generated_utc": {"type": "string"},
+    "interface": {
+      "type": "object",
+      "required": ["os", "backend", "driver", "input_device", "output_device",
+                   "sample_rate", "block_frames", "monitoring"],
+      "properties": {
+        "os": {"type": "string"},
+        "backend": {"type": "string"},
+        "driver": {"type": ["string", "null"]},
+        "input_device": {"type": ["string", "null"]},
+        "output_device": {"type": ["string", "null"]},
+        "sample_rate": {"type": "integer"},
+        "block_frames": {"type": "integer"},
+        "monitoring": {"type": "string"}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "timing": {
+          "type": "object",
+          "properties": {
+            "start_requested_s": {"type": "number"},
+            "join_heard_s": {"type": "number"},
+            "stop_s": {"type": "number"}
+          }
+        },
+        "useful_lock": {
+          "type": "object",
+          "properties": {
+            "window_bars": {"type": "integer", "minimum": 0},
+            "time_to_lock_s": {"type": "number"}
+          }
+        },
+        "dropouts": {
+          "type": "object",
+          "properties": {"count": {"type": "integer", "minimum": 0}}
+        },
+        "callback": {
+          "type": "object",
+          "properties": {
+            "p50_ms": {"type": "number"},
+            "p99_ms": {"type": "number"},
+            "deadline_misses": {"type": "integer", "minimum": 0},
+            "analysis_overruns": {"type": "integer", "minimum": 0}
+          }
+        },
+        "functional": {
+          "type": "object",
+          "required": ["outcome"],
+          "properties": {"outcome": {"enum": ["pass", "fail"]}}
+        }
+      }
+    }
+  }
+}

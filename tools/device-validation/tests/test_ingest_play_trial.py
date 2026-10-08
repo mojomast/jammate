@@ -27,7 +27,7 @@ class PlayTrialTests(unittest.TestCase):
         values = self._values()
         with self.assertRaises(dl.DeviceValidationError):
             ipt.make_record(self.session, self.tmp, "clean_strumming", self.iface,
-                            values, {})
+                            values, {}, {})
 
     def test_useful_lock_yes_without_receipt_rejected(self):
         values = self._values()
@@ -36,7 +36,7 @@ class PlayTrialTests(unittest.TestCase):
         values.pop("stop_s", None)
         with self.assertRaises(dl.DeviceValidationError):
             ipt.make_record(self.session, self.tmp, "clean_strumming", self.iface,
-                            values, {})
+                            values, {}, {})
 
     def test_measured_with_receipt_sets_flags(self):
         rec = fx.play_record(self.session, self.tmp, "clean_strumming",
@@ -57,15 +57,17 @@ class PlayTrialTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("unmeasured-value", [e["rule"] for e in report["hard_errors"]])
 
-    def test_play_yes_without_measured_window_is_hard_error(self):
+    def test_play_yes_without_measured_window_does_not_pass(self):
         rec = fx.play_record(self.session, self.tmp, "clean_strumming",
                              self.iface, self.receipt)
         rec["useful_lock"]["window_bars"] = {"value": None, "measured": False}
         fx.write_record(self.tmp, "play.json", rec)
         code = ve.main(["--session", self.tmp, "--gate", "play"])
         report = dl.load_json_strict(os.path.join(self.tmp, "report.json"))
-        self.assertEqual(code, 1)
-        self.assertIn("play-lock-window", [e["rule"] for e in report["hard_errors"]])
+        self.assertEqual(code, 2)
+        self.assertFalse(report["gates"]["play_trials"]["pass"])
+        self.assertEqual(report["cells"]["clean_strumming"]["status"],
+                         "unmeasured")
 
     def _values(self):
         return {
@@ -96,10 +98,20 @@ class FunctionalTests(unittest.TestCase):
             ifn.main(["--session", self.tmp, "--condition", "silent_input",
                       "--outcome", "pass"])
 
-    def test_functional_ok_and_hashed(self):
-        receipt = fx.text_receipt(self.tmp, "log.txt")
+    def test_non_parseable_receipt_rejected(self):
+        plain = fx.text_receipt(self.tmp, "log.txt")
         code = ifn.main(["--session", self.tmp, "--condition", "silent_input",
-                         "--outcome", "pass", "--receipt", receipt])
+                         "--outcome", "pass", "--receipt", plain])
+        self.assertEqual(code, 1)
+
+    def test_functional_ok_and_hashed(self):
+        session = dl.load_json_strict(os.path.join(self.tmp, "session.json"))
+        iface = session["interfaces"][0]
+        ref, _doc = fx.receipt_json(self.tmp, session, iface, "functional",
+                                    {"functional": {"outcome": "pass"}},
+                                    "functional-receipt.json")
+        code = ifn.main(["--session", self.tmp, "--condition", "silent_input",
+                         "--outcome", "pass", "--receipt", ref["path"]])
         self.assertEqual(code, 0)
         rec = dl.load_json_strict(os.path.join(
             self.tmp, "measurements", "functional-silent_input.json"))

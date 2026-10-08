@@ -49,6 +49,8 @@ def build_parser():
     p.add_argument("--min-correlation", type=float, default=0.5)
     p.add_argument("--min-dominance", type=float, default=1.05)
     p.add_argument("--template-ms", type=float, default=20.0)
+    p.add_argument("--ambiguity-sep-ms", type=float, default=2.0,
+                   help="minimum separation between distinct correlation peaks")
     p.add_argument("--notes", default=None)
     p.add_argument("--synthetic-selftest", action="store_true",
                    help="mark as synthetic (validator never lets it pass a physical gate)")
@@ -80,16 +82,15 @@ def find_interface(session, interface_id):
 def make_record(session, base_dir, condition, interface, wav_path, params,
                 synthetic=False, notes=None, out_path=None):
     spec = dl.condition_spec(condition)
-    expected_rate = spec.get("rate") or interface.get("sample_rate")
     params = dict(params)
-    params["expected_rate"] = expected_rate
-    if params["method"] == "two-channel":
-        params["expected_channels"] = max(
-            int(params["loopback_channel"]), int(params["reference_channel"])) + 1
-    else:
-        params["expected_channels"] = int(params["loopback_channel"]) + 1
-    params["target_ms"] = spec.get("target_ms")
-
+    canonical = dl.canonical_latency_expectations(condition, interface)
+    params["expected_rate"] = canonical["expected_rate"]
+    params["target_ms"] = canonical["target_ms"]
+    problems = dl.validate_latency_params(params)
+    if problems:
+        raise dl.DeviceValidationError(
+            "invalid latency params: %s" % ", ".join(problems))
+    params["expected_channels"] = dl.required_channels(params)
     analysis = dl.analyze_loopback(wav_path, params, base_dir=base_dir)
     reasons = list(analysis["reasons"])
     warnings = []
@@ -175,6 +176,7 @@ def main(argv=None):
             "min_correlation": args.min_correlation,
             "min_dominance": args.min_dominance,
             "template_ms": args.template_ms,
+            "ambiguity_sep_ms": args.ambiguity_sep_ms,
         }
         if args.method == "single-channel" and args.reference_wav:
             ref_wav = dl.read_wav(dl.resolve_path(base_dir, args.reference_wav))

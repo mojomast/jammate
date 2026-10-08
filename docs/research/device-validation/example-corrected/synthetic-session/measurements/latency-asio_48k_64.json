@@ -1,0 +1,148 @@
+{
+  "analysis": {
+    "method": "two-channel",
+    "onset": {
+      "ambiguous": true,
+      "candidates": [
+        {
+          "abs_correlation": 0.9999999983385811,
+          "correlation": 0.9999999983385811,
+          "lag_samples": 96,
+          "latency_ms": 2.0
+        },
+        {
+          "abs_correlation": 0.9999999983385811,
+          "correlation": 0.9999999983385811,
+          "lag_samples": 1096,
+          "latency_ms": 22.833333333333332
+        },
+        {
+          "abs_correlation": 0.9969276101511918,
+          "correlation": -0.9969276101511918,
+          "lag_samples": 112,
+          "latency_ms": 2.3333333333333335
+        },
+        {
+          "abs_correlation": 0.9969276101511918,
+          "correlation": -0.9969276101511918,
+          "lag_samples": 1112,
+          "latency_ms": 23.166666666666668
+        },
+        {
+          "abs_correlation": 0.9884061160696073,
+          "correlation": 0.9884061160696073,
+          "lag_samples": 128,
+          "latency_ms": 2.6666666666666665
+        }
+      ],
+      "detected": false,
+      "dominance": 1.0,
+      "method": "two-channel",
+      "reference": {
+        "detected": true,
+        "event_count": 1,
+        "quality": {
+          "clipped_samples": 0,
+          "dc_offset": 0.0006510469648573134,
+          "frames": 5760,
+          "nonfinite_samples": 0,
+          "peak": 0.6346435546875,
+          "peak_dbfs": -3.9494025239635224,
+          "rms": 0.029876743406358857,
+          "rms_dbfs": -30.493334855825218
+        },
+        "sample": 247,
+        "strength": 0.6346435546875,
+        "template_frames": 86,
+        "time_ms": 5.145833333333333
+      },
+      "second_abs_correlation": 0.9999999983385811
+    },
+    "params": {
+      "ambiguity_sep_ms": 2.0,
+      "expected_channels": 2,
+      "expected_rate": 48000,
+      "loopback_channel": 0,
+      "method": "two-channel",
+      "min_correlation": 0.5,
+      "min_dominance": 1.05,
+      "onset_threshold_dbfs": -40.0,
+      "reference_channel": 1,
+      "reference_onset_ms": 0.0,
+      "reference_wav": null,
+      "search_end_ms": 250.0,
+      "search_start_ms": -10.0,
+      "silence_dbfs": -60.0,
+      "target_ms": null,
+      "template_ms": 20.0
+    },
+    "physical_roundtrip_latency_ms": null,
+    "quality": {
+      "clipped_samples": 0,
+      "dc_offset": 0.0009114265441894532,
+      "frames": 5760,
+      "nonfinite_samples": 0,
+      "peak": 0.444244384765625,
+      "peak_dbfs": -7.0475610591179745,
+      "rms": 0.029576323686226688,
+      "rms_dbfs": -30.581116188939134
+    },
+    "reasons": [
+      "ambiguous-onset",
+      "interface-block-mismatch"
+    ],
+    "target_met": null,
+    "target_ms": null,
+    "valid": false,
+    "warnings": [],
+    "wav": {
+      "bits": 16,
+      "channels": 2,
+      "duration_s": 0.12,
+      "format_code": 1,
+      "frames": 5760,
+      "sample_rate": 48000
+    }
+  },
+  "condition": "asio_48k_64",
+  "generated_utc": "2026-10-08T13:08:05Z",
+  "identity": {
+    "build_kind": "synthetic",
+    "condition_spec": {
+      "backend": "asio",
+      "block": 64,
+      "kind": "latency",
+      "os": "windows",
+      "rate": 48000,
+      "target_ms": null
+    },
+    "interface": {
+      "backend": "asio",
+      "block_frames": 128,
+      "driver": "Synthetic ASIO Driver",
+      "input_device": "Synthetic In",
+      "monitoring": "software-app",
+      "os": "windows",
+      "output_device": "Synthetic Out",
+      "reported_input_latency_ms": null,
+      "reported_output_latency_ms": null,
+      "sample_rate": 48000
+    },
+    "raw_reference_wav": null,
+    "raw_wav": {
+      "bytes": 23084,
+      "path": "raw/ambiguous.wav",
+      "role": "loopback",
+      "sha256": "b87be5f81efa79114c1f129ddb7076a970a91fd07857736184302a7c138da9b5"
+    },
+    "source_sha": "0000000000000000000000000000000000000000"
+  },
+  "interface_id": "iface-asio",
+  "notes": [
+    "synthetic ambiguous pair"
+  ],
+  "provenance": "recorded-loopback",
+  "schema": "device-validation/latency/1.0",
+  "session_id": "synthetic-selftest",
+  "synthetic": true
+}

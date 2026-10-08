@@ -34,8 +34,12 @@ SESSION_SCHEMA = "device-validation/session/1.0"
 LATENCY_SCHEMA = "device-validation/latency/1.0"
 PLAY_TRIAL_SCHEMA = "device-validation/play-trial/1.0"
 FUNCTIONAL_SCHEMA = "device-validation/functional/1.0"
+RECEIPT_SCHEMA = "device-validation/receipt/1.0"
 
 SCHEMAS = (SESSION_SCHEMA, LATENCY_SCHEMA, PLAY_TRIAL_SCHEMA, FUNCTIONAL_SCHEMA)
+
+# Receipt kinds and the metric groups a parseable receipt may carry.
+RECEIPT_KINDS = ("play-trial", "functional")
 
 # Actual identifiers from CMakeLists.txt and README.md of the product.
 PRODUCT_DEFAULTS = {
@@ -89,7 +93,8 @@ KNOWN_BACKENDS = ("asio", "wasapi", "directsound", "coreaudio", "alsa",
 KNOWN_OS = ("windows", "linux", "macos")
 
 # Measurement provenance values that may ever back a measured number.
-MEASURED_PROVENANCE = ("instrumented-raw", "recorded-loopback")
+MEASURED_PROVENANCE = ("instrumented-raw", "receipt-attested", "recorded-loopback")
+GATED_PROVENANCE = ("instrumented-raw", "recorded-loopback")
 UNMEASURED_PROVENANCE = ("unmeasured", "operator-report")
 
 # A sample at or above this magnitude is treated as clipping (PCM decoders
@@ -127,6 +132,11 @@ def sha256_bytes(data):
 
 def is_hex64(value):
     return (isinstance(value, str) and len(value) == 64
+            and all(c in "0123456789abcdef" for c in value))
+
+
+def is_git_sha(value):
+    return (isinstance(value, str) and len(value) == 40
             and all(c in "0123456789abcdef" for c in value))
 
 
@@ -182,6 +192,19 @@ def relative_or_absolute(base_dir, path):
     return rel
 
 
+def is_contained(base_dir, path):
+    """True when ``path`` resolves inside ``base_dir`` (no absolute, no '..')."""
+    if not path or os.path.isabs(path):
+        return False
+    ap = os.path.abspath(resolve_path(base_dir, path))
+    base = os.path.abspath(base_dir)
+    try:
+        rel = os.path.relpath(ap, base)
+    except ValueError:
+        return False
+    return not (rel == ".." or rel.startswith(".." + os.sep))
+
+
 def amp_from_dbfs(dbfs):
     return 10.0 ** (dbfs / 20.0)
 
@@ -193,9 +216,16 @@ def dbfs(amplitude):
 
 
 def raw_ref(base_dir, path, role=None):
-    """Record a raw file reference with the hash computed from actual bytes."""
+    """Record a raw file reference with the hash computed from actual bytes.
+
+    The file must live inside the session directory: physical evidence paths
+    are session-contained and relative, never absolute or ``..``.
+    """
     if not path:
         return None
+    if not is_contained(base_dir, path):
+        raise DeviceValidationError(
+            "raw file must be inside the session directory: %s" % path)
     resolved = resolve_path(base_dir, path)
     if resolved is None or not os.path.isfile(resolved):
         raise DeviceValidationError("raw file not found: %s" % resolved)
@@ -205,6 +235,130 @@ def raw_ref(base_dir, path, role=None):
         "bytes": os.path.getsize(resolved),
         "role": role,
     }
+
+
+# ---------------------------------------------------------------------------
+# Receipts: parseable, raw-metric-bearing evidence
+# ---------------------------------------------------------------------------
+
+def load_receipt(base_dir, ref):
+    """Return ``(receipt_dict_or_None, reason)`` for a raw reference.
+
+    A parseable receipt is JSON with ``RECEIPT_SCHEMA``; anything else (plain
+    log, empty file, wrong schema) yields ``None`` and the caller must fall back
+    to ``receipt-attested`` (non-gating) or ``operator-report``.
+    """
+    if not ref or not ref.get("path"):
+        return None, "no-receipt"
+    resolved = resolve_path(base_dir, ref["path"])
+    if not resolved or not os.path.isfile(resolved):
+        return None, "receipt-missing"
+    try:
+        doc = load_json_strict(resolved)
+    except (ValueError, OSError):
+        return None, "receipt-unparseable"
+    if not isinstance(doc, dict) or doc.get("schema") != RECEIPT_SCHEMA:
+        return None, "receipt-schema-mismatch"
+    return doc, None
+
+
+def receipt_value(receipt, group, key):
+    """Return ``(found, value)`` for ``metrics.<group>.<key>``."""
+    if not isinstance(receipt, dict):
+        return False, None
+    metrics = receipt.get("metrics")
+    if not isinstance(metrics, dict):
+        return False, None
+    block = metrics.get(group)
+    if not isinstance(block, dict) or key not in block:
+        return False, None
+    return True, block[key]
+
+
+# ---------------------------------------------------------------------------
+# Canonical parameter derivation and validation
+# ---------------------------------------------------------------------------
+
+LATENCY_PARAM_KEYS = (
+    "method", "loopback_channel", "reference_channel", "reference_wav",
+    "reference_onset_ms", "search_start_ms", "search_end_ms",
+    "onset_threshold_dbfs", "silence_dbfs", "min_correlation",
+    "min_dominance", "template_ms", "ambiguity_sep_ms",
+    "expected_rate", "expected_channels", "target_ms",
+)
+
+
+def validate_latency_params(params):
+    """Structural validation of a latency analysis params block.
+
+    Returns a list of human-readable problems; an empty list means the block is
+    safe to derive from.
+    """
+    problems = []
+    if not isinstance(params, dict):
+        return ["params-not-object"]
+    method = params.get("method")
+    if method not in ("two-channel", "single-channel"):
+        problems.append("method-%r" % method)
+    for key in ("loopback_channel",):
+        if not nonneg_int(params.get(key)):
+            problems.append("%s-not-nonneg-int" % key)
+    if method == "two-channel":
+        if not nonneg_int(params.get("reference_channel")):
+            problems.append("reference_channel-not-nonneg-int")
+        elif params.get("reference_channel") == params.get("loopback_channel"):
+            problems.append("reference-equals-loopback")
+    for key in ("search_start_ms", "search_end_ms", "onset_threshold_dbfs",
+                "silence_dbfs", "min_correlation", "min_dominance",
+                "template_ms", "ambiguity_sep_ms"):
+        if not finite(params.get(key)):
+            problems.append("%s-not-finite" % key)
+    if finite(params.get("search_start_ms")) and finite(params.get("search_end_ms")):
+        if params["search_start_ms"] >= params["search_end_ms"]:
+            problems.append("search-window-empty")
+    if finite(params.get("template_ms")) and params["template_ms"] <= 0.0:
+        problems.append("template-ms-not-positive")
+    if finite(params.get("ambiguity_sep_ms")) and params["ambiguity_sep_ms"] <= 0.0:
+        problems.append("ambiguity-sep-not-positive")
+    mc = params.get("min_correlation")
+    if finite(mc) and not (0.0 < mc <= 1.0):
+        problems.append("min-correlation-out-of-range")
+    md = params.get("min_dominance")
+    if finite(md) and md < 1.0:
+        problems.append("min-dominance-below-one")
+    if params.get("reference_onset_ms") is not None \
+            and not finite(params.get("reference_onset_ms")):
+        problems.append("reference-onset-not-finite")
+    if params.get("expected_rate") is not None \
+            and not nonneg_int(params.get("expected_rate")):
+        problems.append("expected-rate-not-nonneg-int")
+    if params.get("expected_channels") is not None \
+            and not nonneg_int(params.get("expected_channels")):
+        problems.append("expected-channels-not-nonneg-int")
+    if params.get("target_ms") is not None and not finite(params.get("target_ms")):
+        problems.append("target-ms-not-finite")
+    return problems
+
+
+def canonical_latency_expectations(condition, interface):
+    """Canonical expected_rate/target_ms for a condition, from the SPEC.
+
+    These come from the immutable condition spec and the session interface, not
+    from the record's own ``analysis.params``, so a tampered record cannot move
+    its own threshold or expected rate.
+    """
+    spec = condition_spec(condition)
+    expected_rate = spec.get("rate")
+    if expected_rate is None:
+        expected_rate = (interface or {}).get("sample_rate")
+    return {"expected_rate": expected_rate, "target_ms": spec.get("target_ms")}
+
+
+def required_channels(params):
+    if params.get("method") == "two-channel":
+        return max(int(params["loopback_channel"]),
+                   int(params["reference_channel"])) + 1
+    return int(params["loopback_channel"]) + 1
 
 
 # ---------------------------------------------------------------------------
@@ -392,9 +546,13 @@ def write_wav(path, channels, sample_rate, fmt="pcm16"):
     return path
 
 
-def make_click(rate, amplitude=0.8, freq=2000.0, duration_ms=12.0, decay_ms=3.0,
+def make_click(rate, amplitude=0.8, freq=1500.0, duration_ms=2.0, decay_ms=0.7,
                offset_ms=0.0, total_ms=60.0):
-    """Deterministic exponentially-decaying tone burst used as a test impulse."""
+    """Deterministic short broadband burst used as a latency impulse.
+
+    Deliberately short (a few cycles): a sustained tone has a broad
+    autocorrelation and cannot separate nearby loop-back paths.
+    """
     total = max(1, int(rate * total_ms / 1000.0))
     start = int(rate * offset_ms / 1000.0)
     dur = max(1, int(rate * duration_ms / 1000.0))
@@ -637,10 +795,22 @@ def analyze_loopback(wav_path, params, base_dir=None):
                 "event_count": len(events),
                 "quality": ref_quality,
             }
-            template_len = max(1, int(wav.sample_rate
+            max_template = max(2, int(wav.sample_rate
                                       * params["template_ms"] / 1000.0))
-            end = min(len(wav.samples[ref]), ref_event["sample"] + template_len)
-            template = wav.samples[ref][ref_event["sample"]:end]
+            limit = min(len(wav.samples[ref]), ref_event["sample"] + max_template)
+            start = ref_event["sample"]
+            peak = 0.0
+            for i in range(start, limit):
+                v = abs(wav.samples[ref][i])
+                if v > peak:
+                    peak = v
+            floor = max(0.05 * peak, 1e-9)
+            end = start + 1
+            for i in range(start, limit):
+                if abs(wav.samples[ref][i]) >= floor:
+                    end = i + 1
+            template = wav.samples[ref][start:end]
+            onset["reference"]["template_frames"] = len(template)
             if len(template) < 2:
                 reasons.append("reference-template-too-short")
             else:
@@ -649,12 +819,22 @@ def analyze_loopback(wav_path, params, base_dir=None):
                 scores = matched_filter_scores(template, wav.samples[lp],
                                                ref_event["sample"],
                                                lag_min, lag_max)
+                # Polarity-robust: match on |correlation|, so an inverted
+                # return is found at the correct lag instead of a spurious
+                # positive side-lobe. Ambiguity separation is a small window
+                # independent of the template width, so nearby distinct paths
+                # (e.g. 96 vs 200 samples) are not collapsed.
+                abs_scores = [(d, abs(s)) for d, s in scores]
+                min_sep = max(1, int(wav.sample_rate
+                                     * params.get("ambiguity_sep_ms", 2.0) / 1000.0))
                 best, second, dominance, ambiguous = pick_candidates(
-                    scores, params["min_correlation"], template_len)
+                    abs_scores, params["min_correlation"], min_sep)
+                signed = dict(scores)
                 onset["candidates"] = [
-                    {"lag_samples": d, "correlation": s,
+                    {"lag_samples": d, "abs_correlation": s,
+                     "correlation": signed.get(d),
                      "latency_ms": 1000.0 * d / wav.sample_rate}
-                    for d, s in (scores_sorted(scores)[:5])
+                    for d, s in (scores_sorted(abs_scores)[:5])
                 ]
                 if best is None:
                     reasons.append("no-correlation-peak")
@@ -666,12 +846,14 @@ def analyze_loopback(wav_path, params, base_dir=None):
                     detected_sample = ref_event["sample"] + best[0]
                     onset.update(detected=True, sample=detected_sample,
                                  time_ms=1000.0 * detected_sample / wav.sample_rate,
-                                 correlation=best[1], dominance=dominance,
+                                 correlation=signed.get(best[0]),
+                                 abs_correlation=best[1],
+                                 dominance=dominance,
                                  lag_samples=best[0])
                 onset["ambiguous"] = bool(onset.get("ambiguous")) or bool(ambiguous)
                 onset["dominance"] = dominance if math.isfinite(dominance) else None
                 if second is not None:
-                    onset["second_correlation"] = second[1]
+                    onset["second_abs_correlation"] = second[1]
 
     elif method == "single-channel":
         ref_onset_ms = params.get("reference_onset_ms")
@@ -787,4 +969,9 @@ def interface_reasons(condition, interface):
         reasons.append("interface-block-mismatch")
     if interface.get("backend") == "asio" and not interface.get("driver"):
         reasons.append("asio-driver-missing")
+    # A loop-back through a hardware direct-monitor path never exercises the
+    # application's software monitoring, so it cannot satisfy a latency cell.
+    if condition in LATENCY_CONDITIONS \
+            and interface.get("monitoring") != "software-app":
+        reasons.append("monitoring-not-software-app")
     return reasons

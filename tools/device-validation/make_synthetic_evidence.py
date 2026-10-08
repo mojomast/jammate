@@ -68,12 +68,6 @@ def _session(out):
     }
 
 
-def _write_text(path, text):
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(text)
-    return path
-
-
 def _params(**over):
     params = {
         "method": "two-channel",
@@ -88,9 +82,28 @@ def _params(**over):
         "min_correlation": 0.5,
         "min_dominance": 1.05,
         "template_ms": 20.0,
+        "ambiguity_sep_ms": 2.0,
     }
     params.update(over)
     return params
+
+
+def _receipt(out, session, iface, kind, metrics, name):
+    doc = {
+        "schema": dl.RECEIPT_SCHEMA,
+        "kind": kind,
+        "session_id": session.get("session_id"),
+        "interface_id": iface.get("id"),
+        "generated_utc": dl.utc_now(),
+        "interface": {k: iface.get(k) for k in
+                      ("os", "backend", "driver", "input_device",
+                       "output_device", "sample_rate", "block_frames",
+                       "monitoring")},
+        "metrics": metrics,
+    }
+    rel = os.path.join("raw", name)
+    dl.write_json(os.path.join(out, rel), doc)
+    return dl.raw_ref(out, rel, role=kind), doc
 
 
 def generate(out):
@@ -167,39 +180,43 @@ def generate(out):
         _params(), synthetic=True, notes="synthetic rate mismatch",
         out_path=os.path.join(meas, "latency-ratemismatch.json"))
 
-    # --- functional + play records (all synthetic) -------------------------
-    log = _write_text(os.path.join(raw, "device-log.txt"),
-                      "synthetic device disconnect/reconnect log\n")
-    from ingest_functional import main as functional_main  # noqa: E402
-    functional_main(["--session", out, "--condition", "device_disconnect_reconnect",
-                     "--outcome", "pass", "--receipt", os.path.relpath(log, out),
-                     "--synthetic-selftest"])
-    for cond in dl.FUNCTIONAL_CONDITIONS[1:]:
-        functional_main(["--session", out, "--condition", cond, "--outcome", "pass",
-                         "--receipt", os.path.relpath(log, out),
+    # --- functional + play records (all synthetic, parseable receipts) -----
+    for cond in dl.FUNCTIONAL_CONDITIONS:
+        ref, _doc = _receipt(out, session, iface, "functional",
+                             {"functional": {"outcome": "pass"}},
+                             "functional-%s-receipt.json" % cond)
+        from ingest_functional import main as functional_main  # noqa: E402
+        functional_main(["--session", out, "--condition", cond, "--outcome",
+                         "pass", "--receipt", ref["path"],
                          "--synthetic-selftest"])
 
-    trace = _write_text(os.path.join(raw, "diagnostics-trace.json"),
-                        '{"synthetic": true, "events": []}\n')
+    play_metrics = {
+        "timing": {"start_requested_s": 1.0, "join_heard_s": 3.5,
+                   "stop_s": 12.0},
+        "useful_lock": {"window_bars": 2, "time_to_lock_s": 1.8},
+        "dropouts": {"count": 0},
+        "callback": {"p50_ms": 0.8, "p99_ms": 1.2, "deadline_misses": 0,
+                     "analysis_overruns": 0},
+    }
+    ref, doc = _receipt(out, session, iface, "play-trial", play_metrics,
+                        "play-trace-receipt.json")
+    refs = {"timing": ref, "lock": ref, "dropout": ref, "callback": ref}
+    docs = {"timing": doc, "lock": doc, "dropout": doc, "callback": doc}
     values = {
         "style": "Rock", "jam_mode": "follow", "intensity": 0.5,
         "complexity": 0.4, "fill_amount": 0.3, "follow_tightness": 0.5,
         "meter": "4/4", "tempo_bpm": 120.0,
         "start_requested_s": 1.0, "join_heard_s": 3.5, "stop_s": 12.0,
         "useful_lock": "yes", "lock_window_bars": 2, "time_to_lock_s": 1.8,
-        "dropouts": 0, "callback_p50_ms": 1.2, "callback_p99_ms": 2.4,
+        "dropouts": 0, "callback_p50_ms": 0.8, "callback_p99_ms": 1.2,
         "callback_deadline_misses": 0, "analysis_overruns": 0,
         "join_sensible": "yes", "stayed_stable": "yes", "overreacted": "no",
         "fills_musical": "yes", "push_pull": "yes",
         "recovered_tap_resync": "yes", "operator": "synthetic",
         "notes": "synthetic play trial",
     }
-    receipts = {"timing": dl.raw_ref(out, os.path.relpath(trace, out), "timing"),
-                "lock": dl.raw_ref(out, os.path.relpath(trace, out), "lock"),
-                "callback": dl.raw_ref(out, os.path.relpath(trace, out), "callback"),
-                "dropout": dl.raw_ref(out, os.path.relpath(trace, out), "dropout")}
     play = ingest_play_trial.make_record(session, out, "clean_strumming", iface,
-                                         values, receipts, [], True)
+                                         values, refs, docs, [], True)
     dl.write_json(os.path.join(meas, "play-clean_strumming.json"), play)
 
     # Register the raw files (hash preserved).

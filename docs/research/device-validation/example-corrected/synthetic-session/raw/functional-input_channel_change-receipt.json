@@ -1,0 +1,22 @@
+{
+  "generated_utc": "2026-10-08T13:08:05Z",
+  "interface": {
+    "backend": "asio",
+    "block_frames": 128,
+    "driver": "Synthetic ASIO Driver",
+    "input_device": "Synthetic In",
+    "monitoring": "software-app",
+    "os": "windows",
+    "output_device": "Synthetic Out",
+    "sample_rate": 48000
+  },
+  "interface_id": "iface-asio",
+  "kind": "functional",
+  "metrics": {
+    "functional": {
+      "outcome": "pass"
+    }
+  },
+  "schema": "device-validation/receipt/1.0",
+  "session_id": "synthetic-selftest"
+}

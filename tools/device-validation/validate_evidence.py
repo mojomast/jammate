@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 """Fail-closed validator for Guitar Companion device-validation evidence.
 
-Rules (device tools must retain raw observations, identity and explicit
-measured/unmeasured fields; an empty template can never pass):
+Correction round 1 (see docs/research/device-validation/CORRECTION-PROTOCOL.md)
+closes the false-pass holes in the first review:
 
-  * every measurement record must reference raw bytes whose sha256 matches;
-  * a latency record's number is re-derived from the WAV with the recorded
-    parameters, so a bare or edited number is rejected;
-  * synthetic records are labelled and are excluded from every physical gate;
-  * the SPEC.md 21.5 hardware matrix must be non-empty and every required cell
-    must be measured and valid; Windows ASIO cells must identify the backend and
-    driver and carry an actual physical measurement (callback estimates alone do
-    not count);
-  * the SPEC.md 20 play trials (when --gate all) must each be present.
+  * F1 canonical thresholds: expected rate / channels and the target come from
+    the immutable condition spec and session interface, never from the record's
+    own ``analysis.params``; a record whose params contradict them is a hard
+    error, and ``asio_48k_128`` is always the 12 ms target;
+  * F2 measured fields need a finite, correctly-typed value;
+  * F3 latency cells require ``monitoring == software-app`` and identity is
+    cross-checked including input/output device and monitoring;
+  * F4 numeric "measured" values need a parseable receipt whose metric value and
+    interface identity the validator re-checks; an unparseable receipt is only
+    ``receipt-attested`` and never gates;
+  * F5 malformed params are reported as hard errors, not crashes;
+  * F6 aggregation is worst-case across ALL observations, so a regression is
+    never masked by another passing record;
+  * F7 the estimator is polarity-robust and separates nearby distinct paths.
 
-Exit codes: 0 = requested gate passes, 1 = hard failure (schema/hash/fabrication),
-2 = no hard failure but the gate is incomplete or failing.
+Exit codes: 0 gate passes, 1 hard failure (schema/hash/fabrication/crash),
+2 no hard failure but the gate is incomplete or failing.
 """
 import argparse
 import os
@@ -25,10 +30,41 @@ import device_lib as dl
 
 REPORT_SCHEMA = "device-validation/report/1.0"
 TARGET_MS = dl.LATENCY_CONDITIONS["asio_48k_128"]["target_ms"]
+DEADLINE_FRACTION = 0.70
 
+CANONICAL_IFACE_KEYS = ("os", "backend", "driver", "input_device",
+                        "output_device", "sample_rate", "block_frames",
+                        "monitoring")
 
-class HardError(Exception):
-    pass
+REQUIRED_KEYS = {
+    dl.LATENCY_SCHEMA: ("schema", "synthetic", "condition", "interface_id",
+                        "generated_utc", "provenance", "identity", "analysis"),
+    dl.FUNCTIONAL_SCHEMA: ("schema", "synthetic", "condition", "interface_id",
+                           "generated_utc", "provenance", "measured", "outcome",
+                           "identity", "receipt"),
+    dl.PLAY_TRIAL_SCHEMA: ("schema", "synthetic", "condition", "interface_id",
+                           "generated_utc", "identity", "settings", "timing",
+                           "useful_lock", "dropouts", "callback", "judgements",
+                           "raw_files"),
+}
+
+PLAY_FIELD_SPEC = {
+    "timing": {"start_requested_s": "number", "join_heard_s": "number",
+               "stop_s": "number"},
+    "useful_lock": {"window_bars": "nonneg_int", "time_to_lock_s": "number"},
+    "dropouts": {"count": "nonneg_int"},
+    "callback": {"p50_ms": "number", "p99_ms": "number",
+                 "deadline_misses": "nonneg_int",
+                 "analysis_overruns": "nonneg_int"},
+}
+
+# A play trial only passes the release gate when these metrics gate.
+PLAY_REQUIRED_GATING = (
+    ("useful_lock", "window_bars"), ("useful_lock", "time_to_lock_s"),
+    ("timing", "start_requested_s"), ("timing", "join_heard_s"),
+    ("timing", "stop_s"), ("dropouts", "count"),
+    ("callback", "p99_ms"), ("callback", "deadline_misses"),
+)
 
 
 def add_hard(errors, record_path, rule, detail):
@@ -58,6 +94,22 @@ def _relativize_paths(cells, errors, session_dir):
         err["record"] = _rel(session_dir, err["record"])
     for cell in cells.values():
         cell["records"] = [_rel(session_dir, p) for p in cell.get("records", [])]
+        for obs in cell.get("observations", []):
+            obs["path"] = _rel(session_dir, obs["path"])
+
+
+def _typed(value, kind):
+    if kind == "nonneg_int":
+        return dl.nonneg_int(value)
+    return dl.finite(value)
+
+
+def _values_equal(a, b):
+    if isinstance(a, bool) or isinstance(b, bool):
+        return a is b
+    if dl.is_number(a) and dl.is_number(b):
+        return abs(a - b) <= 1e-9
+    return a == b
 
 
 def check_ref(ref, base_dir, errors, record_path, label):
@@ -67,10 +119,15 @@ def check_ref(ref, base_dir, errors, record_path, label):
     if not dl.is_hex64(ref.get("sha256")):
         add_hard(errors, record_path, "raw-ref-hash", "%s sha256 malformed" % label)
         return False
-    resolved = dl.resolve_path(base_dir, ref.get("path"))
+    path = ref.get("path")
+    if not path or os.path.isabs(path) or not dl.is_contained(base_dir, path):
+        add_hard(errors, record_path, "raw-path-not-contained",
+                 "%s path must be session-contained and relative: %r" % (label, path))
+        return False
+    resolved = dl.resolve_path(base_dir, path)
     if not resolved or not os.path.isfile(resolved):
         add_hard(errors, record_path, "raw-unresolved",
-                 "%s not found: %s" % (label, ref.get("path")))
+                 "%s not found: %s" % (label, path))
         return False
     actual = dl.sha256_file(resolved)
     if actual != ref["sha256"]:
@@ -85,58 +142,88 @@ def check_ref(ref, base_dir, errors, record_path, label):
     return True
 
 
-def dedupe(seq):
-    seen = set()
-    out = []
-    for item in seq:
-        if item not in seen:
-            seen.add(item)
-            out.append(item)
-    return out
+def _receipt_cache_get(cache, base_dir, ref):
+    key = ref.get("sha256") if isinstance(ref, dict) else None
+    if key not in cache:
+        cache[key] = dl.load_receipt(base_dir, ref)[0]
+    return cache[key]
 
 
-def expected_latency_from_bytes(record, base_dir, errors, record_path):
-    """Re-run the recorded algorithm and return (reasons, latency, target_met).
-
-    Returns ``(None, None, None, extra)`` on an unreadable WAV; caller records
-    the hard error.
-    """
-    identity = record.get("identity") or {}
-    ref = identity.get("raw_wav")
-    if not check_ref(ref, base_dir, errors, record_path, "identity.raw_wav"):
-        return None, None, None, None
-    analysis = record.get("analysis")
-    if not isinstance(analysis, dict):
-        add_hard(errors, record_path, "analysis-missing", "analysis block absent")
-        return None, None, None, None
-    params = analysis.get("params")
-    if not isinstance(params, dict):
-        add_hard(errors, record_path, "analysis-params", "analysis.params absent")
-        return None, None, None, None
-    try:
-        recomputed = dl.analyze_loopback(ref["path"], params, base_dir=base_dir)
-    except dl.WavError as exc:
-        add_hard(errors, record_path, "raw-unreadable", str(exc))
-        return None, None, None, None
-    iface = (identity.get("interface") or {})
-    i_reasons = dl.interface_reasons(record.get("condition"), iface)
-    reasons = dedupe(list(recomputed["reasons"]) + i_reasons)
-    lat = recomputed["physical_roundtrip_latency_ms"]
-    unaccepted = None
-    if reasons:
-        unaccepted = lat
-        lat = None
-    target_ms = params.get("target_ms")
-    target_met = None
-    if lat is not None and target_ms is not None:
-        target_met = lat <= target_ms
-    return reasons, lat, target_met, {
-        "recomputed_valid_dsp": recomputed["valid"],
-        "unaccepted": unaccepted,
-    }
+def cross_check_receipt(receipt, session, iface, record, errors, record_path,
+                        label):
+    """Receipt session/interface identity must match the session exactly."""
+    if receipt.get("session_id") is not None \
+            and receipt.get("session_id") != session.get("session_id"):
+        add_hard(errors, record_path, "receipt-session-mismatch",
+                 "%s session_id %r != %r" % (label, receipt.get("session_id"),
+                                             session.get("session_id")))
+    if receipt.get("interface_id") is not None \
+            and receipt.get("interface_id") != record.get("interface_id"):
+        add_hard(errors, record_path, "receipt-interface-mismatch",
+                 "%s interface_id %r != record %r"
+                 % (label, receipt.get("interface_id"), record.get("interface_id")))
+    r_iface = receipt.get("interface")
+    if not isinstance(r_iface, dict):
+        add_hard(errors, record_path, "receipt-interface-missing",
+                 "%s has no interface identity" % label)
+        return
+    for key in CANONICAL_IFACE_KEYS:
+        if r_iface.get(key) != iface.get(key):
+            add_hard(errors, record_path, "receipt-identity-mismatch",
+                     "%s interface.%s=%r != session %r"
+                     % (label, key, r_iface.get(key), iface.get(key)))
 
 
-def validate_latency(record, base_dir, errors, record_path, recheck):
+def _check_measured_field(group_name, key, kind, group, base_dir, errors,
+                          record_path, session, iface, record, cache):
+    field = group.get(key)
+    if not isinstance(field, dict):
+        add_hard(errors, record_path, "field-missing", "%s missing" % key)
+        return False, False
+    measured = field.get("measured") is True
+    value = field.get("value")
+    if not measured:
+        if value is not None:
+            add_hard(errors, record_path, "unmeasured-value",
+                     "%s carries a value but is marked unmeasured" % key)
+        return False, False
+    if not _typed(value, kind):
+        add_hard(errors, record_path, "measured-value-type",
+                 "%s measured value %r is not a finite %s" % (key, value, kind))
+        return False, False
+    prov = field.get("provenance")
+    if prov not in dl.MEASURED_PROVENANCE:
+        add_hard(errors, record_path, "field-provenance",
+                 "%s measured without a raw provenance (%r)" % (key, prov))
+        return False, False
+    if not check_ref(field.get("receipt"), base_dir, errors, record_path,
+                     "%s.receipt" % key):
+        return False, False
+    if prov != "instrumented-raw":
+        # receipt-attested: recorded, but it can never gate a release.
+        return True, False
+    receipt = _receipt_cache_get(cache, base_dir, field.get("receipt"))
+    if receipt is None:
+        add_hard(errors, record_path, "receipt-not-parseable",
+                 "%s receipt is not a parseable %s document" % (key, dl.RECEIPT_SCHEMA))
+        return False, False
+    cross_check_receipt(receipt, session, iface, record, errors, record_path,
+                        "%s.receipt" % key)
+    found, rv = dl.receipt_value(receipt, group_name, key)
+    if not found:
+        add_hard(errors, record_path, "receipt-metric-missing",
+                 "receipt lacks metrics.%s.%s" % (group_name, key))
+        return False, False
+    if not _values_equal(rv, value):
+        add_hard(errors, record_path, "receipt-metric-mismatch",
+                 "receipt metrics.%s.%s=%r != record %r"
+                 % (group_name, key, rv, value))
+        return False, False
+    return True, True
+
+
+def validate_latency(record, base_dir, session, iface, errors, record_path,
+                     recheck, cache):
     identity = record.get("identity") or {}
     ref = identity.get("raw_wav")
     check_ref(ref, base_dir, errors, record_path, "identity.raw_wav")
@@ -148,10 +235,6 @@ def validate_latency(record, base_dir, errors, record_path, recheck):
         add_hard(errors, record_path, "analysis-missing", "analysis absent")
         return {"status": "fail", "latency_ms": None, "target_ms": None,
                 "target_met": None, "reasons": ["analysis-missing"]}
-    method = analysis.get("method")
-    if method not in ("two-channel", "single-channel"):
-        add_hard(errors, record_path, "analysis-method",
-                 "unknown method %r" % method)
     stored_reasons = analysis.get("reasons")
     if not isinstance(stored_reasons, list):
         add_hard(errors, record_path, "analysis-reasons", "reasons not a list")
@@ -162,61 +245,102 @@ def validate_latency(record, base_dir, errors, record_path, recheck):
         add_hard(errors, record_path, "nonfinite-latency",
                  "physical latency is not finite")
 
+    canonical = dl.canonical_latency_expectations(record.get("condition"), iface)
+    params = analysis.get("params")
+    problems = dl.validate_latency_params(params)
+    for problem in problems:
+        add_hard(errors, record_path, "analysis-params-invalid", problem)
+    if problems:
+        return {"status": "fail", "latency_ms": None,
+                "target_ms": canonical["target_ms"], "target_met": None,
+                "reasons": ["analysis-params-invalid"]}
+
+    # F1: the record may not move its own threshold, expected rate or channels.
+    if params.get("expected_rate") != canonical["expected_rate"]:
+        add_hard(errors, record_path, "params-expected-rate-tampered",
+                 "params.expected_rate %r != canonical %r"
+                 % (params.get("expected_rate"), canonical["expected_rate"]))
+    if params.get("target_ms") != canonical["target_ms"]:
+        add_hard(errors, record_path, "params-target-ms-tampered",
+                 "params.target_ms %r != canonical %r"
+                 % (params.get("target_ms"), canonical["target_ms"]))
+    canonical_channels = dl.required_channels(params)
+    if params.get("expected_channels") != canonical_channels:
+        add_hard(errors, record_path, "params-expected-channels-tampered",
+                 "params.expected_channels %r != canonical %r"
+                 % (params.get("expected_channels"), canonical_channels))
+
+    canonical_params = dict(params)
+    canonical_params["expected_rate"] = canonical["expected_rate"]
+    canonical_params["target_ms"] = canonical["target_ms"]
+    canonical_params["expected_channels"] = canonical_channels
+
     if recheck:
-        reasons, lat, target_met, extra = expected_latency_from_bytes(
-            record, base_dir, errors, record_path)
-        if reasons is not None:
-            if list(stored_reasons) != reasons:
-                add_hard(errors, record_path, "latency-recheck-reasons",
-                         "stored reasons %s != recomputed %s"
-                         % (stored_reasons, reasons))
-            if stored_lat != lat:
-                add_hard(errors, record_path, "latency-recheck-value",
-                         "stored latency %r != recomputed %r" % (stored_lat, lat))
-            expected_valid = lat is not None and not reasons
-            if stored_valid != expected_valid:
-                add_hard(errors, record_path, "latency-recheck-valid",
-                         "stored valid %s != recomputed %s"
-                         % (stored_valid, expected_valid))
-            stored_target = analysis.get("target_met")
-            if stored_target != target_met:
-                add_hard(errors, record_path, "latency-recheck-target",
-                         "stored target_met %r != recomputed %r"
-                         % (stored_target, target_met))
-            effective_lat = lat
-            effective_reasons = reasons
-            effective_target_met = target_met
-        else:
-            effective_lat = stored_lat if stored_valid else None
-            effective_reasons = stored_reasons
-            effective_target_met = analysis.get("target_met")
+        try:
+            recomputed = dl.analyze_loopback(ref.get("path"), canonical_params,
+                                             base_dir=base_dir)
+        except (dl.DeviceValidationError, KeyError, TypeError, ValueError,
+                ZeroDivisionError, OSError) as exc:
+            add_hard(errors, record_path, "analysis-error", str(exc))
+            return {"status": "fail", "latency_ms": None,
+                    "target_ms": canonical["target_ms"], "target_met": None,
+                    "reasons": ["analysis-error"]}
+        i_reasons = dl.interface_reasons(record.get("condition"), iface)
+        expected_reasons = _dedupe(recomputed["reasons"] + i_reasons)
+        expected_lat = recomputed["physical_roundtrip_latency_ms"]
+        if expected_reasons:
+            expected_lat = None
+        target_ms = canonical["target_ms"]
+        expected_target = None if (expected_lat is None or target_ms is None) \
+            else expected_lat <= target_ms
+        if list(stored_reasons) != expected_reasons:
+            add_hard(errors, record_path, "latency-recheck-reasons",
+                     "stored reasons %s != recomputed %s"
+                     % (stored_reasons, expected_reasons))
+        if stored_lat != expected_lat:
+            add_hard(errors, record_path, "latency-recheck-value",
+                     "stored latency %r != recomputed %r" % (stored_lat, expected_lat))
+        expected_valid = expected_lat is not None
+        if stored_valid != expected_valid:
+            add_hard(errors, record_path, "latency-recheck-valid",
+                     "stored valid %s != recomputed %s"
+                     % (stored_valid, expected_valid))
+        if analysis.get("target_met") != expected_target:
+            add_hard(errors, record_path, "latency-recheck-target",
+                     "stored target_met %r != recomputed %r"
+                     % (analysis.get("target_met"), expected_target))
+        effective_lat = expected_lat
+        effective_reasons = expected_reasons
+        effective_target = expected_target
     else:
         effective_lat = stored_lat if stored_valid else None
         effective_reasons = stored_reasons
-        effective_target_met = analysis.get("target_met")
+        effective_target = analysis.get("target_met")
 
-    target_ms = (analysis.get("params") or {}).get("target_ms")
-    if target_ms is not None and not dl.finite(target_ms):
-        add_hard(errors, record_path, "nonfinite-target", "target_ms not finite")
-    status = "fail"
-    if effective_lat is not None:
-        if target_ms is not None and (effective_lat > target_ms):
-            status = "fail"
-        else:
-            status = "pass"
-        # The validator does not trust a self-declared target_met.
-        recomputed_met = None if target_ms is None else effective_lat <= target_ms
-        if effective_target_met is not None and recomputed_met is not None \
-                and effective_target_met != recomputed_met:
-            add_hard(errors, record_path, "target-met-tampered",
-                     "declared target_met %r != recomputed %r"
-                     % (effective_target_met, recomputed_met))
+    if effective_lat is not None and canonical["target_ms"] is not None \
+            and effective_lat > canonical["target_ms"]:
+        status = "fail"
+    elif effective_lat is not None:
+        status = "pass"
+    else:
+        status = "fail"
     return {"status": status, "latency_ms": effective_lat,
-            "target_ms": target_ms, "target_met": effective_target_met,
+            "target_ms": canonical["target_ms"], "target_met": effective_target,
             "reasons": effective_reasons}
 
 
-def validate_functional(record, base_dir, errors, record_path):
+def _dedupe(seq):
+    seen = set()
+    out = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
+def validate_functional(record, base_dir, session, iface, errors, record_path,
+                        cache):
     if record.get("measured") is not True:
         add_hard(errors, record_path, "functional-unmeasured",
                  "functional record is not marked measured")
@@ -229,39 +353,26 @@ def validate_functional(record, base_dir, errors, record_path):
         add_hard(errors, record_path, "functional-outcome", "bad outcome")
     if not ok:
         return {"status": "fail", "outcome": outcome}
+    receipt = _receipt_cache_get(cache, base_dir, record.get("receipt"))
+    if receipt is None:
+        add_hard(errors, record_path, "receipt-not-parseable",
+                 "functional receipt is not a parseable %s document" % dl.RECEIPT_SCHEMA)
+        return {"status": "fail", "outcome": outcome}
+    cross_check_receipt(receipt, session, iface, record, errors, record_path,
+                        "receipt")
+    found, value = dl.receipt_value(receipt, "functional", "outcome")
+    if not found:
+        add_hard(errors, record_path, "receipt-metric-missing",
+                 "receipt lacks metrics.functional.outcome")
+        return {"status": "fail", "outcome": outcome}
+    if value != outcome:
+        add_hard(errors, record_path, "receipt-metric-mismatch",
+                 "receipt outcome %r != record %r" % (value, outcome))
+        return {"status": "fail", "outcome": outcome}
     return {"status": "pass" if outcome == "pass" else "fail", "outcome": outcome}
 
 
-PLAY_MEASURED_GROUPS = {
-    "timing": ("start_requested_s", "join_heard_s", "stop_s"),
-    "callback": ("p50_ms", "p99_ms", "deadline_misses", "analysis_overruns"),
-}
-
-
-def _check_measured_field(group, key, receipt, base_dir, errors, record_path):
-    field = group.get(key)
-    if not isinstance(field, dict):
-        add_hard(errors, record_path, "field-missing", "%s missing" % key)
-        return False
-    measured = field.get("measured") is True
-    value = field.get("value")
-    if measured and value is not None and not dl.finite(value):
-        add_hard(errors, record_path, "nonfinite-field", "%s not finite" % key)
-    if measured:
-        if field.get("provenance") not in dl.MEASURED_PROVENANCE:
-            add_hard(errors, record_path, "field-provenance",
-                     "%s measured without raw provenance" % key)
-        if not check_ref(field.get("receipt"), base_dir, errors, record_path,
-                         "%s.receipt" % key):
-            return False
-    else:
-        if value is not None:
-            add_hard(errors, record_path, "unmeasured-value",
-                     "%s carries a value but is marked unmeasured" % key)
-    return True
-
-
-def validate_play(record, base_dir, errors, record_path):
+def validate_play(record, base_dir, session, iface, errors, record_path, cache):
     for path in record.get("raw_files") or []:
         check_ref(path, base_dir, errors, record_path, "raw_files")
     settings = record.get("settings") or {}
@@ -270,59 +381,94 @@ def validate_play(record, base_dir, errors, record_path):
         if not dl.finite(settings.get(key)):
             add_hard(errors, record_path, "settings-missing",
                      "setting %s missing/non-finite" % key)
+    judgements = record.get("judgements") or {}
+    if judgements.get("provenance") != "operator-report":
+        add_hard(errors, record_path, "judgements-provenance",
+                 "judgements must be operator-report")
+
+    gating = {}
     timing = record.get("timing") or {}
-    for key in PLAY_MEASURED_GROUPS["timing"]:
-        _check_measured_field(timing, key, timing.get("receipt"), base_dir,
-                              errors, record_path)
-    callback = record.get("callback") or {}
-    for key in PLAY_MEASURED_GROUPS["callback"]:
-        _check_measured_field(callback, key, callback.get("receipt"), base_dir,
-                              errors, record_path)
-    drop = record.get("dropouts") or {}
-    _check_measured_field(drop, "count", drop.get("receipt"), base_dir, errors,
-                          record_path)
     lock = record.get("useful_lock") or {}
-    _check_measured_field(lock, "window_bars", lock.get("receipt"), base_dir,
-                          errors, record_path)
-    _check_measured_field(lock, "time_to_lock_s", lock.get("receipt"), base_dir,
-                          errors, record_path)
+    drop = record.get("dropouts") or {}
+    callback = record.get("callback") or {}
+    groups = {"timing": timing, "useful_lock": lock, "dropouts": drop,
+              "callback": callback}
+    for group_name, fields in PLAY_FIELD_SPEC.items():
+        for key, kind in fields.items():
+            m, g = _check_measured_field(group_name, key, kind, groups[group_name],
+                                         base_dir, errors, record_path, session,
+                                         iface, record, cache)
+            gating[(group_name, key)] = g
+
     verdict = lock.get("verdict")
     if verdict not in ("yes", "no", "unknown"):
         add_hard(errors, record_path, "play-verdict", "bad useful_lock verdict")
-    if verdict == "yes":
-        if not (lock.get("window_bars") or {}).get("measured"):
-            add_hard(errors, record_path, "play-lock-window",
-                     "useful-lock=yes without a measured two-bar window")
-        if not (lock.get("time_to_lock_s") or {}).get("measured"):
-            add_hard(errors, record_path, "play-lock-time",
-                     "useful-lock=yes without a measured time-to-lock")
-    if verdict == "yes" and (lock.get("window_bars") or {}).get("measured") \
-            and (lock.get("time_to_lock_s") or {}).get("measured"):
-        status = "pass"
-    elif verdict == "no":
+    # A verdict of yes without gated lock metrics simply cannot pass (it is
+    # reported as unmeasured below); it is not a fabrication hard error.
+
+    # Timing must be ordered when all three are gated measurements.
+    if all(gating.get(("timing", k)) for k in
+           ("start_requested_s", "join_heard_s", "stop_s")):
+        t = [timing[k]["value"] for k in
+             ("start_requested_s", "join_heard_s", "stop_s")]
+        if not (t[0] <= t[1] <= t[2]):
+            add_hard(errors, record_path, "play-timing-order",
+                     "timing not ordered: %s" % t)
+
+    # F3/18.2: callback p99 must be a gated measurement within 70% of a block.
+    # A measured over-deadline or missing payment is a FAILED GATE (like an
+    # over-target latency), not a fabrication hard error.
+    block_ms = None
+    if dl.nonneg_int(iface.get("block_frames")) and iface.get("sample_rate"):
+        block_ms = 1000.0 * iface["block_frames"] / iface["sample_rate"]
+    cb_state = None  # None = no gated measurement, True = within, False = over
+    p99 = callback.get("p99_ms") or {}
+    if p99.get("gating") and dl.finite(p99.get("value")) and block_ms:
+        cb_state = p99["value"] <= DEADLINE_FRACTION * block_ms
+    dm = callback.get("deadline_misses") or {}
+    dm_fail = (dm.get("gating") and dl.nonneg_int(dm.get("value"))
+               and dm["value"] != 0)
+
+    required_ok = all(gating.get(k) for k in PLAY_REQUIRED_GATING)
+    if verdict == "no":
         status = "fail"
+    elif verdict == "yes" and required_ok:
+        if dm_fail or cb_state is False:
+            status = "fail"
+        elif cb_state is True:
+            status = "pass"
+        else:
+            status = "unmeasured"
     else:
         status = "unmeasured"
-    return {"status": status, "verdict": verdict}
+    return {"status": status, "verdict": verdict, "gating": gating,
+            "callback_gate": (cb_state is True and not dm_fail),
+            "block_ms": block_ms}
 
 
 def cross_check_identity(record, interfaces_by_id, errors, record_path):
-    """The record's stored interface identity must match the session manifest."""
     iid = record.get("interface_id")
     iface = interfaces_by_id.get(iid)
     if iface is None:
         add_hard(errors, record_path, "interface-unknown",
                  "interface_id %r not in session" % iid)
-        return
+        return None
     identity = (record.get("identity") or {}).get("interface") or {}
-    for key in ("os", "backend", "driver", "sample_rate", "block_frames"):
+    for key in CANONICAL_IFACE_KEYS:
         if identity.get(key) != iface.get(key):
             add_hard(errors, record_path, "interface-identity-mismatch",
                      "%s %r != session %r" % (key, identity.get(key), iface.get(key)))
+    return iface
+
+
+def _require_keys(record, schema, errors, record_path):
+    for key in REQUIRED_KEYS.get(schema, ()):
+        if key not in record:
+            add_hard(errors, record_path, "missing-key", "required key %r absent" % key)
 
 
 def validate_record(record, base_dir, record_path, errors, recheck,
-                    interfaces_by_id=None):
+                    interfaces_by_id, session, cache):
     if not isinstance(record, dict):
         add_hard(errors, record_path, "not-object", "record is not an object")
         return None
@@ -334,29 +480,46 @@ def validate_record(record, base_dir, record_path, errors, recheck,
     if not isinstance(record.get("synthetic"), bool):
         add_hard(errors, record_path, "synthetic-flag",
                  "synthetic must be an explicit boolean")
-    synthetic = record.get("synthetic") is True
-    if interfaces_by_id is not None:
-        cross_check_identity(record, interfaces_by_id, errors, record_path)
+    _require_keys(record, schema, errors, record_path)
+
+    iface = cross_check_identity(record, interfaces_by_id, errors, record_path)
+    if iface is None:
+        iface = {"id": record.get("interface_id"), "os": None, "backend": None,
+                 "driver": None, "input_device": None, "output_device": None,
+                 "sample_rate": None, "block_frames": None, "monitoring": None}
+
+    session_synthetic = session.get("synthetic") is True
+    effective_synthetic = record.get("synthetic") is True or session_synthetic
+
+    # F-source: physical identity must carry a 40-hex source SHA.
+    source_sha = (record.get("identity") or {}).get("source_sha")
+    if not effective_synthetic and not dl.is_git_sha(source_sha):
+        add_hard(errors, record_path, "source-sha",
+                 "physical record needs a 40-hex source_sha, got %r" % source_sha)
+
     if schema == dl.LATENCY_SCHEMA:
         if condition not in dl.LATENCY_CONDITIONS:
             add_hard(errors, record_path, "condition", "unknown latency condition")
-        cell = validate_latency(record, base_dir, errors, record_path, recheck)
+        cell = validate_latency(record, base_dir, session, iface, errors,
+                                record_path, recheck, cache)
         kind = "latency"
     elif schema == dl.FUNCTIONAL_SCHEMA:
         if condition not in dl.FUNCTIONAL_CONDITIONS:
             add_hard(errors, record_path, "condition", "unknown functional condition")
-        cell = validate_functional(record, base_dir, errors, record_path)
+        cell = validate_functional(record, base_dir, session, iface, errors,
+                                   record_path, cache)
         kind = "functional"
     elif schema == dl.PLAY_TRIAL_SCHEMA:
         if condition not in dl.PLAY_CONDITIONS:
             add_hard(errors, record_path, "condition", "unknown play condition")
-        cell = validate_play(record, base_dir, errors, record_path)
+        cell = validate_play(record, base_dir, session, iface, errors,
+                             record_path, cache)
         kind = "play"
-    else:  # session schema is never a measurement record
+    else:
         add_hard(errors, record_path, "schema", "session file in measurements")
         return None
     return {"path": record_path, "schema": schema, "condition": condition,
-            "kind": kind, "synthetic": synthetic, "cell": cell}
+            "kind": kind, "synthetic": effective_synthetic, "cell": cell}
 
 
 def discover_measurements(session_dir, explicit):
@@ -372,35 +535,50 @@ def discover_measurements(session_dir, explicit):
     return found
 
 
-def build_matrix(records, errors):
+def build_matrix(records):
+    """Worst-case aggregation across ALL observations of a condition (F6)."""
     cells = {}
     for cond in dl.REQUIRED_HARDWARE_CONDITIONS:
         cells[cond] = {"status": "missing", "kind": dl.condition_kind(cond),
-                       "records": [], "latency_ms": None, "target_ms": None,
+                       "records": [], "observations": [], "conflicts": [],
+                       "latency_ms": None, "target_ms": None,
                        "target_met": None, "reasons": []}
     for cond in dl.PLAY_CONDITIONS:
         cells[cond] = {"status": "missing", "kind": "play", "records": [],
-                       "verdict": None}
+                       "observations": [], "conflicts": [], "verdict": None,
+                       "callback_gate": None}
     for rec in records:
         if rec["synthetic"]:
-            continue  # synthetic evidence never backs a physical cell
+            continue
         cond = rec["condition"]
         if cond not in cells:
             continue
         cell = cells[cond]
-        cell.setdefault("records", []).append(rec["path"])
         status = rec["cell"]["status"]
-        if cond in dl.LATENCY_CONDITIONS and rec["cell"].get("latency_ms") is not None:
-            cell["latency_ms"] = rec["cell"]["latency_ms"]
-            cell["target_ms"] = rec["cell"]["target_ms"]
-            cell["target_met"] = rec["cell"]["target_met"]
+        cell["records"].append(rec["path"])
+        obs = {"path": rec["path"], "status": status}
+        if cond in dl.LATENCY_CONDITIONS:
+            obs["latency_ms"] = rec["cell"].get("latency_ms")
+            obs["target_ms"] = rec["cell"].get("target_ms")
+            obs["target_met"] = rec["cell"].get("target_met")
+            cell["latency_ms"] = rec["cell"].get("latency_ms")
+            cell["target_ms"] = rec["cell"].get("target_ms")
+            cell["target_met"] = rec["cell"].get("target_met")
             cell["reasons"] = rec["cell"].get("reasons", [])
         if cond in dl.PLAY_CONDITIONS:
+            obs["verdict"] = rec["cell"].get("verdict")
+            obs["callback_gate"] = rec["cell"].get("callback_gate")
             cell["verdict"] = rec["cell"].get("verdict")
-        # Prefer a pass, then fail, then unmeasured, for repeated observations.
-        rank = {"missing": 0, "unmeasured": 1, "fail": 2, "pass": 3}
-        if rank.get(status, 0) > rank.get(cell["status"], 0):
-            cell["status"] = status
+            cell["callback_gate"] = rec["cell"].get("callback_gate")
+        cell["observations"].append(obs)
+        if status != "pass":
+            cell["conflicts"].append(obs)
+        if status == "fail":
+            cell["status"] = "fail"
+        elif status == "unmeasured" and cell["status"] != "fail":
+            cell["status"] = "unmeasured"
+        elif status == "pass" and cell["status"] == "missing":
+            cell["status"] = "pass"
     return cells
 
 
@@ -408,15 +586,12 @@ def build_parser():
     p = argparse.ArgumentParser(
         description="Validate device-validation evidence and physical gates.")
     p.add_argument("--session", required=True)
-    p.add_argument("--measurement", action="append", default=[],
-                   help="explicit record file (repeatable); default: session measurements/")
-    p.add_argument("--out", default=None, help="report JSON path")
+    p.add_argument("--measurement", action="append", default=[])
+    p.add_argument("--out", default=None)
     p.add_argument("--summary-md", default=None)
     p.add_argument("--gate", default="all", choices=("hardware", "play", "all"))
-    p.add_argument("--allow-synthetic-selftest", action="store_true",
-                   help="load synthetic records for tooling self-test only")
-    p.add_argument("--no-recheck-latency", action="store_true",
-                   help="skip re-deriving latency from the raw WAV")
+    p.add_argument("--allow-synthetic-selftest", action="store_true")
+    p.add_argument("--no-recheck-latency", action="store_true")
     return p
 
 
@@ -437,7 +612,13 @@ def main(argv=None):
     errors = []
     records = []
     synthetic_records = []
+    cache = {}
     interfaces_by_id = {i.get("id"): i for i in (session.get("interfaces") or [])}
+    session_synthetic = session.get("synthetic") is True
+    if not session_synthetic and not dl.is_git_sha((session.get("source") or {}).get("git_sha")):
+        add_hard(errors, session_path, "session-source-sha",
+                 "non-synthetic session needs a 40-hex source.git_sha")
+
     paths = discover_measurements(session_dir, args.measurement)
     for path in paths:
         try:
@@ -445,34 +626,44 @@ def main(argv=None):
         except (ValueError, OSError) as exc:
             add_hard(errors, path, "json", "unreadable/non-finite JSON: %s" % exc)
             continue
-        validated = validate_record(rec, session_dir, path, errors,
-                                    not args.no_recheck_latency,
-                                    interfaces_by_id)
+        try:
+            validated = validate_record(rec, session_dir, path, errors,
+                                        not args.no_recheck_latency,
+                                        interfaces_by_id, session, cache)
+        except Exception as exc:  # never crash on a hostile record
+            add_hard(errors, path, "validator-crash", "%s: %s"
+                     % (type(exc).__name__, exc))
+            continue
         if validated is None:
             continue
         if validated["synthetic"]:
             if not args.allow_synthetic_selftest:
                 add_hard(errors, path, "synthetic",
-                         "synthetic record present without --allow-synthetic-selftest")
+                         "synthetic record/session present without "
+                         "--allow-synthetic-selftest")
                 continue
             synthetic_records.append(validated)
         else:
             records.append(validated)
 
-    cells = build_matrix(records, errors)
+    cells = build_matrix(records)
     errors[:] = _dedupe_errors(errors)
     _relativize_paths(cells, errors, session_dir)
+
     hardware_statuses = [cells[c]["status"] for c in dl.REQUIRED_HARDWARE_CONDITIONS]
     play_statuses = [cells[c]["status"] for c in dl.PLAY_CONDITIONS]
     matrix_empty = not records
-    hardware_matrix_pass = (not errors) and matrix_empty is False \
+    hardware_matrix_pass = (not errors) and not matrix_empty \
         and all(s == "pass" for s in hardware_statuses)
     asio_ref = cells.get("asio_48k_128", {})
     monitoring_latency_pass = (not errors) and asio_ref.get("status") == "pass" \
         and asio_ref.get("latency_ms") is not None \
         and asio_ref["latency_ms"] <= TARGET_MS
-    play_trials_pass = (not errors) and bool(records) \
+    play_trials_pass = (not errors) and not matrix_empty \
         and all(s == "pass" for s in play_statuses)
+    play_records = [r for r in records if r["kind"] == "play"]
+    callback_deadline_pass = (not errors) and bool(play_records) and all(
+        r["cell"].get("callback_gate") is True for r in play_records)
     selftest_pass = any(r["kind"] == "latency" and r["cell"]["status"] == "pass"
                         for r in synthetic_records)
 
@@ -490,6 +681,11 @@ def main(argv=None):
             "measured_ms": asio_ref.get("latency_ms"),
             "target_met": asio_ref.get("target_met"),
         },
+        "callback_deadline": {
+            "pass": callback_deadline_pass,
+            "fraction_of_block": DEADLINE_FRACTION,
+            "play_records": len(play_records),
+        },
         "play_trials": {
             "pass": play_trials_pass,
             "required": list(dl.PLAY_CONDITIONS),
@@ -504,15 +700,17 @@ def main(argv=None):
     if args.gate == "hardware":
         overall = hardware_matrix_pass
     elif args.gate == "play":
-        overall = play_trials_pass
+        overall = play_trials_pass and callback_deadline_pass
     else:
-        overall = hardware_matrix_pass and monitoring_latency_pass and play_trials_pass
+        overall = (hardware_matrix_pass and monitoring_latency_pass
+                   and play_trials_pass and callback_deadline_pass)
 
     report = {
         "schema": REPORT_SCHEMA,
         "generated_utc": dl.utc_now(),
         "session_id": session.get("session_id"),
         "session_source_sha": (session.get("source") or {}).get("git_sha"),
+        "session_synthetic": session_synthetic,
         "gate_requested": args.gate,
         "allow_synthetic_selftest": bool(args.allow_synthetic_selftest),
         "recheck_latency": not args.no_recheck_latency,
@@ -529,7 +727,7 @@ def main(argv=None):
         "cells": cells,
         "gates": gates,
         "overall_pass": bool(overall and not errors),
-        "awaiting_physical_evidence": (not errors) and not records,
+        "awaiting_physical_evidence": (not errors) and matrix_empty,
     }
     out = args.out or os.path.join(session_dir, "report.json")
     dl.write_json(out, report)
@@ -555,27 +753,38 @@ def render_summary(report):
     lines.append("")
     lines.append("## Hardware matrix")
     lines.append("")
-    lines.append("| condition | status | latency ms | target ms |")
-    lines.append("|---|---|---|---|")
+    lines.append("| condition | status | latency ms | target ms | observations |")
+    lines.append("|---|---|---|---|---|")
     for cond in dl.REQUIRED_HARDWARE_CONDITIONS:
         cell = report["cells"][cond]
-        lines.append("| %s | %s | %s | %s |"
+        lines.append("| %s | %s | %s | %s | %d |"
                      % (cond, cell["status"], cell.get("latency_ms"),
-                        cell.get("target_ms")))
+                        cell.get("target_ms"), len(cell.get("observations", []))))
     lines.append("")
     lines.append("## Play trials")
     lines.append("")
-    lines.append("| condition | status | useful-lock |")
-    lines.append("|---|---|---|")
+    lines.append("| condition | status | useful-lock | observations |")
+    lines.append("|---|---|---|---|")
     for cond in dl.PLAY_CONDITIONS:
         cell = report["cells"][cond]
-        lines.append("| %s | %s | %s |"
-                     % (cond, cell["status"], cell.get("verdict")))
+        lines.append("| %s | %s | %s | %d |"
+                     % (cond, cell["status"], cell.get("verdict"),
+                        len(cell.get("observations", []))))
     lines.append("")
     lines.append("## Gates")
     lines.append("")
     for name, gate in report["gates"].items():
         lines.append("- **%s**: %s" % (name, "PASS" if gate["pass"] else "FAIL"))
+    conflicts = {c: report["cells"][c]["conflicts"]
+                 for c in report["cells"] if report["cells"][c]["conflicts"]}
+    if conflicts:
+        lines.append("")
+        lines.append("## Conflicting observations (worst status wins)")
+        lines.append("")
+        for cond, obs in conflicts.items():
+            for o in obs:
+                lines.append("- `%s` -> %s (%s)" % (cond, o["status"],
+                                                   os.path.basename(o["path"])))
     if report["hard_errors"]:
         lines.append("")
         lines.append("## Hard errors")
