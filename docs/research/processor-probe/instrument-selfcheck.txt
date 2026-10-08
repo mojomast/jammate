@@ -1,0 +1,4 @@
+RT-002 instrument self-check extract
+[instrument self-check]
+  armed: new=2 new[]=2 del=1 del[]=2 del(sized)=1 malloc=1 calloc=1 realloc=1 free=2 lock=1 unlock=1
+  self-check PASS (gating + known new/delete/malloc/lock detection)

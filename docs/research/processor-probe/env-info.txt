@@ -1,0 +1,33 @@
+RT-002 processor runtime probe - environment and artefact identity
+generated: 2026-10-08T00:20:23Z
+
+uname          : Linux mail.basilisk.online 6.12.105+deb13-cloud-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.105-1 (2026-08-24) x86_64 GNU/Linux
+g++            : g++ (Debian 14.2.0-19) 14.2.0
+ld             : GNU ld (GNU Binutils for Debian) 2.44
+
+worktree HEAD  : cd9f97fe4969630ea5a01254c32f48001897f012
+branch         : wp/RT-002-processor-probe
+base commit    : cd9f97f (wp/RT-002-processor-probe)
+src identical to main checkout: yes
+
+SharedCode.a   : /home/mojo/projects/guitars-build-resume/plugin/GuitarCompanion_artefacts/Release/libGuitar Companion_SharedCode.a
+  sha256       : 46edfe5dcda44acf28c690b5a2a0eeb3401f6f7aff0f557d1863003d96f6b147
+libnam_core.a  : sha256 af023ffcafd198e7a09107b78f2c540d4d3dbdce3c717e9ea3f215097e412d1b
+assets archive : sha256 c097a68ce36cc0f46fd30b13e02988328efe1bc5dffc35957efa4efb0e04618c
+probe binary   : /home/mojo/projects/guitars-build-resume/probe/build/processor_probe
+  sha256       : c2d514adedd7c7e10a146161a0d5c28246dcc50169848481484622b5c8f2628e
+
+NAM model      : /home/mojo/projects/guitars/third_party/NeuralAmpModelerCore/example_models/lstm.nam
+  sha256       : df9f78c49f49c2bb32411df47e3f53746075adb206b92d017e06379d1e56234a
+  size         : 2307 bytes
+
+JUCE pin       : 91ad83ae34a81e0833b1a2b0866f54846370ae53
+NAM pin        : 1f42f88535884450104b8711d7595019afa0495b
+
+run: warm blocks = 256; rates 44100/48000/96000; blocks 64/128/512;
+     drums stopped/playing; NAM lstm.nam at 48000 & 96000, blocks 128 & 512;
+     scene case: 48000/128, 11 processBlock calls, 100 ms JUCE message loop.
+
+display/Xvfb   : not used; JUCE message loop runs headless (no window created,
+                 no editor constructed).
+audio device   : none opened; processBlock invoked directly on the probe thread.

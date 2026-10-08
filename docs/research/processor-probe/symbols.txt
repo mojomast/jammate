@@ -1,0 +1,28 @@
+RT-002 probe - symbol resolution of instrumentation caller offsets
+binary: /home/mojo/projects/guitars-build-resume/probe/build/processor_probe
+offsets are file-relative (caller minus main-module load bias).
+
+== no-op free(NULL) sites ==
+0x14904d: GuitarCompanionProcessor::processDrums(juce::AudioBuffer<float>&, int, int) :? 
+
+== all caller sites observed in alloc/free records ==
+0x92a590: nam::lstm::LSTMCell::process_(Eigen::Matrix<float, -1, 1, 0, -1, 1> const&) ??:? 
+0x92a816: nam::lstm::LSTMCell::process_(Eigen::Matrix<float, -1, 1, 0, -1, 1> const&) ??:? 
+0x92bd0d: nam::lstm::LSTM::_process_sample() ??:? 
+0x92c33f: nam::lstm::LSTM::process(float**, float**, int) ??:? 
+
+== raw first records of the first NAM case (cold) ==
+      cold #0 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #1 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #2 c:malloc bytes=12 ptr=0x55a2fdfcfc20 caller_vaddr=0x92bd0d
+      cold #3 c:free bytes=0 ptr=0x55a2fdfcfc20 caller_vaddr=0x92c33f
+      cold #4 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #5 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+
+== raw first records of a NAM warm overflow case ==
+      warm #0 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #1 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #2 c:malloc bytes=12 ptr=0x55a2fdfcfc20 caller_vaddr=0x92bd0d
+      warm #3 c:free bytes=0 ptr=0x55a2fdfcfc20 caller_vaddr=0x92c33f
+      warm #4 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #5 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816

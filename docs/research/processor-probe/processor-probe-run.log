@@ -1,0 +1,346 @@
+RT-002 processor runtime probe
+==============================
+warm blocks per case: 256
+
+[instrument self-check]
+  armed: new=2 new[]=2 del=1 del[]=2 del(sized)=1 malloc=1 calloc=1 realloc=1 free=2 lock=1 unlock=1
+  self-check PASS (gating + known new/delete/malloc/lock detection)
+
+[scene jump, editor absent, public scene API]
+  scene: saved=0.000000 changed=-16.799999 beforeDispatch=-16.799999 afterDispatch=0.000000
+  scene: blocks=11 signalAlloc=0 signalFrees=0 signalLocks=0 dispatch=100.0 ms stopSentBefore=0 stopSentAfter=1 stopperTicks=75248 appliedBefore=1 appliedAfter=1 editorNull=1
+
+[nam] requesting async load: /home/mojo/projects/guitars/third_party/NeuralAmpModelerCore/example_models/lstm.nam
+[dry/built-in chain: rates x block sizes x drums]
+  [dry      ] rate=  44100 block=  64 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 6.42 ms (25.1 us/block)
+  [dry+drums] rate=  44100 block=  64 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 6.21 ms (24.3 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+  [dry      ] rate=  44100 block= 128 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 9.28 ms (36.2 us/block)
+  [dry+drums] rate=  44100 block= 128 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 5.64 ms (22.0 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+  [dry      ] rate=  44100 block= 512 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 18.53 ms (72.4 us/block)
+  [dry+drums] rate=  44100 block= 512 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 32.52 ms (127.0 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+  [dry      ] rate=  48000 block=  64 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 2.64 ms (10.3 us/block)
+  [dry+drums] rate=  48000 block=  64 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 2.78 ms (10.8 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+  [dry      ] rate=  48000 block= 128 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 4.82 ms (18.8 us/block)
+  [dry+drums] rate=  48000 block= 128 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 5.43 ms (21.2 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+  [dry      ] rate=  48000 block= 512 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 19.38 ms (75.7 us/block)
+  [dry+drums] rate=  48000 block= 512 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 24.70 ms (96.5 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+  [dry      ] rate=  96000 block=  64 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 3.34 ms (13.1 us/block)
+  [dry+drums] rate=  96000 block=  64 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 2.72 ms (10.6 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+  [dry      ] rate=  96000 block= 128 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 7.97 ms (31.1 us/block)
+  [dry+drums] rate=  96000 block= 128 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 5.41 ms (21.1 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+  [dry      ] rate=  96000 block= 512 drums=stopped  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 36.73 ms (143.5 us/block)
+  [dry+drums] rate=  96000 block= 512 drums=playing  cold(alloc=0 free=0 lock=0) warm(alloc=0 free=0 lock=0 trylock=0 cond=0) over 256 blocks 38.96 ms (152.2 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+
+[nam] post-combo state: loaded=1 resampling=1 error=""
+      cold #0 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #1 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #2 c:malloc bytes=12 ptr=0x55a2fdfcfc20 caller_vaddr=0x92bd0d
+      cold #3 c:free bytes=0 ptr=0x55a2fdfcfc20 caller_vaddr=0x92c33f
+      cold #4 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #5 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #6 c:malloc bytes=12 ptr=0x55a2fdfcfc20 caller_vaddr=0x92bd0d
+      cold #7 c:free bytes=0 ptr=0x55a2fdfcfc20 caller_vaddr=0x92c33f
+      cold #8 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #9 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #10 c:malloc bytes=12 ptr=0x55a2fdfcfc20 caller_vaddr=0x92bd0d
+      cold #11 c:free bytes=0 ptr=0x55a2fdfcfc20 caller_vaddr=0x92c33f
+      cold #12 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #13 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #14 c:malloc bytes=12 ptr=0x55a2fdfcfc20 caller_vaddr=0x92bd0d
+      cold #15 c:free bytes=0 ptr=0x55a2fdfcfc20 caller_vaddr=0x92c33f
+      cold: ... 496 more records suppressed
+      warm #0 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #1 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #2 c:malloc bytes=12 ptr=0x55a2fdfcfc20 caller_vaddr=0x92bd0d
+      warm #3 c:free bytes=0 ptr=0x55a2fdfcfc20 caller_vaddr=0x92c33f
+      warm #4 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #5 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #6 c:malloc bytes=12 ptr=0x55a2fdfcfc20 caller_vaddr=0x92bd0d
+      warm #7 c:free bytes=0 ptr=0x55a2fdfcfc20 caller_vaddr=0x92c33f
+      warm #8 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #9 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #10 c:malloc bytes=12 ptr=0x55a2fdfcfc20 caller_vaddr=0x92bd0d
+      warm #11 c:free bytes=0 ptr=0x55a2fdfcfc20 caller_vaddr=0x92c33f
+      warm #12 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #13 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #14 c:malloc bytes=12 ptr=0x55a2fdfcfc20 caller_vaddr=0x92bd0d
+      warm #15 c:free bytes=0 ptr=0x55a2fdfcfc20 caller_vaddr=0x92c33f
+      warm: ... 65520 more records suppressed
+      warm: +65536 records beyond fixed capacity (overflow)
+  [nam      ] rate=  48000 block= 128 drums=stopped  cold(alloc=256 free=256 lock=0) warm(alloc=65536 free=65536 lock=0 trylock=0 cond=0) over 256 blocks 25.94 ms (101.3 us/block)
+      cold #0 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #1 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #2 c:malloc bytes=12 ptr=0x55a2fde8cce0 caller_vaddr=0x92bd0d
+      cold #3 c:free bytes=0 ptr=0x55a2fde8cce0 caller_vaddr=0x92c33f
+      cold #4 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #5 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #6 c:malloc bytes=12 ptr=0x55a2fde8cce0 caller_vaddr=0x92bd0d
+      cold #7 c:free bytes=0 ptr=0x55a2fde8cce0 caller_vaddr=0x92c33f
+      cold #8 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #9 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #10 c:malloc bytes=12 ptr=0x55a2fde8cce0 caller_vaddr=0x92bd0d
+      cold #11 c:free bytes=0 ptr=0x55a2fde8cce0 caller_vaddr=0x92c33f
+      cold #12 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #13 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #14 c:malloc bytes=12 ptr=0x55a2fde8cce0 caller_vaddr=0x92bd0d
+      cold #15 c:free bytes=0 ptr=0x55a2fde8cce0 caller_vaddr=0x92c33f
+      cold: ... 496 more records suppressed
+      warm #0 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #1 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #2 c:malloc bytes=12 ptr=0x55a2fde8cce0 caller_vaddr=0x92bd0d
+      warm #3 c:free bytes=0 ptr=0x55a2fde8cce0 caller_vaddr=0x92c33f
+      warm #4 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #5 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #6 c:malloc bytes=12 ptr=0x55a2fde8cce0 caller_vaddr=0x92bd0d
+      warm #7 c:free bytes=0 ptr=0x55a2fde8cce0 caller_vaddr=0x92c33f
+      warm #8 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #9 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #10 c:malloc bytes=12 ptr=0x55a2fde8cce0 caller_vaddr=0x92bd0d
+      warm #11 c:free bytes=0 ptr=0x55a2fde8cce0 caller_vaddr=0x92c33f
+      warm #12 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #13 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #14 c:malloc bytes=12 ptr=0x55a2fde8cce0 caller_vaddr=0x92bd0d
+      warm #15 c:free bytes=0 ptr=0x55a2fde8cce0 caller_vaddr=0x92c33f
+      warm: ... 65520 more records suppressed
+      warm: +65536 records beyond fixed capacity (overflow)
+  [nam+drums] rate=  48000 block= 128 drums=playing  cold(alloc=256 free=256 lock=0) warm(alloc=65536 free=65536 lock=0 trylock=0 cond=0) over 256 blocks 12.25 ms (47.9 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+      cold #0 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      cold #1 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      cold #2 c:malloc bytes=12 ptr=0x55a2fde6cc10 caller_vaddr=0x92bd0d
+      cold #3 c:free bytes=0 ptr=0x55a2fde6cc10 caller_vaddr=0x92c33f
+      cold #4 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      cold #5 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      cold #6 c:malloc bytes=12 ptr=0x55a2fde6cc10 caller_vaddr=0x92bd0d
+      cold #7 c:free bytes=0 ptr=0x55a2fde6cc10 caller_vaddr=0x92c33f
+      cold #8 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      cold #9 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      cold #10 c:malloc bytes=12 ptr=0x55a2fde6cc10 caller_vaddr=0x92bd0d
+      cold #11 c:free bytes=0 ptr=0x55a2fde6cc10 caller_vaddr=0x92c33f
+      cold #12 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      cold #13 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      cold #14 c:malloc bytes=12 ptr=0x55a2fde6cc10 caller_vaddr=0x92bd0d
+      cold #15 c:free bytes=0 ptr=0x55a2fde6cc10 caller_vaddr=0x92c33f
+      cold: ... 2032 more records suppressed
+      warm #0 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      warm #1 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      warm #2 c:malloc bytes=12 ptr=0x55a2fde6cc10 caller_vaddr=0x92bd0d
+      warm #3 c:free bytes=0 ptr=0x55a2fde6cc10 caller_vaddr=0x92c33f
+      warm #4 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      warm #5 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      warm #6 c:malloc bytes=12 ptr=0x55a2fde6cc10 caller_vaddr=0x92bd0d
+      warm #7 c:free bytes=0 ptr=0x55a2fde6cc10 caller_vaddr=0x92c33f
+      warm #8 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      warm #9 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      warm #10 c:malloc bytes=12 ptr=0x55a2fde6cc10 caller_vaddr=0x92bd0d
+      warm #11 c:free bytes=0 ptr=0x55a2fde6cc10 caller_vaddr=0x92c33f
+      warm #12 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      warm #13 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      warm #14 c:malloc bytes=12 ptr=0x55a2fde6cc10 caller_vaddr=0x92bd0d
+      warm #15 c:free bytes=0 ptr=0x55a2fde6cc10 caller_vaddr=0x92c33f
+      warm: ... 65520 more records suppressed
+      warm: +458752 records beyond fixed capacity (overflow)
+  [nam      ] rate=  48000 block= 512 drums=stopped  cold(alloc=1024 free=1024 lock=0) warm(alloc=262144 free=262144 lock=0 trylock=0 cond=0) over 256 blocks 49.58 ms (193.7 us/block)
+      cold #0 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #1 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #2 c:malloc bytes=12 ptr=0x55a2fde6e030 caller_vaddr=0x92bd0d
+      cold #3 c:free bytes=0 ptr=0x55a2fde6e030 caller_vaddr=0x92c33f
+      cold #4 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #5 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #6 c:malloc bytes=12 ptr=0x55a2fde6e030 caller_vaddr=0x92bd0d
+      cold #7 c:free bytes=0 ptr=0x55a2fde6e030 caller_vaddr=0x92c33f
+      cold #8 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #9 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #10 c:malloc bytes=12 ptr=0x55a2fde6e030 caller_vaddr=0x92bd0d
+      cold #11 c:free bytes=0 ptr=0x55a2fde6e030 caller_vaddr=0x92c33f
+      cold #12 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #13 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #14 c:malloc bytes=12 ptr=0x55a2fde6e030 caller_vaddr=0x92bd0d
+      cold #15 c:free bytes=0 ptr=0x55a2fde6e030 caller_vaddr=0x92c33f
+      cold: ... 2032 more records suppressed
+      warm #0 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #1 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #2 c:malloc bytes=12 ptr=0x55a2fde6e030 caller_vaddr=0x92bd0d
+      warm #3 c:free bytes=0 ptr=0x55a2fde6e030 caller_vaddr=0x92c33f
+      warm #4 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #5 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #6 c:malloc bytes=12 ptr=0x55a2fde6e030 caller_vaddr=0x92bd0d
+      warm #7 c:free bytes=0 ptr=0x55a2fde6e030 caller_vaddr=0x92c33f
+      warm #8 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #9 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #10 c:malloc bytes=12 ptr=0x55a2fde6e030 caller_vaddr=0x92bd0d
+      warm #11 c:free bytes=0 ptr=0x55a2fde6e030 caller_vaddr=0x92c33f
+      warm #12 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #13 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #14 c:malloc bytes=12 ptr=0x55a2fde6e030 caller_vaddr=0x92bd0d
+      warm #15 c:free bytes=0 ptr=0x55a2fde6e030 caller_vaddr=0x92c33f
+      warm: ... 65520 more records suppressed
+      warm: +458752 records beyond fixed capacity (overflow)
+  [nam+drums] rate=  48000 block= 512 drums=playing  cold(alloc=1024 free=1024 lock=0) warm(alloc=262144 free=262144 lock=0 trylock=0 cond=0) over 256 blocks 49.55 ms (193.6 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+      cold #0 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #1 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #2 c:malloc bytes=12 ptr=0x55a2fde719e0 caller_vaddr=0x92bd0d
+      cold #3 c:free bytes=0 ptr=0x55a2fde719e0 caller_vaddr=0x92c33f
+      cold #4 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #5 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #6 c:malloc bytes=12 ptr=0x55a2fde719e0 caller_vaddr=0x92bd0d
+      cold #7 c:free bytes=0 ptr=0x55a2fde719e0 caller_vaddr=0x92c33f
+      cold #8 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #9 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #10 c:malloc bytes=12 ptr=0x55a2fde719e0 caller_vaddr=0x92bd0d
+      cold #11 c:free bytes=0 ptr=0x55a2fde719e0 caller_vaddr=0x92c33f
+      cold #12 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #13 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #14 c:malloc bytes=12 ptr=0x55a2fde719e0 caller_vaddr=0x92bd0d
+      cold #15 c:free bytes=0 ptr=0x55a2fde719e0 caller_vaddr=0x92c33f
+      cold: ... 240 more records suppressed
+      warm #0 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #1 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #2 c:malloc bytes=12 ptr=0x55a2fde719e0 caller_vaddr=0x92bd0d
+      warm #3 c:free bytes=0 ptr=0x55a2fde719e0 caller_vaddr=0x92c33f
+      warm #4 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #5 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #6 c:malloc bytes=12 ptr=0x55a2fde719e0 caller_vaddr=0x92bd0d
+      warm #7 c:free bytes=0 ptr=0x55a2fde719e0 caller_vaddr=0x92c33f
+      warm #8 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #9 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #10 c:malloc bytes=12 ptr=0x55a2fde719e0 caller_vaddr=0x92bd0d
+      warm #11 c:free bytes=0 ptr=0x55a2fde719e0 caller_vaddr=0x92c33f
+      warm #12 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #13 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #14 c:malloc bytes=12 ptr=0x55a2fde719e0 caller_vaddr=0x92bd0d
+      warm #15 c:free bytes=0 ptr=0x55a2fde719e0 caller_vaddr=0x92c33f
+      warm: ... 65520 more records suppressed
+  [nam      ] rate=  96000 block= 128 drums=stopped  cold(alloc=128 free=128 lock=0) warm(alloc=32768 free=32768 lock=0 trylock=0 cond=0) over 256 blocks 11.50 ms (44.9 us/block)
+      cold #0 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      cold #1 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      cold #2 c:malloc bytes=12 ptr=0x55a2fde72350 caller_vaddr=0x92bd0d
+      cold #3 c:free bytes=0 ptr=0x55a2fde72350 caller_vaddr=0x92c33f
+      cold #4 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      cold #5 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      cold #6 c:malloc bytes=12 ptr=0x55a2fde72350 caller_vaddr=0x92bd0d
+      cold #7 c:free bytes=0 ptr=0x55a2fde72350 caller_vaddr=0x92c33f
+      cold #8 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      cold #9 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      cold #10 c:malloc bytes=12 ptr=0x55a2fde72350 caller_vaddr=0x92bd0d
+      cold #11 c:free bytes=0 ptr=0x55a2fde72350 caller_vaddr=0x92c33f
+      cold #12 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      cold #13 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      cold #14 c:malloc bytes=12 ptr=0x55a2fde72350 caller_vaddr=0x92bd0d
+      cold #15 c:free bytes=0 ptr=0x55a2fde72350 caller_vaddr=0x92c33f
+      cold: ... 240 more records suppressed
+      warm #0 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      warm #1 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      warm #2 c:malloc bytes=12 ptr=0x55a2fde72350 caller_vaddr=0x92bd0d
+      warm #3 c:free bytes=0 ptr=0x55a2fde72350 caller_vaddr=0x92c33f
+      warm #4 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      warm #5 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      warm #6 c:malloc bytes=12 ptr=0x55a2fde72350 caller_vaddr=0x92bd0d
+      warm #7 c:free bytes=0 ptr=0x55a2fde72350 caller_vaddr=0x92c33f
+      warm #8 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      warm #9 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      warm #10 c:malloc bytes=12 ptr=0x55a2fde72350 caller_vaddr=0x92bd0d
+      warm #11 c:free bytes=0 ptr=0x55a2fde72350 caller_vaddr=0x92c33f
+      warm #12 c:calloc bytes=48 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a590
+      warm #13 c:free bytes=0 ptr=0x55a2fdf7f0f0 caller_vaddr=0x92a816
+      warm #14 c:malloc bytes=12 ptr=0x55a2fde72350 caller_vaddr=0x92bd0d
+      warm #15 c:free bytes=0 ptr=0x55a2fde72350 caller_vaddr=0x92c33f
+      warm: ... 65520 more records suppressed
+  [nam+drums] rate=  96000 block= 128 drums=playing  cold(alloc=128 free=128 lock=0) warm(alloc=32768 free=32768 lock=0 trylock=0 cond=0) over 256 blocks 12.07 ms (47.1 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+      cold #0 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #1 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #2 c:malloc bytes=12 ptr=0x55a2fde73f10 caller_vaddr=0x92bd0d
+      cold #3 c:free bytes=0 ptr=0x55a2fde73f10 caller_vaddr=0x92c33f
+      cold #4 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #5 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #6 c:malloc bytes=12 ptr=0x55a2fde73f10 caller_vaddr=0x92bd0d
+      cold #7 c:free bytes=0 ptr=0x55a2fde73f10 caller_vaddr=0x92c33f
+      cold #8 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #9 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #10 c:malloc bytes=12 ptr=0x55a2fde73f10 caller_vaddr=0x92bd0d
+      cold #11 c:free bytes=0 ptr=0x55a2fde73f10 caller_vaddr=0x92c33f
+      cold #12 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      cold #13 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      cold #14 c:malloc bytes=12 ptr=0x55a2fde73f10 caller_vaddr=0x92bd0d
+      cold #15 c:free bytes=0 ptr=0x55a2fde73f10 caller_vaddr=0x92c33f
+      cold: ... 1008 more records suppressed
+      warm #0 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #1 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #2 c:malloc bytes=12 ptr=0x55a2fde73f10 caller_vaddr=0x92bd0d
+      warm #3 c:free bytes=0 ptr=0x55a2fde73f10 caller_vaddr=0x92c33f
+      warm #4 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #5 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #6 c:malloc bytes=12 ptr=0x55a2fde73f10 caller_vaddr=0x92bd0d
+      warm #7 c:free bytes=0 ptr=0x55a2fde73f10 caller_vaddr=0x92c33f
+      warm #8 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #9 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #10 c:malloc bytes=12 ptr=0x55a2fde73f10 caller_vaddr=0x92bd0d
+      warm #11 c:free bytes=0 ptr=0x55a2fde73f10 caller_vaddr=0x92c33f
+      warm #12 c:calloc bytes=48 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a590
+      warm #13 c:free bytes=0 ptr=0x55a2fdea8ac0 caller_vaddr=0x92a816
+      warm #14 c:malloc bytes=12 ptr=0x55a2fde73f10 caller_vaddr=0x92bd0d
+      warm #15 c:free bytes=0 ptr=0x55a2fde73f10 caller_vaddr=0x92c33f
+      warm: ... 65520 more records suppressed
+      warm: +196608 records beyond fixed capacity (overflow)
+  [nam      ] rate=  96000 block= 512 drums=stopped  cold(alloc=512 free=512 lock=0) warm(alloc=131072 free=131072 lock=0 trylock=0 cond=0) over 256 blocks 74.67 ms (291.7 us/block)
+      cold #0 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #1 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #2 c:malloc bytes=12 ptr=0x55a2fde75750 caller_vaddr=0x92bd0d
+      cold #3 c:free bytes=0 ptr=0x55a2fde75750 caller_vaddr=0x92c33f
+      cold #4 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #5 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #6 c:malloc bytes=12 ptr=0x55a2fde75750 caller_vaddr=0x92bd0d
+      cold #7 c:free bytes=0 ptr=0x55a2fde75750 caller_vaddr=0x92c33f
+      cold #8 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #9 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #10 c:malloc bytes=12 ptr=0x55a2fde75750 caller_vaddr=0x92bd0d
+      cold #11 c:free bytes=0 ptr=0x55a2fde75750 caller_vaddr=0x92c33f
+      cold #12 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      cold #13 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      cold #14 c:malloc bytes=12 ptr=0x55a2fde75750 caller_vaddr=0x92bd0d
+      cold #15 c:free bytes=0 ptr=0x55a2fde75750 caller_vaddr=0x92c33f
+      cold: ... 1008 more records suppressed
+      warm #0 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #1 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #2 c:malloc bytes=12 ptr=0x55a2fde75750 caller_vaddr=0x92bd0d
+      warm #3 c:free bytes=0 ptr=0x55a2fde75750 caller_vaddr=0x92c33f
+      warm #4 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #5 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #6 c:malloc bytes=12 ptr=0x55a2fde75750 caller_vaddr=0x92bd0d
+      warm #7 c:free bytes=0 ptr=0x55a2fde75750 caller_vaddr=0x92c33f
+      warm #8 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #9 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #10 c:malloc bytes=12 ptr=0x55a2fde75750 caller_vaddr=0x92bd0d
+      warm #11 c:free bytes=0 ptr=0x55a2fde75750 caller_vaddr=0x92c33f
+      warm #12 c:calloc bytes=48 ptr=0x55a2fdea69e0 caller_vaddr=0x92a590
+      warm #13 c:free bytes=0 ptr=0x55a2fdea69e0 caller_vaddr=0x92a816
+      warm #14 c:malloc bytes=12 ptr=0x55a2fde75750 caller_vaddr=0x92bd0d
+      warm #15 c:free bytes=0 ptr=0x55a2fde75750 caller_vaddr=0x92c33f
+      warm: ... 65520 more records suppressed
+      warm: +196608 records beyond fixed capacity (overflow)
+  [nam+drums] rate=  96000 block= 512 drums=playing  cold(alloc=512 free=512 lock=0) warm(alloc=131072 free=131072 lock=0 trylock=0 cond=0) over 256 blocks 50.52 ms (197.4 us/block)
+      no-op frees=256 sites(offset): 0x14904d
+
+wrote CSV: /home/mojo/projects/worktrees/RT-002-processor-probe/docs/research/processor-probe/processor-probe-combos.csv
+
+[totals across 26 measured cases]
+  cold allocator calls      : 3840
+  warm allocator calls      : 983040
+  warm free calls           : 983040
+  warm no-op frees (nullptr): 3328
+  warm lock/cond operations : 0
+  cases with warm alloc/free: 8
+  NAM measured              : yes
+  scene flag delivered to processor Timer: yes
+  editor created            : no
