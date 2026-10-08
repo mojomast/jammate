@@ -593,6 +593,13 @@ def validate_scenarios(ev, scope, add):
                     add(f"scenario_{sid}_reason_code", "hard",
                         s.get("unmeasured_reason_code") in SCENARIO_REASON_CODES,
                         f"unmeasured scenario {sid} must carry a known reason code")
+                else:
+                    add(f"scenario_{sid}_backend_changed", "hard",
+                        s.get("backend_changed") is False,
+                        "the backend tag must not change within one prepared session")
+                    add(f"scenario_{sid}_backend_first_label", "hard",
+                        s.get("backend_kind") == s.get("backend_first"),
+                        "backend_kind must equal the first observed backend label")
         d = by_id.get("default_clean_long", {}) or {}
         d_ok = (d.get("ran") is True and d.get("backend_kind") == "experimentalBTrack"
                 and d.get("start_accepted") is True and d.get("audio_owner_delta_ok") is True

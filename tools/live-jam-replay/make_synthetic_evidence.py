@@ -218,7 +218,9 @@ def _scenarios(scope):
         return []
     return [
         {"id": "default_clean_long", "ran": True, "injected": False,
-         "backend_kind": "experimentalBTrack", "unmeasured_reason": None,
+         "backend_kind": "experimentalBTrack", "backend_first": "experimentalBTrack",
+         "backend_last": "experimentalBTrack", "backend_changed": False,
+         "unmeasured_reason": None,
          "unmeasured_reason_code": None, "start_accepted": True,
          "join_observed": False, "blocks_to_join": 0, "callbacks": 1500,
          "steps_fired": 0, "output_rms": 0.1, "output_nonzero_blocks": 1500,
@@ -230,7 +232,9 @@ def _scenarios(scope):
          "audio_owner_observed_s": 16.0, "callback_alloc_cxx": 0, "callback_alloc_c": 0,
          "callback_free": 0, "callback_locks": 0},
         {"id": "injected_join_stop_resync", "ran": True, "injected": True,
-         "backend_kind": "injectedTest", "unmeasured_reason": None,
+         "backend_kind": "injectedTest", "backend_first": "injectedTest",
+         "backend_last": "injectedTest", "backend_changed": False,
+         "unmeasured_reason": None,
          "unmeasured_reason_code": None, "start_accepted": True,
          "join_observed": True, "blocks_to_join": 4, "callbacks": 800,
          "steps_fired": 64, "output_rms": 0.2, "output_nonzero_blocks": 800,

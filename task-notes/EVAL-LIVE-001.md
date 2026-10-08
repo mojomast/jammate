@@ -254,6 +254,26 @@ seam.
 
 Counts are stated explicitly per run.
 
+## Narrow third correction — independent BLOCK on 852ddb6
+
+One outcome-recording bug: `runDefaultCleanLong` set `backend_kind` only when a
+join occurred, so a legitimate no-lock default run wrote an empty identity. Fixed
+via the pure `LiveJamObserved.h` helper: capture the actual backend from the
+first coherent prepared state, independent of join; record unavailable/unknown
+as-is; fail closed on a mid-session backend change; never overwrite the first
+identity. Join/steps/audio stay separate; default no-lock is diagnostic (the
+injected scenario is the join proof; no ≥95% claim). `--timeout-s` rejects
+non-finite/≤0/>300 (exit 64).
+
+Executed: validator unit tests **103/103**; labelled synthetic full tree passes
+all gates; default no-join diagnostic; backend-change fail-closed; timeout input
+bounded. Link-only against the actual integrated product is **LIVE-READY** with
+the full real closure (including `jam-btrack`/`btrack`/`kiss_fft`/`samplerate`),
+all self-checks and facade tests green; the runtime was **not** invoked
+(`link-receipt-actual.json`). Remaining: the actual runtime gates
+(full matrix, `default_clean_long`, `injected_join_stop_resync`) await the
+orchestrator.
+
 ## Limitations (not claimed)
 
 - The actual live measurement is pending the merged pipeline. Only the harness,

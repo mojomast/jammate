@@ -480,6 +480,49 @@ class CorrectedValidatorTests(unittest.TestCase):
         self.assertFalse([c for c in checks if c.id == "join_gate"][0].pass_,
                          "smoke must not claim the full join gate")
 
+    # -- narrow: default backend identity independent of join ----------------
+    def test_default_no_join_is_diagnostic_not_identity_failure(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "default_clean_long":
+                s["join_observed"] = False
+                s["steps_fired"] = 0
+        ok, errors, checks = hard_pass(ev)
+        self.assertTrue(ok, f"a no-join default run must remain structurally valid: {errors}")
+        self.assertTrue([c for c in checks if c.id == "scenario_default_clean_long_gate"][0].pass_,
+                        "default gate is backend/advance, not join")
+
+    def test_scenario_backend_changed_fails(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "default_clean_long":
+                s["backend_changed"] = True
+                s["backend_last"] = "injectedTest"
+        ok, errors, _ = hard_pass(ev)
+        self.assertFalse(ok, "a mid-session backend change must fail closed")
+        self.assertTrue(any("backend_changed" in e for e in errors), errors)
+
+    def test_scenario_backend_kind_mismatch_first(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "default_clean_long":
+                s["backend_kind"] = "experimentalBTrack"
+                s["backend_first"] = "injectedTest"
+        ok, errors, _ = hard_pass(ev)
+        self.assertFalse(ok)
+
+    def test_scenario_backend_unavailable_recorded(self):
+        ev = self.fresh()
+        for s in ev["scenarios"]:
+            if s["id"] == "default_clean_long":
+                s["backend_kind"] = "unavailable"
+                s["backend_first"] = "unavailable"
+                s["backend_last"] = "unavailable"
+        ok, _, checks = hard_pass(ev)
+        self.assertTrue(ok, "unavailable must be recorded structurally, not faked")
+        self.assertFalse([c for c in checks if c.id == "scenario_default_clean_long_gate"][0].pass_,
+                         "an unavailable default backend fails the identity gate")
+
     # -- status --------------------------------------------------------------
     def test_unknown_status(self):
         ev = self.fresh(); ev["status"] = "trust-me"
@@ -655,6 +698,40 @@ class OverrideAndLinkTests(unittest.TestCase):
             self.rl.run = orig
         self.assertFalse(closure["ok"])
         self.assertEqual(closure["missing"], "missing_link_metadata_tool")
+
+
+class RunReplayInputTests(unittest.TestCase):
+    def test_valid_timeout_bounds(self):
+        import run_replay as rr
+        self.assertTrue(rr.valid_timeout(300))
+        self.assertTrue(rr.valid_timeout(1))
+        for bad in (0, -1, float("nan"), float("inf"), float("-inf"),
+                    300.0001, 301, True, False, "300"):
+            self.assertFalse(rr.valid_timeout(bad), repr(bad))
+
+    def test_main_rejects_bad_timeout_without_subprocess(self):
+        import run_replay as rr
+        orig = rr.subprocess.run
+
+        def boom(*a, **k):
+            raise AssertionError("subprocess must not run for a bad timeout")
+
+        rr.subprocess.run = boom
+        try:
+            for bad in ("0", "-1", "nan", "inf", "301"):
+                out = tempfile.mkdtemp(prefix="evallive001to-")
+                rc = rr.main(["--source", "/nonexistent", "--product-build", "/nonexistent",
+                              "--out", out, "--timeout-s", bad])
+                self.assertEqual(rc, 64, f"bad timeout {bad} must exit 64")
+        finally:
+            rr.subprocess.run = orig
+
+    def test_main_accepts_default_300(self):
+        import run_replay as rr
+        # The default is within the frozen bound and must not be rejected by the
+        # timeout guard (it may proceed past it).
+        self.assertTrue(rr.valid_timeout(rr.DEFAULT_TIMEOUT_S))
+        self.assertEqual(rr.MAX_TIMEOUT_S, 300.0)
 
 
 if __name__ == "__main__":

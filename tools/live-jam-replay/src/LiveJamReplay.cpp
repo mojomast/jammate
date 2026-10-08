@@ -22,6 +22,7 @@
 // No processor/editor/engine/frozen-interface source is modified and no stub
 // processor is created.
 #include "PluginProcessor.h"
+#include "LiveJamObserved.h"
 #include "ReplaySupport.h"
 #include "RtProbeInstrumentation.h"
 #include "jam/IRhythmTracker.h"
@@ -64,13 +65,7 @@ void jsonMaybeU64 (std::FILE* f, bool measured, std::uint64_t v)
 
 const char* backendName (jam::JamLiveBackend b)
 {
-    switch (b)
-    {
-        case jam::JamLiveBackend::unavailable:        return "unavailable";
-        case jam::JamLiveBackend::experimentalBTrack: return "experimentalBTrack";
-        case jam::JamLiveBackend::injectedTest:       return "injectedTest";
-    }
-    return "unknown";
+    return replay::liveBackendName (b);
 }
 
 const char* failureName (jam::JamLiveFailure x)
@@ -774,6 +769,9 @@ struct ScenarioResult
     bool ran = false;
     bool injected = false;
     std::string backendKind;
+    std::string backendFirst;
+    std::string backendLast;
+    bool backendChanged = false;
     std::string unmeasuredReason;
     std::string unmeasuredReasonCode;
     bool startAccepted = false;
@@ -813,6 +811,14 @@ void runDefaultCleanLong (GuitarCompanionProcessor& proc, const Options& o, Scen
     midi.ensureSize (4096);
     InputGen gen; gen.kind = InputKind::clean; gen.reset (4242);
 
+    // Capture the actual default backend from the first coherent prepared state,
+    // independent of join. The backend identity is never derived from playback.
+    replay::BackendObservation backend;
+    {
+        jam::JamLiveState s {};
+        if (proc.readJamLiveState (s)) backend.observe (s);
+    }
+
     r.startAccepted = proc.submitJamCommand (jam::JamLiveCommand { jam::JamLiveCommandType::Start, 0.0 });
 
     const std::uint64_t totalBlocks = (std::uint64_t) (o.supplementalSeconds * rate / block);
@@ -843,15 +849,19 @@ void runDefaultCleanLong (GuitarCompanionProcessor& proc, const Options& o, Scen
         jam::JamLiveState s {};
         if (proc.readJamLiveState (s))
         {
+            backend.observe (s);
             if (! r.joinObserved && s.drumsPlaying)
             {
                 r.joinObserved = true;
                 r.blocksToJoin = (std::uint64_t) (i + 1);
-                r.backendKind = backendName (s.backend);
             }
         }
     }
     r.audioOwnerObservedS = std::chrono::duration<double> (Clock::now() - startWall).count();
+    r.backendKind = backend.label();
+    r.backendFirst = replay::liveBackendName (backend.first);
+    r.backendLast = replay::liveBackendName (backend.last);
+    r.backendChanged = backend.changed;
     r.stepsFired = proc.drumEngine.injectedStepsFired();
     r.outputRms = r.callbacks > 0 ? r.outputRms / (double) r.callbacks : 0.0;
     const auto s1 = rtprobe::snapshot();
@@ -905,7 +915,6 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
 {
     r.id = "injected_join_stop_resync";
     r.injected = true;
-    r.backendKind = "injectedTest";
 #ifdef LIVE_JAM_HAVE_TRACKER_INJECTION
     (void) o;
     r.ran = true;
@@ -925,6 +934,12 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     midi.ensureSize (4096);
     InputGen gen; gen.kind = InputKind::clean; gen.reset (999);
 
+    replay::BackendObservation backend;
+    {
+        jam::JamLiveState s {};
+        if (proc.readJamLiveState (s)) backend.observe (s);
+    }
+
     auto step = [&] {
         gen.fill (buf, block);
         proc.processBlock (buf, midi);
@@ -942,9 +957,13 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     {
         step();
         jam::JamLiveState s {};
-        if (proc.readJamLiveState (s) && s.drumsPlaying)
+        if (proc.readJamLiveState (s))
         {
-            r.joinObserved = true; r.blocksToJoin = (std::uint64_t) (i + 1); r.backendKind = backendName (s.backend);
+            backend.observe (s);
+            if (s.drumsPlaying)
+            {
+                r.joinObserved = true; r.blocksToJoin = (std::uint64_t) (i + 1);
+            }
         }
     }
 
@@ -984,6 +1003,10 @@ void runInjectedJoinStop (GuitarCompanionProcessor& proc, const Options& o, Scen
     proc.readJamLiveState (s);
     r.generationAfterReprepare = s.sessionGeneration;
     r.generationChangedOnReprepare = (r.generationAfterReprepare != r.generationBeforeReprepare);
+    r.backendKind = backend.label();
+    r.backendFirst = replay::liveBackendName (backend.first);
+    r.backendLast = replay::liveBackendName (backend.last);
+    r.backendChanged = backend.changed;
     r.stepsFired = proc.drumEngine.injectedStepsFired();
     r.outputRms = r.callbacks > 0 ? r.outputRms / (double) r.callbacks : 0.0;
     proc.releaseResources();
@@ -1297,6 +1320,9 @@ int main (int argc, char** argv)
         std::fprintf (f, "\"id\":\"%s\",\"ran\":", r.id.c_str()); jsonBool (f, r.ran);
         std::fprintf (f, ",\"injected\":"); jsonBool (f, r.injected);
         std::fprintf (f, ",\"backend_kind\":\"%s\"", r.backendKind.c_str());
+        std::fprintf (f, ",\"backend_first\":\"%s\"", r.backendFirst.c_str());
+        std::fprintf (f, ",\"backend_last\":\"%s\"", r.backendLast.c_str());
+        std::fprintf (f, ",\"backend_changed\":"); jsonBool (f, r.backendChanged);
         std::fprintf (f, ",\"unmeasured_reason\":");
         if (r.ran) std::fprintf (f, "null");
         else std::fprintf (f, "\"%s\"", r.unmeasuredReason.c_str());

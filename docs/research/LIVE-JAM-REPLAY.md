@@ -273,6 +273,32 @@ conforming file and rejects unknown/immutable/duplicate/non-preregistered
 paths; link-metadata unavailability fails closed; the harness smoke-compiles
 both with and without the injected seam.
 
+## Narrow third correction (independent BLOCK on 852ddb6)
+
+One outcome-recording bug: `runDefaultCleanLong` assigned `backend_kind` only
+inside `!joinObserved && drumsPlaying`, so a legitimate 16 s no-lock default run
+wrote an empty `backend_kind` and failed identity falsely. Fixed: the actual
+backend is captured from the first coherent prepared state (and each successful
+read) independent of join, via the pure `LiveJamObserved.h` helper; an
+unavailable/unknown backend is recorded as-is (never blind-copied), a mid-session
+backend change is a fail-closed discrepancy, and the wrong identity is never
+overwritten by an eventual experimental value. `joinObserved`/`steps_fired`/audio
+metrics remain separate measured outcomes; a default no-lock run is a diagnostic
+quality outcome recorded exactly (the injected scenario is the first-slice join
+proof; no ≥95% claim). Also `--timeout-s` now rejects non-finite/≤0/>300 before
+any subprocess (exit 64).
+
+Post-fix: validator unit tests **103/103**; labelled synthetic full tree passes
+all gates; default no-join is diagnostic; backend-change fails closed; timeout
+input bounded. **Link-only** verification against the actual integrated product
+(`/home/mojo/projects/build-INT-LIVE-001-integration/product`, source
+`product-source`, orchestrator's conforming override file) is **LIVE-READY**:
+instrument/support/facade self-checks pass, injection seam detected, and the
+harness linked with the full real closure
+(`SharedCode`, `nam`, `Assets`, `jam-btrack`, `jam-core`, `btrack`, `kiss_fft`,
+`samplerate`). The runtime was **not** invoked; no measurement is claimed
+(`link-receipt-actual.json`).
+
 ## Limitations (not claimed)
 
 - Not a whole-program allocation-safety proof. It is a bounded matrix over the

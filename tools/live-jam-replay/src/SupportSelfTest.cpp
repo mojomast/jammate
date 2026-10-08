@@ -5,6 +5,7 @@
 // and no stub processor anywhere. This runs on the frozen base even when the
 // live pipeline is not merged, so the harness's pure logic is proven before the
 // orchestrator performs the actual replay.
+#include "LiveJamObserved.h"
 #include "ReplaySupport.h"
 
 #include <cstdint>
@@ -160,6 +161,36 @@ int main (int argc, char** argv)
         check (pr.ready && pr.attempts == 4, "pollUntil must stop on first ready");
         auto pr2 = replay::pollUntil ([] { return false; }, 5, [] {});
         check (! pr2.ready && pr2.attempts == 5, "pollUntil must report exhaustion");
+    }
+
+    {
+        // N3/narrow: backend identity is captured from a real JamLiveState,
+        // independent of any join/playback outcome.
+        replay::BackendObservation b;
+        jam::JamLiveState s {};
+        b.observe (s);                              // unprepared: ignored
+        check (! b.observed && std::strcmp (b.label(), "unknown") == 0,
+               "unprepared state must not be observed");
+        s.prepared = true;
+        s.backend = jam::JamLiveBackend::unavailable;
+        b.observe (s);
+        check (b.observed && std::strcmp (b.label(), "unavailable") == 0,
+               "prepared unavailable backend must be recorded as unavailable");
+
+        replay::BackendObservation b2;
+        jam::JamLiveState e {};
+        e.prepared = true;
+        e.backend = jam::JamLiveBackend::experimentalBTrack;
+        b2.observe (e);
+        check (std::strcmp (b2.label(), "experimentalBTrack") == 0 && ! b2.changed,
+               "experimental backend must be recorded without a join");
+        jam::JamLiveState inj {};
+        inj.prepared = true;
+        inj.backend = jam::JamLiveBackend::injectedTest;
+        b2.observe (inj);
+        check (b2.changed && std::strcmp (b2.label(), "experimentalBTrack") == 0
+               && std::strcmp (replay::liveBackendName (b2.last), "injectedTest") == 0,
+               "a backend change must fail closed and keep the first identity");
     }
 
     if (failures == 0)

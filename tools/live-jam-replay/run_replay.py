@@ -14,6 +14,7 @@
 """
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -25,6 +26,14 @@ import build_replay
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 DEFAULT_TIMEOUT_S = 300.0
+MAX_TIMEOUT_S = 300.0
+
+
+def valid_timeout(value):
+    """Preregistered bound: finite and in (0, 300]. A user override can never
+    exceed the frozen cap."""
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value) and 0 < value <= MAX_TIMEOUT_S)
 
 
 def report_fresh(out):
@@ -188,6 +197,10 @@ def main(argv=None):
     ap.add_argument("--allow-unavailable-backend", action="store_true")
     ap.add_argument("--skip-build", action="store_true")
     args = ap.parse_args(argv)
+
+    if not valid_timeout(args.timeout_s):
+        print("error: --timeout-s must be finite and in (0, 300]", file=sys.stderr)
+        return 64
 
     if args.scope == "diagnostic" and not args.scope_reason:
         print("error: --scope diagnostic requires --scope-reason", file=sys.stderr)
