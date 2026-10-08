@@ -9,6 +9,7 @@
 #include "jam/JamLiveInterface.h"
 
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <memory>
 
@@ -23,6 +24,14 @@ template <typename T, int NCHANS, size_t A>
 class ResamplingContainer;
 }
 
+namespace jam
+{
+// INT-LIVE-001: defined in jam/LiveJamSession.h, which stays out of this header
+// so the JUCE plugin does not pull the whole live pipeline into every editor TU.
+class LiveJamSession;
+class IRhythmTracker;
+}
+
 class GuitarCompanionProcessor : public juce::AudioProcessor,
                                 public jam::IJamLiveControl,
                               private juce::Timer
@@ -33,6 +42,15 @@ public:
 
     bool submitJamCommand (const jam::JamLiveCommand&) noexcept override;
     bool readJamLiveState (jam::JamLiveState&) const noexcept override;
+
+    /** Additive, non-facade test/replay seam: hand the live pipeline a
+        deterministic tracker (tagged injectedTest) for the NEXT prepare.
+        Returns false and changes nothing when the session is currently prepared
+        (audio active) — the caller must release the device first; it is never
+        silently ignored. Valid before the first prepare and after release.
+        Ownership is taken and released with the session. The frozen
+        IJamLiveControl facade above is unchanged. */
+    bool setJamTrackerForTesting (std::unique_ptr<jam::IRhythmTracker> tracker) noexcept;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -868,6 +886,21 @@ private:
     juce::AudioBuffer<float> drumBuf;                     // stereo from the kit
     juce::MidiBuffer drumMidi;
     void processDrums (juce::AudioBuffer<float>& buffer, int numOut, int n);
+
+    // ---- Live Jam pipeline (INT-LIVE-001) -----------------------------------
+    // The JUCE-free control core owns the analysis ring, the analyzer worker,
+    // the MusicalClock, the join policy and the DrumClockBridge. This processor
+    // only provides the audio tap, the session-relative absolute sample cursor
+    // and the drum-playback echo, and exposes the frozen IJamLiveControl facade.
+    // The session is created once and persists across device re-prepares, so UI
+    // readers never see the latest-value slot destroyed under them.
+    std::unique_ptr<jam::LiveJamSession> jamSession_;
+    std::unique_ptr<jam::IRhythmTracker> jamTestTracker_;  // injected for replay
+
+    // Session-relative absolute uint64 audio sample counter. It advances by the
+    // actual callback size on every callback (including while Jam is stopped)
+    // and shares the origin the DrumEngine is attached at.
+    std::atomic<std::uint64_t> jamAudioSampleTime { 0 };
 
     // ---- Limiter (post-chain; JUCE brickwall)
     juce::dsp::Limiter<float> outLimiter;

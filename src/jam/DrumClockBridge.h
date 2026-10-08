@@ -195,6 +195,15 @@ public:
     /** [worker] Stop the injected transport at the next bar boundary. */
     bool requestStopAtNextBar() noexcept;
 
+    /** [worker] Bounded stop at the next SERVICED audio block (not the next
+     *  bar). Publishes a cancel/clear command that, when the engine services
+     *  it, discards all pending join/tempo/resync events, releases any active
+     *  voices and leaves injected mode, so the legacy manual transport is
+     *  usable again without a device prepare. Returns false (and counts) when
+     *  the command queue is full, leaving the worker grid state untouched so a
+     *  later retry can still stop. */
+    bool requestStopNow() noexcept;
+
     /** [worker] Re-phase so the next beat onset lands exactly on `targetSample`. */
     bool requestResyncNextBeat (std::uint64_t targetSample) noexcept;
 

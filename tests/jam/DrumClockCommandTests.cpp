@@ -577,3 +577,181 @@ JAM_TEST (DrumClockBridge, overshootUpdateMatchesStepwise)
             }
     }
 }
+
+//==============================================================================
+// INT-LIVE-001 STOPDECISION: requestStopNow() is a bounded cancel/clear that
+// stops at the next serviced audio block (not the next bar), releases the
+// injected grid, and only updates worker state when the command was accepted.
+//==============================================================================
+JAM_TEST (DrumClockBridge, requestStopNowPublishesClearAndStops)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    CHECK (bridge.requestJoinAtNextBar (0));
+    CHECK_EQ (bridge.playing(), true);
+    (void) popOne (bridge); // the join
+
+    CHECK (bridge.requestStopNow());
+    CHECK_EQ (bridge.playing(), false);       // worker state updated only on accept
+    CHECK_EQ (bridge.stopPending(), false);
+
+    const DrumClockCommand clear = popOne (bridge);
+    CHECK_EQ (static_cast<int> (clear.type),
+              static_cast<int> (DrumClockCommandType::Clear));
+
+    // A later join re-engages the worker grid.
+    CHECK (bridge.requestJoinAtNextBar (0));
+    CHECK_EQ (bridge.playing(), true);
+}
+
+JAM_TEST (DrumClockBridge, requestStopNowCancelsStagedTempoAndResync)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    bridge.applySnapshot (lockedSnapshot (150.0, 1)); // staged at 96000
+    (void) popOne (bridge);                           // SetTempo
+    CHECK (bridge.requestResyncNextBar (40000));
+    (void) popOne (bridge);                           // ResyncBar
+
+    CHECK (bridge.requestStopNow());
+
+    // Crossing the old staged boundary must not apply the cancelled tempo.
+    bridge.setClockSample (kBar120);
+    CHECK_NEAR (bridge.bpm(), 120.0, 1e-12);
+}
+
+JAM_TEST (DrumClockBridge, requestStopNowRejectedWhenUnprepared)
+{
+    DrumClockBridge bridge (config120());
+    CHECK_EQ (bridge.requestStopNow(), false);
+    CHECK_GE (bridge.invalidRequestCount(), static_cast<std::uint64_t> (1));
+}
+
+JAM_TEST (DrumClockBridge, requestStopNowQueueFullLeavesGridStateUntouched)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    CHECK (bridge.requestJoinAtNextBar (0));
+    CHECK_EQ (bridge.playing(), true);
+    (void) popOne (bridge); // drain the join; queue empty again
+
+    for (int i = 0; i < static_cast<int> (kDrumClockCommandCapacity); ++i)
+        CHECK (bridge.requestJoinAtNextBar (0)); // fill the queue
+
+    CHECK_EQ (bridge.requestStopNow(), false); // rejected whole
+    CHECK_EQ (bridge.playing(), true);         // grid state not flipped on reject
+    CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (1));
+}
+
+//==============================================================================
+// INT-LIVE-001 P2: the control worker may apply a fresh snapshot every tick
+// (the clock generation advances as phase changes). A tempo staged for a future
+// bar boundary must be published once per target value, not once per tick, or
+// it floods the bounded queue; a changed target still republishes.
+//==============================================================================
+JAM_TEST (DrumClockBridge, repeatedSnapshotDoesNotRepublishStagedTempo)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    bridge.applySnapshot (lockedSnapshot (150.0, 1));
+    (void) popOne (bridge); // the single SetTempo
+
+    for (int i = 0; i < 20; ++i)
+        bridge.applySnapshot (lockedSnapshot (150.0, static_cast<std::uint64_t> (2 + i)));
+
+    DrumClockCommand command;
+    CHECK_EQ (bridge.popCommand (command), false); // no flood, no drops
+    CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (0));
+
+    // A changed tempo target still publishes.
+    bridge.applySnapshot (lockedSnapshot (160.0, 100));
+    const DrumClockCommand changed = popOne (bridge);
+    CHECK_EQ (static_cast<int> (changed.type),
+              static_cast<int> (DrumClockCommandType::SetTempo));
+    CHECK_NEAR (changed.bpm, 160.0, 1e-12);
+}
+
+//==============================================================================
+// INT-LIVE-001 final: a DROPPED staged-tempo publish must NOT latch the staged
+// state, or the dedupe would suppress retries forever and the worker grid would
+// apply a tempo the engine never received (permanent drift). On drop the old
+// staged state is left exactly unchanged and the next tick retries.
+//==============================================================================
+JAM_TEST (DrumClockBridge, stagedTempoDropDoesNotLatchAndRetries)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    DrumClockCommand filler;
+    filler.type = DrumClockCommandType::None;
+    for (std::size_t i = 0; i < kDrumClockCommandCapacity; ++i)
+        CHECK (bridge.commandQueue().push (filler));
+
+    bridge.applySnapshot (lockedSnapshot (150.0, 1)); // dropped
+    CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (1));
+    CHECK_NEAR (bridge.bpm(), 120.0, 1e-12); // not latched, no drift
+
+    // Drain, then retry the same target: exactly one accepted SetTempo, at a
+    // valid boundary, and the worker grid converges there.
+    DrumClockCommand command;
+    while (bridge.popCommand (command))
+    {
+    }
+    bridge.applySnapshot (lockedSnapshot (150.0, 2));
+
+    const DrumClockCommand tempo = popOne (bridge);
+    CHECK_EQ (static_cast<int> (tempo.type),
+              static_cast<int> (DrumClockCommandType::SetTempo));
+    CHECK_NEAR (tempo.bpm, 150.0, 1e-12);
+    CHECK_EQ (bridge.popCommand (command), false); // exactly one
+
+    bridge.setClockSample (tempo.sampleTime);
+    CHECK_NEAR (bridge.bpm(), 150.0, 1e-12);
+}
+
+JAM_TEST (DrumClockBridge, stagedTempoDropKeepsPreviousAcceptedThenConverges)
+{
+    DrumClockBridge bridge (config120());
+    bridge.prepare (kSr, 512);
+    bridge.setClockSample (0);
+
+    bridge.applySnapshot (lockedSnapshot (130.0, 1));
+    const DrumClockCommand first = popOne (bridge); // SetTempo @B1, bpm 130
+    CHECK_NEAR (first.bpm, 130.0, 1e-12);
+
+    // Queue full: a new target is dropped and must not disturb the accepted 130.
+    DrumClockCommand filler;
+    filler.type = DrumClockCommandType::None;
+    for (std::size_t i = 0; i < kDrumClockCommandCapacity; ++i)
+        CHECK (bridge.commandQueue().push (filler));
+    bridge.applySnapshot (lockedSnapshot (150.0, 2));
+    CHECK_EQ (bridge.queueDropCount(), static_cast<std::uint64_t> (1));
+
+    // The accepted 130 still applies at its boundary (the engine, which also
+    // received it, matches).
+    bridge.setClockSample (first.sampleTime);
+    CHECK_NEAR (bridge.bpm(), 130.0, 1e-12);
+
+    // Drain, then a later 150 converges at the FOLLOWING bar.
+    DrumClockCommand command;
+    while (bridge.popCommand (command))
+    {
+    }
+    bridge.applySnapshot (lockedSnapshot (150.0, 3));
+    const DrumClockCommand second = popOne (bridge);
+    CHECK_EQ (static_cast<int> (second.type),
+              static_cast<int> (DrumClockCommandType::SetTempo));
+    CHECK_NEAR (second.bpm, 150.0, 1e-12);
+    CHECK (second.sampleTime > first.sampleTime);
+    bridge.setClockSample (second.sampleTime);
+    CHECK_NEAR (bridge.bpm(), 150.0, 1e-12);
+}

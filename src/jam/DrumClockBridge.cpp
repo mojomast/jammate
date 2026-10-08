@@ -177,12 +177,17 @@ void DrumClockBridge::stageTempo (double bpm) noexcept
     if (clamped == bpm_ && ! haveStagedTempo_)
         return; // no change, nothing to stage or publish
 
+    // The control worker may call applySnapshot() every tick while the clock's
+    // snapshot generation advances (phase changes each tick). Without this
+    // dedupe, a tempo staged for a future bar boundary would be republished on
+    // every tick until that boundary, flooding the bounded command queue. The
+    // tempo is staged once per ACCEPTED target value; a changed target
+    // republishes (latest-target chronological coalescing at the same boundary).
+    if (haveStagedTempo_ && clamped == stagedBpm_)
+        return;
+
     const std::uint64_t boundary =
         haveStagedTempo_ ? stagedBoundary_ : nextBarBoundarySample();
-
-    haveStagedTempo_ = true;
-    stagedBpm_ = clamped;
-    stagedBoundary_ = boundary;
 
     DrumClockCommand command;
     command.type = DrumClockCommandType::SetTempo;
@@ -191,7 +196,24 @@ void DrumClockBridge::stageTempo (double bpm) noexcept
     command.bpm = clamped;
     command.beatsPerBar = beatsPerBar_;
     command.beatUnit = beatUnit_;
+
+    // Latch the staged state ONLY after the publish was accepted. publish() is
+    // bounded and drops the incoming command when the queue is full; latching
+    // first would make the dedupe above suppress every retry, leaving the
+    // worker grid to apply a tempo the engine never received (permanent drift).
+    // On a drop the old staged state is left EXACTLY unchanged so the next
+    // worker tick retries.
+    const std::uint64_t dropsBefore = queue_.droppedCount();
     publish (command);
+    if (queue_.droppedCount() != dropsBefore)
+    {
+        ++invalidRequestCount_;
+        return; // dropped: do not latch, retry on a later tick
+    }
+
+    haveStagedTempo_ = true;
+    stagedBpm_ = clamped;
+    stagedBoundary_ = boundary;
 }
 
 void DrumClockBridge::applyStagedState (std::uint64_t atSample) noexcept
@@ -420,6 +442,41 @@ bool DrumClockBridge::requestStopAtNextBar() noexcept
     // rendering until the boundary, so playing() must stay true until then.
     stopPending_ = true;
     stopBoundary_ = command.sampleTime;
+    return true;
+}
+
+bool DrumClockBridge::requestStopNow() noexcept
+{
+    if (! prepared_)
+    {
+        ++invalidRequestCount_;
+        return false;
+    }
+
+    // A bounded cancel/clear: the engine applies it at its next serviced block,
+    // drops every pending event and leaves injected mode. No bar wait, no
+    // device prepare, no forced manual play.
+    DrumClockCommand command;
+    command.type = DrumClockCommandType::Clear;
+    command.sampleTime = now_;
+    command.generation = lastSnapshotGeneration_;
+
+    const std::uint64_t dropsBefore = queue_.droppedCount();
+    publish (command);
+    if (queue_.droppedCount() != dropsBefore)
+    {
+        // Full queue: the cancel was dropped, not half-published. Leave the
+        // worker grid untouched so the caller can retry.
+        ++invalidRequestCount_;
+        return false;
+    }
+
+    // Accepted: update the worker grid state (never before acceptance).
+    playing_ = false;
+    stopPending_ = false;
+    stopBoundary_ = 0;
+    haveStagedTempo_ = false;
+    haveStagedResync_ = false;
     return true;
 }
 

@@ -26,6 +26,24 @@ inline constexpr double PI = 3.14159265358979323846;
 
 #include <filesystem>
 
+#include "jam/LiveJamSession.h"
+
+// The audio side stays buildable without a live tracker backend. The
+// orchestrator defines JAM_LIVE_BTRACK_AVAILABLE and links jam-btrack; without
+// it the session reports the backend unavailable and Start is rejected (never
+// simulated). See task-notes/INT-LIVE-001.md for the CMake link contract.
+#ifdef JAM_LIVE_BTRACK_AVAILABLE
+#include "btrack/BTrackBackend.h"
+#endif
+
+namespace
+{
+// One prepared 4/4 open groove for the first audible slice. Library index 0 is
+// ROCK/Basic in the shipped library; DrumEngine::prepareInjectedGroove refuses
+// any non-4/4 entry, so a library edit cannot silently mistime the grid.
+constexpr jam::LibraryIndex kLiveJamGrooveIndex = 0;
+} // namespace
+
 namespace
 {
 // Carries user data across the renames this project went through:
@@ -704,6 +722,11 @@ GuitarCompanionProcessor::GuitarCompanionProcessor()
     // internal drum kit samples (before audio starts)
     drumEngine.loadEmbeddedSamples();
 
+    // Live Jam control core (INT-LIVE-001). Constructed but not started: the
+    // worker and analyzer only start at prepareToPlay, the audio-init boundary,
+    // so no thread starts before the audio side exists.
+    jamSession_ = std::make_unique<jam::LiveJamSession>();
+
     pInputGain = apvts.getRawParameterValue (kParamInputGain);
     pOutputGain = apvts.getRawParameterValue (kParamOutputGain);
     pAmpOn = apvts.getRawParameterValue (kParamAmpOn);
@@ -844,6 +867,12 @@ GuitarCompanionProcessor::GuitarCompanionProcessor()
 
 GuitarCompanionProcessor::~GuitarCompanionProcessor()
 {
+    // Stop the live pipeline and detach the engine before either dependency is
+    // torn down. detach is quiescent here (the audio callback is not running).
+    if (jamSession_ != nullptr)
+        jamSession_->release();
+    drumEngine.detachClockBridge();
+
     stopTimer();
     loaderPool.removeAllJobs (true, 5000);
     for (int r = 0; r < maxRigs; ++r)
@@ -870,6 +899,35 @@ GuitarCompanionProcessor::~GuitarCompanionProcessor()
     recWriterGtr.reset();
     recWriterDrm.reset();
     recThread.stopThread (2000);
+}
+
+//==============================================================================
+// Frozen IJamLiveControl facade (INT-LIVE-001). Both are bounded cross-thread
+// operations: submit is one bounded enqueue on the message thread, read is one
+// coherent latest-value attempt. Neither performs lifecycle work or joins.
+bool GuitarCompanionProcessor::submitJamCommand (const jam::JamLiveCommand& command) noexcept
+{
+    return jamSession_ != nullptr && jamSession_->submitCommand (command);
+}
+
+bool GuitarCompanionProcessor::readJamLiveState (jam::JamLiveState& out) const noexcept
+{
+    return jamSession_ != nullptr && jamSession_->readState (out);
+}
+
+bool GuitarCompanionProcessor::setJamTrackerForTesting (
+    std::unique_ptr<jam::IRhythmTracker> tracker) noexcept
+{
+    if (jamSession_ == nullptr)
+        return false;
+
+    // Refuse while audio is live: the caller must release first. Never silently
+    // ignore a requested injection.
+    if (jamSession_->prepared())
+        return false;
+
+    jamTestTracker_ = std::move (tracker);
+    return true;
 }
 
 void GuitarCompanionProcessor::prepareLoadedModel (LoadedModel& lm, double hostRate, int blockSize) const
@@ -1079,10 +1137,49 @@ void GuitarCompanionProcessor::prepareToPlay (double sampleRate, int samplesPerB
     }
     sceneEnvGain = 1.0f;
     sceneLastSection = -1;
+
+    // ---- Live Jam pipeline (INT-LIVE-001) ----------------------------------
+    // The session persists across device re-prepares; prepare() stops and joins
+    // its worker/analyzer before resetting the ring/bridge. The one-shot tracker
+    // handover happens here, at the audio-init boundary.
+    jamAudioSampleTime.store (0, std::memory_order_relaxed);
+    if (jamSession_ != nullptr)
+    {
+        // Quiescent stop so a tracker can be adopted; idempotent.
+        jamSession_->release();
+
+        if (jamTestTracker_ != nullptr)
+        {
+            // Explicit injected-test tag, never reported as the real backend.
+            jamSession_->setTracker (std::move (jamTestTracker_),
+                                     jam::JamLiveBackend::injectedTest);
+        }
+#ifdef JAM_LIVE_BTRACK_AVAILABLE
+        else if (! jamSession_->hasTracker())
+        {
+            jamSession_->setTracker (std::make_unique<jam::BTrackBackend>(),
+                                     jam::JamLiveBackend::experimentalBTrack);
+        }
+#endif
+
+        jamSession_->prepare (sampleRate, samplesPerBlock, true);
+
+        // Attach the engine to the session's bridge at origin 0 so the worker's
+        // explicit clock and the engine's injected timeline share one domain.
+        drumEngine.attachClockBridge (&jamSession_->drumCommandQueue(), 0);
+        drumEngine.prepareInjectedGroove (kLiveJamGrooveIndex);
+    }
 }
 
 void GuitarCompanionProcessor::releaseResources()
 {
+    // Stop and join the live pipeline BEFORE the queues it owns are reset, and
+    // detach the engine so no audio-thread consumer can outlive the session's
+    // prepare boundary. A later prepareToPlay re-attaches.
+    if (jamSession_ != nullptr)
+        jamSession_->release();
+    drumEngine.detachClockBridge();
+
     for (int r = 0; r < maxRigs; ++r)
         if (auto* q = retiredModels[r].exchange (nullptr); q != unloadSentinel())
             delete q;
@@ -1145,6 +1242,29 @@ void GuitarCompanionProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     inputPeak.store (buffer.getMagnitude (0, 0, n));
 
     float* io = buffer.getWritePointer (0);
+
+    // ---- Live Jam guitar-only tap (INT-LIVE-001) ---------------------------
+    // Raw mono post input-gain, BEFORE gate/effects and before the drum sum, so
+    // the analysis never hears the drums or the processed chain. A callback
+    // larger than jam::kMaxAnalysisBlock is split into <=2048-sample chunks with
+    // exact absolute sample times; nothing is truncated. Bounded by n, no
+    // allocation, no lock.
+    if (jamSession_ != nullptr && n > 0)
+    {
+        const std::uint64_t blockStart =
+            jamAudioSampleTime.load (std::memory_order_relaxed);
+        const double sr = hostSampleRate.load();
+        for (int off = 0; off < n; off += (int) jam::kMaxAnalysisBlock)
+        {
+            const int cnt = juce::jmin ((int) jam::kMaxAnalysisBlock, n - off);
+            jamSession_->pushAudio (io + off, (std::uint32_t) cnt,
+                                    blockStart + (std::uint64_t) off, sr);
+        }
+        // Advance for EVERY callback, including while Jam is stopped. This is the
+        // one session-relative absolute cursor the worker and the engine share.
+        jamAudioSampleTime.store (blockStart + (std::uint64_t) n,
+                                  std::memory_order_relaxed);
+    }
 
     // ---- tuner tap (raw signal post-gain, pre-gate)
     {
@@ -1277,6 +1397,17 @@ void GuitarCompanionProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
 
     // drums: own bus summed AFTER the guitar chain
     processDrums (buffer, numOut, n);
+
+    // Live Jam: publish a bounded echo of the ACTUAL drum transport for the
+    // control worker to fold into JamLiveState. The engine's plain getters are
+    // audio-owner only and are never polled from the message thread/UI.
+    if (jamSession_ != nullptr)
+        jamSession_->publishDrumEcho ({ jamSession_->currentGeneration(),
+                                        true,
+                                        drumEngine.injectedActive(),
+                                        drumEngine.injectedPlaying(),
+                                        drumEngine.injectedSamplePosition(),
+                                        drumEngine.injectedStepsFired() });
 
     // drum stem: what processDrums added to the mix in this block
     if (auto* w = recActiveDrm.load(); w != nullptr && n <= recDrumScratch.getNumSamples())
