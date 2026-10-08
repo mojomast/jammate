@@ -21,8 +21,8 @@ task note + commit SHA + successful integration.
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) |27/28/28/29 suites OFF/BTrack/aubio/both pass | deterministic seams, worker lifecycle, live policy/session, injected drum bridge, acquisition/tempo diagnostics and replay validators; not all SPEC acceptance conditions |
-| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | Linux36/36 registered suites and20 UI cases pass; Windows8/8 suites; Standalone/VST3 build on both | live wiring and actual003 full54-cell/lifecycle/audio proof accepted; all six CI jobs green at74cdde4; ASIO/device gates remain open |
+| **core** (`jam-core`, CMake + Ninja, no audio device) |35/36/36/37 suites OFF/BTrack/aubio/both pass | deterministic seams, worker lifecycle, live/adaptive policy/session, drum bridge, acquisition/tempo diagnostics and replay validators; not all SPEC acceptance conditions |
+| **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | Linux45/45 registered suites and22 UI cases pass; Windows9/9 suites; Standalone/VST3 build on both | actual003 full54-cell proof and actual006 adaptive76-assertion replay accepted; all seven CI jobs green at50046bf; ASIO/device gates remain open |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
 PARTIAL, never PASSED.
@@ -211,6 +211,16 @@ available yet and chose publication with those gates open. Experimental BTrack
 remains the default; no production tracker, physical latency, Windows-ASIO or
 release-binary acceptance is claimed. Documentation and hosted CI publication
 are the remaining delivery bookkeeping; worker builds and reviews are complete.
+
+Publication receipt: `50046bfabd42e03711739ffd9ef2b6924dd3d9f9` is pushed to
+public `origin/main`; [run37796290501](https://github.com/mojomast/jammate/actions/runs/37796290501)
+passes all seven jobs: core OFF/BTrack/aubio/both, NAM repairs, Windows formats
+plus9 drum/UI suites, and Linux adaptive product/replay. Downloaded hosted
+adaptive artifact reproduces the local actual006 result exactly:76 PASS/0 FAIL,
+fill95744 samples,3050 blocks/2862 nonzero, identical RMS/peak and zero detected
+callback allocations/frees/locks/waits. Worker build, review, integration and
+publication work is complete; the explicitly open real-input/hardware/play and
+release gates remain as recorded above.
 
 ### Completed live-Jam wave (base `88893e2`, 2026-10-08)
 

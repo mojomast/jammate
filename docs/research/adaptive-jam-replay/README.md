@@ -25,6 +25,9 @@ receipts identify the original environment, not portable setup instructions.
 Independent read-only review accepts actual006 and reproduces the result;
 all59 fresh-source/header/tool hashes match its committed source. The engine
 repair, source closure and instrumentation self-check are independently verified.
+The hosted Linux replay at published `50046bf` reproduces these measurements
+exactly; [all seven CI jobs pass](https://github.com/mojomast/jammate/actions/runs/37796290501),
+including Windows Standalone/VST3 and the four portable tracker configurations.
 
 The two failed runs are not acceptance evidence. No tolerances or production
 clock policies were relaxed in response to either failure.
