@@ -193,6 +193,9 @@ jobs:
           if [ -f tools/tempo-variant/tests/TempoVariantTests.cpp ]; then
             CORE_SUITES="$CORE_SUITES jam.TempoVariant jam.TempoVariantResearch"
           fi
+          if [ -f tests/jam/RhythmAnalyzerTests.cpp ]; then
+            CORE_SUITES="$CORE_SUITES jam.RhythmAnalyzer jam.AnalysisWorkerBenchmark"
+          fi
           if [ -f tests/jam/RhythmDerivedTests.cpp ]; then
             CORE_SUITES="$CORE_SUITES jam.RhythmDerived"
           fi

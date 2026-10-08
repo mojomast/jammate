@@ -1,0 +1,20 @@
+{
+  "tool": "analysis-worker-benchmark",
+  "sourceSha256": "b4aefd5a61ced3ef99ab31b3115465d1df8b01c43538d5fc27f23f95ec71807d",
+  "bpm": 120,
+  "seconds": 5,
+  "blockFrames": 128,
+  "ringCapacity": 64,
+  "burst": 32,
+  "note": "wall and CPU are reported for throughput; no latency gate is applied",
+  "runs": [
+    {"backend": "btrack", "pluginSha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d", "rate": 44100, "blockFrames": 128, "mode": "throughput", "ready": true, "blocks": 1722, "frames": 220416, "wallSeconds": 0.0753244, "cpuSeconds": 0.095439, "audioSeconds": 4.9981, "realtimeFactor": 66.3542, "framesPerSecond": 2.92622e+06, "observations": 1722, "beats": 7, "droppedObservations": 0, "ringOverruns": 0, "pushBackoffs": 0},
+    {"backend": "btrack", "pluginSha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d", "rate": 44100, "blockFrames": 128, "mode": "pressure", "ready": true, "blocks": 1722, "frames": 220416, "wallSeconds": 0.017559, "cpuSeconds": 0.031905, "audioSeconds": 4.9981, "realtimeFactor": 284.645, "framesPerSecond": 1.25529e+07, "observations": 32, "beats": 0, "droppedObservations": 1690, "ringOverruns": 49108, "pushBackoffs": 49108},
+    {"backend": "btrack", "pluginSha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d", "rate": 48000, "blockFrames": 128, "mode": "throughput", "ready": true, "blocks": 1875, "frames": 240000, "wallSeconds": 0.0816629, "cpuSeconds": 0.101168, "audioSeconds": 5, "realtimeFactor": 61.2273, "framesPerSecond": 2.93891e+06, "observations": 1875, "beats": 6, "droppedObservations": 0, "ringOverruns": 0, "pushBackoffs": 0},
+    {"backend": "btrack", "pluginSha256": "41e6476e60ab10832e961126fd6a17b13667cefa30c3ecd926d268c76bd65c6d", "rate": 48000, "blockFrames": 128, "mode": "pressure", "ready": true, "blocks": 1875, "frames": 240000, "wallSeconds": 0.0206003, "cpuSeconds": 0.03611, "audioSeconds": 5, "realtimeFactor": 242.715, "framesPerSecond": 1.16503e+07, "observations": 32, "beats": 0, "droppedObservations": 1843, "ringOverruns": 58538, "pushBackoffs": 58538},
+    {"backend": "aubio", "pluginSha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41", "rate": 44100, "blockFrames": 128, "mode": "throughput", "ready": true, "blocks": 1722, "frames": 220416, "wallSeconds": 0.0667769, "cpuSeconds": 0.073891, "audioSeconds": 4.9981, "realtimeFactor": 74.8476, "framesPerSecond": 3.30078e+06, "observations": 1722, "beats": 6, "droppedObservations": 0, "ringOverruns": 0, "pushBackoffs": 0},
+    {"backend": "aubio", "pluginSha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41", "rate": 44100, "blockFrames": 128, "mode": "pressure", "ready": true, "blocks": 1722, "frames": 220416, "wallSeconds": 0.00633978, "cpuSeconds": 0.012426, "audioSeconds": 4.9981, "realtimeFactor": 788.37, "framesPerSecond": 3.47671e+07, "observations": 32, "beats": 0, "droppedObservations": 1690, "ringOverruns": 15071, "pushBackoffs": 15071},
+    {"backend": "aubio", "pluginSha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41", "rate": 48000, "blockFrames": 128, "mode": "throughput", "ready": true, "blocks": 1875, "frames": 240000, "wallSeconds": 0.0736773, "cpuSeconds": 0.081025, "audioSeconds": 5, "realtimeFactor": 67.8635, "framesPerSecond": 3.25745e+06, "observations": 1875, "beats": 0, "droppedObservations": 0, "ringOverruns": 0, "pushBackoffs": 0},
+    {"backend": "aubio", "pluginSha256": "61336277f3d13d7fe958cc4896c50b8761619186d0d6d6e3bc524decba593c41", "rate": 48000, "blockFrames": 128, "mode": "pressure", "ready": true, "blocks": 1875, "frames": 240000, "wallSeconds": 0.0149264, "cpuSeconds": 0.020396, "audioSeconds": 5, "realtimeFactor": 334.977, "framesPerSecond": 1.60789e+07, "observations": 32, "beats": 0, "droppedObservations": 1843, "ringOverruns": 40247, "pushBackoffs": 40247}
+  ]
+}

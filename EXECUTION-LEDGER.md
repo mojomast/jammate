@@ -21,7 +21,7 @@ task note + commit SHA + successful integration.
 
 | Lane | Buildable here | Verifies |
 |---|---|---|
-| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **18/18 suites**; default-OFF **16/16** | deterministic seams, acquisition/tempo diagnostics, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
+| **core** (`jam-core`, CMake + Ninja, no audio device) | yes; both trackers enabled: **20/20 suites**; default-OFF **18/18** | deterministic seams, worker lifecycle, acquisition/tempo diagnostics, silence coverage, derived/sustain generators and research-tool contracts; not all SPEC acceptance conditions |
 | **plugin** (JUCE `GuitarCompanion` / `GuitarCompanionTests`) | real JUCE drum tests **5/5 passed**; **Standalone and VST3 built** | Windows/ASIO, full callback and device measurements still required |
 
 A gate whose acceptance condition lives only in the **plugin** lane is recorded
@@ -144,6 +144,14 @@ PARTIAL, never PASSED.
   evidence validators strengthened; new Linux NAM workflow requires five suites;
   all22 workflow shell bodies pass syntax checks. Submodule remains pristine.
   This closes the measured example-LSTM allocation issue, not full G1 coverage.
+- ANALYSIS-001 lifecycle foundation accepted at `5162e4d`, completed locally
+  after Flash balance interruption.29 tests/1210 checks and a limited synthetic
+  ThreadSanitizer run pass. Five benchmark-failure checks pass; real pinned
+  plugins measured61–75× real time with no keep-up queue drops. Restart discards
+  stale audio, output loss is counted per session, and frame-end is explicitly an
+  input horizon with live availability unmeasured. Core20/20 ON,18/18 OFF; both
+  Linux workflows require analyzer/benchmark suites and all22 shell bodies valid.
+  Full ANALYSIS-001 stays partial until selection and processor-clock wiring.
 
 ### Returned handoffs under integration review (2026-10-07)
 
@@ -237,7 +245,7 @@ and reports instead.
 | EVAL-007 version-aware silence coverage | **DONE: scoped coverage correction** | `wp/EVAL-007-silence-coverage`, `514c154` → main + CSV citation corrections | C — evidence, Flash | G3 | exact known-defect hash; repaired/tapping assessed; structural noise unassessed; six reruns preserve non-coverage scores; all 62 input entries verified |
 | TRACK-005 causal BPM-report variant | **DONE: diagnostic-only variant evidence** | `wp/TRACK-005-tempo-variant`, `7b3a4d7` → main + framing corrections | B — evidence, Flash | G3 | causal readiness-gated step evidence; six runs reproduced; gains and sparse regression retained; no production/default change |
 | RT-003 LSTM callback allocation repair | **DONE: measured LSTM repair** | `wp/RT-003-nam-lstm`, `401a6c1` → main + product/verifier fixes | A — runtime repair, Flash | G1 | numerical and real processor evidence reproduced;5/5 standalone checks; fresh product builds/drum tests/probe pass; full G1 partial |
-| ANALYSIS-001 injected worker lifecycle subset | REVIEW CORRECTIONS PAUSED (D6) | `wp/ANALYSIS-001-worker`, initial `20a015a` + uncommitted corrections | C — core implementation, Flash | G4 | Flash insufficient-balance error; partial worker corrections preserved for local review/verification; no processor wiring or selection |
+| ANALYSIS-001 injected worker lifecycle subset | **DONE: lifecycle foundation (D6); full task PARTIAL** | `wp/ANALYSIS-001-worker`, corrected `5162e4d` → main | C — core implementation, Flash + local review completion | G4 |29 tests/1210 checks, limited synthetic TSAN and throughput verified; production tracker/processor-clock wiring still blocked |
 | TRACK-006 fixed variant paired robustness | BLOCKED: Flash provider balance | `wp/TRACK-006-variant-robustness`, base `85e1cf4` | B — evidence, Flash | G3 | worker stopped with Insufficient Balance before producing code/evidence; no measured robustness result |
 | RT-001 F2 MidiBuffer + bounded meter CAS | VERIFIED:engine scope | main, `677ce9f` | orchestrator | G1 | old 256 B buffer grows to 2115 B; new reservation has 0 observed heap calls across 16 cases; whole processor still unverified |
 | CI execution evidence | OPEN | — | C | G1 | definitions do not establish actual server CI green |

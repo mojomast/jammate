@@ -1474,7 +1474,7 @@ Keep this near the top of the live devplan during implementation.
 | RT-003 | DONE (measured LSTM repair) | main | 401a6c1 + product/verifier fixes | G1 |
 | TRACK-006 | BLOCKED: Flash insufficient balance | wp/TRACK-006-variant-robustness | base85e1cf4, no result | G3 |
 | CLOCK-001 | deterministic implementation integrated; G4 open | main | b78c43c | G4 |
-| ANALYSIS-001 | corrections PAUSED: Flash balance (D6); full task BLOCKED:G3 | wp/ANALYSIS-001-worker | initial20a015a + uncommitted worker corrections | G4 |
+| ANALYSIS-001 | lifecycle foundation DONE (D6); full task PARTIAL / BLOCKED:G3 | main | 5162e4d + CMake/CI registration | G4 |
 | DIAG-001 | BLOCKED:G3 | | | G4 |
 | STYLE-001 | BLOCKED:G4 | | | G5 |
 | DIRECTOR-001 | BLOCKED:G4 | | | G5 |

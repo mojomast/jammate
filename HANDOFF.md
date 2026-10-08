@@ -71,12 +71,16 @@ work uses `deepseek/deepseek-flash` per the user's resumption instruction.
   Standalone/VST3 builds and5/5 JUCE drum suites. Fresh product-archive probe is
   clean in all26 cases, including8 NAM cases; measured example-LSTM allocations
   removed. Other architectures/device/hosted-plugin safety unmeasured, G1 partial.
+- ANALYSIS-001 lifecycle foundation (`5162e4d`) integrated after local completion
+  of interrupted Flash review.29 tests/1210 checks and limited synthetic TSAN
+  pass; real-plugin throughput61–75× realtime, five benchmark-failure checks pass.
+  Frame-end is an input horizon, not live availability. No processor-clock wire.
 - Real Linux JUCE drum tests now build and pass **5/5** with local development
   headers; **Standalone and VST3 both build** (`677ce9f`). The processor scene
   timer patch compiles against real JUCE. Combined enabled-tracker core tests
-  pass **18/18**, including acquisition/tempo diagnostics, silence coverage, derived/sustain Python acoustic
+  pass **20/20**, including worker lifecycle, acquisition/tempo diagnostics, silence coverage, derived/sustain Python acoustic
   checks, robustness aggregation and BeatNet research-tool contracts.
-  Default-OFF passes **16/16**.
+  Default-OFF passes **18/18**.
   Tests-OFF registers zero tests.
 - Drum MIDI prepare-time reservation now uses a scheduling bound. Old 256-byte
   storage grows to **2115 bytes** in the test; bounded storage shows zero observed
@@ -105,7 +109,7 @@ See `docs/research/LOCAL-LINUX-BUILD.md` and ADR-0003's correction.
 | EVAL-007 integrated silence coverage (worker finished) | `wp/EVAL-007-silence-coverage`, `../worktrees/EVAL-007-silence-coverage` | `ses_ee7215f59ffeWQ6ZWQvH5z229z` |
 | TRACK-005 integrated diagnostic variant (worker finished) | `wp/TRACK-005-tempo-variant`, `../worktrees/TRACK-005-tempo-variant` | `ses_ee71ab2f2ffeNbYXo23DrPP7Da` |
 | RT-003 integrated LSTM repair (worker finished) | `wp/RT-003-nam-lstm`, `../worktrees/RT-003-nam-lstm` | `ses_ee70c33feffeq8pD9Eid5zfHob` |
-| ANALYSIS-001 partial corrections (Flash balance error) | `wp/ANALYSIS-001-worker`, `../worktrees/ANALYSIS-001-worker` | `ses_ee70baf44ffeg2zw0hfVyeQjc1` |
+| ANALYSIS-001 lifecycle foundation integrated (review finished locally) | `wp/ANALYSIS-001-worker`, `../worktrees/ANALYSIS-001-worker` | `ses_ee70baf44ffeg2zw0hfVyeQjc1` |
 | TRACK-006 blocked before code/evidence (Flash balance error) | `wp/TRACK-006-variant-robustness`, `../worktrees/TRACK-006-variant-robustness` | `ses_ee6ef54b8ffeuAc4vH05SyS44E` |
 
 Each owns new isolated files or workflows, commits task notes, returns a clean
@@ -222,6 +226,12 @@ sessions stopped with provider `Insufficient Balance`: TRACK-006 has no changes
 or result; ANALYSIS-001 has uncommitted corrections in its worktree (nine owned
 files) that must be preserved and reviewed before continuing. No corrected
 analyzer handoff or integration is accepted yet.
+
+Latest: local review completed the preserved ANALYSIS-001 edits and committed
+`5162e4d`; that foundation is now integrated with CMake/CI registration. Current
+core20/20 enabled and18/18 OFF suites pass.29 analyzer tests/1210 checks and a
+limited synthetic TSAN run pass; all22 workflow shell bodies valid. All worker
+trees are clean; TRACK-006 remains blocked by Flash balance with no result.
 
 ### Remaining gate work
 

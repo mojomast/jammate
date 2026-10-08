@@ -181,6 +181,16 @@ if (JAM_CORE_BUILD_TESTS AND JAM_TEST_SOURCES)
                     "${JAM_DISCOVERED_SUITES_DISPLAY}")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
+    # Linux-only offline harness: the callback-independent worker remains portable.
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND Python3_Interpreter_FOUND
+        AND EXISTS "${JAM_ROOT}/tools/analysis-worker-benchmark/test_failclosed.py")
+        add_executable(jamAnalysisWorkerBenchmark
+            "${JAM_ROOT}/tools/analysis-worker-benchmark/analysis_worker_benchmark.cpp")
+        target_link_libraries(jamAnalysisWorkerBenchmark PRIVATE jam-core ${CMAKE_DL_LIBS})
+        add_test(NAME jam.AnalysisWorkerBenchmark COMMAND "${Python3_EXECUTABLE}" -B
+            "${JAM_ROOT}/tools/analysis-worker-benchmark/test_failclosed.py"
+            --binary "$<TARGET_FILE:jamAnalysisWorkerBenchmark>" --cxx "${CMAKE_CXX_COMPILER}")
+    endif()
     if (EXISTS "${JAM_ROOT}/tools/tempo-variant/tests/TempoVariantTests.cpp")
         add_executable(jamTempoVariantTests
             "${JAM_ROOT}/tools/tempo-variant/tests/TempoVariantTests.cpp"

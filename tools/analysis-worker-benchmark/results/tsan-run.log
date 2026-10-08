@@ -1,0 +1,32 @@
+[suite] RhythmAnalyzer
+  PASS RhythmAnalyzer.startRejectsBadConfiguration
+  PASS RhythmAnalyzer.pluginOwnershipRejectsNullDeleter
+  PASS RhythmAnalyzer.lifecycleRepeatsCleanly
+  PASS RhythmAnalyzer.destructorJoinsRunningWorker
+  PASS RhythmAnalyzer.publishesObservationsInOrder
+  PASS RhythmAnalyzer.beatEventsAreRetainedNotCoalesced
+  PASS RhythmAnalyzer.inputHorizonIsSeparateFromEventTime
+  PASS RhythmAnalyzer.backendFieldsAreForwardedBitForBit
+  PASS RhythmAnalyzer.withinHorizonPredicateIsWrapSafe
+  PASS RhythmAnalyzer.popEmptyLeavesOutputUntouched
+  PASS RhythmAnalyzer.blockedBackendProvesHorizonIsTheFrameEnd
+  PASS RhythmAnalyzer.frameGapResetsTrackerAndBumpsGeneration
+  PASS RhythmAnalyzer.outOfOrderFrameResetsTracker
+  PASS RhythmAnalyzer.rateChangeResetsTrackerAtNewRate
+  PASS RhythmAnalyzer.invalidRateFrameIsDroppedAndForcesReset
+  PASS RhythmAnalyzer.sampleTimeWrapIsNotAGap
+  PASS RhythmAnalyzer.queuePressureDropsIncomingAndCountsIt
+  PASS RhythmAnalyzer.dropCounterIsPerSessionAndLifetimeSeparate
+  PASS RhythmAnalyzer.ringOverrunIsCountedAndWorkerDrainsWhatFits
+  PASS RhythmAnalyzer.restartIsReproducibleAndFresh
+  PASS RhythmAnalyzer.restartDiscardsQueuedAudioAndFlushesEvidence
+  PASS RhythmAnalyzer.resetFailureAtStartIsRejected
+  PASS RhythmAnalyzer.processExceptionSetsFailureAndStops
+  PASS RhythmAnalyzer.earlyFailureDoesNotResurrectRunning
+  PASS RhythmAnalyzer.resetFailureOnDiscontinuityStopsSafely
+  PASS RhythmAnalyzer.stopIsBoundedWithSlowBackend
+  PASS RhythmAnalyzer.concurrentProducerAndConsumer
+  PASS RhythmAnalyzer.offlineClockReplayAdvancesOnInputHorizon
+  PASS RhythmAnalyzer.statsReflectProcessedWork
+
+29 tests, 1210 checks, 0 failed check(s) in 0 test(s)
